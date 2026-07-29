@@ -1,0 +1,49 @@
+{
+  "id": "people_design",
+  "titolo": "People Design",
+  "versione": "1.0",
+  "sezioni": [
+    {
+      "titolo": "Audit Documentale",
+      "domande": [
+        { "id": 1, "testo": "Nomina del RSPP", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 2, "testo": "Nomina degli Addetti Antincendio", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 3, "testo": "Nomina degli Addetti Primo Soccorso", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 4, "testo": "Documento di Valutazione dei Rischi (DVR) aggiornato", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 5, "testo": "Registro delle verifiche periodiche attrezzature", "tipo": "C-PC-NC-NA", "foto": false, "note": true }
+      ]
+    },
+    {
+      "titolo": "Dispositivi di Protezione Individuale",
+      "domande": [
+        { "id": 6, "testo": "Disponibilità DPI adeguati alla mansione", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 7, "testo": "Utilizzo corretto dei DPI da parte degli operatori", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 8, "testo": "Stato di conservazione dei DPI", "tipo": "C-PC-NC-NA", "foto": true, "note": false }
+      ]
+    },
+    {
+      "titolo": "Aree di Lavoro e Segnaletica",
+      "domande": [
+        { "id": 9, "testo": "Segnaletica di sicurezza presente e visibile", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 10, "testo": "Vie di fuga libere da ostacoli", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 11, "testo": "Illuminazione di emergenza funzionante", "tipo": "C-PC-NC-NA", "foto": true, "note": false },
+        { "id": 12, "testo": "Ordine e pulizia delle aree di lavoro", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
+      ]
+    },
+    {
+      "titolo": "Macchine e Attrezzature",
+      "domande": [
+        { "id": 13, "testo": "Protezioni e ripari delle macchine integri", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 14, "testo": "Pulsanti di emergenza raggiungibili e funzionanti", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 15, "testo": "Marcatura CE presente sulle attrezzature", "tipo": "C-PC-NC-NA", "foto": true, "note": false }
+      ]
+    },
+    {
+      "titolo": "Antincendio",
+      "domande": [
+        { "id": 16, "testo": "Estintori presenti, segnalati e non scaduti", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 17, "testo": "Porte tagliafuoco funzionanti e non bloccate", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
+      ]
+    }
+  ]
+}
