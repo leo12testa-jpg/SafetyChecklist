@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1e3a5f">
+  <title>Safety Checklist</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="assets/icon-192.png">
+  <link rel="apple-touch-icon" href="assets/icon-512.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <h1>🦺 Safety Checklist</h1>
+    </header>
+
+    <main id="screens">
+      <section id="screen-home" class="screen" data-screen="home">
+        <div class="home-actions">
+          <button type="button" class="btn btn-primary" data-nav="new-inspection">Nuovo sopralluogo</button>
+          <button type="button" class="btn" data-nav="history">Storico</button>
+          <button type="button" class="btn" data-nav="settings">Impostazioni</button>
+        </div>
+      </section>
+
+      <section id="screen-new-inspection" class="screen" data-screen="new-inspection" hidden>
+        <button type="button" class="btn-back" data-nav="home">← Indietro</button>
+        <h2>Nuovo sopralluogo</h2>
+
+        <form id="form-nuovo-sopralluogo">
+          <label class="campo-form" for="input-cliente">Cliente
+            <input type="text" id="input-cliente" list="lista-clienti" autocomplete="off" required>
+            <datalist id="lista-clienti"></datalist>
+          </label>
+
+          <label class="campo-form" for="input-sede">Sede
+            <input type="text" id="input-sede" list="lista-sedi" autocomplete="off" required>
+            <datalist id="lista-sedi"></datalist>
+          </label>
+
+          <label class="campo-form" for="input-tecnico">Tecnico
+            <input type="text" id="input-tecnico" list="lista-tecnici" autocomplete="off" required>
+            <datalist id="lista-tecnici"></datalist>
+          </label>
+
+          <label class="campo-form" for="select-checklist">Checklist
+            <select id="select-checklist" required></select>
+          </label>
+
+          <button type="submit" class="btn btn-primary">INIZIA</button>
+        </form>
+      </section>
+
+      <section id="screen-compilazione" class="screen" data-screen="compilazione" hidden>
+        <button type="button" class="btn-back" data-nav="home">← Home</button>
+
+        <div class="progress-bar"><div class="progress-bar-fill" id="progress-fill"></div></div>
+        <p class="progress-label" id="progress-label"></p>
+
+        <h2 id="compilazione-sezione"></h2>
+        <p class="domanda-testo" id="compilazione-domanda"></p>
+
+        <div class="risposte-opzioni" id="risposte-opzioni">
+          <label class="opzione-risposta"><input type="radio" name="risposta" value="C"> C</label>
+          <label class="opzione-risposta"><input type="radio" name="risposta" value="PC"> PC</label>
+          <label class="opzione-risposta"><input type="radio" name="risposta" value="NC"> NC</label>
+          <label class="opzione-risposta"><input type="radio" name="risposta" value="NA"> NA</label>
+        </div>
+
+        <div class="azioni-secondarie">
+          <button type="button" class="btn-secondario" id="btn-note" hidden>Note</button>
+          <button type="button" class="btn-secondario" id="btn-foto" hidden>📷 Foto</button>
+        </div>
+
+        <div class="nota-editor" id="nota-editor" hidden>
+          <textarea id="nota-testo" placeholder="Note"></textarea>
+        </div>
+
+        <div class="nc-form" id="nc-form" hidden>
+          <h3>Non Conformità</h3>
+          <label class="campo-form" for="nc-descrizione">Descrizione
+            <textarea id="nc-descrizione"></textarea>
+          </label>
+          <label class="campo-form" for="nc-priorita">Priorità
+            <select id="nc-priorita">
+              <option value="">Seleziona…</option>
+              <option value="Bassa">Bassa</option>
+              <option value="Media">Media</option>
+              <option value="Alta">Alta</option>
+            </select>
+          </label>
+          <label class="campo-form" for="nc-scadenza">Scadenza
+            <input type="date" id="nc-scadenza">
+          </label>
+          <button type="button" class="btn-secondario" id="btn-nc-foto">📷 Aggiungi foto</button>
+          <p class="foto-count" id="nc-foto-count"></p>
+          <button type="button" class="btn" id="btn-nc-conferma">Conferma</button>
+        </div>
+
+        <p class="errore-validazione" id="errore-validazione" hidden></p>
+
+        <div class="navigazione-domande">
+          <button type="button" class="btn" id="btn-indietro">← Indietro</button>
+          <button type="button" class="btn btn-primary" id="btn-avanti">Avanti →</button>
+        </div>
+      </section>
+
+      <section id="screen-riepilogo" class="screen" data-screen="riepilogo" hidden>
+        <button type="button" class="btn-back" data-nav="home">← Home</button>
+        <h2>Riepilogo sopralluogo</h2>
+
+        <ul class="riepilogo-conteggi" id="riepilogo-conteggi"></ul>
+
+        <div id="riepilogo-nc-container">
+          <h3>Non Conformità rilevate</h3>
+          <ul class="riepilogo-nc-lista" id="riepilogo-nc-lista"></ul>
+        </div>
+
+        <button type="button" class="btn btn-primary" id="btn-vai-firma">Firma</button>
+      </section>
+
+      <section id="screen-firma" class="screen" data-screen="firma" hidden>
+        <button type="button" class="btn-back" data-nav="home">← Home</button>
+        <h2>Firma il sopralluogo</h2>
+
+        <div id="firma-area">
+          <canvas id="firma-canvas" class="firma-canvas"></canvas>
+          <div class="navigazione-domande">
+            <button type="button" class="btn" id="btn-firma-cancella">Cancella</button>
+            <button type="button" class="btn btn-primary" id="btn-firma-conferma">Conferma firma</button>
+          </div>
+        </div>
+
+        <div id="pdf-area" hidden>
+          <button type="button" class="btn btn-primary" id="btn-genera-pdf">Genera PDF</button>
+
+          <div id="pdf-esito" hidden>
+            <p class="pdf-generato">PDF generato ✔</p>
+            <button type="button" class="btn" id="btn-salva-condividi">Salva / Condividi</button>
+            <button type="button" class="btn" data-nav="home">Torna alla Home</button>
+          </div>
+        </div>
+
+        <p class="errore-validazione" id="firma-errore" hidden></p>
+      </section>
+
+      <section id="screen-history" class="screen" data-screen="history" hidden>
+        <button type="button" class="btn-back" data-nav="home">← Indietro</button>
+        <h2>Storico</h2>
+        <ul class="storico-lista" id="storico-lista"></ul>
+        <p class="placeholder-text" id="storico-vuoto" hidden>Nessun sopralluogo salvato.</p>
+      </section>
+
+      <section id="screen-settings" class="screen" data-screen="settings" hidden>
+        <button type="button" class="btn-back" data-nav="home">← Indietro</button>
+        <h2>Impostazioni</h2>
+
+        <h3>Dati azienda</h3>
+        <form id="form-impostazioni">
+          <label class="campo-form" for="azienda-nome">Nome azienda
+            <input type="text" id="azienda-nome">
+          </label>
+          <label class="campo-form" for="azienda-indirizzo">Indirizzo
+            <input type="text" id="azienda-indirizzo">
+          </label>
+          <label class="campo-form" for="azienda-logo-input">Logo
+            <input type="file" accept="image/*" id="azienda-logo-input">
+          </label>
+          <img id="azienda-logo-anteprima" class="logo-anteprima" alt="Anteprima logo" hidden>
+          <button type="submit" class="btn btn-primary">Salva</button>
+          <p class="salvataggio-ok" id="impostazioni-salvato" hidden>Impostazioni salvate ✔</p>
+        </form>
+
+        <h3>Checklist disponibili</h3>
+        <ul class="lista-checklist" id="lista-checklist-disponibili"></ul>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/vendor/jspdf.umd.min.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/checklist.js"></script>
+  <script src="js/camera.js"></script>
+  <script src="js/pdf.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js');
+      });
+    }
+  </script>
+</body>
+</html>
