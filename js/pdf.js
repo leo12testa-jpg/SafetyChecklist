@@ -1,6 +1,7 @@
 /**
  * Generazione del report PDF del sopralluogo con jsPDF (PROJECT.md §7.7): intestazione
- * azienda, dati sopralluogo, risposte per sezione, dettaglio NC con foto, firma finale.
+ * azienda, dati sopralluogo, risposte per sezione, Non Conformità, pagina Allegati con
+ * tutte le foto scattate, firma finale.
  */
 const pdf = (() => {
   const MARGINE = 15;
@@ -29,8 +30,18 @@ const pdf = (() => {
     return caricaImmagineComeDataURL('assets/logo.png');
   }
 
-  function formattaData(iso) {
-    return new Date(iso).toLocaleDateString('it-IT');
+  /** Formatta una data semplice "YYYY-MM-DD" (es. da <input type="date">) senza passare da Date/timezone. */
+  function formattaDataSemplice(dataISO) {
+    if (!dataISO) {
+      return '';
+    }
+    const [anno, mese, giorno] = dataISO.split('-');
+    return `${giorno}/${mese}/${anno}`;
+  }
+
+  /** Divide un testo su più righe rispettando gli a-capo espliciti (\n) oltre al wrap automatico. */
+  function avvolgiTesto(doc, testo, larghezza) {
+    return String(testo || '').split('\n').flatMap((riga) => doc.splitTextToSize(riga, larghezza));
   }
 
   /** Va a pagina nuova se non c'è più spazio verticale per il prossimo blocco. Ritorna la y aggiornata. */
@@ -63,18 +74,43 @@ const pdf = (() => {
     return MARGINE + 40;
   }
 
-  function disegnaDatiSopralluogo(doc, sopralluogo, y) {
-    doc.setFontSize(11);
-    [
-      `Cliente: ${sopralluogo.cliente}`,
-      `Sede: ${sopralluogo.sede}`,
-      `Tecnico: ${sopralluogo.tecnico}`,
-      `Data: ${formattaData(sopralluogo.data)}`
-    ].forEach((riga) => {
-      doc.text(riga, MARGINE, y);
-      y += 6;
+  /**
+   * Tabella con i dati generali del sopralluogo. NOTA: layout provvisorio (tabella semplice
+   * disegnata a mano) in attesa della specifica esatta del layout richiesto (autotable, colori,
+   * disposizione punto 6 non ancora ricevuta per intero).
+   */
+  function disegnaTabellaSopralluogo(doc, sopralluogo, y) {
+    const LARGHEZZA_ETICHETTA = 65;
+    const LARGHEZZA_VALORE = LARGHEZZA_PAGINA - MARGINE * 2 - LARGHEZZA_ETICHETTA;
+    const ALTEZZA_RIGA = 8;
+
+    const righe = [
+      ['Punto vendita', sopralluogo.punto_vendita || ''],
+      ['Indirizzo punto vendita', sopralluogo.indirizzo_punto_vendita || ''],
+      ['Numero di dipendenti in forza', sopralluogo.numero_dipendenti || ''],
+      ['Tecnico che ha eseguito il sopralluogo', sopralluogo.tecnico || ''],
+      ['Data del sopralluogo', formattaDataSemplice(sopralluogo.data_sopralluogo)],
+      ['Responsabile del punto vendita', sopralluogo.responsabile_punto_vendita || ''],
+      ['Presenza del responsabile del punto vendita?', sopralluogo.presenza_responsabile || ''],
+      ["Presenza dell'R.L.S.?", sopralluogo.presenza_rls || '']
+    ];
+
+    doc.setFontSize(10);
+    righe.forEach(([etichetta, valore]) => {
+      y = nuovaRigaSeNecessario(doc, y, ALTEZZA_RIGA);
+
+      doc.setFont(undefined, 'bold');
+      doc.rect(MARGINE, y, LARGHEZZA_ETICHETTA, ALTEZZA_RIGA);
+      doc.text(etichetta, MARGINE + 2, y + 5.5);
+
+      doc.setFont(undefined, 'normal');
+      doc.rect(MARGINE + LARGHEZZA_ETICHETTA, y, LARGHEZZA_VALORE, ALTEZZA_RIGA);
+      doc.text(String(valore), MARGINE + LARGHEZZA_ETICHETTA + 2, y + 5.5);
+
+      y += ALTEZZA_RIGA;
     });
-    return y + 4;
+
+    return y + 6;
   }
 
   function disegnaRiepilogoConteggi(doc, riepilogo, y) {
@@ -114,10 +150,15 @@ const pdf = (() => {
 
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
-        const testo = doc.splitTextToSize(`${domanda.testo}: ${valore}`, LARGHEZZA_PAGINA - MARGINE * 2);
-        y = nuovaRigaSeNecessario(doc, y, testo.length * 5 + 2);
-        doc.text(testo, MARGINE, y);
-        y += testo.length * 5;
+        const righeDomanda = avvolgiTesto(doc, domanda.testo, LARGHEZZA_PAGINA - MARGINE * 2);
+        y = nuovaRigaSeNecessario(doc, y, righeDomanda.length * 5 + 7);
+        doc.text(righeDomanda, MARGINE, y);
+        y += righeDomanda.length * 5;
+
+        doc.setFont(undefined, 'bold');
+        doc.text(`Risposta: ${valore}`, MARGINE, y);
+        doc.setFont(undefined, 'normal');
+        y += 5;
 
         if (risposta && risposta.note) {
           doc.setFontSize(9);
@@ -133,31 +174,7 @@ const pdf = (() => {
     return y;
   }
 
-  async function disegnaFoto(doc, fotoIds, y) {
-    const LARGHEZZA_FOTO = 40;
-    const ALTEZZA_FOTO = 30;
-    let x = MARGINE;
-    y = nuovaRigaSeNecessario(doc, y, ALTEZZA_FOTO + 5);
-
-    for (const fotoId of fotoIds) {
-      const record = await db.leggiFoto(fotoId);
-      if (!record) {
-        continue;
-      }
-      if (x + LARGHEZZA_FOTO > LARGHEZZA_PAGINA - MARGINE) {
-        x = MARGINE;
-        y += ALTEZZA_FOTO + 5;
-        y = nuovaRigaSeNecessario(doc, y, ALTEZZA_FOTO + 5);
-      }
-      const dataURL = await blobADataURL(record.blob);
-      doc.addImage(dataURL, 'JPEG', x, y, LARGHEZZA_FOTO, ALTEZZA_FOTO);
-      x += LARGHEZZA_FOTO + 5;
-    }
-
-    return y + ALTEZZA_FOTO + 6;
-  }
-
-  async function disegnaNonConformita(doc, nonConformita, y) {
+  function disegnaNonConformita(doc, nonConformita, y) {
     if (!nonConformita.length) {
       return y;
     }
@@ -172,48 +189,157 @@ const pdf = (() => {
       y = nuovaRigaSeNecessario(doc, y, 14);
       doc.setFontSize(11);
       doc.setFont(undefined, 'bold');
-      doc.text(`${nc.sezione} – Priorità: ${nc.priorita}`, MARGINE, y);
-      y += 6;
+      const intestazione = avvolgiTesto(doc, `${nc.sezione} – ${nc.testo}`, LARGHEZZA_PAGINA - MARGINE * 2);
+      doc.text(intestazione, MARGINE, y);
+      y += intestazione.length * 5;
 
       doc.setFontSize(10);
       doc.setFont(undefined, 'normal');
-      const descrizione = doc.splitTextToSize(nc.descrizione, LARGHEZZA_PAGINA - MARGINE * 2);
-      y = nuovaRigaSeNecessario(doc, y, descrizione.length * 5 + 2);
-      doc.text(descrizione, MARGINE, y);
-      y += descrizione.length * 5;
-
-      if (nc.scadenza) {
-        y = nuovaRigaSeNecessario(doc, y, 6);
-        doc.text(`Scadenza: ${nc.scadenza}`, MARGINE, y);
-        y += 6;
-      }
-
-      if (nc.foto && nc.foto.length) {
-        y = await disegnaFoto(doc, nc.foto, y);
-      }
-
-      y += 4;
+      const note = avvolgiTesto(doc, nc.note, LARGHEZZA_PAGINA - MARGINE * 2);
+      y = nuovaRigaSeNecessario(doc, y, note.length * 5 + 2);
+      doc.text(note, MARGINE, y);
+      y += note.length * 5 + 4;
     }
 
     return y;
   }
 
-  function disegnaFirma(doc, firmaDataURL, sopralluogo, y) {
-    y = nuovaRigaSeNecessario(doc, y, 45);
-    doc.setFontSize(12);
+  /** Raccoglie tutte le foto (di qualsiasi domanda, non solo NC) con didascalia per la pagina Allegati. */
+  function raccogliFotoConDidascalia(checklist, sopralluogo) {
+    const domandeComplete = [];
+    checklist.sezioni.forEach((sezione) => {
+      sezione.domande.forEach((domanda) => {
+        domandeComplete.push({ sezione: sezione.titolo, domanda });
+      });
+    });
+
+    const elenco = [];
+    (sopralluogo.risposte || []).forEach((risposta) => {
+      if (!risposta.foto || !risposta.foto.length) {
+        return;
+      }
+      const info = domandeComplete.find((d) => d.domanda.id === risposta.domanda_id);
+      risposta.foto.forEach((fotoId) => {
+        elenco.push({
+          fotoId,
+          sezione: info ? info.sezione : risposta.sezione,
+          domandaTesto: info ? info.domanda.testo : '',
+          rispostaValore: risposta.risposta
+        });
+      });
+    });
+
+    return elenco;
+  }
+
+  /**
+   * Pagina "ALLEGATI": tutte le foto scattate durante il sopralluogo, in griglia con didascalia.
+   * Ritorna la y aggiornata (sulla nuova pagina), o la `y` originale invariata se non ci sono foto.
+   */
+  async function disegnaPaginaAllegati(doc, elencoFoto, y) {
+    if (!elencoFoto.length) {
+      return y;
+    }
+
+    doc.addPage();
+    y = MARGINE;
+    doc.setFontSize(14);
     doc.setFont(undefined, 'bold');
-    doc.text('Firma', MARGINE, y);
+    doc.text('ALLEGATI', MARGINE, y);
+    doc.setFont(undefined, 'normal');
+    y += 10;
+
+    const COLONNE = 2;
+    const GAP = 6;
+    const LARGHEZZA_CELLA = (LARGHEZZA_PAGINA - MARGINE * 2 - GAP * (COLONNE - 1)) / COLONNE;
+    const ALTEZZA_IMMAGINE = 55;
+    const ALTEZZA_CELLA = ALTEZZA_IMMAGINE + 14;
+
+    let colonna = 0;
+
+    for (const voce of elencoFoto) {
+      const record = await db.leggiFoto(voce.fotoId);
+      if (!record) {
+        continue;
+      }
+
+      if (colonna === 0) {
+        const yPrima = y;
+        y = nuovaRigaSeNecessario(doc, y, ALTEZZA_CELLA + GAP);
+        if (y !== yPrima && y === MARGINE) {
+          doc.setFontSize(14);
+          doc.setFont(undefined, 'bold');
+          doc.text('ALLEGATI (segue)', MARGINE, y);
+          doc.setFont(undefined, 'normal');
+          y += 10;
+        }
+      }
+
+      const x = MARGINE + colonna * (LARGHEZZA_CELLA + GAP);
+      const dataURL = await blobADataURL(record.blob);
+      doc.addImage(dataURL, 'JPEG', x, y, LARGHEZZA_CELLA, ALTEZZA_IMMAGINE);
+
+      doc.setFontSize(8);
+      const didascalia = avvolgiTesto(
+        doc,
+        `${voce.sezione} – ${voce.domandaTesto} (${voce.rispostaValore})`,
+        LARGHEZZA_CELLA
+      ).slice(0, 2);
+      doc.text(didascalia, x, y + ALTEZZA_IMMAGINE + 4);
+
+      colonna += 1;
+      if (colonna >= COLONNE) {
+        colonna = 0;
+        y += ALTEZZA_CELLA + GAP;
+      }
+    }
+
+    return colonna === 0 ? y : y + ALTEZZA_CELLA + GAP;
+  }
+
+  /** Sezione "Altri aspetti da evidenziare" (facoltativa, compilata dopo l'ultima domanda). */
+  function disegnaAltriAspetti(doc, sopralluogo, y) {
+    if (!sopralluogo.altri_aspetti) {
+      return y;
+    }
+
+    y = nuovaRigaSeNecessario(doc, y, 12);
+    doc.setFontSize(13);
+    doc.setFont(undefined, 'bold');
+    doc.text('Altri aspetti da evidenziare', MARGINE, y);
+    y += 8;
+
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    const righe = avvolgiTesto(doc, sopralluogo.altri_aspetti, LARGHEZZA_PAGINA - MARGINE * 2);
+    y = nuovaRigaSeNecessario(doc, y, righe.length * 5 + 2);
+    doc.text(righe, MARGINE, y);
+    return y + righe.length * 5 + 6;
+  }
+
+  /** Disegna una singola firma (etichetta + immagine) e ritorna la y aggiornata. */
+  function disegnaSingolaFirma(doc, etichetta, firmaDataURL, y) {
+    y = nuovaRigaSeNecessario(doc, y, 45);
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text(etichetta, MARGINE, y);
     y += 4;
 
     if (firmaDataURL) {
       doc.addImage(firmaDataURL, 'PNG', MARGINE, y, 60, 30);
       y += 32;
+    } else {
+      y += 6;
     }
 
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.text(sopralluogo.tecnico || '', MARGINE, y);
     return y + 6;
+  }
+
+  /** Le due firme richieste dal documento: Colligo Ingegneria e referente per la ricevuta. */
+  function disegnaFirme(doc, sopralluogo, y) {
+    y = disegnaSingolaFirma(doc, 'Firma Colligo Ingegneria S.r.l.', sopralluogo.firma_colligo, y);
+    y = disegnaSingolaFirma(doc, 'Firma referente per la ricevuta', sopralluogo.firma_referente, y);
+    return y;
   }
 
   /**
@@ -230,18 +356,23 @@ const pdf = (() => {
     const riepilogo = checklistEngine.calcolaRiepilogo(checklist, sopralluogo);
 
     let y = disegnaIntestazione(doc, logoDataURL, azienda, checklist);
-    y = disegnaDatiSopralluogo(doc, sopralluogo, y);
+    y = disegnaTabellaSopralluogo(doc, sopralluogo, y);
     y = disegnaRiepilogoConteggi(doc, riepilogo, y);
     y = disegnaRisposte(doc, checklist, sopralluogo, y);
-    y = await disegnaNonConformita(doc, riepilogo.nonConformita, y);
-    disegnaFirma(doc, sopralluogo.firma, sopralluogo, y);
+    y = disegnaNonConformita(doc, riepilogo.nonConformita, y);
+    y = disegnaAltriAspetti(doc, sopralluogo, y);
+
+    const fotoAllegati = raccogliFotoConDidascalia(checklist, sopralluogo);
+    y = await disegnaPaginaAllegati(doc, fotoAllegati, y);
+
+    disegnaFirme(doc, sopralluogo, y);
 
     return doc.output('blob');
   }
 
   /** Nome file suggerito per il PDF (sanificato per download/condivisione). */
   function nomeFile(sopralluogo) {
-    const base = `Sopralluogo_${sopralluogo.cliente}_${sopralluogo.sede}_${(sopralluogo.data || '').slice(0, 10)}`;
+    const base = `Sopralluogo_${sopralluogo.punto_vendita}_${(sopralluogo.data || '').slice(0, 10)}`;
     return `${base.replace(/[^a-z0-9_-]+/gi, '_')}.pdf`;
   }
 

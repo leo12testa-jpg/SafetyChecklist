@@ -55,16 +55,29 @@ const router = (() => {
 })();
 
 /**
- * Schermata "Nuovo sopralluogo": popola Cliente/Sede/Tecnico (valori già usati in precedenza,
- * ma editabili come testo libero) e l'elenco checklist disponibili, poi crea il sopralluogo
- * e avvia la compilazione (PROJECT.md §7.2).
+ * Schermata "Nuovo sopralluogo": popola i campi editabili come testo libero (valori già usati
+ * in precedenza), filtra la Checklist in base al punto vendita digitato (checklists/clients.json),
+ * poi crea il sopralluogo e avvia la compilazione (PROJECT.md §7.2).
  */
 const nuovoSopralluogoScreen = (() => {
   const form = document.getElementById('form-nuovo-sopralluogo');
-  const listaClienti = document.getElementById('lista-clienti');
-  const listaSedi = document.getElementById('lista-sedi');
-  const listaTecnici = document.getElementById('lista-tecnici');
+  const inputPuntoVendita = document.getElementById('input-punto-vendita');
+  const inputIndirizzo = document.getElementById('input-indirizzo-punto-vendita');
+  const inputNumeroDipendenti = document.getElementById('input-numero-dipendenti');
+  const inputTecnico = document.getElementById('input-tecnico');
+  const inputDataSopralluogo = document.getElementById('input-data-sopralluogo');
+  const inputResponsabile = document.getElementById('input-responsabile');
+  const selectPresenzaResponsabile = document.getElementById('select-presenza-responsabile');
+  const selectPresenzaRls = document.getElementById('select-presenza-rls');
   const selectChecklist = document.getElementById('select-checklist');
+
+  const listaPuntiVendita = document.getElementById('lista-punti-vendita');
+  const listaIndirizzi = document.getElementById('lista-indirizzi');
+  const listaTecnici = document.getElementById('lista-tecnici');
+  const listaResponsabili = document.getElementById('lista-responsabili');
+
+  let checklistDisponibili = [];
+  let associazioniClienti = [];
 
   function popolaDatalist(datalist, valori) {
     datalist.innerHTML = '';
@@ -77,38 +90,79 @@ const nuovoSopralluogoScreen = (() => {
 
   async function popolaSuggerimenti() {
     const sopralluoghi = await db.elencaSopralluoghi();
-    popolaDatalist(listaClienti, sopralluoghi.map((s) => s.cliente));
-    popolaDatalist(listaSedi, sopralluoghi.map((s) => s.sede));
+    popolaDatalist(listaPuntiVendita, sopralluoghi.map((s) => s.punto_vendita));
+    popolaDatalist(listaIndirizzi, sopralluoghi.map((s) => s.indirizzo_punto_vendita));
     popolaDatalist(listaTecnici, sopralluoghi.map((s) => s.tecnico));
+    popolaDatalist(listaResponsabili, sopralluoghi.map((s) => s.responsabile_punto_vendita));
   }
 
-  async function popolaChecklistDisponibili() {
-    const response = await fetch('checklists/index.json');
-    const { checklists } = await response.json();
+  function oggiISO() {
+    const oggi = new Date();
+    const mese = String(oggi.getMonth() + 1).padStart(2, '0');
+    const giorno = String(oggi.getDate()).padStart(2, '0');
+    return `${oggi.getFullYear()}-${mese}-${giorno}`;
+  }
+
+  function popolaSelectChecklist(elenco) {
+    const valorePrecedente = selectChecklist.value;
     selectChecklist.innerHTML = '';
-    checklists.forEach(({ id, titolo }) => {
+    elenco.forEach(({ id, titolo }) => {
       const option = document.createElement('option');
       option.value = id;
       option.textContent = titolo;
       selectChecklist.appendChild(option);
     });
+    if (elenco.some((c) => c.id === valorePrecedente)) {
+      selectChecklist.value = valorePrecedente;
+    }
+  }
+
+  /** Filtra le checklist disponibili in base al punto vendita digitato (associazioni in clients.json). */
+  function filtraChecklistPerCliente() {
+    const nome = inputPuntoVendita.value.trim().toLowerCase();
+    const associazione = associazioniClienti.find((c) => c.nome.toLowerCase() === nome);
+
+    if (!associazione) {
+      popolaSelectChecklist(checklistDisponibili);
+      return;
+    }
+
+    const filtrate = checklistDisponibili.filter((c) => associazione.checklist_ids.includes(c.id));
+    popolaSelectChecklist(filtrate.length ? filtrate : checklistDisponibili);
+  }
+
+  async function caricaChecklistECliente() {
+    const [risChecklist, risClienti] = await Promise.all([
+      fetch('checklists/index.json'),
+      fetch('checklists/clients.json')
+    ]);
+    checklistDisponibili = (await risChecklist.json()).checklists;
+    associazioniClienti = (await risClienti.json()).clienti;
+    popolaSelectChecklist(checklistDisponibili);
   }
 
   async function onEnterScreen() {
     form.reset();
-    await Promise.all([popolaSuggerimenti(), popolaChecklistDisponibili()]);
+    inputDataSopralluogo.value = oggiISO();
+    await Promise.all([popolaSuggerimenti(), caricaChecklistECliente()]);
   }
 
   async function onSubmit(event) {
     event.preventDefault();
 
-    const cliente = document.getElementById('input-cliente').value.trim();
-    const sede = document.getElementById('input-sede').value.trim();
-    const tecnico = document.getElementById('input-tecnico').value.trim();
-    const checklistId = selectChecklist.value;
+    const sopralluogo = await db.creaSopralluogo({
+      punto_vendita: inputPuntoVendita.value.trim(),
+      indirizzo_punto_vendita: inputIndirizzo.value.trim(),
+      numero_dipendenti: inputNumeroDipendenti.value,
+      tecnico: inputTecnico.value.trim(),
+      data_sopralluogo: inputDataSopralluogo.value,
+      responsabile_punto_vendita: inputResponsabile.value.trim(),
+      presenza_responsabile: selectPresenzaResponsabile.value,
+      presenza_rls: selectPresenzaRls.value,
+      checklist_id: selectChecklist.value
+    });
 
-    const sopralluogo = await db.creaSopralluogo({ cliente, sede, tecnico, checklist_id: checklistId });
-    const checklist = await checklistEngine.carica(checklistId);
+    const checklist = await checklistEngine.carica(sopralluogo.checklist_id);
     checklistEngine.avvia(checklist, sopralluogo);
 
     router.navigate('compilazione');
@@ -117,6 +171,7 @@ const nuovoSopralluogoScreen = (() => {
 
   function init() {
     form.addEventListener('submit', onSubmit);
+    inputPuntoVendita.addEventListener('input', filtraChecklistPerCliente);
     router.onEnter('new-inspection', onEnterScreen);
   }
 
@@ -137,23 +192,26 @@ const compilazioneScreen = (() => {
   const btnFoto = document.getElementById('btn-foto');
   const notaEditor = document.getElementById('nota-editor');
   const notaTesto = document.getElementById('nota-testo');
-  const ncForm = document.getElementById('nc-form');
-  const ncDescrizione = document.getElementById('nc-descrizione');
-  const ncPriorita = document.getElementById('nc-priorita');
-  const ncScadenza = document.getElementById('nc-scadenza');
-  const btnNcConferma = document.getElementById('btn-nc-conferma');
-  const btnNcFoto = document.getElementById('btn-nc-foto');
-  const ncFotoCount = document.getElementById('nc-foto-count');
   const erroreValidazione = document.getElementById('errore-validazione');
   const btnIndietro = document.getElementById('btn-indietro');
   const btnAvanti = document.getElementById('btn-avanti');
 
   let fotoDomandaCorrente = [];
-  let ncFotoCorrente = [];
 
-  function aggiornaContatoriFoto() {
+  /** Etichette visive delle risposte: un solo punto per cambiarle in futuro senza toccare il resto. */
+  const ETICHETTE_RISPOSTA = { C: 'C', PC: 'PC', NC: 'NC', NA: 'N.P.' };
+
+  function applicaEtichetteRisposta() {
+    opzioniRisposta.forEach((input) => {
+      const etichetta = input.nextElementSibling;
+      if (etichetta) {
+        etichetta.textContent = ETICHETTE_RISPOSTA[input.value] || input.value;
+      }
+    });
+  }
+
+  function aggiornaContatoreFoto() {
     btnFoto.textContent = fotoDomandaCorrente.length ? `📷 Foto (${fotoDomandaCorrente.length})` : '📷 Foto';
-    ncFotoCount.textContent = ncFotoCorrente.length ? `${ncFotoCorrente.length} foto allegate` : '';
   }
 
   function mostraErrore(messaggio) {
@@ -169,13 +227,8 @@ const compilazioneScreen = (() => {
     opzioniRisposta.forEach((input) => { input.checked = false; });
     notaEditor.hidden = true;
     notaTesto.value = '';
-    ncForm.hidden = true;
-    ncDescrizione.value = '';
-    ncPriorita.value = '';
-    ncScadenza.value = '';
     fotoDomandaCorrente = [];
-    ncFotoCorrente = [];
-    aggiornaContatoriFoto();
+    aggiornaContatoreFoto();
     nascondiErrore();
   }
 
@@ -212,24 +265,16 @@ const compilazioneScreen = (() => {
         notaEditor.hidden = false;
       }
       fotoDomandaCorrente = risposta.foto || [];
-      if (risposta.risposta === 'NC' && risposta.nc_dettaglio) {
-        ncForm.hidden = false;
-        ncDescrizione.value = risposta.nc_dettaglio.descrizione || '';
-        ncPriorita.value = risposta.nc_dettaglio.priorita || '';
-        ncScadenza.value = risposta.nc_dettaglio.scadenza || '';
-        ncFotoCorrente = risposta.nc_dettaglio.foto || [];
-      }
-      aggiornaContatoriFoto();
+      aggiornaContatoreFoto();
     }
   }
 
-  async function salvaRispostaCorrente(valore, ncDettaglio = null) {
+  async function salvaRispostaCorrente(valore) {
     try {
       await checklistEngine.rispondi({
         valore,
         note: notaTesto.value.trim() || null,
-        foto: fotoDomandaCorrente,
-        nc_dettaglio: ncDettaglio
+        foto: fotoDomandaCorrente
       });
       nascondiErrore();
       return true;
@@ -240,26 +285,7 @@ const compilazioneScreen = (() => {
   }
 
   async function onCambioRisposta(event) {
-    const valore = event.target.value;
-
-    if (valore === 'NC') {
-      ncForm.hidden = false;
-      nascondiErrore();
-      return;
-    }
-
-    ncForm.hidden = true;
-    await salvaRispostaCorrente(valore);
-  }
-
-  async function onConfermaNC() {
-    const dettaglio = {
-      descrizione: ncDescrizione.value.trim(),
-      priorita: ncPriorita.value,
-      foto: ncFotoCorrente,
-      scadenza: ncScadenza.value || null
-    };
-    await salvaRispostaCorrente('NC', dettaglio);
+    await salvaRispostaCorrente(event.target.value);
   }
 
   function onToggleNote() {
@@ -269,7 +295,7 @@ const compilazioneScreen = (() => {
     }
   }
 
-  /** Foto collegata alla domanda corrente: richiede una risposta già selezionata (§7.3). */
+  /** Foto collegata alla domanda corrente: richiede una risposta già selezionata (§7.3), uguale per C/PC/NC/N.P. */
   async function onFoto() {
     const corrente = checklistEngine.domandaCorrente();
     if (!corrente.risposta) {
@@ -280,21 +306,8 @@ const compilazioneScreen = (() => {
       const sopralluogoId = checklistEngine.sopralluogoCorrente().id;
       const fotoId = await camera.scattaFoto({ sopralluogo_id: sopralluogoId, domanda_id: corrente.domanda.id });
       fotoDomandaCorrente = [...fotoDomandaCorrente, fotoId];
-      aggiornaContatoriFoto();
-      await salvaRispostaCorrente(corrente.risposta.risposta, corrente.risposta.nc_dettaglio || null);
-    } catch (errore) {
-      mostraErrore(errore.message);
-    }
-  }
-
-  /** Foto collegata alla Non Conformità in compilazione (§7.4), allegata al momento della Conferma. */
-  async function onNcFoto() {
-    try {
-      const sopralluogoId = checklistEngine.sopralluogoCorrente().id;
-      const domanda = checklistEngine.domandaCorrente().domanda;
-      const fotoId = await camera.scattaFoto({ sopralluogo_id: sopralluogoId, domanda_id: domanda.id });
-      ncFotoCorrente = [...ncFotoCorrente, fotoId];
-      aggiornaContatoriFoto();
+      aggiornaContatoreFoto();
+      await salvaRispostaCorrente(corrente.risposta.risposta);
     } catch (errore) {
       mostraErrore(errore.message);
     }
@@ -303,7 +316,7 @@ const compilazioneScreen = (() => {
   async function onNotaModificata() {
     const corrente = checklistEngine.domandaCorrente();
     if (corrente && corrente.risposta) {
-      await salvaRispostaCorrente(corrente.risposta.risposta, corrente.risposta.nc_dettaglio || null);
+      await salvaRispostaCorrente(corrente.risposta.risposta);
     }
   }
 
@@ -322,8 +335,8 @@ const compilazioneScreen = (() => {
         mostraErrore('Completa la risposta prima di terminare.');
         return;
       }
-      router.navigate('riepilogo');
-      riepilogoScreen.render();
+      router.navigate('altri-aspetti');
+      altriAspettiScreen.prepara();
       return;
     }
 
@@ -335,9 +348,8 @@ const compilazioneScreen = (() => {
   }
 
   function init() {
+    applicaEtichetteRisposta();
     opzioniRisposta.forEach((input) => input.addEventListener('change', onCambioRisposta));
-    btnNcConferma.addEventListener('click', onConfermaNC);
-    btnNcFoto.addEventListener('click', onNcFoto);
     btnNote.addEventListener('click', onToggleNote);
     btnFoto.addEventListener('click', onFoto);
     notaTesto.addEventListener('change', onNotaModificata);
@@ -346,6 +358,34 @@ const compilazioneScreen = (() => {
   }
 
   return { init, renderDomandaCorrente };
+})();
+
+/**
+ * Schermata "Altri aspetti da evidenziare": una nota libera opzionale, raggiunta dopo l'ultima
+ * domanda della checklist e prima del Riepilogo, salvata nel sopralluogo.
+ */
+const altriAspettiScreen = (() => {
+  const textarea = document.getElementById('altri-aspetti-testo');
+  const btnAvanti = document.getElementById('btn-altri-aspetti-avanti');
+
+  /** Precompila il campo con quanto eventualmente già salvato (riapertura di un sopralluogo). */
+  function prepara() {
+    const sopralluogo = checklistEngine.sopralluogoCorrente();
+    textarea.value = sopralluogo.altri_aspetti || '';
+  }
+
+  async function onAvanti() {
+    const sopralluogo = checklistEngine.sopralluogoCorrente();
+    await db.aggiornaSopralluogo(sopralluogo.id, { altri_aspetti: textarea.value.trim() || null });
+    router.navigate('riepilogo');
+    riepilogoScreen.render();
+  }
+
+  function init() {
+    btnAvanti.addEventListener('click', onAvanti);
+  }
+
+  return { init, prepara };
 })();
 
 /**
@@ -381,7 +421,12 @@ const riepilogoScreen = (() => {
     ncContainer.hidden = nonConformita.length === 0;
     nonConformita.forEach((nc) => {
       const el = document.createElement('li');
-      el.innerHTML = `<strong>${nc.sezione}</strong> — ${nc.testo}<br>Priorità: ${nc.priorita}`;
+      const titolo = document.createElement('strong');
+      titolo.textContent = nc.sezione;
+      el.appendChild(titolo);
+      el.appendChild(document.createTextNode(` — ${nc.testo}`));
+      el.appendChild(document.createElement('br'));
+      el.appendChild(document.createTextNode(nc.note || ''));
       listaNC.appendChild(el);
     });
   }
@@ -399,35 +444,14 @@ const riepilogoScreen = (() => {
 })();
 
 /**
- * Schermata di Firma e generazione PDF (PROJECT.md §7.6, §7.7): firma su canvas, generazione
- * del report con pdf.js, salvataggio/condivisione e passaggio del sopralluogo a "completato".
+ * Incapsula il disegno su un singolo canvas di firma (Pointer Events, HiDPI). Usata due volte
+ * dalla schermata di Firma: una per Colligo Ingegneria, una per il referente.
  */
-const firmaScreen = (() => {
-  const canvas = document.getElementById('firma-canvas');
+function creaPadFirma(canvas) {
   const ctx = canvas.getContext('2d');
-  const btnCancella = document.getElementById('btn-firma-cancella');
-  const btnConferma = document.getElementById('btn-firma-conferma');
-  const firmaArea = document.getElementById('firma-area');
-  const pdfArea = document.getElementById('pdf-area');
-  const pdfEsito = document.getElementById('pdf-esito');
-  const btnGeneraPdf = document.getElementById('btn-genera-pdf');
-  const btnSalvaCondividi = document.getElementById('btn-salva-condividi');
-  const erroreEl = document.getElementById('firma-errore');
-
   let disegnando = false;
-  let pdfBlob = null;
-  let pdfFilename = null;
 
-  function mostraErrore(messaggio) {
-    erroreEl.textContent = messaggio;
-    erroreEl.hidden = false;
-  }
-
-  function nascondiErrore() {
-    erroreEl.hidden = true;
-  }
-
-  function ridimensionaCanvas() {
+  function ridimensiona() {
     const rapporto = window.devicePixelRatio || 1;
     canvas.width = canvas.clientWidth * rapporto;
     canvas.height = canvas.clientHeight * rapporto;
@@ -462,29 +486,89 @@ const firmaScreen = (() => {
     disegnando = false;
   }
 
-  function canvasVuoto() {
-    const vuoto = document.createElement('canvas');
-    vuoto.width = canvas.width;
-    vuoto.height = canvas.height;
-    return canvas.toDataURL() === vuoto.toDataURL();
-  }
-
-  function onCancella() {
+  function cancella() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 
-  async function onConfermaFirma() {
-    if (canvasVuoto()) {
+  function vuoto() {
+    const bianco = document.createElement('canvas');
+    bianco.width = canvas.width;
+    bianco.height = canvas.height;
+    return canvas.toDataURL() === bianco.toDataURL();
+  }
+
+  function dataURL() {
+    return canvas.toDataURL('image/png');
+  }
+
+  canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+
+  return { ridimensiona, cancella, vuoto, dataURL };
+}
+
+/**
+ * Schermata di Firma e generazione PDF (PROJECT.md §7.6, §7.7): due firme in sequenza
+ * (Colligo Ingegneria, poi referente), entrambe obbligatorie prima di poter generare il PDF;
+ * generazione del report con pdf.js, salvataggio/condivisione e passaggio a "completato".
+ */
+const firmaScreen = (() => {
+  const padColligo = creaPadFirma(document.getElementById('firma-canvas-colligo'));
+  const padReferente = creaPadFirma(document.getElementById('firma-canvas-referente'));
+
+  const areaColligo = document.getElementById('firma-area-colligo');
+  const areaReferente = document.getElementById('firma-area-referente');
+  const btnCancellaColligo = document.getElementById('btn-firma-cancella-colligo');
+  const btnConfermaColligo = document.getElementById('btn-firma-conferma-colligo');
+  const btnCancellaReferente = document.getElementById('btn-firma-cancella-referente');
+  const btnConfermaReferente = document.getElementById('btn-firma-conferma-referente');
+
+  const pdfArea = document.getElementById('pdf-area');
+  const pdfEsito = document.getElementById('pdf-esito');
+  const btnGeneraPdf = document.getElementById('btn-genera-pdf');
+  const btnSalvaCondividi = document.getElementById('btn-salva-condividi');
+  const erroreEl = document.getElementById('firma-errore');
+
+  let pdfBlob = null;
+  let pdfFilename = null;
+
+  function mostraErrore(messaggio) {
+    erroreEl.textContent = messaggio;
+    erroreEl.hidden = false;
+  }
+
+  function nascondiErrore() {
+    erroreEl.hidden = true;
+  }
+
+  async function onConfermaColligo() {
+    if (padColligo.vuoto()) {
       mostraErrore('Disegna la firma prima di confermare.');
       return;
     }
     nascondiErrore();
 
-    const firmaDataURL = canvas.toDataURL('image/png');
     const sopralluogo = checklistEngine.sopralluogoCorrente();
-    await db.aggiornaSopralluogo(sopralluogo.id, { firma: firmaDataURL });
+    await db.aggiornaSopralluogo(sopralluogo.id, { firma_colligo: padColligo.dataURL() });
 
-    firmaArea.hidden = true;
+    areaColligo.hidden = true;
+    areaReferente.hidden = false;
+    padReferente.ridimensiona();
+    padReferente.cancella();
+  }
+
+  async function onConfermaReferente() {
+    if (padReferente.vuoto()) {
+      mostraErrore('Disegna la firma prima di confermare.');
+      return;
+    }
+    nascondiErrore();
+
+    const sopralluogo = checklistEngine.sopralluogoCorrente();
+    await db.aggiornaSopralluogo(sopralluogo.id, { firma_referente: padReferente.dataURL() });
+
+    areaReferente.hidden = true;
     pdfArea.hidden = false;
     pdfEsito.hidden = true;
     pdfBlob = null;
@@ -528,23 +612,23 @@ const firmaScreen = (() => {
     }
   }
 
-  /** Ripristina la schermata allo stato iniziale (canvas vuoto) ogni volta che si entra in Firma. */
+  /** Ripristina la schermata allo stato iniziale (prima firma, canvas vuoti) ogni volta che si entra. */
   function prepara() {
-    firmaArea.hidden = false;
+    areaColligo.hidden = false;
+    areaReferente.hidden = true;
     pdfArea.hidden = true;
     pdfEsito.hidden = true;
     pdfBlob = null;
     nascondiErrore();
-    ridimensionaCanvas();
-    onCancella();
+    padColligo.ridimensiona();
+    padColligo.cancella();
   }
 
   function init() {
-    canvas.addEventListener('pointerdown', onPointerDown);
-    canvas.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    btnCancella.addEventListener('click', onCancella);
-    btnConferma.addEventListener('click', onConfermaFirma);
+    btnCancellaColligo.addEventListener('click', padColligo.cancella);
+    btnConfermaColligo.addEventListener('click', onConfermaColligo);
+    btnCancellaReferente.addEventListener('click', padReferente.cancella);
+    btnConfermaReferente.addEventListener('click', onConfermaReferente);
     btnGeneraPdf.addEventListener('click', onGeneraPdf);
     btnSalvaCondividi.addEventListener('click', onSalvaCondividi);
   }
@@ -595,10 +679,10 @@ const storicoScreen = (() => {
     info.className = 'storico-info';
 
     const titolo = document.createElement('strong');
-    titolo.textContent = `${sopralluogo.cliente} – ${sopralluogo.sede}`;
+    titolo.textContent = sopralluogo.punto_vendita;
 
     const dettaglio = document.createElement('span');
-    dettaglio.textContent = `${formattaData(sopralluogo.data)} · ${sopralluogo.stato}`;
+    dettaglio.textContent = `${sopralluogo.indirizzo_punto_vendita || ''} · ${formattaData(sopralluogo.data)} · ${sopralluogo.stato}`;
 
     info.appendChild(titolo);
     info.appendChild(dettaglio);
@@ -702,6 +786,7 @@ document.addEventListener('DOMContentLoaded', () => {
   router.init();
   nuovoSopralluogoScreen.init();
   compilazioneScreen.init();
+  altriAspettiScreen.init();
   riepilogoScreen.init();
   firmaScreen.init();
   storicoScreen.init();

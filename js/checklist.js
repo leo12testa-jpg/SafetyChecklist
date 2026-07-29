@@ -1,6 +1,7 @@
 /**
  * Motore di compilazione checklist: caricamento JSON, navigazione domanda per domanda,
- * validazione risposte e gestione del sotto-form Non Conformità (PROJECT.md §5, §7.3, §7.4).
+ * validazione risposte (PROJECT.md §5, §7.3). "NC" è un valore di risposta come gli altri:
+ * nessun sotto-form o validazione speciale.
  */
 const checklistEngine = (() => {
   let checklist = null;
@@ -20,10 +21,6 @@ const checklistEngine = (() => {
 
   function trovaRisposta(domandaId) {
     return (sopralluogo.risposte || []).find((r) => r.domanda_id === domandaId);
-  }
-
-  function validaNCDettaglio(dettaglio) {
-    return Boolean(dettaglio && dettaglio.descrizione && dettaglio.descrizione.trim() && dettaglio.priorita);
   }
 
   /**
@@ -76,40 +73,19 @@ const checklistEngine = (() => {
     };
   }
 
-  /**
-   * Salva la risposta alla domanda corrente (autosalvataggio immediato su db.js).
-   * Se il valore è "NC", nc_dettaglio è obbligatorio con almeno descrizione e priorità (§7.4).
-   */
-  async function rispondi({ valore, note = null, foto = [], nc_dettaglio = null }) {
+  /** Salva la risposta alla domanda corrente (autosalvataggio immediato su db.js). Note e foto sono opzionali per qualsiasi valore. */
+  async function rispondi({ valore, note = null, foto = [] }) {
     const { domanda, sezione } = domande[indice];
-
-    if (valore === 'NC' && !validaNCDettaglio(nc_dettaglio)) {
-      throw new Error('Per una risposta "NC" sono obbligatorie Descrizione e Priorità.');
-    }
-
-    const risposta = {
-      domanda_id: domanda.id,
-      sezione,
-      risposta: valore,
-      note,
-      foto,
-      nc_dettaglio: valore === 'NC' ? nc_dettaglio : null
-    };
+    const risposta = { domanda_id: domanda.id, sezione, risposta: valore, note, foto };
 
     sopralluogo = await db.salvaRisposta(sopralluogo.id, risposta);
     return risposta;
   }
 
-  /** True se la domanda corrente ha già una risposta valida e completa (obbligatoria per poter avanzare). */
+  /** True se la domanda corrente ha già una risposta (obbligatoria per poter avanzare, qualsiasi valore). */
   function puoAvanzare() {
     const corrente = domandaCorrente();
-    if (!corrente || !corrente.risposta) {
-      return false;
-    }
-    if (corrente.risposta.risposta === 'NC') {
-      return validaNCDettaglio(corrente.risposta.nc_dettaglio);
-    }
-    return true;
+    return Boolean(corrente && corrente.risposta);
   }
 
   /** Passa alla domanda successiva. Ritorna false (senza avanzare) se la domanda corrente non è ancora risposta. */
@@ -154,13 +130,14 @@ const checklistEngine = (() => {
       if (conteggi[r.risposta] !== undefined) {
         conteggi[r.risposta] += 1;
       }
-      if (r.risposta === 'NC' && r.nc_dettaglio) {
+      if (r.risposta === 'NC') {
         const info = domandeComplete.find((d) => d.domanda.id === r.domanda_id);
         nonConformita.push({
           domanda_id: r.domanda_id,
           sezione: r.sezione,
           testo: info ? info.domanda.testo : '',
-          ...r.nc_dettaglio
+          note: r.note || '',
+          foto: r.foto || []
         });
       }
     });

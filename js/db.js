@@ -65,18 +65,35 @@ const db = (() => {
   }
 
   /** Crea un nuovo sopralluogo con stato "in corso" e lo salva su DB. Ritorna il record creato. */
-  async function creaSopralluogo({ cliente, sede, tecnico, checklist_id }) {
+  async function creaSopralluogo({
+    punto_vendita,
+    indirizzo_punto_vendita,
+    numero_dipendenti,
+    tecnico,
+    data_sopralluogo,
+    responsabile_punto_vendita,
+    presenza_responsabile,
+    presenza_rls,
+    checklist_id
+  }) {
     const store = await transazione('sopralluoghi', 'readwrite');
     const sopralluogo = {
       id: generaId(),
-      cliente,
-      sede,
+      punto_vendita,
+      indirizzo_punto_vendita,
+      numero_dipendenti,
       tecnico,
+      data_sopralluogo,
+      responsabile_punto_vendita,
+      presenza_responsabile,
+      presenza_rls,
       checklist_id,
       data: new Date().toISOString(),
       stato: 'in corso',
       risposte: [],
-      firma: null
+      altri_aspetti: null,
+      firma_colligo: null,
+      firma_referente: null
     };
     await richiesta(store.add(sopralluogo));
     return sopralluogo;

@@ -30,19 +30,48 @@
         <h2>Nuovo sopralluogo</h2>
 
         <form id="form-nuovo-sopralluogo">
-          <label class="campo-form" for="input-cliente">Cliente
-            <input type="text" id="input-cliente" list="lista-clienti" autocomplete="off" required>
-            <datalist id="lista-clienti"></datalist>
+          <label class="campo-form" for="input-punto-vendita">Punto vendita
+            <input type="text" id="input-punto-vendita" list="lista-punti-vendita" autocomplete="off" required>
+            <datalist id="lista-punti-vendita"></datalist>
           </label>
 
-          <label class="campo-form" for="input-sede">Sede
-            <input type="text" id="input-sede" list="lista-sedi" autocomplete="off" required>
-            <datalist id="lista-sedi"></datalist>
+          <label class="campo-form" for="input-indirizzo-punto-vendita">Indirizzo punto vendita
+            <input type="text" id="input-indirizzo-punto-vendita" list="lista-indirizzi" autocomplete="off" required>
+            <datalist id="lista-indirizzi"></datalist>
           </label>
 
-          <label class="campo-form" for="input-tecnico">Tecnico
+          <label class="campo-form" for="input-numero-dipendenti">Numero di dipendenti in forza al momento del sopralluogo
+            <input type="number" id="input-numero-dipendenti" inputmode="numeric" min="0" required>
+          </label>
+
+          <label class="campo-form" for="input-tecnico">Tecnico che ha eseguito il sopralluogo
             <input type="text" id="input-tecnico" list="lista-tecnici" autocomplete="off" required>
             <datalist id="lista-tecnici"></datalist>
+          </label>
+
+          <label class="campo-form" for="input-data-sopralluogo">Data del sopralluogo
+            <input type="date" id="input-data-sopralluogo" required>
+          </label>
+
+          <label class="campo-form" for="input-responsabile">Responsabile del punto vendita
+            <input type="text" id="input-responsabile" list="lista-responsabili" autocomplete="off" required>
+            <datalist id="lista-responsabili"></datalist>
+          </label>
+
+          <label class="campo-form" for="select-presenza-responsabile">Il sopralluogo è fatto alla presenza del responsabile del punto vendita?
+            <select id="select-presenza-responsabile" required>
+              <option value="">Seleziona…</option>
+              <option value="Sì">Sì</option>
+              <option value="No">No</option>
+            </select>
+          </label>
+
+          <label class="campo-form" for="select-presenza-rls">Il sopralluogo è fatto alla presenza dell'R.L.S.?
+            <select id="select-presenza-rls" required>
+              <option value="">Seleziona…</option>
+              <option value="Sì">Sì</option>
+              <option value="No">No</option>
+            </select>
           </label>
 
           <label class="campo-form" for="select-checklist">Checklist
@@ -63,10 +92,10 @@
         <p class="domanda-testo" id="compilazione-domanda"></p>
 
         <div class="risposte-opzioni" id="risposte-opzioni">
-          <label class="opzione-risposta"><input type="radio" name="risposta" value="C"> C</label>
-          <label class="opzione-risposta"><input type="radio" name="risposta" value="PC"> PC</label>
-          <label class="opzione-risposta"><input type="radio" name="risposta" value="NC"> NC</label>
-          <label class="opzione-risposta"><input type="radio" name="risposta" value="NA"> NA</label>
+          <label class="opzione-risposta"><input type="radio" name="risposta" value="C"> <span class="etichetta-risposta"></span></label>
+          <label class="opzione-risposta"><input type="radio" name="risposta" value="PC"> <span class="etichetta-risposta"></span></label>
+          <label class="opzione-risposta"><input type="radio" name="risposta" value="NC"> <span class="etichetta-risposta"></span></label>
+          <label class="opzione-risposta"><input type="radio" name="risposta" value="NA"> <span class="etichetta-risposta"></span></label>
         </div>
 
         <div class="azioni-secondarie">
@@ -78,33 +107,23 @@
           <textarea id="nota-testo" placeholder="Note"></textarea>
         </div>
 
-        <div class="nc-form" id="nc-form" hidden>
-          <h3>Non Conformità</h3>
-          <label class="campo-form" for="nc-descrizione">Descrizione
-            <textarea id="nc-descrizione"></textarea>
-          </label>
-          <label class="campo-form" for="nc-priorita">Priorità
-            <select id="nc-priorita">
-              <option value="">Seleziona…</option>
-              <option value="Bassa">Bassa</option>
-              <option value="Media">Media</option>
-              <option value="Alta">Alta</option>
-            </select>
-          </label>
-          <label class="campo-form" for="nc-scadenza">Scadenza
-            <input type="date" id="nc-scadenza">
-          </label>
-          <button type="button" class="btn-secondario" id="btn-nc-foto">📷 Aggiungi foto</button>
-          <p class="foto-count" id="nc-foto-count"></p>
-          <button type="button" class="btn" id="btn-nc-conferma">Conferma</button>
-        </div>
-
         <p class="errore-validazione" id="errore-validazione" hidden></p>
 
         <div class="navigazione-domande">
           <button type="button" class="btn" id="btn-indietro">← Indietro</button>
           <button type="button" class="btn btn-primary" id="btn-avanti">Avanti →</button>
         </div>
+      </section>
+
+      <section id="screen-altri-aspetti" class="screen" data-screen="altri-aspetti" hidden>
+        <button type="button" class="btn-back" data-nav="home">← Home</button>
+        <h2>Altri aspetti da evidenziare</h2>
+
+        <label class="campo-form" for="altri-aspetti-testo">Note aggiuntive (facoltativo)
+          <textarea id="altri-aspetti-testo" rows="6"></textarea>
+        </label>
+
+        <button type="button" class="btn btn-primary" id="btn-altri-aspetti-avanti">Avanti →</button>
       </section>
 
       <section id="screen-riepilogo" class="screen" data-screen="riepilogo" hidden>
@@ -125,11 +144,21 @@
         <button type="button" class="btn-back" data-nav="home">← Home</button>
         <h2>Firma il sopralluogo</h2>
 
-        <div id="firma-area">
-          <canvas id="firma-canvas" class="firma-canvas"></canvas>
+        <div id="firma-area-colligo">
+          <h3>Firma Colligo Ingegneria S.r.l.</h3>
+          <canvas id="firma-canvas-colligo" class="firma-canvas"></canvas>
           <div class="navigazione-domande">
-            <button type="button" class="btn" id="btn-firma-cancella">Cancella</button>
-            <button type="button" class="btn btn-primary" id="btn-firma-conferma">Conferma firma</button>
+            <button type="button" class="btn" id="btn-firma-cancella-colligo">Cancella</button>
+            <button type="button" class="btn btn-primary" id="btn-firma-conferma-colligo">Conferma firma</button>
+          </div>
+        </div>
+
+        <div id="firma-area-referente" hidden>
+          <h3>Firma referente per la ricevuta</h3>
+          <canvas id="firma-canvas-referente" class="firma-canvas"></canvas>
+          <div class="navigazione-domande">
+            <button type="button" class="btn" id="btn-firma-cancella-referente">Cancella</button>
+            <button type="button" class="btn btn-primary" id="btn-firma-conferma-referente">Conferma firma</button>
           </div>
         </div>
 
@@ -180,6 +209,7 @@
   </div>
 
   <script src="js/vendor/jspdf.umd.min.js"></script>
+  <script src="js/vendor/jspdf.plugin.autotable.min.js"></script>
   <script src="js/db.js"></script>
   <script src="js/checklist.js"></script>
   <script src="js/camera.js"></script>

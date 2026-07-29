@@ -1,4 +1,4 @@
-const CACHE_NAME = 'safety-checklist-shell-v9';
+const CACHE_NAME = 'safety-checklist-shell-v13';
 
 const APP_SHELL = [
   './',
@@ -6,12 +6,14 @@ const APP_SHELL = [
   './manifest.json',
   './css/style.css',
   './js/vendor/jspdf.umd.min.js',
+  './js/vendor/jspdf.plugin.autotable.min.js',
   './js/app.js',
   './js/db.js',
   './js/checklist.js',
   './js/pdf.js',
   './js/camera.js',
   './checklists/index.json',
+  './checklists/clients.json',
   './assets/logo.png',
   './assets/icon-192.png',
   './assets/icon-512.png',

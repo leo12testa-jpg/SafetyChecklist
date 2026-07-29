@@ -1,0 +1,7 @@
+{
+  "clienti": [
+    { "nome": "Carrefour", "checklist_ids": ["people_design"] },
+    { "nome": "Restage", "checklist_ids": ["people_design"] },
+    { "nome": "PAM", "checklist_ids": ["aggiornamento_dvr_pem"] }
+  ]
+}

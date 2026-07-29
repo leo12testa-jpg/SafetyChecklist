@@ -1,48 +1,106 @@
 {
   "id": "people_design",
   "titolo": "People Design",
-  "versione": "1.0",
+  "versione": "1.1",
   "sezioni": [
     {
-      "titolo": "Audit Documentale",
+      "titolo": "Adempimenti Formali",
       "domande": [
-        { "id": 1, "testo": "Nomina del RSPP", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 2, "testo": "Nomina degli Addetti Antincendio", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 3, "testo": "Nomina degli Addetti Primo Soccorso", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 4, "testo": "Documento di Valutazione dei Rischi (DVR) aggiornato", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 5, "testo": "Registro delle verifiche periodiche attrezzature", "tipo": "C-PC-NC-NA", "foto": false, "note": true }
+        { "id": 1, "testo": "Nomina del RSPP (Art. 17 e Art. 32 D.Lgs. 81/08)\nÈ presente una copia in archivio?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 2, "testo": "Nomina del RLS (Art. 37 e Sezione VII D.Lgs. 81/08)\nSe designato, è presente nomina formale in archivio?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 3, "testo": "Nomina del RLS (Art. 37 e Sezione VII D.Lgs. 81/08)\nÈ presente copia dell'attestato in archivio?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 4, "testo": "Nomina Squadra antincendio (Art. 18 - D.Lgs. 81/08)\nIl personale incaricato come squadra antincendio è stato formalmente designato?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 5, "testo": "Nomina Squadra antincendio (Art. 18 - D.Lgs. 81/08)\nÈ stato nominato un numero sufficiente di addetti?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 6, "testo": "Nomina Squadra antincendio (Art. 18 - D.Lgs. 81/08)\nIl personale incaricato come squadra antincendio è stato correttamente addestrato?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 7, "testo": "Nomina Squadra antincendio (Art. 18 - D.Lgs. 81/08)\nSono presenti in archivio attestati di formazione e/o aggiornamento?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 8, "testo": "Nomina Squadra Primo Soccorso (Art. 18 - D.Lgs. 81/08)\nIl personale incaricato come squadra di primo soccorso è stato formalmente designato?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 9, "testo": "Nomina Squadra Primo Soccorso (Art. 18 - D.Lgs. 81/08)\nÈ stato nominato un numero sufficiente di addetti?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 10, "testo": "Nomina Squadra Primo Soccorso (Art. 18 - D.Lgs. 81/08)\nIl personale incaricato è stato correttamente formato?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 11, "testo": "Nomina Squadra Primo Soccorso (Art. 18 - D.Lgs. 81/08)\nSono presenti in archivio gli attestati di formazione e/o aggiornamento?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 12, "testo": "Riunione periodica del SPP (Art. 35 – D.Lgs. 81/08)\nSono presenti in archivio i verbali delle riunioni?", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
       ]
     },
     {
-      "titolo": "Dispositivi di Protezione Individuale",
+      "titolo": "Documento di Valutazione del Rischio",
       "domande": [
-        { "id": 6, "testo": "Disponibilità DPI adeguati alla mansione", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 7, "testo": "Utilizzo corretto dei DPI da parte degli operatori", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 8, "testo": "Stato di conservazione dei DPI", "tipo": "C-PC-NC-NA", "foto": true, "note": false }
+        { "id": 13, "testo": "Documento di Valutazione del Rischio (Art. 17 e art. 28 - D.Lgs. 81/08)\nÈ presente copia in archivio correttamente firmata? Sono presenti eventuali documenti di valutazione di rischi specifici?", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
       ]
     },
     {
-      "titolo": "Aree di Lavoro e Segnaletica",
+      "titolo": "Gestione dell'Emergenza",
       "domande": [
-        { "id": 9, "testo": "Segnaletica di sicurezza presente e visibile", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 10, "testo": "Vie di fuga libere da ostacoli", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 11, "testo": "Illuminazione di emergenza funzionante", "tipo": "C-PC-NC-NA", "foto": true, "note": false },
-        { "id": 12, "testo": "Ordine e pulizia delle aree di lavoro", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
+        { "id": 14, "testo": "Piano di Emergenza ed evacuazione (D.M. 02/09/2021 e art. 43 – D.Lgs 81/08)\nÈ presente in archivio una copia del piano di emergenza?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 15, "testo": "Piano di Emergenza ed evacuazione (D.M. 02/09/2021 e art. 43 – D.Lgs 81/08)\nÈ disponibile una copia della scheda divulgativa?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 16, "testo": "Piano di Emergenza ed evacuazione (D.M. 02/09/2021 e art. 43 – D.Lgs 81/08)\nViene consegnata a tutti i dipendenti la scheda divulgativa?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 17, "testo": "Registro delle verifiche e manutenzioni periodiche dei sistemi antincendio\nÈ presente il registro antincendio?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 18, "testo": "Sono Presenti le registrazioni dei controlli semestrali effettuati a:\nPorte Tagliafuoco:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 19, "testo": "Sono Presenti le registrazioni dei controlli semestrali effettuati a:\nEstintori e Idranti:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 20, "testo": "Sono Presenti le registrazioni dei controlli semestrali effettuati a:\nLuci Emergenza:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 21, "testo": "Sono Presenti le registrazioni dei controlli semestrali effettuati a:\nImpianto di rilevazione dei fumi:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 22, "testo": "Sono Presenti le registrazioni dei controlli semestrali effettuati a:\nImpianto di spegnimento automatico:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 23, "testo": "Sono Presenti le registrazioni dei controlli semestrali effettuati a:\nGruppo elettrogeno:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 24, "testo": "Sono Presenti le registrazioni dei controlli semestrali effettuati a:\nEventuali altri impianti:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 25, "testo": "Planimetrie antincendio?\nSono aggiornate le planimetrie esposte?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 26, "testo": "Verbali delle Prove annuali di evacuazione e gestione delle emergenze\nÈ stata eseguita la prova annuale d'evacuazione? Indicare nelle note la data dell'ultimo verbale.", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
       ]
     },
     {
-      "titolo": "Macchine e Attrezzature",
+      "titolo": "Attività di Formazione",
       "domande": [
-        { "id": 13, "testo": "Protezioni e ripari delle macchine integri", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 14, "testo": "Pulsanti di emergenza raggiungibili e funzionanti", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 15, "testo": "Marcatura CE presente sulle attrezzature", "tipo": "C-PC-NC-NA", "foto": true, "note": false }
+        { "id": 27, "testo": "Informazione e Formazione dei dipendenti (Art. 36 e 37 - D.Lgs. 81/08) Si ha evidenza dell'avvenuta informazione?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 28, "testo": "Informazione e Formazione dei dipendenti (Art. 36 e 37 - D.Lgs. 81/08) Si ha evidenza dell'avvenuta formazione? Sono presenti gli attestati, i registri ed i test di apprendimento relativi alla formazione erogata ai sensi dell'art. 37 D.Lgs. 81/2008 e dell'accordo Stato Regioni del 17.04.2025 (G.U. n.119 del 24.05.2025)?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 29, "testo": "Formazione Preposti (Art. 37 - D.Lgs. 81/08)\nÈ presente in archivio la copia dei verbali di formazione dei preposti ai sensi dell'art. 37 D.Lgs. 81/2008 e dell'accordo Stato Regioni del 17.04.2025 (G.U. n.119 del 24.05.2025)?", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
       ]
     },
     {
-      "titolo": "Antincendio",
+      "titolo": "Documentazione Procedurale",
       "domande": [
-        { "id": 16, "testo": "Estintori presenti, segnalati e non scaduti", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 17, "testo": "Porte tagliafuoco funzionanti e non bloccate", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
+        { "id": 30, "testo": "Consegna dei DPI (titolo III capo secondo del D.Lgs 81/08). Sono stati forniti come previsto dalla valutazione dei rischi?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 31, "testo": "Gestione dei contratti d'appalto e di prestazione d'opera ai sensi dell'art. 26\nÈ presente in archivio la documentazione?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 32, "testo": "Cassette di Pronto Soccorso\nLe Cassette di Pronto Soccorso sono tenute presso ogni Punto vendita? Le stesse sono custodite in luogo facilmente accessibile, individuabile con segnaletica appropriata e dotata del materiale previsto dal D.M. 15 luglio 2003, n. 388?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 33, "testo": "Nomina del medico competente MC (Art. 18 e Sezione V D.Lgs. 81/08)\nÈ presente la nomina del medico competente in archivio?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 34, "testo": "Accertamenti sanitari (Art. 25 – D.Lgs. 81/08)\nÈ presente in archivio il Protocollo Sanitario? È presente in archivio il verbale di sopralluogo del MC negli ambienti di lavoro? Sono presenti i risultati anonimi della sorveglianza sanitaria", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
+      ]
+    },
+    {
+      "titolo": "Antincendio / Mezzi di Emergenza e Cartellonistica",
+      "domande": [
+        { "id": 35, "testo": "Gli estintori sono mantenuti accessibili e visibili?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 36, "testo": "Gli idranti sono mantenuti accessibili e visibili?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 37, "testo": "Gli idranti sono mantenuti in buono stato di conservazione?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 38, "testo": "Le porte tagliafuoco sono mantenute in buono stato di conservazione?", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
+      ]
+    },
+    {
+      "titolo": "Vie di Esodo",
+      "domande": [
+        { "id": 39, "testo": "Le vie di fuga sono mantenute fruibili e ben visibili?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 40, "testo": "Le uscite di emergenza (U.E.) sono mantenute fruibili e ben visibili (internamente che esternamente)?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 41, "testo": "Le U.E. e le relative vie di fuga sono indicate correttamente da cartellonistica ed illuminazione d'emergenza?", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
+      ]
+    },
+    {
+      "titolo": "Locali di Lavoro / Struttura",
+      "domande": [
+        { "id": 42, "testo": "Sono presenti i cartelli indicanti portata massima sulle scaffalature e soppalchi? Le scaffalature ed i soppalchi (se presenti), sono tutti in buono stato di conservazione?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 43, "testo": "I materiali stoccati nelle scaffalature e soppalchi (se presenti) sono stoccati in maniera tale da evitare il rischio caduta?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 44, "testo": "Sono presenti strisce antisdrucciolo sulle scale per evitare rischio caduta?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 45, "testo": "Le scale sono dotate di corrimano e dimensionate a regola d'arte (alzate-pedata regolare)?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 46, "testo": "Le scale sono dotate di parapetto di altezza almeno 1m dal pavimento costituito da almeno 2 correnti?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 47, "testo": "La pavimentazione dei locali è mantenuta in condizioni tali da scongiurare rischio di inciampo e di caduta? È posata una pavimentazione idonea (antisdrucciolevole) in funzione dell'attività?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 48, "testo": "Le finestre-lucernari sono dotate di un sistema di apertura chiusura? In alternativa è presente un impianto di aerazione forzata?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 49, "testo": "I servizi igienici sono areati, riscaldati e forniti di materiale detergente e asciugamani? Sono mantenuti in stato di scrupolosa pulizia?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 50, "testo": "I locali sono mantenuti in ordine e puliti e consentono un idoneo passaggio del personale?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 51, "testo": "I conduttori ed elementi elettrici, sono mantenuti in buono stato di conservazione?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 52, "testo": "Le postazioni da videoterminalisti sono conformi ed in buono stato di conservazione?", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
+      ]
+    },
+    {
+      "titolo": "Macchine / Attrezzature",
+      "domande": [
+        { "id": 53, "testo": "Sono presenti tutte le schede di sicurezza dei prodotti chimici presenti all'interno del locale? Sono messe a disposizione dei lavoratori che ne fanno uso?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 54, "testo": "I prodotti chimici sono correttamente depositati (all'interno di appositi armadi adeguatamente segnalati o, se in uso, in posizioni sicure in modo da evitare cadute e spandimenti) e mantenuti all'interno dei contenitori originali?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 55, "testo": "Sono presenti scale e scalei in buono stato di conservazione?", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
       ]
     }
   ]
