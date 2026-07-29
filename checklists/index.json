@@ -1,5 +1,6 @@
 {
   "checklists": [
-    { "id": "people_design", "titolo": "People Design" }
+    { "id": "people_design", "titolo": "People Design" },
+    { "id": "aggiornamento_dvr_pem", "titolo": "Aggiornamento DVR e Piano Emergenza (Local-City)" }
   ]
 }

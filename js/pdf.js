@@ -1,12 +1,43 @@
 /**
- * Generazione del report PDF del sopralluogo con jsPDF (PROJECT.md §7.7): intestazione
- * azienda, dati sopralluogo, risposte per sezione, Non Conformità, pagina Allegati con
- * tutte le foto scattate, firma finale.
+ * Generazione del report PDF del sopralluogo con jsPDF + jsPDF-AutoTable, secondo il layout
+ * del report reale del cliente: doppio logo, tabella DATI GENERALI, sezioni raggruppate in
+ * ANALISI DOCUMENTALE / SOPRALLUOGO AMBIENTI DI LAVORO con tabelle a colonne C/P.C/N.C/N.P,
+ * legenda a fondo pagina, pagina Altri aspetti, pagina Allegati con foto in griglia, firme finali.
+ *
+ * NOTA: questo layout (gruppi, colonne, legenda) è disegnato per checklist "a stato" del tipo
+ * C-PC-NC-NA (es. people_design). Checklist con "stile": "raccolta-dati" (es. aggiornamento_dvr_pem)
+ * hanno domande con tipi eterogenei (si-no, numero, testo, checkbox-multi...) non ancora supportati
+ * né dal motore di compilazione né da questo report: per queste, generaReport produce un report
+ * minimale segnaposto (vedi disegnaReportRaccoltaDati) finché non sarà definito il layout dedicato.
  */
 const pdf = (() => {
   const MARGINE = 15;
   const LARGHEZZA_PAGINA = 210; // A4, mm
   const ALTEZZA_PAGINA = 297;
+
+  const GRUPPI_SEZIONI = [
+    {
+      titolo: 'ANALISI DOCUMENTALE',
+      sezioni: [
+        'Adempimenti Formali',
+        'Documento di Valutazione del Rischio',
+        "Gestione dell'Emergenza",
+        'Attività di Formazione',
+        'Documentazione Procedurale'
+      ]
+    },
+    {
+      titolo: 'SOPRALLUOGO AMBIENTI DI LAVORO',
+      sezioni: [
+        'Antincendio / Mezzi di Emergenza e Cartellonistica',
+        'Vie di Esodo',
+        'Locali di Lavoro / Struttura',
+        'Macchine / Attrezzature'
+      ]
+    }
+  ];
+
+  const LEGENDA = 'C = Conforme;   P.C = Parzialmente conforme;   N.C = Non conforme;   N.P = Non pertinente';
 
   function blobADataURL(blob) {
     return new Promise((resolve, reject) => {
@@ -23,10 +54,16 @@ const pdf = (() => {
     return blobADataURL(blob);
   }
 
-  async function ottieniLogoDataURL(azienda) {
+  /** Logo del punto vendita/cliente (da Impostazioni). Nessun fallback: se assente, l'intestazione mostra solo il logo Colligo. */
+  async function ottieniLogoPuntoVendita(azienda) {
     if (azienda && azienda.logo instanceof Blob) {
       return blobADataURL(azienda.logo);
     }
+    return null;
+  }
+
+  /** Logo fisso di Colligo Ingegneria (assets/logo.png), sempre presente in intestazione. */
+  async function ottieniLogoColligo() {
     return caricaImmagineComeDataURL('assets/logo.png');
   }
 
@@ -53,64 +90,49 @@ const pdf = (() => {
     return y;
   }
 
-  function disegnaIntestazione(doc, logoDataURL, azienda, checklist) {
-    doc.addImage(logoDataURL, 'PNG', MARGINE, MARGINE, 20, 20);
+  /** Intestazione con doppio logo affiancato (punto vendita a sinistra, Colligo Ingegneria a destra) e titolo checklist. */
+  function disegnaIntestazione(doc, logoPuntoVenditaURL, logoColligoURL, checklist) {
+    const DIM_LOGO = 22;
 
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'bold');
-    doc.text(azienda.nome || 'Safety Checklist', MARGINE + 25, MARGINE + 8);
-
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    if (azienda.indirizzo) {
-      doc.text(azienda.indirizzo, MARGINE + 25, MARGINE + 14);
+    if (logoPuntoVenditaURL) {
+      doc.addImage(logoPuntoVenditaURL, 'PNG', MARGINE, MARGINE, DIM_LOGO, DIM_LOGO);
     }
+    doc.addImage(logoColligoURL, 'PNG', LARGHEZZA_PAGINA - MARGINE - DIM_LOGO, MARGINE, DIM_LOGO, DIM_LOGO);
 
-    doc.setFontSize(16);
+    doc.setFontSize(15);
     doc.setFont(undefined, 'bold');
-    doc.text(`Report Sopralluogo – ${checklist.titolo}`, MARGINE, MARGINE + 32);
+    doc.text(checklist.titolo, LARGHEZZA_PAGINA / 2, MARGINE + DIM_LOGO / 2 + 3, { align: 'center' });
     doc.setFont(undefined, 'normal');
 
-    return MARGINE + 40;
+    return MARGINE + DIM_LOGO + 8;
   }
 
-  /**
-   * Tabella con i dati generali del sopralluogo. NOTA: layout provvisorio (tabella semplice
-   * disegnata a mano) in attesa della specifica esatta del layout richiesto (autotable, colori,
-   * disposizione punto 6 non ancora ricevuta per intero).
-   */
-  function disegnaTabellaSopralluogo(doc, sopralluogo, y) {
-    const LARGHEZZA_ETICHETTA = 65;
-    const LARGHEZZA_VALORE = LARGHEZZA_PAGINA - MARGINE * 2 - LARGHEZZA_ETICHETTA;
-    const ALTEZZA_RIGA = 8;
+  /** Tabella "DATI GENERALI": titolo su sfondo arancione, righe con bordi neri. */
+  function disegnaTabellaDatiGenerali(doc, sopralluogo, y) {
+    const puntoVendita = `${sopralluogo.punto_vendita || ''}\n${sopralluogo.indirizzo_punto_vendita || ''}`;
 
-    const righe = [
-      ['Punto vendita', sopralluogo.punto_vendita || ''],
-      ['Indirizzo punto vendita', sopralluogo.indirizzo_punto_vendita || ''],
-      ['Numero di dipendenti in forza', sopralluogo.numero_dipendenti || ''],
+    const corpo = [
+      ['Punto vendita', puntoVendita],
+      ['Numero di dipendenti in forza al momento del sopralluogo', String(sopralluogo.numero_dipendenti || '')],
       ['Tecnico che ha eseguito il sopralluogo', sopralluogo.tecnico || ''],
       ['Data del sopralluogo', formattaDataSemplice(sopralluogo.data_sopralluogo)],
       ['Responsabile del punto vendita', sopralluogo.responsabile_punto_vendita || ''],
-      ['Presenza del responsabile del punto vendita?', sopralluogo.presenza_responsabile || ''],
-      ["Presenza dell'R.L.S.?", sopralluogo.presenza_rls || '']
+      ['Sopralluogo alla presenza del responsabile del punto vendita', sopralluogo.presenza_responsabile || ''],
+      ["Sopralluogo alla presenza dell'R.L.S.", sopralluogo.presenza_rls || '']
     ];
 
-    doc.setFontSize(10);
-    righe.forEach(([etichetta, valore]) => {
-      y = nuovaRigaSeNecessario(doc, y, ALTEZZA_RIGA);
-
-      doc.setFont(undefined, 'bold');
-      doc.rect(MARGINE, y, LARGHEZZA_ETICHETTA, ALTEZZA_RIGA);
-      doc.text(etichetta, MARGINE + 2, y + 5.5);
-
-      doc.setFont(undefined, 'normal');
-      doc.rect(MARGINE + LARGHEZZA_ETICHETTA, y, LARGHEZZA_VALORE, ALTEZZA_RIGA);
-      doc.text(String(valore), MARGINE + LARGHEZZA_ETICHETTA + 2, y + 5.5);
-
-      y += ALTEZZA_RIGA;
+    doc.autoTable({
+      startY: y,
+      margin: { left: MARGINE, right: MARGINE },
+      head: [[{ content: 'DATI GENERALI', colSpan: 2 }]],
+      body: corpo,
+      theme: 'grid',
+      styles: { lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: 9, cellPadding: 2, valign: 'middle', textColor: [0, 0, 0] },
+      headStyles: { fillColor: [250, 200, 120], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 11, halign: 'left' },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 65 }, 1: { cellWidth: 'auto' } }
     });
 
-    return y + 6;
+    return doc.lastAutoTable.finalY + 8;
   }
 
   function disegnaRiepilogoConteggi(doc, riepilogo, y) {
@@ -123,88 +145,142 @@ const pdf = (() => {
     const { conteggi, totale } = riepilogo;
     const testo = doc.splitTextToSize(
       `Totale domande: ${totale}   Conformi: ${conteggi.C}   Parz. conformi: ${conteggi.PC}   ` +
-      `Non conformi: ${conteggi.NC}   Non applicabili: ${conteggi.NA}`,
+      `Non conformi: ${conteggi.NC}   Non pertinenti: ${conteggi.NA}`,
       LARGHEZZA_PAGINA - MARGINE * 2
     );
     doc.text(testo, MARGINE, y);
     return y + testo.length * 5 + 6;
   }
 
-  function disegnaRisposte(doc, checklist, sopralluogo, y) {
-    doc.setFontSize(13);
+  /** Bandiera blu a piena larghezza con il titolo del macro-gruppo (ANALISI DOCUMENTALE / SOPRALLUOGO AMBIENTI DI LAVORO). */
+  function disegnaIntestazioneGruppo(doc, titolo, y) {
+    y = nuovaRigaSeNecessario(doc, y, 14);
+    doc.setFillColor(35, 65, 125);
+    doc.rect(MARGINE, y, LARGHEZZA_PAGINA - MARGINE * 2, 9, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
-    y = nuovaRigaSeNecessario(doc, y, 10);
-    doc.text('Risposte per sezione', MARGINE, y);
-    y += 8;
+    doc.text(titolo, MARGINE + 3, y + 6.2);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, 'normal');
+    return y + 9 + 5;
+  }
 
-    checklist.sezioni.forEach((sezione) => {
-      y = nuovaRigaSeNecessario(doc, y, 12);
-      doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
-      doc.text(sezione.titolo, MARGINE, y);
-      y += 6;
+  function segnoRisposta(valoreRisposta, colonna) {
+    return valoreRisposta === colonna ? 'X' : '';
+  }
 
-      sezione.domande.forEach((domanda) => {
-        const risposta = (sopralluogo.risposte || []).find((r) => r.domanda_id === domanda.id);
-        const valore = risposta ? risposta.risposta : '-';
+  /** Tabella di una singola sezione: Domanda, colonne di stato C/P.C/N.C/N.P, Note, e le colonne di follow-up (vuote). */
+  function disegnaTabellaSezione(doc, sezione, sopralluogo, y) {
+    y = nuovaRigaSeNecessario(doc, y, 16);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text(sezione.titolo, MARGINE, y);
+    doc.setFont(undefined, 'normal');
+    y += 5;
 
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
-        const righeDomanda = avvolgiTesto(doc, domanda.testo, LARGHEZZA_PAGINA - MARGINE * 2);
-        y = nuovaRigaSeNecessario(doc, y, righeDomanda.length * 5 + 7);
-        doc.text(righeDomanda, MARGINE, y);
-        y += righeDomanda.length * 5;
-
-        doc.setFont(undefined, 'bold');
-        doc.text(`Risposta: ${valore}`, MARGINE, y);
-        doc.setFont(undefined, 'normal');
-        y += 5;
-
-        if (risposta && risposta.note) {
-          doc.setFontSize(9);
-          const nota = doc.splitTextToSize(`Note: ${risposta.note}`, LARGHEZZA_PAGINA - MARGINE * 2 - 4);
-          y = nuovaRigaSeNecessario(doc, y, nota.length * 4.5 + 2);
-          doc.text(nota, MARGINE + 4, y);
-          y += nota.length * 4.5;
-        }
-      });
-      y += 4;
+    const corpo = sezione.domande.map((domanda) => {
+      const risposta = (sopralluogo.risposte || []).find((r) => r.domanda_id === domanda.id);
+      const valore = risposta ? risposta.risposta : '';
+      return [
+        domanda.testo,
+        segnoRisposta(valore, 'C'),
+        segnoRisposta(valore, 'PC'),
+        segnoRisposta(valore, 'NC'),
+        segnoRisposta(valore, 'NA'),
+        (risposta && risposta.note) || '',
+        '',
+        '',
+        ''
+      ];
     });
 
+    doc.autoTable({
+      startY: y,
+      margin: { left: MARGINE, right: MARGINE },
+      head: [['Domanda', 'C', 'P.C', 'N.C', 'N.P', 'Note', 'Risolto', 'Data', 'Mancata risoluzione']],
+      body: corpo,
+      theme: 'grid',
+      styles: { lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: 7.5, cellPadding: 1.5, valign: 'middle', textColor: [0, 0, 0] },
+      headStyles: { fillColor: [225, 225, 225], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', fontSize: 7.5 },
+      columnStyles: {
+        0: { cellWidth: 55 },
+        1: { cellWidth: 8, halign: 'center' },
+        2: { cellWidth: 8, halign: 'center' },
+        3: { cellWidth: 8, halign: 'center' },
+        4: { cellWidth: 8, halign: 'center' },
+        5: { cellWidth: 35 },
+        6: { cellWidth: 12, halign: 'center' },
+        7: { cellWidth: 15, halign: 'center' },
+        8: { cellWidth: 21 }
+      }
+    });
+
+    return doc.lastAutoTable.finalY + 4;
+  }
+
+  /**
+   * Disegna tutti i macro-gruppi di sezioni (con relative tabelle). Eventuali sezioni della
+   * checklist non incluse in nessun gruppo vengono comunque stampate sotto "ALTRE SEZIONI",
+   * per non perdere silenziosamente dati non previsti dalla mappatura.
+   */
+  function disegnaGruppiSezioni(doc, checklist, sopralluogo, y) {
+    const titoliMappati = GRUPPI_SEZIONI.flatMap((g) => g.sezioni);
+
+    GRUPPI_SEZIONI.forEach((gruppo) => {
+      const sezioniGruppo = checklist.sezioni.filter((s) => gruppo.sezioni.includes(s.titolo));
+      if (!sezioniGruppo.length) {
+        return;
+      }
+      y = disegnaIntestazioneGruppo(doc, gruppo.titolo, y);
+      sezioniGruppo.forEach((sezione) => {
+        y = disegnaTabellaSezione(doc, sezione, sopralluogo, y);
+      });
+    });
+
+    const sezioniNonMappate = checklist.sezioni.filter((s) => !titoliMappati.includes(s.titolo));
+    if (sezioniNonMappate.length) {
+      y = disegnaIntestazioneGruppo(doc, 'ALTRE SEZIONI', y);
+      sezioniNonMappate.forEach((sezione) => {
+        y = disegnaTabellaSezione(doc, sezione, sopralluogo, y);
+      });
+    }
+
     return y;
   }
 
-  function disegnaNonConformita(doc, nonConformita, y) {
-    if (!nonConformita.length) {
-      return y;
-    }
-
-    y = nuovaRigaSeNecessario(doc, y, 12);
-    doc.setFontSize(13);
-    doc.setFont(undefined, 'bold');
-    doc.text('Non Conformità rilevate', MARGINE, y);
-    y += 8;
-
-    for (const nc of nonConformita) {
-      y = nuovaRigaSeNecessario(doc, y, 14);
-      doc.setFontSize(11);
-      doc.setFont(undefined, 'bold');
-      const intestazione = avvolgiTesto(doc, `${nc.sezione} – ${nc.testo}`, LARGHEZZA_PAGINA - MARGINE * 2);
-      doc.text(intestazione, MARGINE, y);
-      y += intestazione.length * 5;
-
-      doc.setFontSize(10);
+  /** Legenda dei codici di stato, ripetuta a fondo pagina su ogni pagina del PDF. */
+  function aggiungiLegendaSuOgniPagina(doc) {
+    const numeroPagine = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= numeroPagine; i += 1) {
+      doc.setPage(i);
+      doc.setFontSize(7.5);
+      doc.setFont(undefined, 'italic');
+      doc.text(LEGENDA, MARGINE, ALTEZZA_PAGINA - 8);
       doc.setFont(undefined, 'normal');
-      const note = avvolgiTesto(doc, nc.note, LARGHEZZA_PAGINA - MARGINE * 2);
-      y = nuovaRigaSeNecessario(doc, y, note.length * 5 + 2);
-      doc.text(note, MARGINE, y);
-      y += note.length * 5 + 4;
     }
-
-    return y;
   }
 
-  /** Raccoglie tutte le foto (di qualsiasi domanda, non solo NC) con didascalia per la pagina Allegati. */
+  /** Pagina dedicata "ALTRI ASPETTI DA EVIDENZIARE" (facoltativa, compilata dopo l'ultima domanda). */
+  function disegnaAltriAspetti(doc, sopralluogo) {
+    if (!sopralluogo.altri_aspetti) {
+      return;
+    }
+
+    doc.addPage();
+    let y = MARGINE;
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('ALTRI ASPETTI DA EVIDENZIARE', MARGINE, y);
+    doc.setFont(undefined, 'normal');
+    y += 10;
+
+    doc.setFontSize(10);
+    const righe = avvolgiTesto(doc, sopralluogo.altri_aspetti, LARGHEZZA_PAGINA - MARGINE * 2);
+    doc.text(righe, MARGINE, y);
+  }
+
+  /** Raccoglie tutte le foto (di qualsiasi domanda) con didascalia per la pagina Allegati. */
   function raccogliFotoConDidascalia(checklist, sopralluogo) {
     const domandeComplete = [];
     checklist.sezioni.forEach((sezione) => {
@@ -232,17 +308,14 @@ const pdf = (() => {
     return elenco;
   }
 
-  /**
-   * Pagina "ALLEGATI": tutte le foto scattate durante il sopralluogo, in griglia con didascalia.
-   * Ritorna la y aggiornata (sulla nuova pagina), o la `y` originale invariata se non ci sono foto.
-   */
-  async function disegnaPaginaAllegati(doc, elencoFoto, y) {
+  /** Pagina "ALLEGATI": tutte le foto scattate durante il sopralluogo, in griglia con didascalia. */
+  async function disegnaPaginaAllegati(doc, elencoFoto) {
     if (!elencoFoto.length) {
-      return y;
+      return;
     }
 
     doc.addPage();
-    y = MARGINE;
+    let y = MARGINE;
     doc.setFontSize(14);
     doc.setFont(undefined, 'bold');
     doc.text('ALLEGATI', MARGINE, y);
@@ -266,7 +339,7 @@ const pdf = (() => {
       if (colonna === 0) {
         const yPrima = y;
         y = nuovaRigaSeNecessario(doc, y, ALTEZZA_CELLA + GAP);
-        if (y !== yPrima && y === MARGINE) {
+        if (y !== yPrima) {
           doc.setFontSize(14);
           doc.setFont(undefined, 'bold');
           doc.text('ALLEGATI (segue)', MARGINE, y);
@@ -293,33 +366,10 @@ const pdf = (() => {
         y += ALTEZZA_CELLA + GAP;
       }
     }
-
-    return colonna === 0 ? y : y + ALTEZZA_CELLA + GAP;
-  }
-
-  /** Sezione "Altri aspetti da evidenziare" (facoltativa, compilata dopo l'ultima domanda). */
-  function disegnaAltriAspetti(doc, sopralluogo, y) {
-    if (!sopralluogo.altri_aspetti) {
-      return y;
-    }
-
-    y = nuovaRigaSeNecessario(doc, y, 12);
-    doc.setFontSize(13);
-    doc.setFont(undefined, 'bold');
-    doc.text('Altri aspetti da evidenziare', MARGINE, y);
-    y += 8;
-
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    const righe = avvolgiTesto(doc, sopralluogo.altri_aspetti, LARGHEZZA_PAGINA - MARGINE * 2);
-    y = nuovaRigaSeNecessario(doc, y, righe.length * 5 + 2);
-    doc.text(righe, MARGINE, y);
-    return y + righe.length * 5 + 6;
   }
 
   /** Disegna una singola firma (etichetta + immagine) e ritorna la y aggiornata. */
   function disegnaSingolaFirma(doc, etichetta, firmaDataURL, y) {
-    y = nuovaRigaSeNecessario(doc, y, 45);
     doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
     doc.text(etichetta, MARGINE, y);
@@ -332,14 +382,67 @@ const pdf = (() => {
       y += 6;
     }
 
-    return y + 6;
+    return y + 10;
   }
 
-  /** Le due firme richieste dal documento: Colligo Ingegneria e referente per la ricevuta. */
-  function disegnaFirme(doc, sopralluogo, y) {
+  /** Pagina dedicata alle due firme richieste: Colligo Ingegneria e referente per la ricevuta. */
+  function disegnaFirme(doc, sopralluogo) {
+    doc.addPage();
+    let y = MARGINE;
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('FIRME', MARGINE, y);
+    doc.setFont(undefined, 'normal');
+    y += 12;
+
     y = disegnaSingolaFirma(doc, 'Firma Colligo Ingegneria S.r.l.', sopralluogo.firma_colligo, y);
-    y = disegnaSingolaFirma(doc, 'Firma referente per la ricevuta', sopralluogo.firma_referente, y);
-    return y;
+    disegnaSingolaFirma(doc, 'Firma referente per la ricevuta', sopralluogo.firma_referente, y);
+  }
+
+  /**
+   * Report segnaposto per checklist "stile": "raccolta-dati" (tipi di domanda eterogenei non
+   * ancora supportati dal motore di compilazione né da un layout dedicato). Elenca semplicemente
+   * id/testo domanda e l'eventuale nota salvata, così il PDF resta generabile senza errori.
+   */
+  function disegnaReportRaccoltaDati(doc, checklist, sopralluogo) {
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text(checklist.titolo, MARGINE, MARGINE + 5);
+    doc.setFont(undefined, 'normal');
+
+    doc.setFontSize(10);
+    let y = MARGINE + 16;
+    doc.text(
+      'Layout dedicato non ancora disponibile per questo tipo di checklist (dati grezzi qui sotto).',
+      MARGINE,
+      y
+    );
+    y += 10;
+
+    checklist.sezioni.forEach((sezione) => {
+      y = nuovaRigaSeNecessario(doc, y, 12);
+      doc.setFontSize(11);
+      doc.setFont(undefined, 'bold');
+      doc.text(sezione.titolo, MARGINE, y);
+      doc.setFont(undefined, 'normal');
+      y += 6;
+
+      sezione.domande.forEach((domanda) => {
+        const risposta = (sopralluogo.risposte || []).find((r) => r.domanda_id === domanda.id);
+        doc.setFontSize(9);
+        const riga = avvolgiTesto(
+          doc,
+          `${domanda.testo} — ${risposta ? (risposta.note || JSON.stringify(risposta)) : '(non compilata)'}`,
+          LARGHEZZA_PAGINA - MARGINE * 2
+        );
+        y = nuovaRigaSeNecessario(doc, y, riga.length * 4.5 + 2);
+        doc.text(riga, MARGINE, y);
+        y += riga.length * 4.5;
+      });
+      y += 4;
+    });
+
+    return doc.output('blob');
   }
 
   /**
@@ -351,21 +454,28 @@ const pdf = (() => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
+    if (checklist.stile === 'raccolta-dati') {
+      return disegnaReportRaccoltaDati(doc, checklist, sopralluogo);
+    }
+
     const azienda = (await db.leggiImpostazione('azienda')) || {};
-    const logoDataURL = await ottieniLogoDataURL(azienda);
+    const logoPuntoVenditaURL = await ottieniLogoPuntoVendita(azienda);
+    const logoColligoURL = await ottieniLogoColligo();
     const riepilogo = checklistEngine.calcolaRiepilogo(checklist, sopralluogo);
 
-    let y = disegnaIntestazione(doc, logoDataURL, azienda, checklist);
-    y = disegnaTabellaSopralluogo(doc, sopralluogo, y);
+    let y = disegnaIntestazione(doc, logoPuntoVenditaURL, logoColligoURL, checklist);
+    y = disegnaTabellaDatiGenerali(doc, sopralluogo, y);
     y = disegnaRiepilogoConteggi(doc, riepilogo, y);
-    y = disegnaRisposte(doc, checklist, sopralluogo, y);
-    y = disegnaNonConformita(doc, riepilogo.nonConformita, y);
-    y = disegnaAltriAspetti(doc, sopralluogo, y);
+    disegnaGruppiSezioni(doc, checklist, sopralluogo, y);
+
+    disegnaAltriAspetti(doc, sopralluogo);
 
     const fotoAllegati = raccogliFotoConDidascalia(checklist, sopralluogo);
-    y = await disegnaPaginaAllegati(doc, fotoAllegati, y);
+    await disegnaPaginaAllegati(doc, fotoAllegati);
 
-    disegnaFirme(doc, sopralluogo, y);
+    disegnaFirme(doc, sopralluogo);
+
+    aggiungiLegendaSuOgniPagina(doc);
 
     return doc.output('blob');
   }
