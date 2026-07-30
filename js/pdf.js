@@ -55,16 +55,33 @@ const pdf = (() => {
     return blobADataURL(blob);
   }
 
-  /** Logo del punto vendita/cliente (da Impostazioni). Nessun fallback: se assente, l'intestazione mostra solo il logo Colligo. */
-  async function ottieniLogoPuntoVendita(azienda) {
-    if (azienda && azienda.logo instanceof Blob) {
-      return blobADataURL(azienda.logo);
+  /** Associazione nome cliente (riconosciuto nel Punto vendita) -> chiave del logo in Impostazioni. */
+  const CHIAVE_LOGO_PER_CLIENTE = [
+    { corrispondenza: 'coin', chiave: 'logo_cliente:coin' },
+    { corrispondenza: 'interparking', chiave: 'logo_cliente:interparking' }
+  ];
+
+  /**
+   * Logo del cliente corrispondente al punto vendita del sopralluogo (match case-insensitive
+   * su "coin"/"interparking"). Nessun fallback: se il cliente non è riconosciuto o non ha un
+   * logo caricato in Impostazioni, ritorna null (l'intestazione non mostra nulla a destra).
+   */
+  async function ottieniLogoCliente(puntoVendita) {
+    const nome = String(puntoVendita || '').toLowerCase();
+    const voce = CHIAVE_LOGO_PER_CLIENTE.find((c) => nome.includes(c.corrispondenza));
+    if (!voce) {
+      return null;
     }
-    return null;
+    const blob = await db.leggiImpostazione(voce.chiave);
+    return blob instanceof Blob ? blobADataURL(blob) : null;
   }
 
-  /** Logo fisso di Colligo Ingegneria (assets/logo.png), sempre presente in intestazione. */
+  /** Logo fisso di Colligo Ingegneria: quello caricato in Impostazioni, altrimenti assets/logo.png. */
   async function ottieniLogoColligo() {
+    const blob = await db.leggiImpostazione('logo_colligo');
+    if (blob instanceof Blob) {
+      return blobADataURL(blob);
+    }
     return caricaImmagineComeDataURL('assets/logo.png');
   }
 
@@ -91,13 +108,13 @@ const pdf = (() => {
     return y;
   }
 
-  /** Intestazione con doppio logo affiancato (Colligo Ingegneria a sinistra, punto vendita a destra) e titolo checklist. */
-  function disegnaIntestazione(doc, logoPuntoVenditaURL, logoColligoURL, checklist) {
+  /** Intestazione con doppio logo affiancato (Colligo Ingegneria a sinistra, cliente a destra) e titolo checklist. */
+  function disegnaIntestazione(doc, logoClienteURL, logoColligoURL, checklist) {
     const DIM_LOGO = 22;
 
     doc.addImage(logoColligoURL, 'PNG', MARGINE, MARGINE, DIM_LOGO, DIM_LOGO);
-    if (logoPuntoVenditaURL) {
-      doc.addImage(logoPuntoVenditaURL, 'PNG', LARGHEZZA_PAGINA - MARGINE - DIM_LOGO, MARGINE, DIM_LOGO, DIM_LOGO);
+    if (logoClienteURL) {
+      doc.addImage(logoClienteURL, 'PNG', LARGHEZZA_PAGINA - MARGINE - DIM_LOGO, MARGINE, DIM_LOGO, DIM_LOGO);
     }
 
     doc.setFontSize(15);
@@ -458,11 +475,10 @@ const pdf = (() => {
       return disegnaReportRaccoltaDati(doc, checklist, sopralluogo);
     }
 
-    const azienda = (await db.leggiImpostazione('azienda')) || {};
-    const logoPuntoVenditaURL = await ottieniLogoPuntoVendita(azienda);
     const logoColligoURL = await ottieniLogoColligo();
+    const logoClienteURL = await ottieniLogoCliente(sopralluogo.punto_vendita);
 
-    let y = disegnaIntestazione(doc, logoPuntoVenditaURL, logoColligoURL, checklist);
+    let y = disegnaIntestazione(doc, logoClienteURL, logoColligoURL, checklist);
     y = disegnaTabellaDatiGenerali(doc, sopralluogo, y);
     disegnaGruppiSezioni(doc, checklist, sopralluogo, y);
 

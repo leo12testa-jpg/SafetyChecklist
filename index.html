@@ -163,20 +163,25 @@
         <button type="button" class="btn-back" data-nav="home">← Indietro</button>
         <h2>Impostazioni</h2>
 
-        <h3>Dati azienda</h3>
-        <form id="form-impostazioni">
-          <label class="campo-form" for="azienda-nome">Nome azienda
-            <input type="text" id="azienda-nome">
+        <h3>Loghi cliente</h3>
+        <form id="form-loghi">
+          <label class="campo-form" for="logo-colligo-input">Logo Colligo Ingegneria
+            <input type="file" accept="image/*" id="logo-colligo-input">
           </label>
-          <label class="campo-form" for="azienda-indirizzo">Indirizzo
-            <input type="text" id="azienda-indirizzo">
+          <img id="logo-colligo-anteprima" class="logo-anteprima" alt="Anteprima logo Colligo Ingegneria" hidden>
+
+          <label class="campo-form" for="logo-coin-input">Logo Coin
+            <input type="file" accept="image/*" id="logo-coin-input">
           </label>
-          <label class="campo-form" for="azienda-logo-input">Logo
-            <input type="file" accept="image/*" id="azienda-logo-input">
+          <img id="logo-coin-anteprima" class="logo-anteprima" alt="Anteprima logo Coin" hidden>
+
+          <label class="campo-form" for="logo-interparking-input">Logo Interparking
+            <input type="file" accept="image/*" id="logo-interparking-input">
           </label>
-          <img id="azienda-logo-anteprima" class="logo-anteprima" alt="Anteprima logo" hidden>
-          <button type="submit" class="btn btn-primary">Salva</button>
-          <p class="salvataggio-ok" id="impostazioni-salvato" hidden>Impostazioni salvate ✔</p>
+          <img id="logo-interparking-anteprima" class="logo-anteprima" alt="Anteprima logo Interparking" hidden>
+
+          <button type="submit" class="btn btn-primary">Salva loghi</button>
+          <p class="salvataggio-ok" id="loghi-salvato" hidden>Loghi salvati ✔</p>
         </form>
 
         <h3>Checklist disponibili</h3>

@@ -802,25 +802,28 @@ const storicoScreen = (() => {
 })();
 
 /**
- * Schermata Impostazioni: dati azienda (nome, indirizzo, logo) usati nell'intestazione del PDF,
- * ed elenco in sola lettura delle checklist disponibili (PROJECT.md §7.9).
+ * Schermata Impostazioni: loghi (Colligo Ingegneria + un logo per cliente) usati
+ * nell'intestazione del PDF, ed elenco in sola lettura delle checklist disponibili (PROJECT.md §7.9).
  */
 const impostazioniScreen = (() => {
-  const form = document.getElementById('form-impostazioni');
-  const nomeInput = document.getElementById('azienda-nome');
-  const indirizzoInput = document.getElementById('azienda-indirizzo');
-  const logoInput = document.getElementById('azienda-logo-input');
-  const logoAnteprima = document.getElementById('azienda-logo-anteprima');
-  const salvatoMsg = document.getElementById('impostazioni-salvato');
+  const form = document.getElementById('form-loghi');
+  const salvatoMsg = document.getElementById('loghi-salvato');
   const listaChecklist = document.getElementById('lista-checklist-disponibili');
 
-  function mostraAnteprimaLogo(logo) {
-    if (!(logo instanceof Blob)) {
-      logoAnteprima.hidden = true;
+  /** Una voce per logo: chiave di salvataggio in db.js, input file, immagine di anteprima. */
+  const LOGHI = [
+    { chiave: 'logo_colligo', input: document.getElementById('logo-colligo-input'), anteprima: document.getElementById('logo-colligo-anteprima') },
+    { chiave: 'logo_cliente:coin', input: document.getElementById('logo-coin-input'), anteprima: document.getElementById('logo-coin-anteprima') },
+    { chiave: 'logo_cliente:interparking', input: document.getElementById('logo-interparking-input'), anteprima: document.getElementById('logo-interparking-anteprima') }
+  ];
+
+  function mostraAnteprima(imgEl, blob) {
+    if (!(blob instanceof Blob)) {
+      imgEl.hidden = true;
       return;
     }
-    logoAnteprima.src = URL.createObjectURL(logo);
-    logoAnteprima.hidden = false;
+    imgEl.src = URL.createObjectURL(blob);
+    imgEl.hidden = false;
   }
 
   async function popolaChecklistDisponibili() {
@@ -838,10 +841,10 @@ const impostazioniScreen = (() => {
     salvatoMsg.hidden = true;
     form.reset();
 
-    const azienda = (await db.leggiImpostazione('azienda')) || {};
-    nomeInput.value = azienda.nome || '';
-    indirizzoInput.value = azienda.indirizzo || '';
-    mostraAnteprimaLogo(azienda.logo);
+    await Promise.all(LOGHI.map(async ({ chiave, anteprima }) => {
+      const blob = await db.leggiImpostazione(chiave);
+      mostraAnteprima(anteprima, blob);
+    }));
 
     await popolaChecklistDisponibili();
   }
@@ -849,17 +852,16 @@ const impostazioniScreen = (() => {
   async function onSubmit(event) {
     event.preventDefault();
 
-    const esistente = (await db.leggiImpostazione('azienda')) || {};
-    const nuovoFile = logoInput.files[0];
-    const azienda = {
-      nome: nomeInput.value.trim(),
-      indirizzo: indirizzoInput.value.trim(),
-      logo: nuovoFile || esistente.logo || null
-    };
+    for (const { chiave, input, anteprima } of LOGHI) {
+      const nuovoFile = input.files[0];
+      if (!nuovoFile) {
+        continue;
+      }
+      await db.salvaImpostazione(chiave, nuovoFile);
+      mostraAnteprima(anteprima, nuovoFile);
+    }
 
-    await db.salvaImpostazione('azienda', azienda);
-    mostraAnteprimaLogo(azienda.logo);
-    logoInput.value = '';
+    form.reset();
     salvatoMsg.hidden = false;
   }
 
