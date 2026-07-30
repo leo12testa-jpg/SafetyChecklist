@@ -91,9 +91,7 @@ const db = (() => {
       data: new Date().toISOString(),
       stato: 'in corso',
       risposte: [],
-      altri_aspetti: null,
-      firma_colligo: null,
-      firma_referente: null
+      altri_aspetti: null
     };
     await richiesta(store.add(sopralluogo));
     return sopralluogo;

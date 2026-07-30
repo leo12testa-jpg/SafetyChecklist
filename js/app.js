@@ -612,13 +612,33 @@ const altriAspettiScreen = (() => {
  * Schermata di Riepilogo: conteggi per stato ed elenco delle Non Conformità rilevate,
  * per revisione rapida prima della firma (PROJECT.md §7.5).
  */
+/**
+ * Schermata di Riepilogo (PROJECT.md §7.5): conteggi per stato ed elenco delle Non Conformità,
+ * seguiti direttamente dalla generazione del PDF (nessuna firma nel flusso), salvataggio/
+ * condivisione e passaggio del sopralluogo a "completato".
+ */
 const riepilogoScreen = (() => {
   const listaConteggi = document.getElementById('riepilogo-conteggi');
   const listaNC = document.getElementById('riepilogo-nc-lista');
   const ncContainer = document.getElementById('riepilogo-nc-container');
-  const btnVaiFirma = document.getElementById('btn-vai-firma');
+  const pdfEsito = document.getElementById('pdf-esito');
+  const btnGeneraPdf = document.getElementById('btn-genera-pdf');
+  const btnSalvaCondividi = document.getElementById('btn-salva-condividi');
+  const erroreEl = document.getElementById('riepilogo-errore');
 
   const ETICHETTE = { C: '✔ Conformi', PC: '⚠ Parz. conformi', NC: '✘ Non conformi', NA: '– Non applicabili' };
+
+  let pdfBlob = null;
+  let pdfFilename = null;
+
+  function mostraErrore(messaggio) {
+    erroreEl.textContent = messaggio;
+    erroreEl.hidden = false;
+  }
+
+  function nascondiErrore() {
+    erroreEl.hidden = true;
+  }
 
   /** Ricalcola e mostra i conteggi e l'elenco NC del sopralluogo in compilazione. */
   function render() {
@@ -649,149 +669,12 @@ const riepilogoScreen = (() => {
       el.appendChild(document.createTextNode(nc.note || ''));
       listaNC.appendChild(el);
     });
-  }
 
-  function onVaiFirma() {
-    router.navigate('firma');
-    firmaScreen.prepara();
-  }
-
-  function init() {
-    btnVaiFirma.addEventListener('click', onVaiFirma);
-  }
-
-  return { init, render };
-})();
-
-/**
- * Incapsula il disegno su un singolo canvas di firma (Pointer Events, HiDPI). Usata due volte
- * dalla schermata di Firma: una per Colligo Ingegneria, una per il referente.
- */
-function creaPadFirma(canvas) {
-  const ctx = canvas.getContext('2d');
-  let disegnando = false;
-
-  function ridimensiona() {
-    const rapporto = window.devicePixelRatio || 1;
-    canvas.width = canvas.clientWidth * rapporto;
-    canvas.height = canvas.clientHeight * rapporto;
-    ctx.scale(rapporto, rapporto);
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#1a1a1a';
-  }
-
-  function posizione(event) {
-    const rect = canvas.getBoundingClientRect();
-    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
-  }
-
-  function onPointerDown(event) {
-    disegnando = true;
-    const { x, y } = posizione(event);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-  }
-
-  function onPointerMove(event) {
-    if (!disegnando) {
-      return;
-    }
-    const { x, y } = posizione(event);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  }
-
-  function onPointerUp() {
-    disegnando = false;
-  }
-
-  function cancella() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-  }
-
-  function vuoto() {
-    const bianco = document.createElement('canvas');
-    bianco.width = canvas.width;
-    bianco.height = canvas.height;
-    return canvas.toDataURL() === bianco.toDataURL();
-  }
-
-  function dataURL() {
-    return canvas.toDataURL('image/png');
-  }
-
-  canvas.addEventListener('pointerdown', onPointerDown);
-  canvas.addEventListener('pointermove', onPointerMove);
-  window.addEventListener('pointerup', onPointerUp);
-
-  return { ridimensiona, cancella, vuoto, dataURL };
-}
-
-/**
- * Schermata di Firma e generazione PDF (PROJECT.md §7.6, §7.7): due firme in sequenza
- * (Colligo Ingegneria, poi referente), entrambe obbligatorie prima di poter generare il PDF;
- * generazione del report con pdf.js, salvataggio/condivisione e passaggio a "completato".
- */
-const firmaScreen = (() => {
-  const padColligo = creaPadFirma(document.getElementById('firma-canvas-colligo'));
-  const padReferente = creaPadFirma(document.getElementById('firma-canvas-referente'));
-
-  const areaColligo = document.getElementById('firma-area-colligo');
-  const areaReferente = document.getElementById('firma-area-referente');
-  const btnCancellaColligo = document.getElementById('btn-firma-cancella-colligo');
-  const btnConfermaColligo = document.getElementById('btn-firma-conferma-colligo');
-  const btnCancellaReferente = document.getElementById('btn-firma-cancella-referente');
-  const btnConfermaReferente = document.getElementById('btn-firma-conferma-referente');
-
-  const pdfArea = document.getElementById('pdf-area');
-  const pdfEsito = document.getElementById('pdf-esito');
-  const btnGeneraPdf = document.getElementById('btn-genera-pdf');
-  const btnSalvaCondividi = document.getElementById('btn-salva-condividi');
-  const erroreEl = document.getElementById('firma-errore');
-
-  let pdfBlob = null;
-  let pdfFilename = null;
-
-  function mostraErrore(messaggio) {
-    erroreEl.textContent = messaggio;
-    erroreEl.hidden = false;
-  }
-
-  function nascondiErrore() {
-    erroreEl.hidden = true;
-  }
-
-  async function onConfermaColligo() {
-    if (padColligo.vuoto()) {
-      mostraErrore('Disegna la firma prima di confermare.');
-      return;
-    }
-    nascondiErrore();
-
-    const sopralluogo = checklistEngine.sopralluogoCorrente();
-    await db.aggiornaSopralluogo(sopralluogo.id, { firma_colligo: padColligo.dataURL() });
-
-    areaColligo.hidden = true;
-    areaReferente.hidden = false;
-    padReferente.ridimensiona();
-    padReferente.cancella();
-  }
-
-  async function onConfermaReferente() {
-    if (padReferente.vuoto()) {
-      mostraErrore('Disegna la firma prima di confermare.');
-      return;
-    }
-    nascondiErrore();
-
-    const sopralluogo = checklistEngine.sopralluogoCorrente();
-    await db.aggiornaSopralluogo(sopralluogo.id, { firma_referente: padReferente.dataURL() });
-
-    areaReferente.hidden = true;
-    pdfArea.hidden = false;
     pdfEsito.hidden = true;
     pdfBlob = null;
+    btnGeneraPdf.disabled = false;
+    btnGeneraPdf.textContent = 'Genera PDF';
+    nascondiErrore();
   }
 
   async function onGeneraPdf() {
@@ -832,28 +715,12 @@ const firmaScreen = (() => {
     }
   }
 
-  /** Ripristina la schermata allo stato iniziale (prima firma, canvas vuoti) ogni volta che si entra. */
-  function prepara() {
-    areaColligo.hidden = false;
-    areaReferente.hidden = true;
-    pdfArea.hidden = true;
-    pdfEsito.hidden = true;
-    pdfBlob = null;
-    nascondiErrore();
-    padColligo.ridimensiona();
-    padColligo.cancella();
-  }
-
   function init() {
-    btnCancellaColligo.addEventListener('click', padColligo.cancella);
-    btnConfermaColligo.addEventListener('click', onConfermaColligo);
-    btnCancellaReferente.addEventListener('click', padReferente.cancella);
-    btnConfermaReferente.addEventListener('click', onConfermaReferente);
     btnGeneraPdf.addEventListener('click', onGeneraPdf);
     btnSalvaCondividi.addEventListener('click', onSalvaCondividi);
   }
 
-  return { init, prepara };
+  return { init, render };
 })();
 
 /**
@@ -1008,7 +875,6 @@ document.addEventListener('DOMContentLoaded', () => {
   compilazioneScreen.init();
   altriAspettiScreen.init();
   riepilogoScreen.init();
-  firmaScreen.init();
   storicoScreen.init();
   impostazioniScreen.init();
 });

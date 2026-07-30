@@ -139,32 +139,7 @@
           <ul class="riepilogo-nc-lista" id="riepilogo-nc-lista"></ul>
         </div>
 
-        <button type="button" class="btn btn-primary" id="btn-vai-firma">Firma</button>
-      </section>
-
-      <section id="screen-firma" class="screen" data-screen="firma" hidden>
-        <button type="button" class="btn-back" data-nav="home">← Home</button>
-        <h2>Firma il sopralluogo</h2>
-
-        <div id="firma-area-colligo">
-          <h3>Firma Colligo Ingegneria S.r.l.</h3>
-          <canvas id="firma-canvas-colligo" class="firma-canvas"></canvas>
-          <div class="navigazione-domande">
-            <button type="button" class="btn" id="btn-firma-cancella-colligo">Cancella</button>
-            <button type="button" class="btn btn-primary" id="btn-firma-conferma-colligo">Conferma firma</button>
-          </div>
-        </div>
-
-        <div id="firma-area-referente" hidden>
-          <h3>Firma referente per la ricevuta</h3>
-          <canvas id="firma-canvas-referente" class="firma-canvas"></canvas>
-          <div class="navigazione-domande">
-            <button type="button" class="btn" id="btn-firma-cancella-referente">Cancella</button>
-            <button type="button" class="btn btn-primary" id="btn-firma-conferma-referente">Conferma firma</button>
-          </div>
-        </div>
-
-        <div id="pdf-area" hidden>
+        <div id="pdf-area">
           <button type="button" class="btn btn-primary" id="btn-genera-pdf">Genera PDF</button>
 
           <div id="pdf-esito" hidden>
@@ -174,7 +149,7 @@
           </div>
         </div>
 
-        <p class="errore-validazione" id="firma-errore" hidden></p>
+        <p class="errore-validazione" id="riepilogo-errore" hidden></p>
       </section>
 
       <section id="screen-history" class="screen" data-screen="history" hidden>

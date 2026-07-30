@@ -2,13 +2,14 @@
  * Generazione del report PDF del sopralluogo con jsPDF + jsPDF-AutoTable, secondo il layout
  * del report reale del cliente: doppio logo, tabella DATI GENERALI, sezioni raggruppate in
  * ANALISI DOCUMENTALE / SOPRALLUOGO AMBIENTI DI LAVORO con tabelle a colonne C/P.C/N.C/N.P,
- * legenda a fondo pagina, pagina Altri aspetti, pagina Allegati con foto in griglia, firme finali.
+ * legenda a fondo pagina, pagina Altri aspetti, pagina Allegati con foto in griglia. Nessuna
+ * firma nel report: il sopralluogo passa a "completato" alla generazione del PDF stesso.
  *
  * NOTA: questo layout (gruppi, colonne, legenda) è disegnato per checklist "a stato" del tipo
- * C-PC-NC-NA (es. people_design). Checklist con "stile": "raccolta-dati" (es. aggiornamento_dvr_pem)
- * hanno domande con tipi eterogenei (si-no, numero, testo, checkbox-multi...) non ancora supportati
- * né dal motore di compilazione né da questo report: per queste, generaReport produce un report
- * minimale segnaposto (vedi disegnaReportRaccoltaDati) finché non sarà definito il layout dedicato.
+ * C-PC-NC-NA (es. people_design). Le checklist "stile": "raccolta-dati" (es. aggiornamento_dvr_pem),
+ * con domande di tipo eterogeneo (testo, numero, si-no, scelta-singola, checkbox-multi con
+ * sotto-campi, gruppo-testo), usano invece un report più semplice (vedi disegnaReportRaccoltaDati)
+ * con valori formattati in modo leggibile e la stessa pagina Allegati.
  */
 const pdf = (() => {
   const MARGINE = 15;
@@ -352,37 +353,6 @@ const pdf = (() => {
     }
   }
 
-  /** Disegna una singola firma (etichetta + immagine) e ritorna la y aggiornata. */
-  function disegnaSingolaFirma(doc, etichetta, firmaDataURL, y) {
-    doc.setFontSize(11);
-    doc.setFont(undefined, 'bold');
-    doc.text(etichetta, MARGINE, y);
-    y += 4;
-
-    if (firmaDataURL) {
-      doc.addImage(firmaDataURL, 'PNG', MARGINE, y, 60, 30);
-      y += 32;
-    } else {
-      y += 6;
-    }
-
-    return y + 10;
-  }
-
-  /** Pagina dedicata alle due firme richieste: Colligo Ingegneria e referente per la ricevuta. */
-  function disegnaFirme(doc, sopralluogo) {
-    doc.addPage();
-    let y = MARGINE;
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'bold');
-    doc.text('FIRME', MARGINE, y);
-    doc.setFont(undefined, 'normal');
-    y += 12;
-
-    y = disegnaSingolaFirma(doc, 'Firma Colligo Ingegneria S.r.l.', sopralluogo.firma_colligo, y);
-    disegnaSingolaFirma(doc, 'Firma referente per la ricevuta', sopralluogo.firma_referente, y);
-  }
-
   /**
    * Report segnaposto per checklist "stile": "raccolta-dati" (tipi di domanda eterogenei non
    * ancora supportati dal motore di compilazione né da un layout dedicato). Elenca id/testo
@@ -482,8 +452,6 @@ const pdf = (() => {
 
     const fotoAllegati = raccogliFotoConDidascalia(checklist, sopralluogo);
     await disegnaPaginaAllegati(doc, fotoAllegati);
-
-    disegnaFirme(doc, sopralluogo);
 
     aggiungiLegendaSuOgniPagina(doc);
 
