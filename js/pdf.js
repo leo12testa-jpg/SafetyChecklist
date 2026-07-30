@@ -50,23 +50,18 @@ const pdf = (() => {
   }
 
   /**
-   * Carica un'immagine da un URL locale (qualsiasi formato che il browser sa decodificare,
-   * es. webp/png/jpg) e la ridisegna su canvas per riconvertirla sempre in PNG: così jsPDF la
-   * incorpora in modo affidabile indipendentemente dal formato reale del file sorgente.
+   * Carica un'immagine locale come dataURL (fetch + blob), senza passare da <img>/canvas.
+   * jsPDF ha un proprio decoder immagine (supporta WEBP/PNG/JPEG in puro JS): passargli
+   * direttamente il dataURL evita di dipendere dal supporto WebP del browser/WebView del
+   * dispositivo, che può variare tra desktop e mobile.
    */
-  function caricaLogoComePNG(url) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        canvas.getContext('2d').drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      };
-      img.onerror = () => reject(new Error(`Impossibile caricare il logo: ${url}`));
-      img.src = url;
-    });
+  async function caricaLogo(url) {
+    const risposta = await fetch(url);
+    if (!risposta.ok) {
+      throw new Error(`Logo non trovato (HTTP ${risposta.status}): ${url}`);
+    }
+    const blob = await risposta.blob();
+    return blobADataURL(blob);
   }
 
   /** Associazione nome cliente (riconosciuto nel Punto vendita) -> file del logo fisso in assets/. */
@@ -78,17 +73,37 @@ const pdf = (() => {
   /**
    * Logo del cliente corrispondente al punto vendita del sopralluogo (match case-insensitive
    * su "coin"/"interparking"). Loghi fissi, bundled nell'app. Se il cliente non è riconosciuto,
-   * ritorna null (l'intestazione non mostra nulla a destra, nessun placeholder rotto).
+   * ritorna null (l'intestazione non mostra nulla a destra, nessun placeholder rotto). Se il
+   * file è previsto ma non si riesce a caricare, l'errore viene registrato esplicitamente in
+   * console (non fallisce silenziosamente) e il logo viene comunque omesso, senza far fallire
+   * l'intera generazione del PDF per un asset mancante.
    */
   async function ottieniLogoCliente(puntoVendita) {
     const nome = String(puntoVendita || '').toLowerCase();
     const voce = LOGO_CLIENTE_PER_NOME.find((c) => nome.includes(c.corrispondenza));
-    return voce ? caricaLogoComePNG(voce.file) : null;
+    if (!voce) {
+      return null;
+    }
+    try {
+      return await caricaLogo(voce.file);
+    } catch (errore) {
+      console.error(`[pdf.js] Logo cliente non caricato (${voce.file}) per punto vendita "${puntoVendita}":`, errore);
+      return null;
+    }
   }
 
-  /** Logo fisso di Colligo Ingegneria, bundled nell'app (assets/logo_colligo.webp). */
+  /**
+   * Logo fisso di Colligo Ingegneria, bundled nell'app (assets/logo_colligo.webp). Se non si
+   * carica, l'errore viene registrato esplicitamente in console e il logo viene omesso invece
+   * di far fallire l'intera generazione del PDF.
+   */
   async function ottieniLogoColligo() {
-    return caricaLogoComePNG('assets/logo_colligo.webp');
+    try {
+      return await caricaLogo('assets/logo_colligo.webp');
+    } catch (errore) {
+      console.error('[pdf.js] Logo Colligo Ingegneria non caricato:', errore);
+      return null;
+    }
   }
 
   /** Formatta una data semplice "YYYY-MM-DD" (es. da <input type="date">) senza passare da Date/timezone. */
@@ -114,21 +129,37 @@ const pdf = (() => {
     return y;
   }
 
-  /** Intestazione con doppio logo affiancato (Colligo Ingegneria a sinistra, cliente a destra) e titolo checklist. */
-  function disegnaIntestazione(doc, logoClienteURL, logoColligoURL, checklist) {
-    const DIM_LOGO = 22;
-
-    doc.addImage(logoColligoURL, 'PNG', MARGINE, MARGINE, DIM_LOGO, DIM_LOGO);
-    if (logoClienteURL) {
-      doc.addImage(logoClienteURL, 'PNG', LARGHEZZA_PAGINA - MARGINE - DIM_LOGO, MARGINE, DIM_LOGO, DIM_LOGO);
+  /**
+   * Disegna un logo mantenendo le proporzioni originali dell'immagine, adattato dentro un
+   * riquadro massimo larghezzaMax×altezzaMax (mai deformato): usa il fattore di scala più
+   * restrittivo tra i due assi, e non ingrandisce mai oltre la dimensione naturale del file.
+   */
+  function disegnaLogoProporzionato(doc, dataURL, allineamento, larghezzaMax, altezzaMax) {
+    if (!dataURL) {
+      return;
     }
+    const proprieta = doc.getImageProperties(dataURL);
+    const scala = Math.min(larghezzaMax / proprieta.width, altezzaMax / proprieta.height, 1);
+    const larghezza = proprieta.width * scala;
+    const altezza = proprieta.height * scala;
+    const x = allineamento === 'destra' ? LARGHEZZA_PAGINA - MARGINE - larghezza : MARGINE;
+    doc.addImage(dataURL, proprieta.fileType, x, MARGINE, larghezza, altezza);
+  }
+
+  /** Intestazione con doppio logo affiancato (Colligo Ingegneria a sinistra, cliente a destra), proporzioni originali mantenute, e titolo checklist. */
+  function disegnaIntestazione(doc, logoClienteURL, logoColligoURL, checklist) {
+    const LARGHEZZA_MAX_LOGO = 40;
+    const ALTEZZA_MAX_LOGO = 15;
+
+    disegnaLogoProporzionato(doc, logoColligoURL, 'sinistra', LARGHEZZA_MAX_LOGO, ALTEZZA_MAX_LOGO);
+    disegnaLogoProporzionato(doc, logoClienteURL, 'destra', LARGHEZZA_MAX_LOGO, ALTEZZA_MAX_LOGO);
 
     doc.setFontSize(15);
     doc.setFont(undefined, 'bold');
-    doc.text(checklist.titolo, LARGHEZZA_PAGINA / 2, MARGINE + DIM_LOGO / 2 + 3, { align: 'center' });
+    doc.text(checklist.titolo, LARGHEZZA_PAGINA / 2, MARGINE + ALTEZZA_MAX_LOGO / 2 + 3, { align: 'center' });
     doc.setFont(undefined, 'normal');
 
-    return MARGINE + DIM_LOGO + 8;
+    return MARGINE + ALTEZZA_MAX_LOGO + 8;
   }
 
   /** Tabella "DATI GENERALI": titolo su sfondo arancione, righe con bordi neri. */
