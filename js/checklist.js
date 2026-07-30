@@ -82,8 +82,14 @@ const checklistEngine = (() => {
     return risposta;
   }
 
-  /** True se la domanda corrente ha già una risposta (obbligatoria per poter avanzare, qualsiasi valore). */
+  /**
+   * True se si può avanzare dalla domanda corrente. Per le checklist "stile": "raccolta-dati"
+   * le domande sono sempre facoltative; per le altre (C/PC/NC/NA) serve una risposta salvata.
+   */
   function puoAvanzare() {
+    if (checklist && checklist.stile === 'raccolta-dati') {
+      return true;
+    }
     const corrente = domandaCorrente();
     return Boolean(corrente && corrente.risposta);
   }

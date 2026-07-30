@@ -187,7 +187,9 @@ const compilazioneScreen = (() => {
   const progressLabel = document.getElementById('progress-label');
   const sezioneEl = document.getElementById('compilazione-sezione');
   const domandaEl = document.getElementById('compilazione-domanda');
+  const opzioniRispostaContainer = document.getElementById('risposte-opzioni');
   const opzioniRisposta = Array.from(document.querySelectorAll('input[name="risposta"]'));
+  const contenitoreRD = document.getElementById('raccolta-dati-controllo');
   const btnNote = document.getElementById('btn-note');
   const btnFoto = document.getElementById('btn-foto');
   const notaEditor = document.getElementById('nota-editor');
@@ -210,6 +212,11 @@ const compilazioneScreen = (() => {
     });
   }
 
+  function isStileRaccoltaDati() {
+    const checklist = checklistEngine.getChecklist();
+    return Boolean(checklist && checklist.stile === 'raccolta-dati');
+  }
+
   function aggiornaContatoreFoto() {
     btnFoto.textContent = fotoDomandaCorrente.length ? `📷 Foto (${fotoDomandaCorrente.length})` : '📷 Foto';
   }
@@ -225,11 +232,222 @@ const compilazioneScreen = (() => {
 
   function resetControlli() {
     opzioniRisposta.forEach((input) => { input.checked = false; });
+    contenitoreRD.innerHTML = '';
     notaEditor.hidden = true;
     notaTesto.value = '';
     fotoDomandaCorrente = [];
     aggiornaContatoreFoto();
     nascondiErrore();
+  }
+
+  async function salvaRispostaCorrente(valore) {
+    try {
+      await checklistEngine.rispondi({
+        valore,
+        note: notaTesto.value.trim() || null,
+        foto: fotoDomandaCorrente
+      });
+      nascondiErrore();
+      return true;
+    } catch (errore) {
+      mostraErrore(errore.message);
+      return false;
+    }
+  }
+
+  // --- Rendering dinamico dei controlli per checklist "stile": "raccolta-dati" ---
+
+  function creaOpzioneVerticale(inputEl, testoEtichetta) {
+    const label = document.createElement('label');
+    label.className = 'opzione-verticale';
+    label.appendChild(inputEl);
+    label.appendChild(document.createTextNode(` ${testoEtichetta}`));
+    return label;
+  }
+
+  function renderTesto(valoreEsistente) {
+    const label = document.createElement('label');
+    label.className = 'campo-form';
+    label.textContent = 'Risposta';
+    const textarea = document.createElement('textarea');
+    textarea.value = typeof valoreEsistente === 'string' ? valoreEsistente : '';
+    textarea.addEventListener('change', () => salvaRispostaCorrente(textarea.value.trim()));
+    label.appendChild(textarea);
+    contenitoreRD.appendChild(label);
+  }
+
+  function renderNumero(valoreEsistente) {
+    const label = document.createElement('label');
+    label.className = 'campo-form';
+    label.textContent = 'Risposta';
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.inputMode = 'numeric';
+    input.value = valoreEsistente != null ? valoreEsistente : '';
+    input.addEventListener('change', () => salvaRispostaCorrente(input.value));
+    label.appendChild(input);
+    contenitoreRD.appendChild(label);
+  }
+
+  function renderSiNo(valoreEsistente) {
+    const div = document.createElement('div');
+    div.className = 'opzioni-verticali';
+    ['Sì', 'No'].forEach((opzione) => {
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'rd-si-no';
+      input.value = opzione;
+      input.checked = valoreEsistente === opzione;
+      input.addEventListener('change', () => salvaRispostaCorrente(opzione));
+      div.appendChild(creaOpzioneVerticale(input, opzione));
+    });
+    contenitoreRD.appendChild(div);
+  }
+
+  function renderSceltaSingola(domanda, valoreEsistente) {
+    const div = document.createElement('div');
+    div.className = 'opzioni-verticali';
+    (domanda.opzioni || []).forEach((opzione) => {
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'rd-scelta-singola';
+      input.value = opzione.label;
+      input.checked = valoreEsistente === opzione.label;
+      input.addEventListener('change', () => salvaRispostaCorrente(opzione.label));
+      div.appendChild(creaOpzioneVerticale(input, opzione.label));
+    });
+    contenitoreRD.appendChild(div);
+  }
+
+  function renderCheckboxMulti(domanda, valoreEsistente) {
+    const selezioniEsistenti = Array.isArray(valoreEsistente) ? valoreEsistente : [];
+    const div = document.createElement('div');
+    div.className = 'opzioni-verticali';
+
+    const stato = new Map();
+    (domanda.opzioni || []).forEach((opzione) => {
+      const esistente = selezioniEsistenti.find((s) => s.label === opzione.label);
+      stato.set(opzione.label, {
+        checked: Boolean(esistente),
+        sottoCampoValore: esistente ? esistente.sottoCampoValore || '' : ''
+      });
+    });
+
+    function emettiValore() {
+      const risultato = [];
+      stato.forEach((info, label) => {
+        if (!info.checked) {
+          return;
+        }
+        const voce = { label };
+        if (info.sottoCampoValore) {
+          voce.sottoCampoValore = info.sottoCampoValore;
+        }
+        risultato.push(voce);
+      });
+      salvaRispostaCorrente(risultato);
+    }
+
+    (domanda.opzioni || []).forEach((opzione) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'checkbox-multi-voce';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = stato.get(opzione.label).checked;
+
+      const label = document.createElement('label');
+      label.className = 'opzione-checkbox';
+      label.appendChild(checkbox);
+      label.appendChild(document.createTextNode(` ${opzione.label}`));
+      wrapper.appendChild(label);
+
+      let inputSottoCampo = null;
+      if (opzione.sotto_campo) {
+        inputSottoCampo = document.createElement('input');
+        inputSottoCampo.type = opzione.sotto_campo_tipo === 'numero' ? 'number' : 'text';
+        inputSottoCampo.placeholder = opzione.sotto_campo_label || 'Dettaglio';
+        inputSottoCampo.className = 'input-sotto-campo';
+        inputSottoCampo.value = stato.get(opzione.label).sottoCampoValore;
+        inputSottoCampo.hidden = !stato.get(opzione.label).checked;
+        inputSottoCampo.addEventListener('change', () => {
+          stato.get(opzione.label).sottoCampoValore = inputSottoCampo.value.trim();
+          emettiValore();
+        });
+        wrapper.appendChild(inputSottoCampo);
+      }
+
+      checkbox.addEventListener('change', () => {
+        stato.get(opzione.label).checked = checkbox.checked;
+        if (inputSottoCampo) {
+          inputSottoCampo.hidden = !checkbox.checked;
+        }
+        emettiValore();
+      });
+
+      div.appendChild(wrapper);
+    });
+
+    contenitoreRD.appendChild(div);
+  }
+
+  function renderGruppoTesto(domanda, valoreEsistente) {
+    const valori = valoreEsistente && typeof valoreEsistente === 'object' && !Array.isArray(valoreEsistente)
+      ? valoreEsistente
+      : {};
+    const stato = {};
+    (domanda.campi || []).forEach((campo) => { stato[campo.label] = valori[campo.label] || ''; });
+
+    function emettiValore() {
+      salvaRispostaCorrente({ ...stato });
+    }
+
+    (domanda.campi || []).forEach((campo) => {
+      const label = document.createElement('label');
+      label.className = 'campo-form';
+      label.textContent = campo.label;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = stato[campo.label];
+      input.addEventListener('change', () => {
+        stato[campo.label] = input.value.trim();
+        emettiValore();
+      });
+      label.appendChild(input);
+      contenitoreRD.appendChild(label);
+    });
+  }
+
+  /** Renderizza il controllo giusto in base al tipo della domanda corrente (checklist "raccolta-dati"). */
+  function renderControlloRaccoltaDati(domanda, risposta) {
+    const valoreEsistente = risposta ? risposta.risposta : undefined;
+
+    switch (domanda.tipo) {
+      case 'testo':
+        renderTesto(valoreEsistente);
+        break;
+      case 'numero':
+        renderNumero(valoreEsistente);
+        break;
+      case 'si-no':
+        renderSiNo(valoreEsistente);
+        break;
+      case 'scelta-singola':
+        renderSceltaSingola(domanda, valoreEsistente);
+        break;
+      case 'checkbox-multi':
+        renderCheckboxMulti(domanda, valoreEsistente);
+        break;
+      case 'gruppo-testo':
+        renderGruppoTesto(domanda, valoreEsistente);
+        break;
+      default: {
+        const avviso = document.createElement('p');
+        avviso.className = 'placeholder-text';
+        avviso.textContent = `Tipo domanda non supportato: ${domanda.tipo}`;
+        contenitoreRD.appendChild(avviso);
+      }
+    }
   }
 
   /** Ridisegna la schermata in base alla domanda corrente del motore checklist. */
@@ -255,32 +473,26 @@ const compilazioneScreen = (() => {
     btnAvanti.textContent = isUltima ? 'Fine' : 'Avanti →';
     btnIndietro.disabled = indice === 0;
 
-    if (risposta) {
+    const raccoltaDati = isStileRaccoltaDati();
+    opzioniRispostaContainer.hidden = raccoltaDati;
+    contenitoreRD.hidden = !raccoltaDati;
+
+    if (raccoltaDati) {
+      renderControlloRaccoltaDati(domanda, risposta);
+    } else if (risposta) {
       const radio = opzioniRisposta.find((input) => input.value === risposta.risposta);
       if (radio) {
         radio.checked = true;
       }
+    }
+
+    if (risposta) {
       if (risposta.note) {
         notaTesto.value = risposta.note;
         notaEditor.hidden = false;
       }
       fotoDomandaCorrente = risposta.foto || [];
       aggiornaContatoreFoto();
-    }
-  }
-
-  async function salvaRispostaCorrente(valore) {
-    try {
-      await checklistEngine.rispondi({
-        valore,
-        note: notaTesto.value.trim() || null,
-        foto: fotoDomandaCorrente
-      });
-      nascondiErrore();
-      return true;
-    } catch (errore) {
-      mostraErrore(errore.message);
-      return false;
     }
   }
 
@@ -295,10 +507,16 @@ const compilazioneScreen = (() => {
     }
   }
 
-  /** Foto collegata alla domanda corrente: richiede una risposta già selezionata (§7.3), uguale per C/PC/NC/N.P. */
+  /**
+   * Foto collegata alla domanda corrente. Per checklist "raccolta-dati" (risposte facoltative)
+   * si può allegare una foto anche senza aver ancora inserito un valore; per le altre serve
+   * prima selezionare una risposta (§7.3), uguale per C/PC/NC/N.P.
+   */
   async function onFoto() {
     const corrente = checklistEngine.domandaCorrente();
-    if (!corrente.risposta) {
+    const raccoltaDati = isStileRaccoltaDati();
+
+    if (!corrente.risposta && !raccoltaDati) {
       mostraErrore('Seleziona una risposta prima di aggiungere una foto.');
       return;
     }
@@ -307,7 +525,8 @@ const compilazioneScreen = (() => {
       const fotoId = await camera.scattaFoto({ sopralluogo_id: sopralluogoId, domanda_id: corrente.domanda.id });
       fotoDomandaCorrente = [...fotoDomandaCorrente, fotoId];
       aggiornaContatoreFoto();
-      await salvaRispostaCorrente(corrente.risposta.risposta);
+      const valoreCorrente = corrente.risposta ? corrente.risposta.risposta : null;
+      await salvaRispostaCorrente(valoreCorrente);
     } catch (errore) {
       mostraErrore(errore.message);
     }
@@ -315,8 +534,9 @@ const compilazioneScreen = (() => {
 
   async function onNotaModificata() {
     const corrente = checklistEngine.domandaCorrente();
-    if (corrente && corrente.risposta) {
-      await salvaRispostaCorrente(corrente.risposta.risposta);
+    if (corrente && (corrente.risposta || isStileRaccoltaDati())) {
+      const valoreCorrente = corrente.risposta ? corrente.risposta.risposta : null;
+      await salvaRispostaCorrente(valoreCorrente);
     }
   }
 

@@ -385,9 +385,31 @@ const pdf = (() => {
 
   /**
    * Report segnaposto per checklist "stile": "raccolta-dati" (tipi di domanda eterogenei non
-   * ancora supportati dal motore di compilazione né da un layout dedicato). Elenca semplicemente
-   * id/testo domanda e l'eventuale nota salvata, così il PDF resta generabile senza errori.
+   * ancora supportati dal motore di compilazione né da un layout dedicato). Elenca id/testo
+   * domanda e valore salvato in forma leggibile, qualunque sia il tipo (testo, numero, si-no,
+   * scelta-singola, checkbox-multi con eventuali sotto-campi, gruppo-testo).
    */
+  function formattaValoreRaccoltaDati(valore) {
+    if (valore === null || valore === undefined || valore === '') {
+      return '(non compilata)';
+    }
+    if (Array.isArray(valore)) {
+      if (!valore.length) {
+        return '(non compilata)';
+      }
+      return valore
+        .map((v) => (v.sottoCampoValore ? `${v.label} (${v.sottoCampoValore})` : v.label))
+        .join(', ');
+    }
+    if (typeof valore === 'object') {
+      const parti = Object.entries(valore)
+        .filter(([, v]) => v)
+        .map(([chiave, v]) => `${chiave}: ${v}`);
+      return parti.length ? parti.join('; ') : '(non compilata)';
+    }
+    return String(valore);
+  }
+
   async function disegnaReportRaccoltaDati(doc, checklist, sopralluogo) {
     doc.setFontSize(16);
     doc.setFont(undefined, 'bold');
@@ -413,10 +435,13 @@ const pdf = (() => {
 
       sezione.domande.forEach((domanda) => {
         const risposta = (sopralluogo.risposte || []).find((r) => r.domanda_id === domanda.id);
+        const valoreTesto = formattaValoreRaccoltaDati(risposta ? risposta.risposta : undefined);
+        const notaTesto = risposta && risposta.note ? ` (Note: ${risposta.note})` : '';
+
         doc.setFontSize(9);
         const riga = avvolgiTesto(
           doc,
-          `${domanda.testo} — ${risposta ? (risposta.note || JSON.stringify(risposta)) : '(non compilata)'}`,
+          `${domanda.testo}: ${valoreTesto}${notaTesto}`,
           LARGHEZZA_PAGINA - MARGINE * 2
         );
         y = nuovaRigaSeNecessario(doc, y, riga.length * 4.5 + 2);
