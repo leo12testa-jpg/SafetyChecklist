@@ -49,40 +49,46 @@ const pdf = (() => {
     });
   }
 
-  async function caricaImmagineComeDataURL(url) {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return blobADataURL(blob);
+  /**
+   * Carica un'immagine da un URL locale (qualsiasi formato che il browser sa decodificare,
+   * es. webp/png/jpg) e la ridisegna su canvas per riconvertirla sempre in PNG: così jsPDF la
+   * incorpora in modo affidabile indipendentemente dal formato reale del file sorgente.
+   */
+  function caricaLogoComePNG(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => reject(new Error(`Impossibile caricare il logo: ${url}`));
+      img.src = url;
+    });
   }
 
-  /** Associazione nome cliente (riconosciuto nel Punto vendita) -> chiave del logo in Impostazioni. */
-  const CHIAVE_LOGO_PER_CLIENTE = [
-    { corrispondenza: 'coin', chiave: 'logo_cliente:coin' },
-    { corrispondenza: 'interparking', chiave: 'logo_cliente:interparking' }
+  /** Associazione nome cliente (riconosciuto nel Punto vendita) -> file del logo fisso in assets/. */
+  const LOGO_CLIENTE_PER_NOME = [
+    { corrispondenza: 'coin', file: 'assets/logo_coin.webp' },
+    { corrispondenza: 'interparking', file: 'assets/logo_interparking.webp' }
   ];
 
   /**
    * Logo del cliente corrispondente al punto vendita del sopralluogo (match case-insensitive
-   * su "coin"/"interparking"). Nessun fallback: se il cliente non è riconosciuto o non ha un
-   * logo caricato in Impostazioni, ritorna null (l'intestazione non mostra nulla a destra).
+   * su "coin"/"interparking"). Loghi fissi, bundled nell'app. Se il cliente non è riconosciuto,
+   * ritorna null (l'intestazione non mostra nulla a destra, nessun placeholder rotto).
    */
   async function ottieniLogoCliente(puntoVendita) {
     const nome = String(puntoVendita || '').toLowerCase();
-    const voce = CHIAVE_LOGO_PER_CLIENTE.find((c) => nome.includes(c.corrispondenza));
-    if (!voce) {
-      return null;
-    }
-    const blob = await db.leggiImpostazione(voce.chiave);
-    return blob instanceof Blob ? blobADataURL(blob) : null;
+    const voce = LOGO_CLIENTE_PER_NOME.find((c) => nome.includes(c.corrispondenza));
+    return voce ? caricaLogoComePNG(voce.file) : null;
   }
 
-  /** Logo fisso di Colligo Ingegneria: quello caricato in Impostazioni, altrimenti assets/logo.png. */
+  /** Logo fisso di Colligo Ingegneria, bundled nell'app (assets/logo_colligo.webp). */
   async function ottieniLogoColligo() {
-    const blob = await db.leggiImpostazione('logo_colligo');
-    if (blob instanceof Blob) {
-      return blobADataURL(blob);
-    }
-    return caricaImmagineComeDataURL('assets/logo.png');
+    return caricaLogoComePNG('assets/logo_colligo.webp');
   }
 
   /** Formatta una data semplice "YYYY-MM-DD" (es. da <input type="date">) senza passare da Date/timezone. */

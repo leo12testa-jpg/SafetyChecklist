@@ -83,20 +83,16 @@ const checklistEngine = (() => {
   }
 
   /**
-   * True se si può avanzare dalla domanda corrente. Per le checklist "stile": "raccolta-dati"
-   * le domande sono sempre facoltative; per le altre (C/PC/NC/NA) serve una risposta salvata.
+   * Rispondere è sempre facoltativo, per qualsiasi stile di checklist: una domanda può restare
+   * senza risposta e venire compilata più tardi tornando indietro con "Indietro".
    */
   function puoAvanzare() {
-    if (checklist && checklist.stile === 'raccolta-dati') {
-      return true;
-    }
-    const corrente = domandaCorrente();
-    return Boolean(corrente && corrente.risposta);
+    return Boolean(domandaCorrente());
   }
 
-  /** Passa alla domanda successiva. Ritorna false (senza avanzare) se la domanda corrente non è ancora risposta. */
+  /** Passa alla domanda successiva (la risposta non è obbligatoria). Ritorna false se già all'ultima domanda. */
   function avanti() {
-    if (!puoAvanzare() || indice >= domande.length - 1) {
+    if (indice >= domande.length - 1) {
       return false;
     }
     indice += 1;
@@ -123,32 +119,43 @@ const checklistEngine = (() => {
   }
 
   /**
-   * Calcola conteggi per stato (C/PC/NC/NA) ed elenco delle Non Conformità per una qualsiasi
-   * coppia checklist+sopralluogo (PROJECT.md §7.5). Funzione pura: non dipende dallo stato
-   * interno del motore, così da poter rigenerare anche report di sopralluoghi storici (Fase 7).
+   * Calcola conteggi per stato (C/PC/NC/NA), numero di domande senza risposta ed elenco delle
+   * Non Conformità, per una qualsiasi coppia checklist+sopralluogo (PROJECT.md §7.5). Itera su
+   * tutte le domande della checklist (non solo sulle risposte salvate) così le domande mai
+   * risposte vengono contate come "non risposte" invece di essere semplicemente ignorate.
+   * Funzione pura: non dipende dallo stato interno del motore, così da poter rigenerare anche
+   * report di sopralluoghi storici (Fase 7).
    */
   function calcolaRiepilogo(checklistDati, sopralluogoDati) {
     const domandeComplete = appiattisciDomande(checklistDati);
     const conteggi = { C: 0, PC: 0, NC: 0, NA: 0 };
     const nonConformita = [];
+    let nonRisposte = 0;
 
-    (sopralluogoDati.risposte || []).forEach((r) => {
-      if (conteggi[r.risposta] !== undefined) {
-        conteggi[r.risposta] += 1;
+    domandeComplete.forEach(({ sezione, domanda }) => {
+      const r = (sopralluogoDati.risposte || []).find((x) => x.domanda_id === domanda.id);
+      const valore = r ? r.risposta : null;
+
+      if (!valore) {
+        nonRisposte += 1;
+        return;
       }
-      if (r.risposta === 'NC') {
-        const info = domandeComplete.find((d) => d.domanda.id === r.domanda_id);
+
+      if (conteggi[valore] !== undefined) {
+        conteggi[valore] += 1;
+      }
+      if (valore === 'NC') {
         nonConformita.push({
-          domanda_id: r.domanda_id,
-          sezione: r.sezione,
-          testo: info ? info.domanda.testo : '',
+          domanda_id: domanda.id,
+          sezione,
+          testo: domanda.testo,
           note: r.note || '',
           foto: r.foto || []
         });
       }
     });
 
-    return { totale: domandeComplete.length, conteggi, nonConformita };
+    return { totale: domandeComplete.length, conteggi, nonRisposte, nonConformita };
   }
 
   return {

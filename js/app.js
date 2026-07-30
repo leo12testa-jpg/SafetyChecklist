@@ -548,24 +548,18 @@ const compilazioneScreen = (() => {
     }
   }
 
+  /** Rispondere è facoltativo: si può avanzare (e terminare) anche senza aver risposto alla domanda corrente. */
   function onAvanti() {
     const corrente = checklistEngine.domandaCorrente();
     const isUltima = corrente.indice === corrente.totale - 1;
 
     if (isUltima) {
-      if (!checklistEngine.puoAvanzare()) {
-        mostraErrore('Completa la risposta prima di terminare.');
-        return;
-      }
       router.navigate('altri-aspetti');
       altriAspettiScreen.prepara();
       return;
     }
 
-    if (!checklistEngine.avanti()) {
-      mostraErrore('Seleziona una risposta prima di procedere.');
-      return;
-    }
+    checklistEngine.avanti();
     renderDomandaCorrente();
   }
 
@@ -642,7 +636,7 @@ const riepilogoScreen = (() => {
   function render() {
     const checklist = checklistEngine.getChecklist();
     const sopralluogo = checklistEngine.sopralluogoCorrente();
-    const { totale, conteggi, nonConformita } = checklistEngine.calcolaRiepilogo(checklist, sopralluogo);
+    const { totale, conteggi, nonRisposte, nonConformita } = checklistEngine.calcolaRiepilogo(checklist, sopralluogo);
 
     listaConteggi.innerHTML = '';
     const totaleEl = document.createElement('li');
@@ -654,6 +648,10 @@ const riepilogoScreen = (() => {
       el.innerHTML = `<span>${ETICHETTE[chiave]}</span><span>${conteggi[chiave]}</span>`;
       listaConteggi.appendChild(el);
     });
+
+    const nonRisposteEl = document.createElement('li');
+    nonRisposteEl.innerHTML = `<span>Domande non risposte</span><span>${nonRisposte}</span>`;
+    listaConteggi.appendChild(nonRisposteEl);
 
     listaNC.innerHTML = '';
     ncContainer.hidden = nonConformita.length === 0;
@@ -798,29 +796,12 @@ const storicoScreen = (() => {
 })();
 
 /**
- * Schermata Impostazioni: loghi (Colligo Ingegneria + un logo per cliente) usati
- * nell'intestazione del PDF, ed elenco in sola lettura delle checklist disponibili (PROJECT.md §7.9).
+ * Schermata Impostazioni: elenco in sola lettura delle checklist disponibili (PROJECT.md §7.9).
+ * I loghi (Colligo Ingegneria + un logo per cliente) sono fissi e bundled in assets/, non più
+ * configurabili da qui: vedi pdf.js.
  */
 const impostazioniScreen = (() => {
-  const form = document.getElementById('form-loghi');
-  const salvatoMsg = document.getElementById('loghi-salvato');
   const listaChecklist = document.getElementById('lista-checklist-disponibili');
-
-  /** Una voce per logo: chiave di salvataggio in db.js, input file, immagine di anteprima. */
-  const LOGHI = [
-    { chiave: 'logo_colligo', input: document.getElementById('logo-colligo-input'), anteprima: document.getElementById('logo-colligo-anteprima') },
-    { chiave: 'logo_cliente:coin', input: document.getElementById('logo-coin-input'), anteprima: document.getElementById('logo-coin-anteprima') },
-    { chiave: 'logo_cliente:interparking', input: document.getElementById('logo-interparking-input'), anteprima: document.getElementById('logo-interparking-anteprima') }
-  ];
-
-  function mostraAnteprima(imgEl, blob) {
-    if (!(blob instanceof Blob)) {
-      imgEl.hidden = true;
-      return;
-    }
-    imgEl.src = URL.createObjectURL(blob);
-    imgEl.hidden = false;
-  }
 
   async function popolaChecklistDisponibili() {
     const response = await fetch('checklists/index.json');
@@ -833,37 +814,8 @@ const impostazioniScreen = (() => {
     });
   }
 
-  async function onEnterScreen() {
-    salvatoMsg.hidden = true;
-    form.reset();
-
-    await Promise.all(LOGHI.map(async ({ chiave, anteprima }) => {
-      const blob = await db.leggiImpostazione(chiave);
-      mostraAnteprima(anteprima, blob);
-    }));
-
-    await popolaChecklistDisponibili();
-  }
-
-  async function onSubmit(event) {
-    event.preventDefault();
-
-    for (const { chiave, input, anteprima } of LOGHI) {
-      const nuovoFile = input.files[0];
-      if (!nuovoFile) {
-        continue;
-      }
-      await db.salvaImpostazione(chiave, nuovoFile);
-      mostraAnteprima(anteprima, nuovoFile);
-    }
-
-    form.reset();
-    salvatoMsg.hidden = false;
-  }
-
   function init() {
-    form.addEventListener('submit', onSubmit);
-    router.onEnter('settings', onEnterScreen);
+    router.onEnter('settings', popolaChecklistDisponibili);
   }
 
   return { init };
