@@ -118,7 +118,7 @@ const db = (() => {
     return sopralluogo;
   }
 
-  /** Aggiorna campi di un sopralluogo esistente (es. stato: "completato", firma). */
+  /** Aggiorna campi di un sopralluogo esistente (es. stato: "completato", altri_aspetti). */
   async function aggiornaSopralluogo(sopralluogoId, cambiamenti) {
     const store = await transazione('sopralluoghi', 'readwrite');
     const sopralluogo = await richiesta(store.get(sopralluogoId));

@@ -611,10 +611,6 @@ const altriAspettiScreen = (() => {
 })();
 
 /**
- * Schermata di Riepilogo: conteggi per stato ed elenco delle Non Conformità rilevate,
- * per revisione rapida prima della firma (PROJECT.md §7.5).
- */
-/**
  * Schermata di Riepilogo (PROJECT.md §7.5): conteggi per stato ed elenco delle Non Conformità,
  * seguiti direttamente dalla generazione del PDF (nessuna firma nel flusso), salvataggio/
  * condivisione e passaggio del sopralluogo a "completato".
