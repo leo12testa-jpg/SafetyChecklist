@@ -138,7 +138,9 @@ const nuovoSopralluogoScreen = (() => {
     ]);
     checklistDisponibili = (await risChecklist.json()).checklists;
     associazioniClienti = (await risClienti.json()).clienti;
-    popolaSelectChecklist(checklistDisponibili);
+    // Riapplica il filtro (non solo popolare con tutte le checklist): se l'utente ha già digitato
+    // il punto vendita prima che questo fetch si completasse, non deve perdere il filtro applicato.
+    filtraChecklistPerCliente();
   }
 
   async function onEnterScreen() {
