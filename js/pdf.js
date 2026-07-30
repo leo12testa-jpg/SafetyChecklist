@@ -135,23 +135,6 @@ const pdf = (() => {
     return doc.lastAutoTable.finalY + 8;
   }
 
-  function disegnaRiepilogoConteggi(doc, riepilogo, y) {
-    doc.setFontSize(11);
-    doc.setFont(undefined, 'bold');
-    doc.text('Riepilogo', MARGINE, y);
-    doc.setFont(undefined, 'normal');
-    y += 6;
-
-    const { conteggi, totale } = riepilogo;
-    const testo = doc.splitTextToSize(
-      `Totale domande: ${totale}   Conformi: ${conteggi.C}   Parz. conformi: ${conteggi.PC}   ` +
-      `Non conformi: ${conteggi.NC}   Non pertinenti: ${conteggi.NA}`,
-      LARGHEZZA_PAGINA - MARGINE * 2
-    );
-    doc.text(testo, MARGINE, y);
-    return y + testo.length * 5 + 6;
-  }
-
   /** Bandiera blu a piena larghezza con il titolo del macro-gruppo (ANALISI DOCUMENTALE / SOPRALLUOGO AMBIENTI DI LAVORO). */
   function disegnaIntestazioneGruppo(doc, titolo, y) {
     y = nuovaRigaSeNecessario(doc, y, 14);
@@ -170,7 +153,7 @@ const pdf = (() => {
     return valoreRisposta === colonna ? 'X' : '';
   }
 
-  /** Tabella di una singola sezione: Domanda, colonne di stato C/P.C/N.C/N.P, Note, e le colonne di follow-up (vuote). */
+  /** Tabella di una singola sezione: n., Descrizione attività, colonne di stato C/P.C/N.C/N.P, Note. */
   function disegnaTabellaSezione(doc, sezione, sopralluogo, y) {
     y = nuovaRigaSeNecessario(doc, y, 16);
     doc.setFontSize(10);
@@ -183,36 +166,32 @@ const pdf = (() => {
       const risposta = (sopralluogo.risposte || []).find((r) => r.domanda_id === domanda.id);
       const valore = risposta ? risposta.risposta : '';
       return [
+        domanda.id,
         domanda.testo,
         segnoRisposta(valore, 'C'),
         segnoRisposta(valore, 'PC'),
         segnoRisposta(valore, 'NC'),
         segnoRisposta(valore, 'NA'),
-        (risposta && risposta.note) || '',
-        '',
-        '',
-        ''
+        (risposta && risposta.note) || ''
       ];
     });
 
     doc.autoTable({
       startY: y,
       margin: { left: MARGINE, right: MARGINE },
-      head: [['Domanda', 'C', 'P.C', 'N.C', 'N.P', 'Note', 'Risolto', 'Data', 'Mancata risoluzione']],
+      head: [['n.', 'Descrizione attività', 'C', 'P.C', 'N.C', 'N.P', 'Note']],
       body: corpo,
       theme: 'grid',
       styles: { lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: 7.5, cellPadding: 1.5, valign: 'middle', textColor: [0, 0, 0] },
       headStyles: { fillColor: [225, 225, 225], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', fontSize: 7.5 },
       columnStyles: {
-        0: { cellWidth: 55 },
-        1: { cellWidth: 8, halign: 'center' },
-        2: { cellWidth: 8, halign: 'center' },
-        3: { cellWidth: 8, halign: 'center' },
-        4: { cellWidth: 8, halign: 'center' },
-        5: { cellWidth: 35 },
-        6: { cellWidth: 12, halign: 'center' },
-        7: { cellWidth: 15, halign: 'center' },
-        8: { cellWidth: 21 }
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 65 },
+        2: { cellWidth: 10, halign: 'center' },
+        3: { cellWidth: 10, halign: 'center' },
+        4: { cellWidth: 10, halign: 'center' },
+        5: { cellWidth: 10, halign: 'center' },
+        6: { cellWidth: 65 }
       }
     });
 
@@ -280,7 +259,13 @@ const pdf = (() => {
     doc.text(righe, MARGINE, y);
   }
 
-  /** Raccoglie tutte le foto (di qualsiasi domanda) con didascalia per la pagina Allegati. */
+  /** Tronca un testo a `lunghezzaMassima` caratteri (normalizzando gli a-capo in spazi) aggiungendo "…" se tagliato. */
+  function troncaTesto(testo, lunghezzaMassima = 55) {
+    const pulito = String(testo || '').replace(/\s+/g, ' ').trim();
+    return pulito.length > lunghezzaMassima ? `${pulito.slice(0, lunghezzaMassima)}...` : pulito;
+  }
+
+  /** Raccoglie tutte le foto (di qualsiasi domanda, qualsiasi stile di checklist) con id/testo domanda per la pagina Allegati. */
   function raccogliFotoConDidascalia(checklist, sopralluogo) {
     const domandeComplete = [];
     checklist.sezioni.forEach((sezione) => {
@@ -298,9 +283,8 @@ const pdf = (() => {
       risposta.foto.forEach((fotoId) => {
         elenco.push({
           fotoId,
-          sezione: info ? info.sezione : risposta.sezione,
-          domandaTesto: info ? info.domanda.testo : '',
-          rispostaValore: risposta.risposta
+          domandaId: risposta.domanda_id,
+          domandaTesto: info ? info.domanda.testo : ''
         });
       });
     });
@@ -330,7 +314,7 @@ const pdf = (() => {
 
     let colonna = 0;
 
-    for (const voce of elencoFoto) {
+    for (const [indice, voce] of elencoFoto.entries()) {
       const record = await db.leggiFoto(voce.fotoId);
       if (!record) {
         continue;
@@ -355,7 +339,7 @@ const pdf = (() => {
       doc.setFontSize(8);
       const didascalia = avvolgiTesto(
         doc,
-        `${voce.sezione} – ${voce.domandaTesto} (${voce.rispostaValore})`,
+        `Foto ${indice + 1} – Domanda ${voce.domandaId}: ${troncaTesto(voce.domandaTesto)}`,
         LARGHEZZA_CELLA
       ).slice(0, 2);
       doc.text(didascalia, x, y + ALTEZZA_IMMAGINE + 4);
@@ -404,7 +388,7 @@ const pdf = (() => {
    * ancora supportati dal motore di compilazione né da un layout dedicato). Elenca semplicemente
    * id/testo domanda e l'eventuale nota salvata, così il PDF resta generabile senza errori.
    */
-  function disegnaReportRaccoltaDati(doc, checklist, sopralluogo) {
+  async function disegnaReportRaccoltaDati(doc, checklist, sopralluogo) {
     doc.setFontSize(16);
     doc.setFont(undefined, 'bold');
     doc.text(checklist.titolo, MARGINE, MARGINE + 5);
@@ -442,6 +426,9 @@ const pdf = (() => {
       y += 4;
     });
 
+    const fotoAllegati = raccogliFotoConDidascalia(checklist, sopralluogo);
+    await disegnaPaginaAllegati(doc, fotoAllegati);
+
     return doc.output('blob');
   }
 
@@ -461,11 +448,9 @@ const pdf = (() => {
     const azienda = (await db.leggiImpostazione('azienda')) || {};
     const logoPuntoVenditaURL = await ottieniLogoPuntoVendita(azienda);
     const logoColligoURL = await ottieniLogoColligo();
-    const riepilogo = checklistEngine.calcolaRiepilogo(checklist, sopralluogo);
 
     let y = disegnaIntestazione(doc, logoPuntoVenditaURL, logoColligoURL, checklist);
     y = disegnaTabellaDatiGenerali(doc, sopralluogo, y);
-    y = disegnaRiepilogoConteggi(doc, riepilogo, y);
     disegnaGruppiSezioni(doc, checklist, sopralluogo, y);
 
     disegnaAltriAspetti(doc, sopralluogo);
