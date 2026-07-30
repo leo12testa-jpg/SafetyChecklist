@@ -91,14 +91,14 @@ const pdf = (() => {
     return y;
   }
 
-  /** Intestazione con doppio logo affiancato (punto vendita a sinistra, Colligo Ingegneria a destra) e titolo checklist. */
+  /** Intestazione con doppio logo affiancato (Colligo Ingegneria a sinistra, punto vendita a destra) e titolo checklist. */
   function disegnaIntestazione(doc, logoPuntoVenditaURL, logoColligoURL, checklist) {
     const DIM_LOGO = 22;
 
+    doc.addImage(logoColligoURL, 'PNG', MARGINE, MARGINE, DIM_LOGO, DIM_LOGO);
     if (logoPuntoVenditaURL) {
-      doc.addImage(logoPuntoVenditaURL, 'PNG', MARGINE, MARGINE, DIM_LOGO, DIM_LOGO);
+      doc.addImage(logoPuntoVenditaURL, 'PNG', LARGHEZZA_PAGINA - MARGINE - DIM_LOGO, MARGINE, DIM_LOGO, DIM_LOGO);
     }
-    doc.addImage(logoColligoURL, 'PNG', LARGHEZZA_PAGINA - MARGINE - DIM_LOGO, MARGINE, DIM_LOGO, DIM_LOGO);
 
     doc.setFontSize(15);
     doc.setFont(undefined, 'bold');
@@ -154,6 +154,14 @@ const pdf = (() => {
     return valoreRisposta === colonna ? 'X' : '';
   }
 
+  /** Colore testo delle "X" nelle colonne di stato, per indice colonna (2=C, 3=P.C, 4=N.C, 5=N.P). */
+  const COLORE_COLONNA_STATO = {
+    2: [0, 140, 60], // C - verde
+    3: [230, 140, 0], // P.C - arancione
+    4: [200, 30, 30], // N.C - rosso
+    5: [0, 0, 0] // N.P - nero (colore testo standard)
+  };
+
   /** Tabella di una singola sezione: n., Descrizione attività, colonne di stato C/P.C/N.C/N.P, Note. */
   function disegnaTabellaSezione(doc, sezione, sopralluogo, y) {
     y = nuovaRigaSeNecessario(doc, y, 16);
@@ -193,6 +201,16 @@ const pdf = (() => {
         4: { cellWidth: 10, halign: 'center' },
         5: { cellWidth: 10, halign: 'center' },
         6: { cellWidth: 65 }
+      },
+      didParseCell(data) {
+        if (data.section !== 'body' || data.cell.raw !== 'X') {
+          return;
+        }
+        const colore = COLORE_COLONNA_STATO[data.column.index];
+        if (colore) {
+          data.cell.styles.textColor = colore;
+          data.cell.styles.fontStyle = 'bold';
+        }
       }
     });
 
