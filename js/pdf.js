@@ -64,30 +64,37 @@ const pdf = (() => {
     return blobADataURL(blob);
   }
 
-  /** Associazione nome cliente (riconosciuto nel Punto vendita) -> file del logo fisso in assets/. */
-  const LOGO_CLIENTE_PER_NOME = [
+  /**
+   * Associazione checklist -> file del logo cliente fisso in assets/. Il match è sull'id della
+   * checklist (identificatore stabile, sempre presente e univocamente legato a un cliente in
+   * checklists/clients.json), non sul testo libero "Punto vendita": quel campo è digitato
+   * liberamente dall'utente e può non contenere affatto il nome del cliente.
+   */
+  const LOGO_CLIENTE_PER_CHECKLIST = [
     { corrispondenza: 'coin', file: 'assets/logo_coin.webp' },
     { corrispondenza: 'interparking', file: 'assets/logo_interparking.webp' }
   ];
 
   /**
-   * Logo del cliente corrispondente al punto vendita del sopralluogo (match case-insensitive
-   * su "coin"/"interparking"). Loghi fissi, bundled nell'app. Se il cliente non è riconosciuto,
-   * ritorna null (l'intestazione non mostra nulla a destra, nessun placeholder rotto). Se il
-   * file è previsto ma non si riesce a caricare, l'errore viene registrato esplicitamente in
-   * console (non fallisce silenziosamente) e il logo viene comunque omesso, senza far fallire
-   * l'intera generazione del PDF per un asset mancante.
+   * Logo del cliente corrispondente alla checklist del sopralluogo (match case-insensitive su
+   * "coin"/"interparking" nell'id o nel titolo della checklist). Loghi fissi, bundled nell'app.
+   * Se la checklist non corrisponde a nessun cliente conosciuto, ritorna null (l'intestazione
+   * non mostra nulla a destra, nessun placeholder rotto) e lo segnala con un console.warn per
+   * poterlo individuare in futuro. Se il file è previsto ma non si riesce a caricare, l'errore
+   * viene registrato esplicitamente in console (non fallisce silenziosamente) e il logo viene
+   * comunque omesso, senza far fallire l'intera generazione del PDF per un asset mancante.
    */
-  async function ottieniLogoCliente(puntoVendita) {
-    const nome = String(puntoVendita || '').toLowerCase();
-    const voce = LOGO_CLIENTE_PER_NOME.find((c) => nome.includes(c.corrispondenza));
+  async function ottieniLogoCliente(checklist) {
+    const riferimento = `${checklist.id || ''} ${checklist.titolo || ''}`.toLowerCase();
+    const voce = LOGO_CLIENTE_PER_CHECKLIST.find((c) => riferimento.includes(c.corrispondenza));
     if (!voce) {
+      console.warn(`[pdf.js] Nessun logo cliente associato alla checklist "${checklist.id}" (titolo: "${checklist.titolo}"). Intestazione senza logo a destra.`);
       return null;
     }
     try {
       return await caricaLogo(voce.file);
     } catch (errore) {
-      console.error(`[pdf.js] Logo cliente non caricato (${voce.file}) per punto vendita "${puntoVendita}":`, errore);
+      console.error(`[pdf.js] Logo cliente non caricato (${voce.file}) per checklist "${checklist.id}":`, errore);
       return null;
     }
   }
@@ -513,7 +520,7 @@ const pdf = (() => {
     }
 
     const logoColligoURL = await ottieniLogoColligo();
-    const logoClienteURL = await ottieniLogoCliente(sopralluogo.punto_vendita);
+    const logoClienteURL = await ottieniLogoCliente(checklist);
 
     let y = disegnaIntestazione(doc, logoClienteURL, logoColligoURL, checklist);
     y = disegnaTabellaDatiGenerali(doc, sopralluogo, y);
