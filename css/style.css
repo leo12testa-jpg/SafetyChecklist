@@ -25,6 +25,7 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 #app {
