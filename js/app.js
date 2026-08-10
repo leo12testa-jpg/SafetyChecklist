@@ -687,6 +687,7 @@ const riepilogoScreen = (() => {
       pdfFilename = pdf.nomeFile(sopralluogo);
 
       await db.aggiornaSopralluogo(sopralluogoId, { stato: 'completato' });
+      await db.salvaPdfReport({ sopralluogo_id: sopralluogoId, blob: pdfBlob, filename: pdfFilename });
 
       pdfEsito.hidden = false;
     } catch (errore) {
@@ -721,37 +722,83 @@ const riepilogoScreen = (() => {
 
 /**
  * Schermata Storico: elenco sopralluoghi salvati, ordinati per data decrescente, con
- * possibilità di riaprire il PDF (rigenerato dai dati salvati) (PROJECT.md §7.8).
+ * possibilità di aprire o scaricare il PDF già generato e salvato al momento del
+ * completamento del sopralluogo (PROJECT.md §7.8). Nessuna rigenerazione: se un
+ * sopralluogo è stato completato prima dell'introduzione del salvataggio del PDF,
+ * il file non è disponibile e viene segnalato come tale.
  */
 const storicoScreen = (() => {
   const lista = document.getElementById('storico-lista');
   const vuoto = document.getElementById('storico-vuoto');
 
+  const MESSAGGIO_PDF_NON_DISPONIBILE =
+    'PDF non disponibile per questo sopralluogo (completato prima dell\'introduzione del salvataggio del PDF).';
+
   function formattaData(iso) {
     return new Date(iso).toLocaleDateString('it-IT');
   }
 
-  async function apriPdf(sopralluogoId, bottone) {
+  async function eseguiConBottone(bottone, azione) {
     const testoOriginale = bottone.textContent;
     bottone.disabled = true;
-    bottone.textContent = 'Generazione…';
-
     try {
-      const sopralluogo = await db.leggiSopralluogo(sopralluogoId);
-      const checklist = await db.leggiChecklistCache(sopralluogo.checklist_id);
-      if (!checklist) {
-        throw new Error('Checklist non disponibile in cache.');
-      }
-
-      const blob = await pdf.generaReport(checklist, sopralluogo);
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-    } catch (errore) {
-      alert(`Impossibile aprire il PDF: ${errore.message}`);
+      await azione();
     } finally {
       bottone.disabled = false;
       bottone.textContent = testoOriginale;
     }
+  }
+
+  /**
+   * Apre in una nuova scheda il PDF già salvato. La scheda viene aperta in modo sincrono,
+   * prima di qualsiasi `await`, per non perdere il gesto utente del click: su mobile
+   * (Safari iOS, WebView Android, PWA installate) un window.open dopo operazioni asincrone
+   * viene spesso bloccato silenziosamente come popup.
+   */
+  async function apriPdf(sopralluogoId, bottone) {
+    const finestra = window.open('', '_blank');
+    await eseguiConBottone(bottone, async () => {
+      bottone.textContent = 'Apertura…';
+      try {
+        const report = await db.leggiPdfReport(sopralluogoId);
+        if (!report) {
+          if (finestra) {
+            finestra.close();
+          }
+          alert(MESSAGGIO_PDF_NON_DISPONIBILE);
+          return;
+        }
+        const url = URL.createObjectURL(report.blob);
+        if (finestra) {
+          finestra.location.href = url;
+        } else {
+          window.open(url, '_blank');
+        }
+      } catch (errore) {
+        if (finestra) {
+          finestra.close();
+        }
+        alert(`Impossibile aprire il PDF: ${errore.message}`);
+      }
+    });
+  }
+
+  async function scaricaPdf(sopralluogoId, bottone) {
+    await eseguiConBottone(bottone, async () => {
+      bottone.textContent = 'Download…';
+      try {
+        const report = await db.leggiPdfReport(sopralluogoId);
+        if (!report) {
+          alert(MESSAGGIO_PDF_NON_DISPONIBILE);
+          return;
+        }
+        await pdf.salvaOCondividi(report.blob, report.filename);
+      } catch (errore) {
+        if (errore.name !== 'AbortError') {
+          alert(`Impossibile scaricare il PDF: ${errore.message}`);
+        }
+      }
+    });
   }
 
   function creaVoce(sopralluogo) {
@@ -770,14 +817,26 @@ const storicoScreen = (() => {
     info.appendChild(titolo);
     info.appendChild(dettaglio);
 
-    const bottone = document.createElement('button');
-    bottone.type = 'button';
-    bottone.className = 'btn-secondario';
-    bottone.textContent = 'Apri PDF';
-    bottone.addEventListener('click', () => apriPdf(sopralluogo.id, bottone));
+    const azioni = document.createElement('div');
+    azioni.className = 'storico-azioni';
+
+    const bottoneApri = document.createElement('button');
+    bottoneApri.type = 'button';
+    bottoneApri.className = 'btn-secondario';
+    bottoneApri.textContent = 'Apri';
+    bottoneApri.addEventListener('click', () => apriPdf(sopralluogo.id, bottoneApri));
+
+    const bottoneScarica = document.createElement('button');
+    bottoneScarica.type = 'button';
+    bottoneScarica.className = 'btn-secondario';
+    bottoneScarica.textContent = 'Scarica';
+    bottoneScarica.addEventListener('click', () => scaricaPdf(sopralluogo.id, bottoneScarica));
+
+    azioni.appendChild(bottoneApri);
+    azioni.appendChild(bottoneScarica);
 
     li.appendChild(info);
-    li.appendChild(bottone);
+    li.appendChild(azioni);
     return li;
   }
 

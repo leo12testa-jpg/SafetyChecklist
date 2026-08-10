@@ -368,6 +368,12 @@ body {
   font-size: 0.85rem;
 }
 
+.storico-azioni {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
 .storico-voce .btn-secondario {
   flex: none;
   width: auto;

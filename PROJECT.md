@@ -159,6 +159,7 @@ Database: `SafetyChecklistDB`
 | `foto` | `id` (uuid) | blob immagine compressa, riferimento a `sopralluogo_id` e `domanda_id` |
 | `checklists_cache` | `id` | copia locale del JSON checklist (per funzionare offline anche se il JSON viene aggiornato da remoto in futuro) |
 | `impostazioni` | `chiave` | dati azienda, logo, preferenze utente |
+| `pdf_report` | `sopralluogo_id` | blob del PDF generato al completamento del sopralluogo + nome file, per apertura/download dallo Storico senza rigenerare |
 
 **Nota:** i blob delle foto vengono salvati compressi (es. max lato 1280px, JPEG qualità ~0.7) per contenere lo spazio occupato dato che IndexedDB non ha limiti stretti ma i dispositivi mobile sì.
 
@@ -271,18 +272,20 @@ Firma il sopralluogo
 - Il PDF include: intestazione (logo + dati azienda), dati sopralluogo (cliente, sede, tecnico, data), elenco risposte per sezione, dettaglio NC con foto, firma finale.
 - Il sopralluogo passa a stato "completato" in IndexedDB.
 - Il PDF viene reso disponibile per il download/condivisione tramite le API del browser (Web Share API se disponibile, altrimenti download diretto).
+- Il PDF generato viene inoltre salvato in `pdf_report` (vedi §6), così da poterlo riaprire/scaricare dallo Storico senza rigenerarlo.
 
 ### 7.8 Storico
 
 ```
 Storico sopralluoghi
 
-[Cliente A – Sede 1 – 12/07/2026]  [Apri PDF]
-[Cliente B – Sede 2 – 20/07/2026]  [Apri PDF]
+[Cliente A – Sede 1 – 12/07/2026]  [Apri] [Scarica]
+[Cliente B – Sede 2 – 20/07/2026]  [Apri] [Scarica]
 ```
 
 - Elenco ordinato per data decrescente.
-- Possibilità di riaprire il PDF già generato o rigenerarlo dai dati salvati.
+- Il PDF generato al completamento del sopralluogo viene salvato in IndexedDB (store `pdf_report`, chiave `sopralluogo_id`): Apri/Scarica riusano quel Blob, senza rigenerare il PDF né richiedere di rifare il sopralluogo.
+- Sopralluoghi completati prima dell'introduzione di questo salvataggio non hanno un PDF disponibile: Apri/Scarica mostrano un messaggio in tal caso (nessuna rigenerazione automatica).
 
 ### 7.9 Impostazioni
 

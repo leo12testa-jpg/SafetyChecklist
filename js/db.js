@@ -1,10 +1,10 @@
 /**
  * Wrapper Promise-based su IndexedDB per Safety Checklist.
- * Object store (PROJECT.md §6): sopralluoghi, foto, checklists_cache, impostazioni.
+ * Object store (PROJECT.md §6): sopralluoghi, foto, checklists_cache, impostazioni, pdf_report.
  */
 const db = (() => {
   const DB_NAME = 'SafetyChecklistDB';
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
 
   let dbPromise = null;
 
@@ -35,6 +35,10 @@ const db = (() => {
 
         if (!database.objectStoreNames.contains('impostazioni')) {
           database.createObjectStore('impostazioni', { keyPath: 'chiave' });
+        }
+
+        if (!database.objectStoreNames.contains('pdf_report')) {
+          database.createObjectStore('pdf_report', { keyPath: 'sopralluogo_id' });
         }
       };
 
@@ -197,6 +201,18 @@ const db = (() => {
     return richiesta(store.getAll());
   }
 
+  /** Salva (o sovrascrive) il PDF già generato di un sopralluogo, per poterlo riaprire/scaricare senza rigenerarlo. */
+  async function salvaPdfReport({ sopralluogo_id, blob, filename }) {
+    const store = await transazione('pdf_report', 'readwrite');
+    await richiesta(store.put({ sopralluogo_id, blob, filename }));
+  }
+
+  /** Legge il PDF salvato di un sopralluogo. Ritorna undefined se non è mai stato generato/salvato. */
+  async function leggiPdfReport(sopralluogoId) {
+    const store = await transazione('pdf_report', 'readonly');
+    return richiesta(store.get(sopralluogoId));
+  }
+
   return {
     creaSopralluogo,
     salvaRisposta,
@@ -209,6 +225,8 @@ const db = (() => {
     leggiImpostazione,
     salvaChecklistCache,
     leggiChecklistCache,
-    elencaChecklistCache
+    elencaChecklistCache,
+    salvaPdfReport,
+    leggiPdfReport
   };
 })();
