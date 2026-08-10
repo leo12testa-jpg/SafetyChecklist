@@ -159,6 +159,14 @@ const pdf = (() => {
     const ALTEZZA_MAX_LOGO = 15;
 
     disegnaLogoProporzionato(doc, logoColligoURL, 'sinistra', LARGHEZZA_MAX_LOGO, ALTEZZA_MAX_LOGO);
+
+    // DEBUG TEMPORANEO: da rimuovere una volta confermato che il logo cliente compare in produzione.
+    console.warn('[pdf.js][DEBUG] logo cliente:', {
+      checklistId: checklist.id,
+      checklistTitolo: checklist.titolo,
+      logoClienteURL_presente: !!logoClienteURL,
+      logoClienteURL_anteprima: logoClienteURL ? logoClienteURL.slice(0, 40) + '…' : null
+    });
     disegnaLogoProporzionato(doc, logoClienteURL, 'destra', LARGHEZZA_MAX_LOGO, ALTEZZA_MAX_LOGO);
 
     doc.setFontSize(15);
