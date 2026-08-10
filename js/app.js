@@ -726,16 +726,53 @@ const riepilogoScreen = (() => {
  * completamento del sopralluogo (PROJECT.md §7.8). Nessuna rigenerazione: se un
  * sopralluogo è stato completato prima dell'introduzione del salvataggio del PDF,
  * il file non è disponibile e viene segnalato come tale.
+ *
+ * Filtro cliente/testo applicato in memoria sull'elenco già caricato (nessuna nuova query
+ * IndexedDB per digitazione); selezione multipla con export ZIP dei PDF già salvati.
  */
 const storicoScreen = (() => {
   const lista = document.getElementById('storico-lista');
   const vuoto = document.getElementById('storico-vuoto');
+  const nessunRisultato = document.getElementById('storico-nessun-risultato');
+  const filtroClienteContainer = document.getElementById('storico-filtro-cliente');
+  const inputRicerca = document.getElementById('storico-ricerca');
+  const checkboxSelezionaTutti = document.getElementById('storico-seleziona-tutti');
+  const bottoneScaricaSelezionati = document.getElementById('storico-scarica-selezionati');
 
   const MESSAGGIO_PDF_NON_DISPONIBILE =
     'PDF non disponibile per questo sopralluogo (completato prima dell\'introduzione del salvataggio del PDF).';
 
+  const DEBOUNCE_RICERCA_MS = 250;
+
+  let sopralluoghiCache = [];
+  let clienteAttivo = '';
+  let testoRicerca = '';
+  let timerDebounce = null;
+  const selezionati = new Set();
+
   function formattaData(iso) {
     return new Date(iso).toLocaleDateString('it-IT');
+  }
+
+  /** Stesso criterio di match usato in pdf.js per i loghi cliente, applicato al checklist_id già presente sul sopralluogo. */
+  function corrispondeCliente(sopralluogo, cliente) {
+    if (!cliente) {
+      return true;
+    }
+    return String(sopralluogo.checklist_id || '').toLowerCase().includes(cliente);
+  }
+
+  function corrispondeRicerca(sopralluogo, testo) {
+    if (!testo) {
+      return true;
+    }
+    return String(sopralluogo.punto_vendita || '').toLowerCase().includes(testo);
+  }
+
+  function elencoFiltrato() {
+    return sopralluoghiCache.filter(
+      (s) => corrispondeCliente(s, clienteAttivo) && corrispondeRicerca(s, testoRicerca)
+    );
   }
 
   async function eseguiConBottone(bottone, azione) {
@@ -801,9 +838,37 @@ const storicoScreen = (() => {
     });
   }
 
+  function aggiornaBottoneScaricaSelezionati() {
+    bottoneScaricaSelezionati.hidden = selezionati.size === 0;
+    bottoneScaricaSelezionati.textContent = `Scarica selezionati (${selezionati.size})`;
+  }
+
+  function aggiornaCheckboxSelezionaTutti() {
+    const visibili = elencoFiltrato();
+    checkboxSelezionaTutti.checked =
+      visibili.length > 0 && visibili.every((s) => selezionati.has(s.id));
+  }
+
   function creaVoce(sopralluogo) {
     const li = document.createElement('li');
     li.className = 'storico-voce';
+
+    const selezione = document.createElement('div');
+    selezione.className = 'storico-voce-selezione';
+    const checkboxSelezione = document.createElement('input');
+    checkboxSelezione.type = 'checkbox';
+    checkboxSelezione.checked = selezionati.has(sopralluogo.id);
+    checkboxSelezione.setAttribute('aria-label', `Seleziona ${sopralluogo.punto_vendita}`);
+    checkboxSelezione.addEventListener('change', () => {
+      if (checkboxSelezione.checked) {
+        selezionati.add(sopralluogo.id);
+      } else {
+        selezionati.delete(sopralluogo.id);
+      }
+      aggiornaBottoneScaricaSelezionati();
+      aggiornaCheckboxSelezionaTutti();
+    });
+    selezione.appendChild(checkboxSelezione);
 
     const info = document.createElement('div');
     info.className = 'storico-info';
@@ -835,20 +900,158 @@ const storicoScreen = (() => {
     azioni.appendChild(bottoneApri);
     azioni.appendChild(bottoneScarica);
 
+    li.appendChild(selezione);
     li.appendChild(info);
     li.appendChild(azioni);
     return li;
   }
 
-  async function render() {
-    const sopralluoghi = await db.elencaSopralluoghi();
+  /** Ri-renderizza solo la lista in base ai filtri correnti, senza richiedere nulla a IndexedDB. */
+  function applicaFiltri() {
+    const filtrati = elencoFiltrato();
     lista.innerHTML = '';
-    vuoto.hidden = sopralluoghi.length > 0;
-    sopralluoghi.forEach((sopralluogo) => lista.appendChild(creaVoce(sopralluogo)));
+    filtrati.forEach((sopralluogo) => lista.appendChild(creaVoce(sopralluogo)));
+
+    vuoto.hidden = sopralluoghiCache.length > 0;
+    nessunRisultato.hidden = sopralluoghiCache.length === 0 || filtrati.length > 0;
+
+    aggiornaBottoneScaricaSelezionati();
+    aggiornaCheckboxSelezionaTutti();
+  }
+
+  function onRicercaInput() {
+    clearTimeout(timerDebounce);
+    timerDebounce = setTimeout(() => {
+      testoRicerca = inputRicerca.value.trim().toLowerCase();
+      applicaFiltri();
+    }, DEBOUNCE_RICERCA_MS);
+  }
+
+  function onFiltroClienteClick(event) {
+    const bottone = event.target.closest('.filtro-cliente-btn');
+    if (!bottone) {
+      return;
+    }
+    clienteAttivo = bottone.dataset.cliente || '';
+    Array.from(filtroClienteContainer.querySelectorAll('.filtro-cliente-btn')).forEach((btn) => {
+      btn.classList.toggle('is-attivo', btn === bottone);
+    });
+    applicaFiltri();
+  }
+
+  /** "Seleziona tutti" agisce solo sui sopralluoghi attualmente visibili (che passano i filtri attivi). */
+  function onSelezionaTuttiChange() {
+    const visibili = elencoFiltrato();
+    if (checkboxSelezionaTutti.checked) {
+      visibili.forEach((s) => selezionati.add(s.id));
+    } else {
+      visibili.forEach((s) => selezionati.delete(s.id));
+    }
+    applicaFiltri();
+  }
+
+  /** Crea uno zip con i PDF già salvati (nessuna rigenerazione) dei sopralluoghi selezionati e lo scarica/condivide. */
+  async function scaricaSelezionati() {
+    const idSelezionati = Array.from(selezionati);
+    if (!idSelezionati.length) {
+      return;
+    }
+
+    const testoOriginale = bottoneScaricaSelezionati.textContent;
+    bottoneScaricaSelezionati.disabled = true;
+    bottoneScaricaSelezionati.textContent = 'Preparazione…';
+
+    try {
+      const zip = new JSZip();
+      const nomiUsati = new Set();
+      let trovati = 0;
+
+      for (const id of idSelezionati) {
+        const report = await db.leggiPdfReport(id);
+        if (!report) {
+          continue;
+        }
+        trovati += 1;
+
+        let nomeFile = report.filename;
+        let contatore = 2;
+        while (nomiUsati.has(nomeFile)) {
+          nomeFile = report.filename.replace(/\.pdf$/i, `_${contatore}.pdf`);
+          contatore += 1;
+        }
+        nomiUsati.add(nomeFile);
+
+        zip.file(nomeFile, report.blob);
+      }
+
+      if (trovati === 0) {
+        alert('Nessun PDF disponibile tra i sopralluoghi selezionati.');
+        return;
+      }
+
+      const blobZip = await zip.generateAsync({ type: 'blob' });
+      const nomeZip = `Sopralluoghi_${new Date().toISOString().slice(0, 10)}.zip`;
+      await pdf.salvaOCondividi(blobZip, nomeZip);
+
+      const mancanti = idSelezionati.length - trovati;
+      const messaggio =
+        mancanti > 0
+          ? `Scaricati ${trovati} PDF su ${idSelezionati.length} selezionati, ${mancanti} non disponibile${mancanti > 1 ? 'i' : ''}.`
+          : `Scaricati ${trovati} PDF su ${idSelezionati.length} selezionati.`;
+      alert(messaggio);
+    } catch (errore) {
+      if (errore.name !== 'AbortError') {
+        alert(`Impossibile creare lo zip: ${errore.message}`);
+      }
+    } finally {
+      bottoneScaricaSelezionati.disabled = false;
+      bottoneScaricaSelezionati.textContent = testoOriginale;
+      aggiornaBottoneScaricaSelezionati();
+    }
+  }
+
+  async function render() {
+    sopralluoghiCache = await db.elencaSopralluoghi();
+    selezionati.clear();
+    clienteAttivo = '';
+    testoRicerca = '';
+    inputRicerca.value = '';
+    Array.from(filtroClienteContainer.querySelectorAll('.filtro-cliente-btn')).forEach((btn) => {
+      btn.classList.toggle('is-attivo', !btn.dataset.cliente);
+    });
+    applicaFiltri();
   }
 
   function init() {
+    inputRicerca.addEventListener('input', onRicercaInput);
+    filtroClienteContainer.addEventListener('click', onFiltroClienteClick);
+    checkboxSelezionaTutti.addEventListener('change', onSelezionaTuttiChange);
+    bottoneScaricaSelezionati.addEventListener('click', scaricaSelezionati);
     router.onEnter('history', render);
+  }
+
+  return { init };
+})();
+
+/**
+ * Indicatore online/offline fisso nell'header, visibile in ogni schermata (l'header non fa
+ * parte di #screens e non viene mai nascosto dal router). Si aggiorna sugli eventi
+ * online/offline, senza bisogno di refresh della pagina.
+ */
+const connessioneIndicatore = (() => {
+  const contenitore = document.getElementById('stato-connessione');
+  const testo = document.getElementById('stato-connessione-testo');
+
+  function aggiorna() {
+    const online = navigator.onLine;
+    contenitore.classList.toggle('is-offline', !online);
+    testo.textContent = online ? 'Online' : 'Offline';
+  }
+
+  function init() {
+    aggiorna();
+    window.addEventListener('online', aggiorna);
+    window.addEventListener('offline', aggiorna);
   }
 
   return { init };
@@ -882,6 +1085,7 @@ const impostazioniScreen = (() => {
 
 document.addEventListener('DOMContentLoaded', () => {
   router.init();
+  connessioneIndicatore.init();
   nuovoSopralluogoScreen.init();
   compilazioneScreen.init();
   altriAspettiScreen.init();

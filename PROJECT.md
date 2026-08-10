@@ -286,6 +286,8 @@ Storico sopralluoghi
 - Elenco ordinato per data decrescente.
 - Il PDF generato al completamento del sopralluogo viene salvato in IndexedDB (store `pdf_report`, chiave `sopralluogo_id`): Apri/Scarica riusano quel Blob, senza rigenerare il PDF né richiedere di rifare il sopralluogo.
 - Sopralluoghi completati prima dell'introduzione di questo salvataggio non hanno un PDF disponibile: Apri/Scarica mostrano un messaggio in tal caso (nessuna rigenerazione automatica).
+- Filtro per cliente (Tutti/Coin/Interparking, match su `checklist_id`, stesso criterio dei loghi) combinabile con una ricerca testuale su `punto_vendita` (debounce ~250ms), applicati in memoria sull'elenco già caricato.
+- Checkbox per voce + "Seleziona tutti" (limitato alle voci attualmente visibili secondo i filtri) e pulsante "Scarica selezionati": crea uno zip (JSZip, vendorizzata in `js/vendor/jszip.min.js`) con i PDF già salvati dei sopralluoghi selezionati, senza rigenerarli; quelli senza PDF salvato vengono esclusi silenziosamente con un riepilogo finale (es. "Scaricati 4 PDF su 5 selezionati, 1 non disponibile").
 
 ### 7.9 Impostazioni
 
@@ -302,6 +304,7 @@ Gestione checklist: [ elenco file JSON disponibili ]
 - **manifest.json**: nome app, icone, `display: standalone`, `start_url`, `theme_color`.
 - Nessuna funzionalità richiede connessione: creazione, compilazione, foto, firma, PDF e salvataggio avvengono interamente in locale.
 - Se in futuro si aggiungerà sincronizzazione cloud, dovrà essere un livello opzionale sopra questa base, mai un requisito.
+- Indicatore di stato connessione (pallino + testo "Online"/"Offline") fisso nell'header, visibile in ogni schermata, basato su `navigator.onLine` e gli eventi `online`/`offline` (puramente informativo: non blocca né abilita funzionalità, che restano sempre disponibili offline).
 
 ---
 

@@ -14,6 +14,10 @@
   <div id="app">
     <header class="app-header">
       <h1>🦺 Safety Checklist</h1>
+      <span class="stato-connessione" id="stato-connessione">
+        <span class="stato-connessione-pallino" id="stato-connessione-pallino"></span>
+        <span id="stato-connessione-testo">Online</span>
+      </span>
     </header>
 
     <main id="screens">
@@ -155,8 +159,27 @@
       <section id="screen-history" class="screen" data-screen="history" hidden>
         <button type="button" class="btn-back" data-nav="home">← Indietro</button>
         <h2>Storico</h2>
+
+        <div class="storico-filtri">
+          <div class="storico-filtro-cliente" id="storico-filtro-cliente">
+            <button type="button" class="filtro-cliente-btn is-attivo" data-cliente="">Tutti</button>
+            <button type="button" class="filtro-cliente-btn" data-cliente="coin">Coin</button>
+            <button type="button" class="filtro-cliente-btn" data-cliente="interparking">Interparking</button>
+          </div>
+          <input type="search" class="storico-ricerca" id="storico-ricerca" placeholder="Cerca punto vendita…" autocomplete="off">
+        </div>
+
+        <div class="storico-selezione-barra">
+          <label class="storico-seleziona-tutti">
+            <input type="checkbox" id="storico-seleziona-tutti">
+            Seleziona tutti
+          </label>
+          <button type="button" class="btn-secondario" id="storico-scarica-selezionati" hidden>Scarica selezionati</button>
+        </div>
+
         <ul class="storico-lista" id="storico-lista"></ul>
         <p class="placeholder-text" id="storico-vuoto" hidden>Nessun sopralluogo salvato.</p>
+        <p class="placeholder-text" id="storico-nessun-risultato" hidden>Nessun sopralluogo corrisponde ai filtri.</p>
       </section>
 
       <section id="screen-settings" class="screen" data-screen="settings" hidden>
@@ -173,6 +196,7 @@
 
   <script src="js/vendor/jspdf.umd.min.js"></script>
   <script src="js/vendor/jspdf.plugin.autotable.min.js"></script>
+  <script src="js/vendor/jszip.min.js"></script>
   <script src="js/db.js"></script>
   <script src="js/checklist.js"></script>
   <script src="js/camera.js"></script>
