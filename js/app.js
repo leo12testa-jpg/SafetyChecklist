@@ -738,6 +738,7 @@ const storicoScreen = (() => {
   const inputRicerca = document.getElementById('storico-ricerca');
   const checkboxSelezionaTutti = document.getElementById('storico-seleziona-tutti');
   const bottoneScaricaSelezionati = document.getElementById('storico-scarica-selezionati');
+  const bottoneVaiCestino = document.getElementById('storico-vai-cestino');
 
   const MESSAGGIO_PDF_NON_DISPONIBILE =
     'PDF non disponibile per questo sopralluogo (completato prima dell\'introduzione del salvataggio del PDF).';
@@ -838,20 +839,27 @@ const storicoScreen = (() => {
     });
   }
 
-  /** Chiede conferma, poi elimina il sopralluogo (e i dati collegati) e aggiorna subito l'elenco a schermo. */
-  async function eliminaSopralluogo(sopralluogo, bottone) {
-    if (!confirm('Eliminare questo sopralluogo? L\'operazione non è reversibile.')) {
+  /** Aggiorna il contatore sul pulsante "Cestino" nello Storico. */
+  async function aggiornaContatoreCestino() {
+    const cestino = await db.elencaCestino();
+    bottoneVaiCestino.textContent = `🗑️ Cestino (${cestino.length})`;
+  }
+
+  /** Chiede conferma, poi sposta il sopralluogo nel cestino (soft-delete) e aggiorna subito l'elenco a schermo. */
+  async function spostaNelCestino(sopralluogo, bottone) {
+    if (!confirm('Spostare questo sopralluogo nel cestino? Potrai ripristinarlo entro 30 giorni, dal Cestino nello Storico.')) {
       return;
     }
     await eseguiConBottone(bottone, async () => {
-      bottone.textContent = 'Eliminazione…';
+      bottone.textContent = 'Spostamento…';
       try {
-        await db.eliminaSopralluogo(sopralluogo.id);
+        await db.spostaNelCestino(sopralluogo.id);
         sopralluoghiCache = sopralluoghiCache.filter((s) => s.id !== sopralluogo.id);
         selezionati.delete(sopralluogo.id);
         applicaFiltri();
+        await aggiornaContatoreCestino();
       } catch (errore) {
-        alert(`Impossibile eliminare il sopralluogo: ${errore.message}`);
+        alert(`Impossibile spostare il sopralluogo nel cestino: ${errore.message}`);
       }
     });
   }
@@ -919,9 +927,9 @@ const storicoScreen = (() => {
     bottoneElimina.type = 'button';
     bottoneElimina.className = 'btn-secondario btn-elimina';
     bottoneElimina.textContent = '🗑️';
-    bottoneElimina.setAttribute('aria-label', `Elimina ${sopralluogo.punto_vendita}`);
-    bottoneElimina.title = 'Elimina';
-    bottoneElimina.addEventListener('click', () => eliminaSopralluogo(sopralluogo, bottoneElimina));
+    bottoneElimina.setAttribute('aria-label', `Sposta ${sopralluogo.punto_vendita} nel cestino`);
+    bottoneElimina.title = 'Sposta nel cestino';
+    bottoneElimina.addEventListener('click', () => spostaNelCestino(sopralluogo, bottoneElimina));
 
     azioni.appendChild(bottoneApri);
     azioni.appendChild(bottoneScarica);
@@ -1047,6 +1055,7 @@ const storicoScreen = (() => {
       btn.classList.toggle('is-attivo', !btn.dataset.cliente);
     });
     applicaFiltri();
+    await aggiornaContatoreCestino();
   }
 
   function init() {
@@ -1055,6 +1064,117 @@ const storicoScreen = (() => {
     checkboxSelezionaTutti.addEventListener('change', onSelezionaTuttiChange);
     bottoneScaricaSelezionati.addEventListener('click', scaricaSelezionati);
     router.onEnter('history', render);
+  }
+
+  return { init };
+})();
+
+/**
+ * Schermata Cestino: sopralluoghi spostati nel cestino dallo Storico (soft-delete via
+ * "eliminato_il"), con possibilità di ripristinarli o eliminarli definitivamente. Pulizia
+ * automatica dei sopralluoghi più vecchi di 30 giorni gestita da db.pulisciCestino(),
+ * chiamata silenziosamente all'avvio dell'app.
+ */
+const cestinoScreen = (() => {
+  const lista = document.getElementById('cestino-lista');
+  const vuoto = document.getElementById('cestino-vuoto');
+
+  let cestinoCache = [];
+
+  function formattaData(iso) {
+    return new Date(iso).toLocaleString('it-IT');
+  }
+
+  async function eseguiConBottone(bottone, azione) {
+    bottone.disabled = true;
+    try {
+      await azione();
+    } finally {
+      bottone.disabled = false;
+    }
+  }
+
+  function render() {
+    lista.innerHTML = '';
+    cestinoCache.forEach((sopralluogo) => lista.appendChild(creaVoce(sopralluogo)));
+    vuoto.hidden = cestinoCache.length > 0;
+  }
+
+  async function ricarica() {
+    cestinoCache = await db.elencaCestino();
+    render();
+  }
+
+  async function ripristina(sopralluogo, bottone) {
+    await eseguiConBottone(bottone, async () => {
+      bottone.textContent = 'Ripristino…';
+      try {
+        await db.ripristinaSopralluogo(sopralluogo.id);
+        cestinoCache = cestinoCache.filter((s) => s.id !== sopralluogo.id);
+        render();
+      } catch (errore) {
+        alert(`Impossibile ripristinare il sopralluogo: ${errore.message}`);
+      }
+    });
+  }
+
+  async function eliminaDefinitivamente(sopralluogo, bottone) {
+    if (!confirm('Eliminare definitivamente questo sopralluogo? L\'operazione non è reversibile.')) {
+      return;
+    }
+    await eseguiConBottone(bottone, async () => {
+      bottone.textContent = 'Eliminazione…';
+      try {
+        await db.eliminaSopralluogo(sopralluogo.id);
+        cestinoCache = cestinoCache.filter((s) => s.id !== sopralluogo.id);
+        render();
+      } catch (errore) {
+        alert(`Impossibile eliminare il sopralluogo: ${errore.message}`);
+      }
+    });
+  }
+
+  function creaVoce(sopralluogo) {
+    const li = document.createElement('li');
+    li.className = 'storico-voce';
+
+    const info = document.createElement('div');
+    info.className = 'storico-info';
+
+    const titolo = document.createElement('strong');
+    titolo.textContent = sopralluogo.punto_vendita;
+
+    const dettaglio = document.createElement('span');
+    dettaglio.textContent = `${sopralluogo.indirizzo_punto_vendita || ''} · eliminato il ${formattaData(sopralluogo.eliminato_il)}`;
+
+    info.appendChild(titolo);
+    info.appendChild(dettaglio);
+
+    const azioni = document.createElement('div');
+    azioni.className = 'storico-azioni';
+
+    const bottoneRipristina = document.createElement('button');
+    bottoneRipristina.type = 'button';
+    bottoneRipristina.className = 'btn-secondario';
+    bottoneRipristina.textContent = 'Ripristina';
+    bottoneRipristina.addEventListener('click', () => ripristina(sopralluogo, bottoneRipristina));
+
+    const bottoneEliminaDefinitivo = document.createElement('button');
+    bottoneEliminaDefinitivo.type = 'button';
+    bottoneEliminaDefinitivo.className = 'btn-secondario btn-elimina';
+    bottoneEliminaDefinitivo.textContent = 'Elimina definitivamente';
+    bottoneEliminaDefinitivo.addEventListener('click', () => eliminaDefinitivamente(sopralluogo, bottoneEliminaDefinitivo));
+
+    azioni.appendChild(bottoneRipristina);
+    azioni.appendChild(bottoneEliminaDefinitivo);
+
+    li.appendChild(info);
+    li.appendChild(azioni);
+    return li;
+  }
+
+  function init() {
+    router.onEnter('trash', ricarica);
   }
 
   return { init };
@@ -1118,5 +1238,9 @@ document.addEventListener('DOMContentLoaded', () => {
   altriAspettiScreen.init();
   riepilogoScreen.init();
   storicoScreen.init();
+  cestinoScreen.init();
   impostazioniScreen.init();
+
+  // Pulizia silenziosa all'avvio: elimina definitivamente i sopralluoghi nel cestino da oltre 30 giorni.
+  db.pulisciCestino().catch((errore) => console.error('Pulizia automatica del cestino fallita:', errore));
 });

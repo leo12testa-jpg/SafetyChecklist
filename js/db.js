@@ -163,11 +163,62 @@ const db = (() => {
     return { ...sopralluogo, foto };
   }
 
-  /** Elenca tutti i sopralluoghi salvati, ordinati per data decrescente. */
+  /** Elenca i sopralluoghi non nel cestino, ordinati per data decrescente. */
   async function elencaSopralluoghi() {
     const store = await transazione('sopralluoghi', 'readonly');
     const tutti = await richiesta(store.getAll());
-    return tutti.sort((a, b) => new Date(b.data) - new Date(a.data));
+    return tutti
+      .filter((s) => !s.eliminato_il)
+      .sort((a, b) => new Date(b.data) - new Date(a.data));
+  }
+
+  /** Elenca i sopralluoghi nel cestino, ordinati per data di eliminazione decrescente (i più recenti prima). */
+  async function elencaCestino() {
+    const store = await transazione('sopralluoghi', 'readonly');
+    const tutti = await richiesta(store.getAll());
+    return tutti
+      .filter((s) => s.eliminato_il)
+      .sort((a, b) => new Date(b.eliminato_il) - new Date(a.eliminato_il));
+  }
+
+  /** Sposta un sopralluogo nel cestino (soft-delete): marcato con "eliminato_il", resta in DB con le sue foto. */
+  async function spostaNelCestino(sopralluogoId) {
+    return aggiornaSopralluogo(sopralluogoId, { eliminato_il: new Date().toISOString() });
+  }
+
+  /** Ripristina un sopralluogo dal cestino, rimuovendo il campo "eliminato_il". */
+  async function ripristinaSopralluogo(sopralluogoId) {
+    const store = await transazione('sopralluoghi', 'readwrite');
+    const sopralluogo = await richiesta(store.get(sopralluogoId));
+    if (!sopralluogo) {
+      throw new Error(`Sopralluogo non trovato: ${sopralluogoId}`);
+    }
+
+    delete sopralluogo.eliminato_il;
+    await richiesta(store.put(sopralluogo));
+    return sopralluogo;
+  }
+
+  const GIORNI_CONSERVAZIONE_CESTINO = 30;
+
+  /**
+   * Elimina definitivamente (con foto e PDF collegati) i sopralluoghi nel cestino da più
+   * dei giorni di conservazione previsti. Pensata per una chiamata silenziosa all'avvio dell'app.
+   */
+  async function pulisciCestino() {
+    const cestino = await elencaCestino();
+    const limiteMs = GIORNI_CONSERVAZIONE_CESTINO * 24 * 60 * 60 * 1000;
+    const adesso = Date.now();
+
+    const daEliminare = cestino.filter(
+      (s) => adesso - new Date(s.eliminato_il).getTime() > limiteMs
+    );
+
+    for (const sopralluogo of daEliminare) {
+      await eliminaSopralluogo(sopralluogo.id);
+    }
+
+    return daEliminare.length;
   }
 
   /** Cancella (via cursore, stessa transazione) tutte le foto collegate a un sopralluogo. */
@@ -253,6 +304,10 @@ const db = (() => {
     leggiFoto,
     leggiSopralluogo,
     elencaSopralluoghi,
+    elencaCestino,
+    spostaNelCestino,
+    ripristinaSopralluogo,
+    pulisciCestino,
     eliminaSopralluogo,
     salvaImpostazione,
     leggiImpostazione,

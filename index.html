@@ -160,6 +160,8 @@
         <button type="button" class="btn-back" data-nav="home">← Indietro</button>
         <h2>Storico</h2>
 
+        <button type="button" class="btn-secondario storico-vai-cestino" id="storico-vai-cestino" data-nav="trash">🗑️ Cestino (0)</button>
+
         <div class="storico-filtri">
           <div class="storico-filtro-cliente" id="storico-filtro-cliente">
             <button type="button" class="filtro-cliente-btn is-attivo" data-cliente="">Tutti</button>
@@ -180,6 +182,15 @@
         <ul class="storico-lista" id="storico-lista"></ul>
         <p class="placeholder-text" id="storico-vuoto" hidden>Nessun sopralluogo salvato.</p>
         <p class="placeholder-text" id="storico-nessun-risultato" hidden>Nessun sopralluogo corrisponde ai filtri.</p>
+      </section>
+
+      <section id="screen-trash" class="screen" data-screen="trash" hidden>
+        <button type="button" class="btn-back" data-nav="history">← Storico</button>
+        <h2>Cestino</h2>
+        <p class="placeholder-text">I sopralluoghi eliminati restano qui per 30 giorni, poi vengono rimossi definitivamente in automatico.</p>
+
+        <ul class="storico-lista" id="cestino-lista"></ul>
+        <p class="placeholder-text" id="cestino-vuoto" hidden>Il cestino è vuoto.</p>
       </section>
 
       <section id="screen-settings" class="screen" data-screen="settings" hidden>

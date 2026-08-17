@@ -363,6 +363,15 @@ body {
   margin-bottom: 8px;
 }
 
+.storico-vai-cestino {
+  display: block;
+  width: auto;
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  color: #b3261e;
+  border-color: #b3261e;
+}
+
 .storico-filtri {
   display: flex;
   flex-direction: column;
