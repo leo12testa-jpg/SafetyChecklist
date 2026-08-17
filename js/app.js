@@ -77,6 +77,7 @@ const nuovoSopralluogoScreen = (() => {
   const inputTecnico = document.getElementById('input-tecnico');
   const inputDataSopralluogo = document.getElementById('input-data-sopralluogo');
   const inputResponsabile = document.getElementById('input-responsabile');
+  const inputAreaManager = document.getElementById('input-area-manager');
   const selectPresenzaResponsabile = document.getElementById('select-presenza-responsabile');
   const selectPresenzaRls = document.getElementById('select-presenza-rls');
   const selectChecklist = document.getElementById('select-checklist');
@@ -85,6 +86,7 @@ const nuovoSopralluogoScreen = (() => {
   const listaIndirizzi = document.getElementById('lista-indirizzi');
   const listaTecnici = document.getElementById('lista-tecnici');
   const listaResponsabili = document.getElementById('lista-responsabili');
+  const listaAreaManager = document.getElementById('lista-area-manager');
 
   const btnImportaPdf = document.getElementById('btn-importa-pdf');
   const inputImportaPdf = document.getElementById('input-importa-pdf');
@@ -110,6 +112,7 @@ const nuovoSopralluogoScreen = (() => {
     popolaDatalist(listaIndirizzi, sopralluoghi.map((s) => s.indirizzo_punto_vendita));
     popolaDatalist(listaTecnici, sopralluoghi.map((s) => s.tecnico));
     popolaDatalist(listaResponsabili, sopralluoghi.map((s) => s.responsabile_punto_vendita));
+    popolaDatalist(listaAreaManager, sopralluoghi.map((s) => s.area_manager));
   }
 
   function oggiISO() {
@@ -223,6 +226,7 @@ const nuovoSopralluogoScreen = (() => {
       if (anagrafica.numero_dipendenti) inputNumeroDipendenti.value = anagrafica.numero_dipendenti;
       if (anagrafica.tecnico) inputTecnico.value = anagrafica.tecnico;
       if (anagrafica.responsabile_punto_vendita) inputResponsabile.value = anagrafica.responsabile_punto_vendita;
+      if (anagrafica.area_manager) inputAreaManager.value = anagrafica.area_manager;
       impostaSelectSeValido(selectPresenzaResponsabile, anagrafica.presenza_responsabile);
       impostaSelectSeValido(selectPresenzaRls, anagrafica.presenza_rls);
       // La Data del sopralluogo NON viene sovrascritta con quella letta dal PDF: il nuovo
@@ -261,6 +265,7 @@ const nuovoSopralluogoScreen = (() => {
       tecnico: inputTecnico.value.trim(),
       data_sopralluogo: inputDataSopralluogo.value,
       responsabile_punto_vendita: inputResponsabile.value.trim(),
+      area_manager: inputAreaManager.value.trim() || null,
       presenza_responsabile: selectPresenzaResponsabile.value,
       presenza_rls: selectPresenzaRls.value,
       checklist_id: selectChecklist.value

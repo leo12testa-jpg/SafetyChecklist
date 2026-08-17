@@ -98,6 +98,7 @@ const db = (() => {
     tecnico,
     data_sopralluogo,
     responsabile_punto_vendita,
+    area_manager = null,
     presenza_responsabile,
     presenza_rls,
     checklist_id
@@ -112,6 +113,10 @@ const db = (() => {
       tecnico,
       data_sopralluogo,
       responsabile_punto_vendita,
+      // Ruolo distinto dal responsabile del punto vendita (un'area manager segue più punti
+      // vendita): facoltativo, valorizzato tipicamente importando un sopralluogo dal formato
+      // storico Coin (vedi js/pdf-import.js), che lo riporta in intestazione.
+      area_manager,
       presenza_responsabile,
       presenza_rls,
       checklist_id,
@@ -149,6 +154,7 @@ const db = (() => {
       tecnico: overrides.tecnico ?? originale.tecnico,
       data_sopralluogo: overrides.data_sopralluogo ?? originale.data_sopralluogo,
       responsabile_punto_vendita: originale.responsabile_punto_vendita,
+      area_manager: originale.area_manager ?? null,
       presenza_responsabile: originale.presenza_responsabile,
       presenza_rls: originale.presenza_rls,
       checklist_id: originale.checklist_id,
