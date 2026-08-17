@@ -55,9 +55,19 @@ const router = (() => {
 })();
 
 /**
+ * Id del sopralluogo appena creato via "Importa da PDF" (nuovoSopralluogoScreen), condiviso con
+ * compilazioneScreen per mostrare il banner "dati importati" durante la revisione. `null` quando
+ * non c'è nessuna importazione in corso o in attesa di revisione.
+ */
+let sopralluogoImportatoDaPdf = null;
+
+/**
  * Schermata "Nuovo sopralluogo": popola i campi editabili come testo libero (valori già usati
  * in precedenza), filtra la Checklist in base al punto vendita digitato (checklists/clients.json),
- * poi crea il sopralluogo e avvia la compilazione (PROJECT.md §7.2).
+ * poi crea il sopralluogo e avvia la compilazione (PROJECT.md §7.2). Supporta anche l'importazione
+ * delle risposte da un PDF già generato da questa app (js/pdf-import.js): precompila i campi del
+ * form con l'anagrafica letta dal PDF e porta le risposte estratte fino alla creazione del
+ * sopralluogo, che parte comunque sempre in revisione (mai un salvataggio diretto).
  */
 const nuovoSopralluogoScreen = (() => {
   const form = document.getElementById('form-nuovo-sopralluogo');
@@ -76,8 +86,14 @@ const nuovoSopralluogoScreen = (() => {
   const listaTecnici = document.getElementById('lista-tecnici');
   const listaResponsabili = document.getElementById('lista-responsabili');
 
+  const btnImportaPdf = document.getElementById('btn-importa-pdf');
+  const inputImportaPdf = document.getElementById('input-importa-pdf');
+  const esitoImportazione = document.getElementById('importa-pdf-esito');
+
   let checklistDisponibili = [];
   let associazioniClienti = [];
+  let risposteImportate = null;
+  let checklistIdImportato = null;
 
   function popolaDatalist(datalist, valori) {
     datalist.innerHTML = '';
@@ -143,16 +159,102 @@ const nuovoSopralluogoScreen = (() => {
     filtraChecklistPerCliente();
   }
 
+  /** Azzera lo stato di un'eventuale importazione PDF precedente (entrando di nuovo nella schermata, o cambiando checklist dopo un'importazione: le risposte importate valgono solo per la checklist con cui sono state lette). */
+  function annullaImportazione(messaggio) {
+    risposteImportate = null;
+    checklistIdImportato = null;
+    if (messaggio) {
+      esitoImportazione.hidden = false;
+      esitoImportazione.textContent = messaggio;
+    } else {
+      esitoImportazione.hidden = true;
+      esitoImportazione.textContent = '';
+    }
+  }
+
+  /** Imposta un <select> su un valore letto dal PDF solo se corrisponde a una delle opzioni esistenti (Sì/No). */
+  function impostaSelectSeValido(select, valore) {
+    if (valore && Array.from(select.options).some((opzione) => opzione.value === valore)) {
+      select.value = valore;
+    }
+  }
+
+  /**
+   * Il menu "Checklist" ha sempre un valore (nessuna opzione vuota): prima di aprire il
+   * selettore file chiediamo esplicita conferma di quale checklist useremo per interpretare le
+   * colonne del PDF, così l'utente nota subito se il menu è rimasto sul valore sbagliato.
+   */
+  async function onClickImportaPdf() {
+    const opzioneSelezionata = selectChecklist.options[selectChecklist.selectedIndex];
+    const titoloChecklist = opzioneSelezionata ? opzioneSelezionata.textContent : '(nessuna)';
+    const confermato = confirm(
+      `Il PDF da importare corrisponde alla checklist "${titoloChecklist}"?\n\n` +
+      'Serve a interpretare correttamente le colonne del report. Se non è quella giusta, annulla e selezionala prima qui sopra nel menu "Checklist".'
+    );
+    if (!confermato) {
+      return;
+    }
+    inputImportaPdf.click();
+  }
+
+  async function onFileImportaPdfSelezionato(event) {
+    const file = event.target.files[0];
+    event.target.value = ''; // permette di riselezionare lo stesso file in un secondo tentativo
+    if (!file) {
+      return;
+    }
+
+    const checklistId = selectChecklist.value;
+    const testoOriginale = btnImportaPdf.textContent;
+    btnImportaPdf.disabled = true;
+    btnImportaPdf.textContent = 'Importazione in corso…';
+    esitoImportazione.hidden = true;
+
+    try {
+      const checklist = await checklistEngine.carica(checklistId);
+      const risultato = await pdfImport.importaDaFile(file, checklist);
+
+      risposteImportate = risultato.risposte;
+      checklistIdImportato = checklistId;
+
+      const anagrafica = risultato.anagrafica || {};
+      if (anagrafica.punto_vendita) inputPuntoVendita.value = anagrafica.punto_vendita;
+      if (anagrafica.indirizzo_punto_vendita) inputIndirizzo.value = anagrafica.indirizzo_punto_vendita;
+      if (anagrafica.numero_dipendenti) inputNumeroDipendenti.value = anagrafica.numero_dipendenti;
+      if (anagrafica.tecnico) inputTecnico.value = anagrafica.tecnico;
+      if (anagrafica.responsabile_punto_vendita) inputResponsabile.value = anagrafica.responsabile_punto_vendita;
+      impostaSelectSeValido(selectPresenzaResponsabile, anagrafica.presenza_responsabile);
+      impostaSelectSeValido(selectPresenzaRls, anagrafica.presenza_rls);
+      // La Data del sopralluogo NON viene sovrascritta con quella letta dal PDF: il nuovo
+      // sopralluogo importato riparte da oggi (di default, comunque modificabile qui sopra).
+
+      const percentuale = risultato.totaleDomande
+        ? Math.round((risultato.domandeRiconosciute / risultato.totaleDomande) * 100)
+        : 0;
+      esitoImportazione.hidden = false;
+      esitoImportazione.textContent =
+        `PDF importato: ${risultato.domandeRiconosciute}/${risultato.totaleDomande} domande riconosciute (${percentuale}%). ` +
+        'Le foto non vengono importate, andranno ricaricate se necessario. ' +
+        'Verifica/correggi i campi qui sopra, poi premi INIZIA: potrai rivedere ogni risposta domanda per domanda prima di generare il nuovo report.';
+    } catch (errore) {
+      annullaImportazione(`Importazione non riuscita: ${errore.message}`);
+    } finally {
+      btnImportaPdf.disabled = false;
+      btnImportaPdf.textContent = testoOriginale;
+    }
+  }
+
   async function onEnterScreen() {
     form.reset();
     inputDataSopralluogo.value = oggiISO();
+    annullaImportazione(null);
     await Promise.all([popolaSuggerimenti(), caricaChecklistECliente()]);
   }
 
   async function onSubmit(event) {
     event.preventDefault();
 
-    const sopralluogo = await db.creaSopralluogo({
+    let sopralluogo = await db.creaSopralluogo({
       punto_vendita: inputPuntoVendita.value.trim(),
       indirizzo_punto_vendita: inputIndirizzo.value.trim(),
       numero_dipendenti: inputNumeroDipendenti.value,
@@ -164,6 +266,12 @@ const nuovoSopralluogoScreen = (() => {
       checklist_id: selectChecklist.value
     });
 
+    if (risposteImportate && checklistIdImportato === sopralluogo.checklist_id) {
+      sopralluogo = await db.impostaRisposte(sopralluogo.id, risposteImportate);
+      sopralluogoImportatoDaPdf = sopralluogo.id;
+    }
+    annullaImportazione(null);
+
     const checklist = await checklistEngine.carica(sopralluogo.checklist_id);
     checklistEngine.avvia(checklist, sopralluogo);
 
@@ -174,6 +282,13 @@ const nuovoSopralluogoScreen = (() => {
   function init() {
     form.addEventListener('submit', onSubmit);
     inputPuntoVendita.addEventListener('input', filtraChecklistPerCliente);
+    btnImportaPdf.addEventListener('click', onClickImportaPdf);
+    inputImportaPdf.addEventListener('change', onFileImportaPdfSelezionato);
+    selectChecklist.addEventListener('change', () => {
+      if (risposteImportate && checklistIdImportato !== selectChecklist.value) {
+        annullaImportazione('Importazione annullata: la checklist selezionata è cambiata rispetto a quella usata per leggere il PDF.');
+      }
+    });
     router.onEnter('new-inspection', onEnterScreen);
   }
 
@@ -199,6 +314,7 @@ const compilazioneScreen = (() => {
   const erroreValidazione = document.getElementById('errore-validazione');
   const btnIndietro = document.getElementById('btn-indietro');
   const btnAvanti = document.getElementById('btn-avanti');
+  const bannerImport = document.getElementById('compilazione-banner-import');
 
   let fotoDomandaCorrente = [];
 
@@ -462,6 +578,8 @@ const compilazioneScreen = (() => {
     resetControlli();
 
     const { sezione, domanda, indice, totale, risposta } = corrente;
+
+    bannerImport.hidden = checklistEngine.sopralluogoCorrente().id !== sopralluogoImportatoDaPdf;
 
     progressFill.style.width = `${((indice + 1) / totale) * 100}%`;
     progressLabel.textContent = `Domanda ${indice + 1} di ${totale}`;

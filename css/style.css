@@ -544,3 +544,25 @@ h3 {
   flex: 1;
   width: auto;
 }
+
+.importa-pdf-blocco {
+  margin-bottom: var(--spacing);
+  padding: var(--spacing);
+  border-radius: var(--radius);
+  border: 1px dashed var(--color-border);
+}
+
+.importa-pdf-blocco #importa-pdf-esito {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+}
+
+.banner-avviso {
+  margin-bottom: var(--spacing);
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: #fff3cd;
+  border: 1px solid #ffe69c;
+  color: #664d03;
+  font-weight: 600;
+}

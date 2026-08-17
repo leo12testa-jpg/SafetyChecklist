@@ -164,6 +164,24 @@ const db = (() => {
     return nuovo;
   }
 
+  /**
+   * Sostituisce in blocco l'intero array di risposte di un sopralluogo (es. dopo un'importazione
+   * da PDF: vedi js/pdf-import.js), invece dell'upsert singolo di salvaRisposta.
+   */
+  async function impostaRisposte(sopralluogoId, risposte) {
+    const store = await transazione('sopralluoghi', 'readwrite');
+    const sopralluogo = await richiesta(store.get(sopralluogoId));
+    if (!sopralluogo) {
+      throw new Error(`Sopralluogo non trovato: ${sopralluogoId}`);
+    }
+
+    sopralluogo.risposte = risposte;
+    sopralluogo.aggiornato_il = new Date().toISOString();
+    await richiesta(store.put(sopralluogo));
+    notificaCambiamento({ tipo: 'upsert', sopralluogo });
+    return sopralluogo;
+  }
+
   /** Salva o aggiorna (upsert su domanda_id) la risposta a una domanda di un sopralluogo. */
   async function salvaRisposta(sopralluogoId, risposta) {
     const store = await transazione('sopralluoghi', 'readwrite');
@@ -402,6 +420,7 @@ const db = (() => {
     creaSopralluogo,
     duplicaSopralluogo,
     salvaRisposta,
+    impostaRisposte,
     aggiornaSopralluogo,
     salvaFoto,
     leggiFoto,
