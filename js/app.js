@@ -838,6 +838,24 @@ const storicoScreen = (() => {
     });
   }
 
+  /** Chiede conferma, poi elimina il sopralluogo (e i dati collegati) e aggiorna subito l'elenco a schermo. */
+  async function eliminaSopralluogo(sopralluogo, bottone) {
+    if (!confirm('Eliminare questo sopralluogo? L\'operazione non è reversibile.')) {
+      return;
+    }
+    await eseguiConBottone(bottone, async () => {
+      bottone.textContent = 'Eliminazione…';
+      try {
+        await db.eliminaSopralluogo(sopralluogo.id);
+        sopralluoghiCache = sopralluoghiCache.filter((s) => s.id !== sopralluogo.id);
+        selezionati.delete(sopralluogo.id);
+        applicaFiltri();
+      } catch (errore) {
+        alert(`Impossibile eliminare il sopralluogo: ${errore.message}`);
+      }
+    });
+  }
+
   function aggiornaBottoneScaricaSelezionati() {
     bottoneScaricaSelezionati.hidden = selezionati.size === 0;
     bottoneScaricaSelezionati.textContent = `Scarica selezionati (${selezionati.size})`;
@@ -897,8 +915,17 @@ const storicoScreen = (() => {
     bottoneScarica.textContent = 'Scarica';
     bottoneScarica.addEventListener('click', () => scaricaPdf(sopralluogo.id, bottoneScarica));
 
+    const bottoneElimina = document.createElement('button');
+    bottoneElimina.type = 'button';
+    bottoneElimina.className = 'btn-secondario btn-elimina';
+    bottoneElimina.textContent = '🗑️';
+    bottoneElimina.setAttribute('aria-label', `Elimina ${sopralluogo.punto_vendita}`);
+    bottoneElimina.title = 'Elimina';
+    bottoneElimina.addEventListener('click', () => eliminaSopralluogo(sopralluogo, bottoneElimina));
+
     azioni.appendChild(bottoneApri);
     azioni.appendChild(bottoneScarica);
+    azioni.appendChild(bottoneElimina);
 
     li.appendChild(selezione);
     li.appendChild(info);

@@ -465,6 +465,11 @@ body {
   padding: 8px 12px;
 }
 
+.storico-voce .btn-elimina {
+  color: #b3261e;
+  border-color: #b3261e;
+}
+
 h3 {
   margin: calc(var(--spacing) * 1.5) 0 8px;
 }

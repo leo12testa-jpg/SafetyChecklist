@@ -170,6 +170,38 @@ const db = (() => {
     return tutti.sort((a, b) => new Date(b.data) - new Date(a.data));
   }
 
+  /** Cancella (via cursore, stessa transazione) tutte le foto collegate a un sopralluogo. */
+  function eliminaFotoDiSopralluogo(storeFoto, sopralluogoId) {
+    return new Promise((resolve, reject) => {
+      const request = storeFoto.index('sopralluogo_id').openCursor(sopralluogoId);
+      request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          cursor.delete();
+          cursor.continue();
+        } else {
+          resolve();
+        }
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Elimina un sopralluogo e tutti i dati collegati (foto e, se presente, il PDF salvato),
+   * per non lasciare record orfani in IndexedDB.
+   */
+  async function eliminaSopralluogo(sopralluogoId) {
+    const storeSopralluoghi = await transazione('sopralluoghi', 'readwrite');
+    await richiesta(storeSopralluoghi.delete(sopralluogoId));
+
+    const storeFoto = await transazione('foto', 'readwrite');
+    await eliminaFotoDiSopralluogo(storeFoto, sopralluogoId);
+
+    const storePdf = await transazione('pdf_report', 'readwrite');
+    await richiesta(storePdf.delete(sopralluogoId));
+  }
+
   /** Salva/aggiorna un'impostazione (chiave/valore libero: dati azienda, logo, preferenze). */
   async function salvaImpostazione(chiave, valore) {
     const store = await transazione('impostazioni', 'readwrite');
@@ -221,6 +253,7 @@ const db = (() => {
     leggiFoto,
     leggiSopralluogo,
     elencaSopralluoghi,
+    eliminaSopralluogo,
     salvaImpostazione,
     leggiImpostazione,
     salvaChecklistCache,
