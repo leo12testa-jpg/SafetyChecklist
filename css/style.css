@@ -440,6 +440,7 @@ body {
 
 .storico-voce {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing);
@@ -458,6 +459,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1 1 180px;
   min-width: 0;
 }
 
@@ -466,9 +468,17 @@ body {
   font-size: 0.85rem;
 }
 
+/*
+ * Fino a 4 pulsanti per voce (Apri/Scarica/Duplica/Elimina): su schermi stretti non c'è spazio
+ * per allinearli tutti su una riga sola insieme a checkbox e info. flex-wrap qui e sulla voce
+ * permette al gruppo di azioni di scendere su una riga propria e, se necessario, ai pulsanti
+ * stessi di andare su due righe, invece di restringersi/sovrapporsi o uscire dal bordo della card.
+ */
 .storico-azioni {
   display: flex;
-  flex: none;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+  justify-content: flex-end;
   gap: 8px;
 }
 

@@ -840,13 +840,16 @@ const riepilogoScreen = (() => {
 
 /**
  * Schermata Storico: elenco sopralluoghi salvati, ordinati per data decrescente, con
- * possibilità di aprire o scaricare il PDF già generato e salvato al momento del
- * completamento del sopralluogo (PROJECT.md §7.8). Nessuna rigenerazione: se un
- * sopralluogo è stato completato prima dell'introduzione del salvataggio del PDF,
- * il file non è disponibile e viene segnalato come tale.
+ * possibilità di aprire o scaricare il report PDF (PROJECT.md §7.8). Usa il PDF già salvato al
+ * completamento del sopralluogo quando c'è; altrimenti lo rigenera al volo dagli stessi dati
+ * (stessa funzione pdf.generaReport usata a fine Compilazione) — serve sia per i sopralluoghi
+ * completati prima dell'introduzione del salvataggio del PDF, sia per quelli sincronizzati da
+ * un altro dispositivo (il PDF salvato, come le foto, non viaggia mai su Firestore: solo i dati
+ * testuali). Le foto non disponibili in locale vengono semplicemente omesse dal PDF rigenerato
+ * (vedi disegnaPaginaAllegati in pdf.js), con un avviso esplicito all'utente se ne manca almeno una.
  *
  * Filtro cliente/testo applicato in memoria sull'elenco già caricato (nessuna nuova query
- * IndexedDB per digitazione); selezione multipla con export ZIP dei PDF già salvati.
+ * IndexedDB per digitazione); selezione multipla con export ZIP.
  */
 const storicoScreen = (() => {
   const lista = document.getElementById('storico-lista');
@@ -857,9 +860,6 @@ const storicoScreen = (() => {
   const checkboxSelezionaTutti = document.getElementById('storico-seleziona-tutti');
   const bottoneScaricaSelezionati = document.getElementById('storico-scarica-selezionati');
   const bottoneVaiCestino = document.getElementById('storico-vai-cestino');
-
-  const MESSAGGIO_PDF_NON_DISPONIBILE =
-    'PDF non disponibile per questo sopralluogo (completato prima dell\'introduzione del salvataggio del PDF).';
 
   const DEBOUNCE_RICERCA_MS = 250;
 
@@ -905,31 +905,70 @@ const storicoScreen = (() => {
     }
   }
 
+  /** Conta quante foto referenziate dalle risposte di un sopralluogo non sono (più) presenti in locale. */
+  async function contaFotoMancanti(sopralluogo) {
+    const idFoto = (sopralluogo.risposte || []).flatMap((r) => r.foto || []);
+    if (!idFoto.length) {
+      return 0;
+    }
+    const trovate = await Promise.all(idFoto.map((id) => db.leggiFoto(id)));
+    return trovate.filter((foto) => !foto).length;
+  }
+
   /**
-   * Apre in una nuova scheda il PDF già salvato. La scheda viene aperta in modo sincrono,
-   * prima di qualsiasi `await`, per non perdere il gesto utente del click: su mobile
-   * (Safari iOS, WebView Android, PWA installate) un window.open dopo operazioni asincrone
-   * viene spesso bloccato silenziosamente come popup.
+   * Ritorna sempre un PDF utilizzabile per il sopralluogo indicato: quello già salvato se esiste,
+   * altrimenti lo rigenera al volo dai dati del sopralluogo (stessa funzione di generazione usata
+   * a fine Compilazione). `rigenerato`/`fotoMancanti` servono solo per avvisare l'utente quando è
+   * stato necessario rigenerare senza tutte le foto originali.
+   */
+  async function ottieniOGeneraPdf(sopralluogoId) {
+    const salvato = await db.leggiPdfReport(sopralluogoId);
+    if (salvato) {
+      return { blob: salvato.blob, filename: salvato.filename, rigenerato: false, fotoMancanti: 0 };
+    }
+
+    const sopralluogo = await db.leggiSopralluogo(sopralluogoId);
+    if (!sopralluogo) {
+      throw new Error('Sopralluogo non trovato.');
+    }
+
+    const [checklist, fotoMancanti] = await Promise.all([
+      checklistEngine.carica(sopralluogo.checklist_id),
+      contaFotoMancanti(sopralluogo)
+    ]);
+    const blob = await pdf.generaReport(checklist, sopralluogo);
+
+    return { blob, filename: pdf.nomeFile(sopralluogo), rigenerato: true, fotoMancanti };
+  }
+
+  function avvisaSeFotoMancanti(rigenerato, fotoMancanti) {
+    if (rigenerato && fotoMancanti > 0) {
+      alert(
+        `Alcune foto di questo sopralluogo non sono disponibili su questo dispositivo (${fotoMancanti}). ` +
+        'Il PDF è stato rigenerato senza quelle foto.'
+      );
+    }
+  }
+
+  /**
+   * Apre in una nuova scheda il PDF (già salvato o rigenerato al volo). La scheda viene aperta in
+   * modo sincrono, prima di qualsiasi `await`, per non perdere il gesto utente del click: su
+   * mobile (Safari iOS, WebView Android, PWA installate) un window.open dopo operazioni
+   * asincrone viene spesso bloccato silenziosamente come popup.
    */
   async function apriPdf(sopralluogoId, bottone) {
     const finestra = window.open('', '_blank');
     await eseguiConBottone(bottone, async () => {
       bottone.textContent = 'Apertura…';
       try {
-        const report = await db.leggiPdfReport(sopralluogoId);
-        if (!report) {
-          if (finestra) {
-            finestra.close();
-          }
-          alert(MESSAGGIO_PDF_NON_DISPONIBILE);
-          return;
-        }
-        const url = URL.createObjectURL(report.blob);
+        const { blob, rigenerato, fotoMancanti } = await ottieniOGeneraPdf(sopralluogoId);
+        const url = URL.createObjectURL(blob);
         if (finestra) {
           finestra.location.href = url;
         } else {
           window.open(url, '_blank');
         }
+        avvisaSeFotoMancanti(rigenerato, fotoMancanti);
       } catch (errore) {
         if (finestra) {
           finestra.close();
@@ -943,12 +982,9 @@ const storicoScreen = (() => {
     await eseguiConBottone(bottone, async () => {
       bottone.textContent = 'Download…';
       try {
-        const report = await db.leggiPdfReport(sopralluogoId);
-        if (!report) {
-          alert(MESSAGGIO_PDF_NON_DISPONIBILE);
-          return;
-        }
-        await pdf.salvaOCondividi(report.blob, report.filename);
+        const { blob, filename, rigenerato, fotoMancanti } = await ottieniOGeneraPdf(sopralluogoId);
+        await pdf.salvaOCondividi(blob, filename);
+        avvisaSeFotoMancanti(rigenerato, fotoMancanti);
       } catch (errore) {
         if (errore.name !== 'AbortError') {
           alert(`Impossibile scaricare il PDF: ${errore.message}`);
@@ -1130,27 +1166,38 @@ const storicoScreen = (() => {
       const zip = new JSZip();
       const nomiUsati = new Set();
       let trovati = 0;
+      let rigenerati = 0;
+      let conFotoMancanti = 0;
 
       for (const id of idSelezionati) {
-        const report = await db.leggiPdfReport(id);
-        if (!report) {
+        let esito;
+        try {
+          esito = await ottieniOGeneraPdf(id);
+        } catch (errore) {
+          console.error(`Impossibile ottenere il PDF del sopralluogo ${id}:`, errore);
           continue;
         }
         trovati += 1;
+        if (esito.rigenerato) {
+          rigenerati += 1;
+          if (esito.fotoMancanti > 0) {
+            conFotoMancanti += 1;
+          }
+        }
 
-        let nomeFile = report.filename;
+        let nomeFile = esito.filename;
         let contatore = 2;
         while (nomiUsati.has(nomeFile)) {
-          nomeFile = report.filename.replace(/\.pdf$/i, `_${contatore}.pdf`);
+          nomeFile = esito.filename.replace(/\.pdf$/i, `_${contatore}.pdf`);
           contatore += 1;
         }
         nomiUsati.add(nomeFile);
 
-        zip.file(nomeFile, report.blob);
+        zip.file(nomeFile, esito.blob);
       }
 
       if (trovati === 0) {
-        alert('Nessun PDF disponibile tra i sopralluoghi selezionati.');
+        alert('Impossibile generare un PDF per i sopralluoghi selezionati.');
         return;
       }
 
@@ -1159,10 +1206,13 @@ const storicoScreen = (() => {
       await pdf.salvaOCondividi(blobZip, nomeZip);
 
       const mancanti = idSelezionati.length - trovati;
-      const messaggio =
-        mancanti > 0
-          ? `Scaricati ${trovati} PDF su ${idSelezionati.length} selezionati, ${mancanti} non disponibile${mancanti > 1 ? 'i' : ''}.`
-          : `Scaricati ${trovati} PDF su ${idSelezionati.length} selezionati.`;
+      let messaggio = `Scaricati ${trovati} PDF su ${idSelezionati.length} selezionati.`;
+      if (mancanti > 0) {
+        messaggio += ` ${mancanti} non generabile${mancanti > 1 ? 'i' : ''}.`;
+      }
+      if (rigenerati > 0) {
+        messaggio += ` ${rigenerati} rigenerato${rigenerati > 1 ? 'i' : ''} al volo (non salvato in precedenza)${conFotoMancanti > 0 ? `, ${conFotoMancanti} senza alcune foto non più disponibili in locale` : ''}.`;
+      }
       alert(messaggio);
     } catch (errore) {
       if (errore.name !== 'AbortError') {
