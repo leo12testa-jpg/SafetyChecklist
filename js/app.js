@@ -905,8 +905,12 @@ const storicoScreen = (() => {
     const dettaglio = document.createElement('span');
     dettaglio.textContent = `${sopralluogo.indirizzo_punto_vendita || ''} · ${formattaData(sopralluogo.data)} · ${sopralluogo.stato}`;
 
+    const tecnico = document.createElement('span');
+    tecnico.textContent = `Tecnico: ${sopralluogo.tecnico || '—'}`;
+
     info.appendChild(titolo);
     info.appendChild(dettaglio);
+    info.appendChild(tecnico);
 
     const azioni = document.createElement('div');
     azioni.className = 'storico-azioni';
@@ -1058,12 +1062,21 @@ const storicoScreen = (() => {
     await aggiornaContatoreCestino();
   }
 
+  /** Se un'altra scheda/dispositivo aggiorna dei dati via sync mentre siamo già nello Storico, aggiorna l'elenco a schermo. */
+  function alRicevimentoDatiSync() {
+    const schermata = document.getElementById('screen-history');
+    if (schermata && !schermata.hidden) {
+      render();
+    }
+  }
+
   function init() {
     inputRicerca.addEventListener('input', onRicercaInput);
     filtroClienteContainer.addEventListener('click', onFiltroClienteClick);
     checkboxSelezionaTutti.addEventListener('change', onSelezionaTuttiChange);
     bottoneScaricaSelezionati.addEventListener('click', scaricaSelezionati);
     router.onEnter('history', render);
+    sync.onDatiAggiornati(alRicevimentoDatiSync);
   }
 
   return { init };
@@ -1181,24 +1194,32 @@ const cestinoScreen = (() => {
 })();
 
 /**
- * Indicatore online/offline fisso nell'header, visibile in ogni schermata (l'header non fa
- * parte di #screens e non viene mai nascosto dal router). Si aggiorna sugli eventi
- * online/offline, senza bisogno di refresh della pagina.
+ * Indicatore di connessione + sincronizzazione fisso nell'header, visibile in ogni schermata
+ * (l'header non fa parte di #screens e non viene mai nascosto dal router). Riflette sia lo
+ * stato online/offline del browser sia lo stato della sincronizzazione con Firestore (sync.js).
  */
 const connessioneIndicatore = (() => {
   const contenitore = document.getElementById('stato-connessione');
   const testo = document.getElementById('stato-connessione-testo');
 
+  const ETICHETTE = {
+    offline: 'Offline - in attesa di connessione',
+    sincronizzando: 'Sincronizzazione in corso…',
+    sincronizzato: 'Sincronizzato'
+  };
+
   function aggiorna() {
-    const online = navigator.onLine;
-    contenitore.classList.toggle('is-offline', !online);
-    testo.textContent = online ? 'Online' : 'Offline';
+    const stato = navigator.onLine ? sync.statoAttuale() : 'offline';
+    contenitore.classList.toggle('is-offline', stato === 'offline');
+    contenitore.classList.toggle('is-sincronizzando', stato === 'sincronizzando');
+    testo.textContent = ETICHETTE[stato] || ETICHETTE.offline;
   }
 
   function init() {
     aggiorna();
     window.addEventListener('online', aggiorna);
     window.addEventListener('offline', aggiorna);
+    sync.onCambioStato(aggiorna);
   }
 
   return { init };
@@ -1240,6 +1261,7 @@ document.addEventListener('DOMContentLoaded', () => {
   storicoScreen.init();
   cestinoScreen.init();
   impostazioniScreen.init();
+  sync.init();
 
   // Pulizia silenziosa all'avvio: elimina definitivamente i sopralluoghi nel cestino da oltre 30 giorni.
   db.pulisciCestino().catch((errore) => console.error('Pulizia automatica del cestino fallita:', errore));

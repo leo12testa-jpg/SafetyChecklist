@@ -8,6 +8,28 @@ const db = (() => {
 
   let dbPromise = null;
 
+  /**
+   * Hook per js/sync.js: notificato dopo ogni mutazione locale di un sopralluogo, così la
+   * sincronizzazione con Firestore può reagire senza che db.js debba conoscere Firebase.
+   * Non notificato quando i dati arrivano DA remoto (vedi applicaSopralluogoRemoto), per
+   * evitare di rimandare a Firestore ciò che si è appena scaricato.
+   */
+  let listenerCambiamento = null;
+
+  function onCambiamento(callback) {
+    listenerCambiamento = callback;
+  }
+
+  function notificaCambiamento(evento) {
+    if (listenerCambiamento) {
+      try {
+        listenerCambiamento(evento);
+      } catch (errore) {
+        console.error('db.js: errore nel listener di sincronizzazione', errore);
+      }
+    }
+  }
+
   function open() {
     if (dbPromise) {
       return dbPromise;
@@ -81,6 +103,7 @@ const db = (() => {
     checklist_id
   }) {
     const store = await transazione('sopralluoghi', 'readwrite');
+    const adesso = new Date().toISOString();
     const sopralluogo = {
       id: generaId(),
       punto_vendita,
@@ -92,12 +115,14 @@ const db = (() => {
       presenza_responsabile,
       presenza_rls,
       checklist_id,
-      data: new Date().toISOString(),
+      data: adesso,
       stato: 'in corso',
       risposte: [],
-      altri_aspetti: null
+      altri_aspetti: null,
+      aggiornato_il: adesso
     };
     await richiesta(store.add(sopralluogo));
+    notificaCambiamento({ tipo: 'upsert', sopralluogo });
     return sopralluogo;
   }
 
@@ -117,8 +142,10 @@ const db = (() => {
       risposte.push(risposta);
     }
     sopralluogo.risposte = risposte;
+    sopralluogo.aggiornato_il = new Date().toISOString();
 
     await richiesta(store.put(sopralluogo));
+    notificaCambiamento({ tipo: 'upsert', sopralluogo });
     return sopralluogo;
   }
 
@@ -131,7 +158,9 @@ const db = (() => {
     }
 
     Object.assign(sopralluogo, cambiamenti);
+    sopralluogo.aggiornato_il = new Date().toISOString();
     await richiesta(store.put(sopralluogo));
+    notificaCambiamento({ tipo: 'upsert', sopralluogo });
     return sopralluogo;
   }
 
@@ -181,6 +210,23 @@ const db = (() => {
       .sort((a, b) => new Date(b.eliminato_il) - new Date(a.eliminato_il));
   }
 
+  /** Elenca TUTTI i sopralluoghi (attivi e nel cestino), senza filtri: per il confronto di sync.js. */
+  async function elencaTuttiSopralluoghi() {
+    const store = await transazione('sopralluoghi', 'readonly');
+    return richiesta(store.getAll());
+  }
+
+  /**
+   * Scrive in locale un sopralluogo arrivato da Firestore, così com'è (nessuna modifica di
+   * "aggiornato_il": è il valore deciso dal dispositivo che l'ha modificato). Non notifica
+   * js/sync.js, per non rimandare a Firestore ciò che si è appena scaricato da lì.
+   */
+  async function applicaSopralluogoRemoto(sopralluogo) {
+    const store = await transazione('sopralluoghi', 'readwrite');
+    await richiesta(store.put(sopralluogo));
+    return sopralluogo;
+  }
+
   /** Sposta un sopralluogo nel cestino (soft-delete): marcato con "eliminato_il", resta in DB con le sue foto. */
   async function spostaNelCestino(sopralluogoId) {
     return aggiornaSopralluogo(sopralluogoId, { eliminato_il: new Date().toISOString() });
@@ -195,7 +241,9 @@ const db = (() => {
     }
 
     delete sopralluogo.eliminato_il;
+    sopralluogo.aggiornato_il = new Date().toISOString();
     await richiesta(store.put(sopralluogo));
+    notificaCambiamento({ tipo: 'upsert', sopralluogo });
     return sopralluogo;
   }
 
@@ -238,11 +286,8 @@ const db = (() => {
     });
   }
 
-  /**
-   * Elimina un sopralluogo e tutti i dati collegati (foto e, se presente, il PDF salvato),
-   * per non lasciare record orfani in IndexedDB.
-   */
-  async function eliminaSopralluogo(sopralluogoId) {
+  /** Elimina fisicamente da IndexedDB un sopralluogo e i suoi dati collegati (foto, PDF). */
+  async function eliminaSopralluogoInterno(sopralluogoId) {
     const storeSopralluoghi = await transazione('sopralluoghi', 'readwrite');
     await richiesta(storeSopralluoghi.delete(sopralluogoId));
 
@@ -251,6 +296,25 @@ const db = (() => {
 
     const storePdf = await transazione('pdf_report', 'readwrite');
     await richiesta(storePdf.delete(sopralluogoId));
+  }
+
+  /**
+   * Elimina un sopralluogo e tutti i dati collegati (foto e, se presente, il PDF salvato),
+   * per non lasciare record orfani in IndexedDB. Notifica js/sync.js, che propaga
+   * l'eliminazione anche su Firestore.
+   */
+  async function eliminaSopralluogo(sopralluogoId) {
+    await eliminaSopralluogoInterno(sopralluogoId);
+    notificaCambiamento({ tipo: 'delete', sopralluogoId, aggiornato_il: new Date().toISOString() });
+  }
+
+  /**
+   * Come eliminaSopralluogo, ma senza notificare js/sync.js: usata quando l'eliminazione
+   * definitiva arriva DA Firestore (un altro dispositivo l'ha già eliminato), per non
+   * rimandare a Firestore ciò che si è appena applicato da lì.
+   */
+  async function eliminaSopralluogoSenzaNotifica(sopralluogoId) {
+    await eliminaSopralluogoInterno(sopralluogoId);
   }
 
   /** Salva/aggiorna un'impostazione (chiave/valore libero: dati azienda, logo, preferenze). */
@@ -305,10 +369,14 @@ const db = (() => {
     leggiSopralluogo,
     elencaSopralluoghi,
     elencaCestino,
+    elencaTuttiSopralluoghi,
+    applicaSopralluogoRemoto,
     spostaNelCestino,
     ripristinaSopralluogo,
     pulisciCestino,
     eliminaSopralluogo,
+    eliminaSopralluogoSenzaNotifica,
+    onCambiamento,
     salvaImpostazione,
     leggiImpostazione,
     salvaChecklistCache,

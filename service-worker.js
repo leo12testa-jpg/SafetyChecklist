@@ -1,4 +1,4 @@
-const CACHE_NAME = 'safety-checklist-shell-v28';
+const CACHE_NAME = 'safety-checklist-shell-v29';
 
 const APP_SHELL = [
   './',
@@ -8,11 +8,15 @@ const APP_SHELL = [
   './js/vendor/jspdf.umd.min.js',
   './js/vendor/jspdf.plugin.autotable.min.js',
   './js/vendor/jszip.min.js',
+  './js/vendor/firebase-app-compat.js',
+  './js/vendor/firebase-firestore-compat.js',
+  './js/firebase-config.js',
   './js/app.js',
   './js/db.js',
   './js/checklist.js',
   './js/pdf.js',
   './js/camera.js',
+  './js/sync.js',
   './checklists/index.json',
   './checklists/clients.json',
   './assets/icon-192.png',
@@ -91,6 +95,14 @@ self.addEventListener('fetch', (event) => {
   }
 
   const url = new URL(event.request.url);
+
+  // Richieste a Firestore/altri servizi esterni (es. sync.js): lasciate al browser, non
+  // intercettate dallo shell cache-first, che altrimenti in caso di rete assente le
+  // risolverebbe con l'index.html cacheato invece di un normale errore di rete.
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
   const isChecklist = url.pathname.includes('/checklists/');
 
   event.respondWith(isChecklist ? networkFirst(event.request) : cacheFirst(event.request));

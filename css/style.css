@@ -71,6 +71,10 @@ body {
   background: #9ca3af;
 }
 
+.stato-connessione.is-sincronizzando .stato-connessione-pallino {
+  background: #f59e0b;
+}
+
 #screens {
   flex: 1;
   padding: var(--spacing);
