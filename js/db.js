@@ -126,6 +126,44 @@ const db = (() => {
     return sopralluogo;
   }
 
+  /**
+   * Duplica un sopralluogo esistente in uno nuovo (nuovo id, data odierna, stato "in corso"):
+   * copia checklist_id e tutte le risposte già date (domanda per domanda, incluse le note),
+   * ma NON le foto (restano solo sul sopralluogo originale) né firma/stato/altri_aspetti.
+   * "overrides" permette di aggiornare Cliente/Sede/Tecnico/Data prima della duplicazione
+   * (il resto dei campi anagrafici è copiato dall'originale).
+   */
+  async function duplicaSopralluogo(sopralluogoOriginaleId, overrides = {}) {
+    const store = await transazione('sopralluoghi', 'readwrite');
+    const originale = await richiesta(store.get(sopralluogoOriginaleId));
+    if (!originale) {
+      throw new Error(`Sopralluogo non trovato: ${sopralluogoOriginaleId}`);
+    }
+
+    const adesso = new Date().toISOString();
+    const nuovo = {
+      id: generaId(),
+      punto_vendita: overrides.punto_vendita ?? originale.punto_vendita,
+      indirizzo_punto_vendita: overrides.indirizzo_punto_vendita ?? originale.indirizzo_punto_vendita,
+      numero_dipendenti: originale.numero_dipendenti,
+      tecnico: overrides.tecnico ?? originale.tecnico,
+      data_sopralluogo: overrides.data_sopralluogo ?? originale.data_sopralluogo,
+      responsabile_punto_vendita: originale.responsabile_punto_vendita,
+      presenza_responsabile: originale.presenza_responsabile,
+      presenza_rls: originale.presenza_rls,
+      checklist_id: originale.checklist_id,
+      data: adesso,
+      stato: 'in corso',
+      risposte: (originale.risposte || []).map((risposta) => ({ ...risposta, foto: [] })),
+      altri_aspetti: null,
+      aggiornato_il: adesso
+    };
+
+    await richiesta(store.add(nuovo));
+    notificaCambiamento({ tipo: 'upsert', sopralluogo: nuovo });
+    return nuovo;
+  }
+
   /** Salva o aggiorna (upsert su domanda_id) la risposta a una domanda di un sopralluogo. */
   async function salvaRisposta(sopralluogoId, risposta) {
     const store = await transazione('sopralluoghi', 'readwrite');
@@ -362,6 +400,7 @@ const db = (() => {
 
   return {
     creaSopralluogo,
+    duplicaSopralluogo,
     salvaRisposta,
     aggiornaSopralluogo,
     salvaFoto,

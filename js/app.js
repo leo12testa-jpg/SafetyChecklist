@@ -927,6 +927,13 @@ const storicoScreen = (() => {
     bottoneScarica.textContent = 'Scarica';
     bottoneScarica.addEventListener('click', () => scaricaPdf(sopralluogo.id, bottoneScarica));
 
+    const bottoneDuplica = document.createElement('button');
+    bottoneDuplica.type = 'button';
+    bottoneDuplica.className = 'btn-secondario';
+    bottoneDuplica.textContent = '📋 Duplica';
+    bottoneDuplica.setAttribute('aria-label', `Duplica ${sopralluogo.punto_vendita}`);
+    bottoneDuplica.addEventListener('click', () => duplicaDialog.apri(sopralluogo));
+
     const bottoneElimina = document.createElement('button');
     bottoneElimina.type = 'button';
     bottoneElimina.className = 'btn-secondario btn-elimina';
@@ -937,6 +944,7 @@ const storicoScreen = (() => {
 
     azioni.appendChild(bottoneApri);
     azioni.appendChild(bottoneScarica);
+    azioni.appendChild(bottoneDuplica);
     azioni.appendChild(bottoneElimina);
 
     li.appendChild(selezione);
@@ -1080,6 +1088,70 @@ const storicoScreen = (() => {
   }
 
   return { init };
+})();
+
+/**
+ * Dialogo "Duplica sopralluogo" (dallo Storico): permette di aggiornare Cliente/Sede/Tecnico/
+ * Data prima di creare il duplicato (checklist_id e risposte già date copiate, senza foto né
+ * stato/firma: il nuovo sopralluogo parte "in corso"), poi apre subito la Compilazione con le
+ * risposte già precompilate, navigabili con avanti/indietro come una compilazione normale.
+ */
+const duplicaDialog = (() => {
+  const dialog = document.getElementById('dialog-duplica');
+  const form = document.getElementById('form-duplica');
+  const inputPuntoVendita = document.getElementById('duplica-punto-vendita');
+  const inputIndirizzo = document.getElementById('duplica-indirizzo');
+  const inputTecnico = document.getElementById('duplica-tecnico');
+  const inputData = document.getElementById('duplica-data');
+  const bottoneAnnulla = document.getElementById('btn-duplica-annulla');
+
+  let sopralluogoOriginale = null;
+
+  function oggiISO() {
+    const oggi = new Date();
+    const mese = String(oggi.getMonth() + 1).padStart(2, '0');
+    const giorno = String(oggi.getDate()).padStart(2, '0');
+    return `${oggi.getFullYear()}-${mese}-${giorno}`;
+  }
+
+  /** Apre il dialogo precompilato con i dati del sopralluogo da duplicare (data proposta: oggi). */
+  function apri(sopralluogo) {
+    sopralluogoOriginale = sopralluogo;
+    inputPuntoVendita.value = sopralluogo.punto_vendita || '';
+    inputIndirizzo.value = sopralluogo.indirizzo_punto_vendita || '';
+    inputTecnico.value = sopralluogo.tecnico || '';
+    inputData.value = oggiISO();
+    dialog.showModal();
+  }
+
+  async function onSubmit(event) {
+    event.preventDefault();
+    if (!sopralluogoOriginale) {
+      return;
+    }
+
+    const nuovo = await db.duplicaSopralluogo(sopralluogoOriginale.id, {
+      punto_vendita: inputPuntoVendita.value.trim(),
+      indirizzo_punto_vendita: inputIndirizzo.value.trim(),
+      tecnico: inputTecnico.value.trim(),
+      data_sopralluogo: inputData.value
+    });
+    sopralluogoOriginale = null;
+    dialog.close();
+
+    const checklist = await checklistEngine.carica(nuovo.checklist_id);
+    checklistEngine.avvia(checklist, nuovo);
+
+    router.navigate('compilazione');
+    compilazioneScreen.renderDomandaCorrente();
+  }
+
+  function init() {
+    form.addEventListener('submit', onSubmit);
+    bottoneAnnulla.addEventListener('click', () => dialog.close());
+  }
+
+  return { init, apri };
 })();
 
 /**
@@ -1259,6 +1331,7 @@ document.addEventListener('DOMContentLoaded', () => {
   altriAspettiScreen.init();
   riepilogoScreen.init();
   storicoScreen.init();
+  duplicaDialog.init();
   cestinoScreen.init();
   impostazioniScreen.init();
   sync.init();

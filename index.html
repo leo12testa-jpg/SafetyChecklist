@@ -203,6 +203,34 @@
         <ul class="lista-checklist" id="lista-checklist-disponibili"></ul>
       </section>
     </main>
+
+    <dialog id="dialog-duplica" class="dialog-duplica">
+      <form id="form-duplica">
+        <h3>Duplica sopralluogo</h3>
+        <p class="placeholder-text">Checklist e risposte già date vengono copiate (senza foto); questo sopralluogo parte "in corso". Aggiorna i campi se serve prima di continuare.</p>
+
+        <label class="campo-form" for="duplica-punto-vendita">Punto vendita
+          <input type="text" id="duplica-punto-vendita" required>
+        </label>
+
+        <label class="campo-form" for="duplica-indirizzo">Indirizzo punto vendita
+          <input type="text" id="duplica-indirizzo" required>
+        </label>
+
+        <label class="campo-form" for="duplica-tecnico">Tecnico che esegue il sopralluogo
+          <input type="text" id="duplica-tecnico" required>
+        </label>
+
+        <label class="campo-form" for="duplica-data">Data del sopralluogo
+          <input type="date" id="duplica-data" required>
+        </label>
+
+        <div class="dialog-duplica-azioni">
+          <button type="button" class="btn" id="btn-duplica-annulla">Annulla</button>
+          <button type="submit" class="btn btn-primary">Duplica e apri compilazione</button>
+        </div>
+      </form>
+    </dialog>
   </div>
 
   <script src="js/vendor/jspdf.umd.min.js"></script>

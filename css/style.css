@@ -515,3 +515,32 @@ h3 {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
 }
+
+.dialog-duplica {
+  width: min(92vw, 420px);
+  max-width: 92vw;
+  padding: var(--spacing);
+  border: none;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.dialog-duplica::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.dialog-duplica h3 {
+  margin-top: 0;
+}
+
+.dialog-duplica-azioni {
+  display: flex;
+  gap: 8px;
+  margin-top: var(--spacing);
+}
+
+.dialog-duplica-azioni .btn {
+  flex: 1;
+  width: auto;
+}
