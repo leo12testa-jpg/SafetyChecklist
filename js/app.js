@@ -1692,7 +1692,7 @@ const impostazioniScreen = (() => {
   return { init };
 })();
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   router.init();
   connessioneIndicatore.init();
   nuovoSopralluogoScreen.init();
@@ -1704,8 +1704,21 @@ document.addEventListener('DOMContentLoaded', () => {
   anagraficaDialog.init();
   cestinoScreen.init();
   impostazioniScreen.init();
-  sync.init();
 
-  // Pulizia silenziosa all'avvio: elimina definitivamente i sopralluoghi nel cestino da oltre 30 giorni.
-  db.pulisciCestino().catch((errore) => console.error('Pulizia automatica del cestino fallita:', errore));
+  const sincronizzazioneIniziale = await sync.init();
+
+  /**
+   * Pulizia silenziosa del cestino (elimina definitivamente i sopralluoghi da più di 30 giorni):
+   * SOLO dopo che la sincronizzazione iniziale è riuscita, mai in parallelo con essa. Prima
+   * girava subito dopo sync.init() senza aspettarlo: db.pulisciCestino() legge lo stato locale
+   * corrente, e se lo legge mentre il download dei dati remoti è ancora in corso rischia di
+   * operare su un IndexedDB locale incompleto/non ancora aggiornato. Se offline o la
+   * sincronizzazione fallisce, si salta semplicemente la pulizia in questo avvio: non è mai
+   * urgente (i 30 giorni di margine assorbono un ciclo saltato) e riproverà al prossimo avvio.
+   */
+  if (sincronizzazioneIniziale) {
+    db.pulisciCestino().catch((errore) => console.error('Pulizia automatica del cestino fallita:', errore));
+  } else {
+    console.warn('Pulizia automatica del cestino saltata: sincronizzazione iniziale non riuscita o offline.');
+  }
 });

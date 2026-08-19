@@ -117,13 +117,15 @@ const sync = (() => {
   /**
    * Sincronizzazione bidirezionale completa: confronta tutti i sopralluoghi locali con tutti
    * quelli remoti e, per ogni id, propaga la versione più recente (o quella mancante) nella
-   * direzione opposta. Chiamata all'avvio dell'app e al ritorno della connessione.
+   * direzione opposta. Chiamata all'avvio dell'app e al ritorno della connessione. Ritorna
+   * true/false (riuscita o no): app.js usa questo esito per decidere se è sicuro far girare
+   * db.pulisciCestino() nello stesso avvio (mai su dati locali potenzialmente incompleti).
    */
   async function sincronizzaTutto() {
     const fdb = inizializzaFirebase();
     if (!fdb || !online()) {
       impostaStato('offline');
-      return;
+      return false;
     }
 
     impostaStato('sincronizzando');
@@ -176,12 +178,21 @@ const sync = (() => {
       }
 
       impostaStato('sincronizzato');
+      return true;
     } catch (errore) {
       console.warn('Sync: sincronizzazione completa fallita, resta valido lo stato locale', errore);
       impostaStato('offline');
+      return false;
     }
   }
 
+  /**
+   * Ritorna una Promise<boolean> che si risolve con l'esito della sincronizzazione iniziale
+   * (true = riuscita, false = offline o fallita): chi chiama init() può fare `await` per sapere
+   * quando è sicuro far girare operazioni che presuppongono dati locali aggiornati (es.
+   * db.pulisciCestino() in app.js), senza dover duplicare la logica online()/sincronizzaTutto().
+   * Le sincronizzazioni successive (al ritorno della connessione) restano fire-and-forget.
+   */
   function init() {
     db.onCambiamento(alCambiamentoLocale);
 
@@ -189,10 +200,10 @@ const sync = (() => {
     window.addEventListener('offline', () => impostaStato('offline'));
 
     if (online()) {
-      sincronizzaTutto();
-    } else {
-      impostaStato('offline');
+      return sincronizzaTutto();
     }
+    impostaStato('offline');
+    return Promise.resolve(false);
   }
 
   return {

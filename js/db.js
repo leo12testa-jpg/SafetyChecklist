@@ -313,7 +313,11 @@ const db = (() => {
 
   /**
    * Elimina definitivamente (con foto e PDF collegati) i sopralluoghi nel cestino da più
-   * dei giorni di conservazione previsti. Pensata per una chiamata silenziosa all'avvio dell'app.
+   * dei giorni di conservazione previsti. Pensata per una chiamata silenziosa all'avvio dell'app
+   * (va chiamata SOLO dopo una sincronizzazione riuscita: vedi app.js), quindi logga sempre
+   * esplicitamente quando elimina qualcosa (quanti, quali id, da quando erano nel cestino) — in
+   * modo da avere una traccia diretta in console invece di dover ricostruire tutto a posteriori
+   * dai soli timestamp Firestore, se in futuro succede ancora qualcosa di inatteso.
    */
   async function pulisciCestino() {
     const cestino = await elencaCestino();
@@ -323,6 +327,14 @@ const db = (() => {
     const daEliminare = cestino.filter(
       (s) => adesso - new Date(s.eliminato_il).getTime() > limiteMs
     );
+
+    if (daEliminare.length > 0) {
+      console.warn(
+        `[db.js] pulisciCestino: elimino definitivamente ${daEliminare.length} sopralluoghi ` +
+        `(nel cestino da più di ${GIORNI_CONSERVAZIONE_CESTINO} giorni): ` +
+        daEliminare.map((s) => `${s.id} ("${s.punto_vendita}", nel cestino dal ${s.eliminato_il})`).join('; ')
+      );
+    }
 
     for (const sopralluogo of daEliminare) {
       await eliminaSopralluogo(sopralluogo.id);
