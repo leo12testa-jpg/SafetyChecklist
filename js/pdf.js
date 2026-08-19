@@ -219,6 +219,60 @@ const pdf = (() => {
     5: [0, 0, 0] // N.P - nero (colore testo standard)
   };
 
+  const FONT_SIZE_TABELLA_SEZIONE = 7.5;
+  const PADDING_TABELLA_SEZIONE = 2.5;
+  const LARGHEZZA_COLONNA_NOTE = 77;
+  const LARGHEZZA_NOTA_DISPONIBILE = LARGHEZZA_COLONNA_NOTE - PADDING_TABELLA_SEZIONE * 2;
+
+  /**
+   * Testo della colonna Note giustificato (allineato sia a sinistra che a destra, come un
+   * paragrafo) e centrato verticalmente nell'altezza della riga — su tutte le righe, non solo
+   * N.C./P.C., per coerenza visiva. jsPDF-autotable non supporta halign:'justify' nativamente
+   * (solo left/center/right): il core jsPDF sì, via doc.text(righe, x, y, {maxWidth,
+   * align:'justify'}), quindi qui si disabilita il disegno automatico della cella
+   * (data.cell.text = []) e si disegna a mano in didDrawCell. L'ultima riga di ciascuna nota
+   * non viene forzata a riempire tutta la larghezza (comportamento nativo di jsPDF per
+   * align:'justify': solo standard tipografico, mai una riga isolata "allargata" in modo innaturale).
+   *
+   * IMPORTANTE: in didParseCell, data.cell.width vale ancora 0 (il layout delle colonne non è
+   * stato calcolato) — usarlo per il wrapping produce una larghezza negativa e centinaia di
+   * "righe" di una lettera ciascuna, gonfiando a dismisura l'altezza della riga (bug osservato
+   * e corretto durante lo sviluppo). Si usa quindi sempre LARGHEZZA_NOTA_DISPONIBILE, nota a
+   * priori dalla configurazione della colonna, mai la geometria della cella per la larghezza.
+   */
+  function calcolaRigheNota(doc, testoGrezzo) {
+    return avvolgiTesto(doc, testoGrezzo, LARGHEZZA_NOTA_DISPONIBILE);
+  }
+
+  /**
+   * doc.getLineHeight() ritorna il valore in PUNTI TIPOGRAFICI, non nell'unità del documento
+   * (qui 'mm'): usarlo direttamente come distanza tra righe in mm lo sovrastima di un fattore
+   * ~2.83 (72/25.4), facendo "sembrare" il testo molto più corto del reale e quindi non
+   * centrato verticalmente (bug osservato e corretto durante lo sviluppo, confermato misurando
+   * la posizione reale delle righe nel PDF generato). doc.internal.scaleFactor è lo stesso
+   * fattore punti-per-unità che jsPDF usa internamente: dividerlo per quello dà la vera altezza
+   * riga nell'unità del documento.
+   */
+  function altezzaRigaMm(doc) {
+    return doc.getLineHeight() / doc.internal.scaleFactor;
+  }
+
+  function disegnaNotaGiustificataCentrata(doc, cella) {
+    const righe = cella._righeGiustificate;
+    if (!righe || !righe.length) {
+      return;
+    }
+    doc.setFont(undefined, 'italic');
+    doc.setFontSize(FONT_SIZE_TABELLA_SEZIONE);
+    const altezzaRiga = altezzaRigaMm(doc);
+    const altezzaBlocco = righe.length * altezzaRiga;
+    const x = cella.x + PADDING_TABELLA_SEZIONE;
+    // + altezzaRiga*0.75: doc.text usa la baseline, non il top del blocco di testo.
+    const yIniziale = cella.y + (cella.height - altezzaBlocco) / 2 + altezzaRiga * 0.75;
+    doc.text(righe, x, yIniziale, { maxWidth: LARGHEZZA_NOTA_DISPONIBILE, align: 'justify' });
+    doc.setFont(undefined, 'normal');
+  }
+
   /** Tabella di una singola sezione: n., Descrizione attività, colonne di stato C/P.C/N.C/N.P, Note. */
   function disegnaTabellaSezione(doc, sezione, sopralluogo, y) {
     y = nuovaRigaSeNecessario(doc, y, 16);
@@ -248,25 +302,36 @@ const pdf = (() => {
       head: [['n.', 'Descrizione attività', 'C', 'P.C', 'N.C', 'N.P', 'Note']],
       body: corpo,
       theme: 'grid',
-      styles: { lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: 7.5, cellPadding: 1.5, valign: 'middle', textColor: [0, 0, 0] },
-      headStyles: { fillColor: [225, 225, 225], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', fontSize: 7.5 },
+      styles: { lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: FONT_SIZE_TABELLA_SEZIONE, cellPadding: PADDING_TABELLA_SEZIONE, valign: 'middle', textColor: [0, 0, 0] },
+      headStyles: { fillColor: [225, 225, 225], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', fontSize: FONT_SIZE_TABELLA_SEZIONE },
       columnStyles: {
         0: { cellWidth: 10, halign: 'center' },
         1: { cellWidth: 65 },
-        2: { cellWidth: 10, halign: 'center' },
-        3: { cellWidth: 10, halign: 'center' },
-        4: { cellWidth: 10, halign: 'center' },
-        5: { cellWidth: 10, halign: 'center' },
-        6: { cellWidth: 65 }
+        2: { cellWidth: 7, halign: 'center' },
+        3: { cellWidth: 7, halign: 'center' },
+        4: { cellWidth: 7, halign: 'center' },
+        5: { cellWidth: 7, halign: 'center' },
+        6: { cellWidth: LARGHEZZA_COLONNA_NOTE, fontStyle: 'italic' }
       },
       didParseCell(data) {
-        if (data.section !== 'body' || data.cell.raw !== 'X') {
+        if (data.section === 'body' && data.cell.raw === 'X') {
+          const colore = COLORE_COLONNA_STATO[data.column.index];
+          if (colore) {
+            data.cell.styles.textColor = colore;
+            data.cell.styles.fontStyle = 'bold';
+          }
           return;
         }
-        const colore = COLORE_COLONNA_STATO[data.column.index];
-        if (colore) {
-          data.cell.styles.textColor = colore;
-          data.cell.styles.fontStyle = 'bold';
+        if (data.section === 'body' && data.column.index === 6) {
+          const righe = calcolaRigheNota(doc, data.cell.raw);
+          data.cell.styles.minCellHeight = righe.length * altezzaRigaMm(doc) + PADDING_TABELLA_SEZIONE * 2;
+          data.cell._righeGiustificate = righe;
+          data.cell.text = [];
+        }
+      },
+      didDrawCell(data) {
+        if (data.section === 'body' && data.column.index === 6) {
+          disegnaNotaGiustificataCentrata(doc, data.cell);
         }
       }
     });
@@ -335,10 +400,19 @@ const pdf = (() => {
     doc.text(righe, MARGINE, y);
   }
 
-  /** Tronca un testo a `lunghezzaMassima` caratteri (normalizzando gli a-capo in spazi) aggiungendo "…" se tagliato. */
-  function troncaTesto(testo, lunghezzaMassima = 55) {
+  /**
+   * Tronca un testo SOLO a un confine di parola intero (mai a metà parola come "per ev..."):
+   * usata unicamente come rete di sicurezza in disegnaPaginaAllegati per una didascalia che,
+   * anche testo per intero, non entrerebbe comunque nelle righe disponibili sotto la foto.
+   */
+  function troncaAConfineDiParola(testo, lunghezzaMassima) {
     const pulito = String(testo || '').replace(/\s+/g, ' ').trim();
-    return pulito.length > lunghezzaMassima ? `${pulito.slice(0, lunghezzaMassima)}...` : pulito;
+    if (pulito.length <= lunghezzaMassima) {
+      return pulito;
+    }
+    const tagliato = pulito.slice(0, Math.max(lunghezzaMassima, 0));
+    const ultimoSpazio = tagliato.lastIndexOf(' ');
+    return `${ultimoSpazio > 0 ? tagliato.slice(0, ultimoSpazio) : tagliato}…`;
   }
 
   /** Raccoglie tutte le foto (di qualsiasi domanda, qualsiasi stile di checklist) con id/testo domanda per la pagina Allegati. */
@@ -385,8 +459,10 @@ const pdf = (() => {
     const COLONNE = 2;
     const GAP = 6;
     const LARGHEZZA_CELLA = (LARGHEZZA_PAGINA - MARGINE * 2 - GAP * (COLONNE - 1)) / COLONNE;
-    const ALTEZZA_IMMAGINE = 55;
-    const ALTEZZA_CELLA = ALTEZZA_IMMAGINE + 14;
+    const ALTEZZA_IMMAGINE = 48;
+    const MASSIMO_RIGHE_DIDASCALIA = 4;
+    const ALTEZZA_DIDASCALIA = 4 + MASSIMO_RIGHE_DIDASCALIA * 3.5;
+    const ALTEZZA_CELLA = ALTEZZA_IMMAGINE + ALTEZZA_DIDASCALIA;
 
     let colonna = 0;
 
@@ -412,12 +488,24 @@ const pdf = (() => {
       const dataURL = await blobADataURL(record.blob);
       doc.addImage(dataURL, 'JPEG', x, y, LARGHEZZA_CELLA, ALTEZZA_IMMAGINE);
 
+      /**
+       * Didascalia MAI troncata a metà parola: si prova prima il testo della domanda per
+       * intero, andando su più righe (fino a MASSIMO_RIGHE_DIDASCALIA) invece di tagliarlo a un
+       * numero fisso di caratteri. Solo se anche così non entrasse (domanda eccezionalmente
+       * lunga) si accorcia il testo un pezzo alla volta, sempre e solo a un confine di parola,
+       * finché non ci sta - non un taglio arbitrario indipendente dal font/dalla larghezza reale.
+       */
       doc.setFontSize(8);
-      const didascalia = avvolgiTesto(
-        doc,
-        `Foto ${indice + 1} – Domanda ${voce.domandaId}: ${troncaTesto(voce.domandaTesto)}`,
-        LARGHEZZA_CELLA
-      ).slice(0, 2);
+      const prefisso = `Foto ${indice + 1} – Domanda ${voce.domandaId}: `;
+      let didascalia = avvolgiTesto(doc, `${prefisso}${voce.domandaTesto}`, LARGHEZZA_CELLA);
+      if (didascalia.length > MASSIMO_RIGHE_DIDASCALIA) {
+        let lunghezzaMassima = String(voce.domandaTesto || '').length;
+        do {
+          lunghezzaMassima -= 10;
+          const domandaTroncata = troncaAConfineDiParola(voce.domandaTesto, lunghezzaMassima);
+          didascalia = avvolgiTesto(doc, `${prefisso}${domandaTroncata}`, LARGHEZZA_CELLA);
+        } while (didascalia.length > MASSIMO_RIGHE_DIDASCALIA && lunghezzaMassima > 0);
+      }
       doc.text(didascalia, x, y + ALTEZZA_IMMAGINE + 4);
 
       colonna += 1;
