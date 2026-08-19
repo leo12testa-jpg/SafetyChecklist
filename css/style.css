@@ -303,18 +303,6 @@ body {
   margin-top: 0;
 }
 
-.nota-correzione-azioni {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.nota-correzione-esito {
-  margin: 8px 0 0;
-  font-size: 0.9rem;
-  color: var(--color-text-muted);
-}
-
 .foto-count {
   margin: 8px 0;
   color: var(--color-text-muted);

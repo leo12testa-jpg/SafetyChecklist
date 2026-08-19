@@ -202,37 +202,6 @@ function precompilaTecnico(select, labelAltro, inputAltro, valore) {
 }
 
 /**
- * Correzione grammaticale/ortografica del campo Note (Compilazione) via l'API pubblica gratuita
- * di LanguageTool — nessuna IA, nessuna chiave/carta richiesta. Applica automaticamente il primo
- * suggerimento di ciascun errore trovato (match.replacements[0]), sostituendo dall'ultimo errore
- * al primo (offset decrescente) così l'offset di ogni sostituzione successiva non viene invalidato
- * da quelle già applicate prima di lui nel testo. Lancia un errore su rete assente/servizio
- * irraggiungibile: il chiamante deve gestirlo esplicitamente (vedi compilazioneScreen.onCorreggiNota),
- * mai lasciarlo silenzioso né far perdere il testo scritto dall'utente.
- */
-async function correggiTestoConLanguageTool(testo) {
-  const risposta = await fetch('https://api.languagetool.org/v2/check', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ text: testo, language: 'it' })
-  });
-  if (!risposta.ok) {
-    throw new Error(`LanguageTool: HTTP ${risposta.status}`);
-  }
-  const dati = await risposta.json();
-  const errori = (dati.matches || [])
-    .filter((m) => m.replacements && m.replacements.length > 0)
-    .sort((a, b) => b.offset - a.offset);
-
-  let corretto = testo;
-  errori.forEach((errore) => {
-    const sostituzione = errore.replacements[0].value;
-    corretto = corretto.slice(0, errore.offset) + sostituzione + corretto.slice(errore.offset + errore.length);
-  });
-  return { testo: corretto, numeroCorrezioni: errori.length };
-}
-
-/**
  * Schermata "Nuovo sopralluogo": popola i campi editabili come testo libero (valori già usati
  * in precedenza), filtra la Checklist in base al punto vendita digitato (checklists/clients.json),
  * poi crea il sopralluogo e avvia la compilazione (PROJECT.md §7.2). Supporta anche l'importazione
@@ -494,9 +463,6 @@ const compilazioneScreen = (() => {
   const btnFoto = document.getElementById('btn-foto');
   const notaEditor = document.getElementById('nota-editor');
   const notaTesto = document.getElementById('nota-testo');
-  const btnCorreggiNota = document.getElementById('btn-correggi-nota');
-  const btnAnnullaCorrezione = document.getElementById('btn-annulla-correzione');
-  const notaCorrezioneEsito = document.getElementById('nota-correzione-esito');
   const erroreValidazione = document.getElementById('errore-validazione');
   const btnIndietro = document.getElementById('btn-indietro');
   const btnAvanti = document.getElementById('btn-avanti');
@@ -504,7 +470,6 @@ const compilazioneScreen = (() => {
   const bannerImport = document.getElementById('compilazione-banner-import');
 
   let fotoDomandaCorrente = [];
-  let notaTestoPreCorrezione = null;
 
   /** Etichette visive delle risposte: un solo punto per cambiarle in futuro senza toccare il resto. */
   const ETICHETTE_RISPOSTA = { C: 'C', PC: 'PC', NC: 'NC', NA: 'N.P.' };
@@ -544,15 +509,6 @@ const compilazioneScreen = (() => {
     fotoDomandaCorrente = [];
     aggiornaContatoreFoto();
     nascondiErrore();
-    resetStatoCorrezioneNota();
-  }
-
-  /** Nasconde esito/pulsante "Annulla" della correzione grammaticale e scarta il testo pre-correzione salvato: va richiamata a ogni cambio domanda, la correzione in sospeso vale solo per la nota corrente. */
-  function resetStatoCorrezioneNota() {
-    notaTestoPreCorrezione = null;
-    notaCorrezioneEsito.hidden = true;
-    notaCorrezioneEsito.textContent = '';
-    btnAnnullaCorrezione.hidden = true;
   }
 
   async function salvaRispostaCorrente(valore) {
@@ -857,56 +813,6 @@ const compilazioneScreen = (() => {
     }
   }
 
-  /**
-   * Corregge grammatica/ortografia della nota corrente con LanguageTool: applica il primo
-   * suggerimento di ciascun errore, mostra subito il risultato nel campo (mai in modo invisibile:
-   * l'utente lo vede e resta libero di modificarlo ulteriormente prima che venga confermato) e
-   * offre "Annulla correzione" per tornare al testo di prima. Offline/servizio irraggiungibile:
-   * messaggio esplicito, il testo scritto dall'utente resta intatto, nessun blocco dell'app.
-   */
-  async function onCorreggiNota() {
-    const testoOriginale = notaTesto.value;
-    if (!testoOriginale.trim()) {
-      return;
-    }
-
-    const etichettaOriginale = btnCorreggiNota.textContent;
-    btnCorreggiNota.disabled = true;
-    btnCorreggiNota.textContent = 'Correzione…';
-    notaCorrezioneEsito.hidden = true;
-    btnAnnullaCorrezione.hidden = true;
-
-    try {
-      const { testo, numeroCorrezioni } = await correggiTestoConLanguageTool(testoOriginale);
-      if (numeroCorrezioni === 0) {
-        notaCorrezioneEsito.textContent = 'Nessun errore trovato.';
-        notaCorrezioneEsito.hidden = false;
-      } else {
-        notaTestoPreCorrezione = testoOriginale;
-        notaTesto.value = testo;
-        await onNotaModificata();
-        notaCorrezioneEsito.textContent = `Corrette ${numeroCorrezioni} ${numeroCorrezioni === 1 ? 'cosa' : 'cose'}: verifica il testo prima di continuare.`;
-        notaCorrezioneEsito.hidden = false;
-        btnAnnullaCorrezione.hidden = false;
-      }
-    } catch (errore) {
-      notaCorrezioneEsito.textContent = 'Correzione non disponibile offline.';
-      notaCorrezioneEsito.hidden = false;
-    } finally {
-      btnCorreggiNota.disabled = false;
-      btnCorreggiNota.textContent = etichettaOriginale;
-    }
-  }
-
-  /** Ripristina nel campo Note il testo precedente alla correzione automatica. */
-  async function onAnnullaCorrezione() {
-    if (notaTestoPreCorrezione === null) {
-      return;
-    }
-    notaTesto.value = notaTestoPreCorrezione;
-    resetStatoCorrezioneNota();
-    await onNotaModificata();
-  }
 
   function onIndietro() {
     if (checklistEngine.indietro()) {
@@ -939,8 +845,6 @@ const compilazioneScreen = (() => {
     btnNote.addEventListener('click', onToggleNote);
     btnFoto.addEventListener('click', onFoto);
     notaTesto.addEventListener('change', onNotaModificata);
-    btnCorreggiNota.addEventListener('click', onCorreggiNota);
-    btnAnnullaCorrezione.addEventListener('click', onAnnullaCorrezione);
     btnIndietro.addEventListener('click', onIndietro);
     btnAvanti.addEventListener('click', onAvanti);
     btnModificaAnagrafica.addEventListener('click', onModificaAnagrafica);
