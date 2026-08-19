@@ -16,27 +16,7 @@ const pdf = (() => {
   const LARGHEZZA_PAGINA = 210; // A4, mm
   const ALTEZZA_PAGINA = 297;
 
-  const GRUPPI_SEZIONI = [
-    {
-      titolo: 'ANALISI DOCUMENTALE',
-      sezioni: [
-        'Adempimenti Formali',
-        'Documento di Valutazione del Rischio',
-        "Gestione dell'Emergenza",
-        'Attività di Formazione',
-        'Documentazione Procedurale'
-      ]
-    },
-    {
-      titolo: 'SOPRALLUOGO AMBIENTI DI LAVORO',
-      sezioni: [
-        'Antincendio / Mezzi di Emergenza e Cartellonistica',
-        'Vie di Esodo',
-        'Locali di Lavoro / Struttura',
-        'Macchine / Attrezzature'
-      ]
-    }
-  ];
+  const TITOLI_GRUPPI_SEZIONI = ['ANALISI DOCUMENTALE', 'SOPRALLUOGO AMBIENTI DI LAVORO'];
 
   const LEGENDA = 'C = Conforme;   P.C = Parzialmente conforme;   N.C = Non conforme;   N.P = Non pertinente';
 
@@ -101,16 +81,21 @@ const pdf = (() => {
   }
 
   /**
-   * Logo fisso di Colligo Ingegneria, bundled nell'app (assets/logo_colligo.webp). Se non si
-   * carica, l'errore viene registrato esplicitamente in console e il logo viene omesso invece
-   * di far fallire l'intera generazione del PDF.
+   * Logo fisso di Colligo Ingegneria, bundled nell'app: prova prima assets/logo_colligo.webp,
+   * poi assets/logo.png come fallback. Se nessuno dei due si carica, l'errore viene registrato
+   * esplicitamente in console e il logo viene omesso invece di far fallire l'intera generazione
+   * del PDF.
    */
   async function ottieniLogoColligo() {
     try {
       return await caricaLogo('assets/logo_colligo.webp');
-    } catch (errore) {
-      console.error('[pdf.js] Logo Colligo Ingegneria non caricato:', errore);
-      return null;
+    } catch (errorePrimario) {
+      try {
+        return await caricaLogo('assets/logo.png');
+      } catch (erroreFallback) {
+        console.error('[pdf.js] Logo Colligo Ingegneria non caricato (né logo_colligo.webp né logo.png):', errorePrimario, erroreFallback);
+        return null;
+      }
     }
   }
 
@@ -165,17 +150,35 @@ const pdf = (() => {
     return MARGINE + ALTEZZA_MAX_LOGO + 8;
   }
 
+  /**
+   * Etichette della tabella DATI GENERALI, con eventuali override per checklist_id. Riusa la
+   * stessa mappa ETICHETTE_PERSONALIZZATE_PER_CHECKLIST definita in app.js per la UI del form
+   * (stesse chiavi: puntoVendita/responsabile/presenzaResponsabile), così le due non possono
+   * disallinearsi: un solo posto dove cambiare il testo per un cliente. app.js viene caricato
+   * dopo pdf.js in index.html, ma la costante è già definita al momento in cui questa funzione
+   * viene effettivamente chiamata (generazione PDF, sempre dopo il caricamento completo della pagina).
+   */
+  function etichetteDatiGenerali(checklistId) {
+    const override = ETICHETTE_PERSONALIZZATE_PER_CHECKLIST[checklistId] || {};
+    return {
+      puntoVendita: override.puntoVendita || 'Punto vendita',
+      responsabile: override.responsabile || 'Responsabile del punto vendita',
+      presenzaResponsabile: override.presenzaResponsabile || 'Sopralluogo alla presenza del responsabile del punto vendita'
+    };
+  }
+
   /** Tabella "DATI GENERALI": titolo su sfondo arancione, righe con bordi neri. */
-  function disegnaTabellaDatiGenerali(doc, sopralluogo, y) {
+  function disegnaTabellaDatiGenerali(doc, checklist, sopralluogo, y) {
+    const etichette = etichetteDatiGenerali(checklist.id);
     const puntoVendita = `${sopralluogo.punto_vendita || ''}\n${sopralluogo.indirizzo_punto_vendita || ''}`;
 
     const corpo = [
-      ['Punto vendita', puntoVendita],
+      [etichette.puntoVendita, puntoVendita],
       ['Numero di dipendenti in forza al momento del sopralluogo', String(sopralluogo.numero_dipendenti || '')],
       ['Tecnico che ha eseguito il sopralluogo', sopralluogo.tecnico || ''],
       ['Data del sopralluogo', formattaDataSemplice(sopralluogo.data_sopralluogo)],
-      ['Responsabile del punto vendita', sopralluogo.responsabile_punto_vendita || ''],
-      ['Sopralluogo alla presenza del responsabile del punto vendita', sopralluogo.presenza_responsabile || ''],
+      [etichette.responsabile, sopralluogo.responsabile_punto_vendita || ''],
+      [etichette.presenzaResponsabile, sopralluogo.presenza_responsabile || ''],
       ["Sopralluogo alla presenza dell'R.L.S.", sopralluogo.presenza_rls || '']
     ];
 
@@ -196,7 +199,7 @@ const pdf = (() => {
   /** Bandiera blu a piena larghezza con il titolo del macro-gruppo (ANALISI DOCUMENTALE / SOPRALLUOGO AMBIENTI DI LAVORO). */
   function disegnaIntestazioneGruppo(doc, titolo, y) {
     y = nuovaRigaSeNecessario(doc, y, 14);
-    doc.setFillColor(35, 65, 125);
+    doc.setFillColor(74, 122, 181);
     doc.rect(MARGINE, y, LARGHEZZA_PAGINA - MARGINE * 2, 9, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(11);
@@ -213,10 +216,10 @@ const pdf = (() => {
 
   /** Colore testo delle "X" nelle colonne di stato, per indice colonna (2=C, 3=P.C, 4=N.C, 5=N.P). */
   const COLORE_COLONNA_STATO = {
-    2: [0, 140, 60], // C - verde
-    3: [230, 140, 0], // P.C - arancione
-    4: [200, 30, 30], // N.C - rosso
-    5: [0, 0, 0] // N.P - nero (colore testo standard)
+    2: [26, 122, 26], // C - verde (#1a7a1a)
+    3: [201, 122, 0], // P.C - arancione (#c97a00)
+    4: [192, 57, 43], // N.C - rosso (#c0392b)
+    5: [51, 51, 51] // N.P - nero/grigio scuro (#333333)
   };
 
   const FONT_SIZE_TABELLA_SEZIONE = 7.5;
@@ -273,18 +276,32 @@ const pdf = (() => {
     doc.setFont(undefined, 'normal');
   }
 
-  /** Tabella di una singola sezione: n., Descrizione attività, colonne di stato C/P.C/N.C/N.P, Note. */
-  function disegnaTabellaSezione(doc, sezione, sopralluogo, y) {
-    y = nuovaRigaSeNecessario(doc, y, 16);
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'bold');
-    doc.text(sezione.titolo, MARGINE, y);
-    doc.setFont(undefined, 'normal');
-    y += 5;
+  /**
+   * Suffisso "(Vedi Foto N)" per una domanda con foto associate, numerazione coerente con la
+   * pagina Allegati (stesso ordine, stesso indice+1 di raccogliFotoConDidascalia).
+   */
+  function suffissoVediFoto(domandaId, mappaFotoPerDomanda) {
+    const numeri = mappaFotoPerDomanda && mappaFotoPerDomanda.get(domandaId);
+    if (!numeri || !numeri.length) {
+      return '';
+    }
+    return `(Vedi Foto ${numeri.join(', ')})`;
+  }
 
+  /**
+   * Tabella di una singola sezione: n., Descrizione attività, colonne di stato C/P.C/N.C/N.P, Note.
+   * Il titolo della sezione è la PRIMA riga dell'head (colSpan su tutte le colonne), non un
+   * paragrafo separato prima della tabella: con un head a due righe, autoTable ripete
+   * automaticamente entrambe su ogni pagina in cui la tabella prosegue (showHead:'everyPage',
+   * il default), eliminando sia il titolo "orfano" a fine pagina sia lo spreco di spazio. Nessun
+   * page-break manuale prima della tabella: la paginazione naturale di autoTable basta.
+   */
+  function disegnaTabellaSezione(doc, sezione, sopralluogo, y, mappaFotoPerDomanda) {
     const corpo = sezione.domande.map((domanda) => {
       const risposta = (sopralluogo.risposte || []).find((r) => r.domanda_id === domanda.id);
       const valore = risposta ? risposta.risposta : '';
+      const nota = (risposta && risposta.note) || '';
+      const vediFoto = suffissoVediFoto(domanda.id, mappaFotoPerDomanda);
       return [
         domanda.id,
         domanda.testo,
@@ -292,14 +309,17 @@ const pdf = (() => {
         segnoRisposta(valore, 'PC'),
         segnoRisposta(valore, 'NC'),
         segnoRisposta(valore, 'NA'),
-        (risposta && risposta.note) || ''
+        vediFoto ? (nota ? `${nota} ${vediFoto}` : vediFoto) : nota
       ];
     });
 
     doc.autoTable({
       startY: y,
       margin: { left: MARGINE, right: MARGINE },
-      head: [['n.', 'Descrizione attività', 'C', 'P.C', 'N.C', 'N.P', 'Note']],
+      head: [
+        [{ content: sezione.titolo, colSpan: 7, styles: { halign: 'left', fontStyle: 'bold', fontSize: 10, fillColor: [255, 255, 255], textColor: [0, 0, 0] } }],
+        ['n.', 'Descrizione attività', 'C', 'P.C', 'N.C', 'N.P', 'Note']
+      ],
       body: corpo,
       theme: 'grid',
       styles: { lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: FONT_SIZE_TABELLA_SEZIONE, cellPadding: PADDING_TABELLA_SEZIONE, valign: 'middle', textColor: [0, 0, 0] },
@@ -340,31 +360,40 @@ const pdf = (() => {
   }
 
   /**
-   * Disegna tutti i macro-gruppi di sezioni (con relative tabelle). Eventuali sezioni della
-   * checklist non incluse in nessun gruppo vengono comunque stampate sotto "ALTRE SEZIONI",
-   * per non perdere silenziosamente dati non previsti dalla mappatura.
+   * Punto (indice 0-based) in cui dividere le sezioni della checklist nei due macro-gruppi:
+   * prime N sezioni sotto "ANALISI DOCUMENTALE", le restanti sotto "SOPRALLUOGO AMBIENTI DI
+   * LAVORO". Le tre checklist esistenti hanno tutte la stessa struttura a 9 sezioni (5+4): il
+   * fallback (metà arrotondata per eccesso) riproduce esattamente questo split senza elencare i
+   * titoli delle sezioni uno per uno (fragile: nemmeno scritti in modo uniforme tra le checklist,
+   * es. tutto maiuscolo in Coin contro Title Case in Interparking/Restage). Una checklist con una
+   * struttura diversa può impostare esplicitamente il campo "puntoDivisioneGruppi" nel proprio JSON.
    */
-  function disegnaGruppiSezioni(doc, checklist, sopralluogo, y) {
-    const titoliMappati = GRUPPI_SEZIONI.flatMap((g) => g.sezioni);
+  function calcolaPuntoDivisioneGruppi(checklist) {
+    const totale = checklist.sezioni.length;
+    const configurato = checklist.puntoDivisioneGruppi;
+    if (Number.isInteger(configurato) && configurato > 0 && configurato < totale) {
+      return configurato;
+    }
+    return Math.ceil(totale / 2);
+  }
 
-    GRUPPI_SEZIONI.forEach((gruppo) => {
-      const sezioniGruppo = checklist.sezioni.filter((s) => gruppo.sezioni.includes(s.titolo));
-      if (!sezioniGruppo.length) {
+  /** Disegna tutti i macro-gruppi di sezioni (con relative tabelle), coprendo sempre tutte le sezioni della checklist. */
+  function disegnaGruppiSezioni(doc, checklist, sopralluogo, y, mappaFotoPerDomanda) {
+    const puntoDivisione = calcolaPuntoDivisioneGruppi(checklist);
+    const gruppi = [
+      { titolo: TITOLI_GRUPPI_SEZIONI[0], sezioni: checklist.sezioni.slice(0, puntoDivisione) },
+      { titolo: TITOLI_GRUPPI_SEZIONI[1], sezioni: checklist.sezioni.slice(puntoDivisione) }
+    ];
+
+    gruppi.forEach((gruppo) => {
+      if (!gruppo.sezioni.length) {
         return;
       }
       y = disegnaIntestazioneGruppo(doc, gruppo.titolo, y);
-      sezioniGruppo.forEach((sezione) => {
-        y = disegnaTabellaSezione(doc, sezione, sopralluogo, y);
+      gruppo.sezioni.forEach((sezione) => {
+        y = disegnaTabellaSezione(doc, sezione, sopralluogo, y, mappaFotoPerDomanda);
       });
     });
-
-    const sezioniNonMappate = checklist.sezioni.filter((s) => !titoliMappati.includes(s.titolo));
-    if (sezioniNonMappate.length) {
-      y = disegnaIntestazioneGruppo(doc, 'ALTRE SEZIONI', y);
-      sezioniNonMappate.forEach((sezione) => {
-        y = disegnaTabellaSezione(doc, sezione, sopralluogo, y);
-      });
-    }
 
     return y;
   }
@@ -440,6 +469,21 @@ const pdf = (() => {
     });
 
     return elenco;
+  }
+
+  /**
+   * Mappa domandaId -> elenco di numeri di foto (1-based, stesso ordine/indice di elencoFoto),
+   * per il riferimento incrociato "(Vedi Foto N)" nella colonna Note delle tabelle di sezione.
+   */
+  function costruisciMappaFotoPerDomanda(elencoFoto) {
+    const mappa = new Map();
+    elencoFoto.forEach((voce, indice) => {
+      if (!mappa.has(voce.domandaId)) {
+        mappa.set(voce.domandaId, []);
+      }
+      mappa.get(voce.domandaId).push(indice + 1);
+    });
+    return mappa;
   }
 
   /** Pagina "ALLEGATI": tutte le foto scattate durante il sopralluogo, in griglia con didascalia. */
@@ -601,13 +645,15 @@ const pdf = (() => {
     const logoColligoURL = await ottieniLogoColligo();
     const logoClienteURL = await ottieniLogoCliente(checklist, sopralluogo.punto_vendita);
 
+    const fotoAllegati = raccogliFotoConDidascalia(checklist, sopralluogo);
+    const mappaFotoPerDomanda = costruisciMappaFotoPerDomanda(fotoAllegati);
+
     let y = disegnaIntestazione(doc, logoClienteURL, logoColligoURL);
-    y = disegnaTabellaDatiGenerali(doc, sopralluogo, y);
-    disegnaGruppiSezioni(doc, checklist, sopralluogo, y);
+    y = disegnaTabellaDatiGenerali(doc, checklist, sopralluogo, y);
+    disegnaGruppiSezioni(doc, checklist, sopralluogo, y, mappaFotoPerDomanda);
 
     disegnaAltriAspetti(doc, sopralluogo);
 
-    const fotoAllegati = raccogliFotoConDidascalia(checklist, sopralluogo);
     await disegnaPaginaAllegati(doc, fotoAllegati);
 
     aggiungiLegendaSuOgniPagina(doc);

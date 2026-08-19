@@ -70,8 +70,8 @@ let sopralluogoImportatoDaPdf = null;
  */
 const ETICHETTE_PERSONALIZZATE_PER_CHECKLIST = {
   restage_sopralluogo: {
-    puntoVendita: 'Unità operativa',
-    responsabile: 'Referente',
+    puntoVendita: 'Unità produttiva',
+    responsabile: 'Referente unità produttiva',
     presenzaResponsabile: 'Il sopralluogo è fatto alla presenza del referente?'
   }
 };
