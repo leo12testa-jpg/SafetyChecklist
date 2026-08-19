@@ -85,17 +85,17 @@ const pdf = (() => {
    * viene registrato esplicitamente in console (non fallisce silenziosamente) e il logo viene
    * comunque omesso, senza far fallire l'intera generazione del PDF per un asset mancante.
    */
-  async function ottieniLogoCliente(checklist) {
+  async function ottieniLogoCliente(checklist, puntoVendita) {
     const riferimento = `${checklist.id || ''} ${checklist.titolo || ''}`.toLowerCase();
     const voce = LOGO_CLIENTE_PER_CHECKLIST.find((c) => riferimento.includes(c.corrispondenza));
     if (!voce) {
-      console.warn(`[pdf.js] Nessun logo cliente associato alla checklist "${checklist.id}" (titolo: "${checklist.titolo}"). Intestazione senza logo a destra.`);
+      console.warn(`[pdf.js] Nessun logo cliente associato alla checklist "${checklist.id}" (titolo: "${checklist.titolo}", Punto vendita: "${puntoVendita || ''}"). Intestazione senza logo a destra.`);
       return null;
     }
     try {
       return await caricaLogo(voce.file);
     } catch (errore) {
-      console.error(`[pdf.js] Logo cliente non caricato (${voce.file}) per checklist "${checklist.id}":`, errore);
+      console.error(`[pdf.js] Logo cliente non caricato (${voce.file}) per checklist "${checklist.id}" (Punto vendita: "${puntoVendita || ''}"):`, errore);
       return null;
     }
   }
@@ -529,7 +529,7 @@ const pdf = (() => {
     }
 
     const logoColligoURL = await ottieniLogoColligo();
-    const logoClienteURL = await ottieniLogoCliente(checklist);
+    const logoClienteURL = await ottieniLogoCliente(checklist, sopralluogo.punto_vendita);
 
     let y = disegnaIntestazione(doc, logoClienteURL, logoColligoURL, checklist);
     y = disegnaTabellaDatiGenerali(doc, sopralluogo, y);
