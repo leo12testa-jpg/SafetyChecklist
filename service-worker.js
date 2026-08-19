@@ -1,4 +1,4 @@
-const CACHE_NAME = 'safety-checklist-shell-v37';
+const CACHE_NAME = 'safety-checklist-shell-v38';
 
 const APP_SHELL = [
   './',
@@ -22,6 +22,7 @@ const APP_SHELL = [
   './js/sync.js',
   './checklists/index.json',
   './checklists/clients.json',
+  './checklists/tecnici.json',
   './assets/icon-192.png',
   './assets/icon-512.png',
   './assets/icon-512-maskable.png',

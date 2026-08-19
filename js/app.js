@@ -61,6 +61,37 @@ const router = (() => {
  */
 let sopralluogoImportatoDaPdf = null;
 
+/** Riempie una <datalist> con valori unici e non vuoti (usata per tutti i campi a suggerimento libero: Cliente/Sede/Tecnico/Responsabile/Area Manager). */
+function popolaDatalist(datalist, valori) {
+  datalist.innerHTML = '';
+  Array.from(new Set(valori.filter(Boolean))).forEach((valore) => {
+    const option = document.createElement('option');
+    option.value = valore;
+    datalist.appendChild(option);
+  });
+}
+
+/**
+ * Elenco tecnici predefinito (checklists/tecnici.json), per suggerire i nomi noti nel campo
+ * "Tecnico" (nuovo sopralluogo, duplica) oltre ai nomi già usati in sopralluoghi precedenti. Il
+ * campo resta comunque testo libero (<input list> + <datalist>, come già per Cliente/Sede): un
+ * tecnico non ancora in elenco si può sempre scrivere a mano, senza bisogno di modificare il
+ * codice. Se il file non si carica (rete assente e non ancora in cache), i suggerimenti si
+ * riducono ai soli nomi storici, senza far fallire il resto della schermata.
+ */
+async function caricaTecniciPredefiniti() {
+  try {
+    const risposta = await fetch('checklists/tecnici.json');
+    if (!risposta.ok) {
+      throw new Error(`HTTP ${risposta.status}`);
+    }
+    return (await risposta.json()).tecnici || [];
+  } catch (errore) {
+    console.error('[app.js] Impossibile caricare l\'elenco tecnici predefinito (checklists/tecnici.json):', errore);
+    return [];
+  }
+}
+
 /**
  * Schermata "Nuovo sopralluogo": popola i campi editabili come testo libero (valori già usati
  * in precedenza), filtra la Checklist in base al punto vendita digitato (checklists/clients.json),
@@ -97,20 +128,14 @@ const nuovoSopralluogoScreen = (() => {
   let risposteImportate = null;
   let checklistIdImportato = null;
 
-  function popolaDatalist(datalist, valori) {
-    datalist.innerHTML = '';
-    Array.from(new Set(valori.filter(Boolean))).forEach((valore) => {
-      const option = document.createElement('option');
-      option.value = valore;
-      datalist.appendChild(option);
-    });
-  }
-
   async function popolaSuggerimenti() {
-    const sopralluoghi = await db.elencaSopralluoghi();
+    const [sopralluoghi, tecniciPredefiniti] = await Promise.all([
+      db.elencaSopralluoghi(),
+      caricaTecniciPredefiniti()
+    ]);
     popolaDatalist(listaPuntiVendita, sopralluoghi.map((s) => s.punto_vendita));
     popolaDatalist(listaIndirizzi, sopralluoghi.map((s) => s.indirizzo_punto_vendita));
-    popolaDatalist(listaTecnici, sopralluoghi.map((s) => s.tecnico));
+    popolaDatalist(listaTecnici, [...tecniciPredefiniti, ...sopralluoghi.map((s) => s.tecnico)]);
     popolaDatalist(listaResponsabili, sopralluoghi.map((s) => s.responsabile_punto_vendita));
     popolaDatalist(listaAreaManager, sopralluoghi.map((s) => s.area_manager));
   }
@@ -1303,6 +1328,7 @@ const duplicaDialog = (() => {
   const inputPuntoVendita = document.getElementById('duplica-punto-vendita');
   const inputIndirizzo = document.getElementById('duplica-indirizzo');
   const inputTecnico = document.getElementById('duplica-tecnico');
+  const listaTecnici = document.getElementById('duplica-lista-tecnici');
   const inputData = document.getElementById('duplica-data');
   const bottoneAnnulla = document.getElementById('btn-duplica-annulla');
 
@@ -1315,6 +1341,15 @@ const duplicaDialog = (() => {
     return `${oggi.getFullYear()}-${mese}-${giorno}`;
   }
 
+  /** Stessi suggerimenti (predefiniti + storico) del campo Tecnico di "Nuovo sopralluogo". */
+  async function popolaListaTecnici() {
+    const [sopralluoghi, tecniciPredefiniti] = await Promise.all([
+      db.elencaSopralluoghi(),
+      caricaTecniciPredefiniti()
+    ]);
+    popolaDatalist(listaTecnici, [...tecniciPredefiniti, ...sopralluoghi.map((s) => s.tecnico)]);
+  }
+
   /** Apre il dialogo precompilato con i dati del sopralluogo da duplicare (data proposta: oggi). */
   function apri(sopralluogo) {
     sopralluogoOriginale = sopralluogo;
@@ -1322,6 +1357,7 @@ const duplicaDialog = (() => {
     inputIndirizzo.value = sopralluogo.indirizzo_punto_vendita || '';
     inputTecnico.value = sopralluogo.tecnico || '';
     inputData.value = oggiISO();
+    popolaListaTecnici();
     dialog.showModal();
   }
 
