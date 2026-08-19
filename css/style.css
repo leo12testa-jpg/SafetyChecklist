@@ -140,6 +140,13 @@ body {
   font-weight: 600;
 }
 
+/* [hidden] da solo perderebbe contro ".campo-form { display: block }" (stessa specificità, ma
+   la regola d'autore vince sulla UA stylesheet nella cascata): senza questa regola un
+   <label class="campo-form" hidden> resta visibile nonostante l'attributo hidden. */
+.campo-form[hidden] {
+  display: none;
+}
+
 .campo-form input,
 .campo-form select,
 .campo-form textarea {
@@ -159,37 +166,6 @@ body {
 .campo-form textarea {
   min-height: 80px;
   resize: vertical;
-}
-
-/*
- * <datalist> non mostra di suo alcuna affordance visiva su Safari/mobile (a differenza di
- * <select>, che ha una sua freccina nativa): questo wrapper aggiunge una freccina decorativa
- * via ::after su uno <span> normale (mai su un <input>: i pseudo-elementi su elementi form/
- * replaced non sono affidabili tra browser, specialmente Safari), stessa dimensione/colore/
- * posizionamento a destra della freccina nativa dei <select> qui accanto (presenza responsabile/
- * RLS), per coerenza visiva. Solo sul campo Tecnico (per scelta esplicita, non sugli altri campi
- * con datalist). pointer-events: none così il click passa sempre all'input sottostante;
- * padding-right sull'input riserva lo spazio così un testo digitato lungo non ci finisce mai sotto.
- */
-.campo-con-suggerimenti {
-  position: relative;
-  display: block;
-}
-
-.campo-con-suggerimenti input {
-  padding-right: 36px;
-}
-
-.campo-con-suggerimenti::after {
-  content: '▼';
-  position: absolute;
-  top: 50%;
-  right: 14px;
-  transform: translateY(-50%);
-  pointer-events: none;
-  color: var(--color-text);
-  font-size: 0.75rem;
-  line-height: 1;
 }
 
 .progress-bar {
@@ -327,6 +303,18 @@ body {
   margin-top: 0;
 }
 
+.nota-correzione-azioni {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.nota-correzione-esito {
+  margin: 8px 0 0;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
 .foto-count {
   margin: 8px 0;
   color: var(--color-text-muted);
@@ -415,25 +403,15 @@ body {
 }
 
 .storico-filtro-cliente {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.filtro-cliente-btn {
-  padding: 6px 12px;
-  font-size: 0.85rem;
-  border-radius: 999px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 1rem;
+  border-radius: var(--radius);
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-text);
-  cursor: pointer;
-}
-
-.filtro-cliente-btn.is-attivo {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
 }
 
 .storico-ricerca {

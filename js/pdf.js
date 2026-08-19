@@ -154,26 +154,13 @@ const pdf = (() => {
     doc.addImage(dataURL, proprieta.fileType, x, MARGINE, larghezza, altezza);
   }
 
-  /** Intestazione con doppio logo affiancato (Colligo Ingegneria a sinistra, cliente a destra), proporzioni originali mantenute, e titolo checklist. */
-  function disegnaIntestazione(doc, logoClienteURL, logoColligoURL, checklist) {
+  /** Intestazione con doppio logo affiancato (Colligo Ingegneria a sinistra, cliente a destra), proporzioni originali mantenute. Nessun titolo checklist: è un dato interno (usato solo per l'elenco a tendina), non va mostrato nel report. */
+  function disegnaIntestazione(doc, logoClienteURL, logoColligoURL) {
     const LARGHEZZA_MAX_LOGO = 40;
     const ALTEZZA_MAX_LOGO = 15;
 
     disegnaLogoProporzionato(doc, logoColligoURL, 'sinistra', LARGHEZZA_MAX_LOGO, ALTEZZA_MAX_LOGO);
-
-    // DEBUG TEMPORANEO: da rimuovere una volta confermato che il logo cliente compare in produzione.
-    console.warn('[pdf.js][DEBUG] logo cliente:', {
-      checklistId: checklist.id,
-      checklistTitolo: checklist.titolo,
-      logoClienteURL_presente: !!logoClienteURL,
-      logoClienteURL_anteprima: logoClienteURL ? logoClienteURL.slice(0, 40) + '…' : null
-    });
     disegnaLogoProporzionato(doc, logoClienteURL, 'destra', LARGHEZZA_MAX_LOGO, ALTEZZA_MAX_LOGO);
-
-    doc.setFontSize(15);
-    doc.setFont(undefined, 'bold');
-    doc.text(checklist.titolo, LARGHEZZA_PAGINA / 2, MARGINE + ALTEZZA_MAX_LOGO / 2 + 3, { align: 'center' });
-    doc.setFont(undefined, 'normal');
 
     return MARGINE + ALTEZZA_MAX_LOGO + 8;
   }
@@ -469,13 +456,8 @@ const pdf = (() => {
   }
 
   async function disegnaReportRaccoltaDati(doc, checklist, sopralluogo) {
-    doc.setFontSize(16);
-    doc.setFont(undefined, 'bold');
-    doc.text(checklist.titolo, MARGINE, MARGINE + 5);
-    doc.setFont(undefined, 'normal');
-
     doc.setFontSize(10);
-    let y = MARGINE + 16;
+    let y = MARGINE + 5;
     doc.text(
       'Layout dedicato non ancora disponibile per questo tipo di checklist (dati grezzi qui sotto).',
       MARGINE,
@@ -531,7 +513,7 @@ const pdf = (() => {
     const logoColligoURL = await ottieniLogoColligo();
     const logoClienteURL = await ottieniLogoCliente(checklist, sopralluogo.punto_vendita);
 
-    let y = disegnaIntestazione(doc, logoClienteURL, logoColligoURL, checklist);
+    let y = disegnaIntestazione(doc, logoClienteURL, logoColligoURL);
     y = disegnaTabellaDatiGenerali(doc, sopralluogo, y);
     disegnaGruppiSezioni(doc, checklist, sopralluogo, y);
 

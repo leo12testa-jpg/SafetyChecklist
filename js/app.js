@@ -61,6 +61,42 @@ const router = (() => {
  */
 let sopralluogoImportatoDaPdf = null;
 
+/**
+ * Etichette di visualizzazione personalizzate per checklist_id: solo il testo mostrato cambia,
+ * mai i nomi dei campi salvati nel sopralluogo (punto_vendita/responsabile_punto_vendita/
+ * presenza_responsabile restano gli stessi ovunque). Per checklist non elencate qui, o campi non
+ * elencati per una checklist, resta il testo di default già presente nell'HTML. Mappa pensata per
+ * essere estesa in futuro con altre checklist/campi senza toccare la logica che la applica.
+ */
+const ETICHETTE_PERSONALIZZATE_PER_CHECKLIST = {
+  restage_sopralluogo: {
+    puntoVendita: 'Unità operativa',
+    responsabile: 'Referente',
+    presenzaResponsabile: 'Il sopralluogo è fatto alla presenza del referente?'
+  }
+};
+
+/**
+ * Applica le etichette personalizzate (o quelle di default, salvate la prima volta in un data-
+ * attribute sull'elemento) per un dato checklist_id a un sottoinsieme degli <span> di testo-
+ * etichetta elencati in ETICHETTE_PERSONALIZZATE_PER_CHECKLIST. `elementi` è un oggetto le cui
+ * chiavi sono le stesse chiavi usate nella mappa (es. puntoVendita/responsabile/
+ * presenzaResponsabile) e i valori gli <span> effettivi presenti in questo form/dialogo (non
+ * tutti i form hanno tutti i campi: es. "Duplica" ha solo puntoVendita).
+ */
+function applicaEtichettePersonalizzate(checklistId, elementi) {
+  const override = ETICHETTE_PERSONALIZZATE_PER_CHECKLIST[checklistId] || {};
+  Object.entries(elementi).forEach(([chiave, span]) => {
+    if (!span) {
+      return;
+    }
+    if (!span.dataset.testoDefault) {
+      span.dataset.testoDefault = span.textContent;
+    }
+    span.textContent = override[chiave] || span.dataset.testoDefault;
+  });
+}
+
 /** Riempie una <datalist> con valori unici e non vuoti (usata per tutti i campi a suggerimento libero: Cliente/Sede/Tecnico/Responsabile/Area Manager). */
 function popolaDatalist(datalist, valori) {
   datalist.innerHTML = '';
@@ -72,15 +108,8 @@ function popolaDatalist(datalist, valori) {
 }
 
 /**
- * Elenco tecnici predefinito (checklists/tecnici.json), unica fonte dei suggerimenti nel campo
- * "Tecnico" (nuovo sopralluogo, duplica, modifica dati sopralluogo) — a differenza di Cliente/
- * Sede/Responsabile/Area Manager, qui i suggerimenti NON includono i nomi già usati in
- * sopralluoghi precedenti: solo l'elenco fisso, così un refuso o un nome estemporaneo scritto
- * a mano una volta non ricompare come suggerimento in futuro. Il campo resta comunque testo
- * libero (<input list> + <datalist>): un tecnico non ancora in elenco si può sempre scrivere a
- * mano, senza bisogno di modificare il codice, semplicemente non verrà più suggerito. Se il
- * file non si carica (rete assente e non ancora in cache), niente suggerimenti, senza far
- * fallire il resto della schermata.
+ * Elenco tecnici predefinito (checklists/tecnici.json). Se il file non si carica (rete assente
+ * e non ancora in cache), ritorna un elenco vuoto senza far fallire il resto della schermata.
  */
 async function caricaTecniciPredefiniti() {
   try {
@@ -96,21 +125,111 @@ async function caricaTecniciPredefiniti() {
 }
 
 /**
- * Suggerimenti condivisi dei campi anagrafici a testo libero: Cliente/Sede/Responsabile/Area
- * Manager suggeriscono lo storico (valori già usati in sopralluoghi precedenti), mentre Tecnico
- * suggerisce SOLO l'elenco fisso predefinito (vedi caricaTecniciPredefiniti). Usata da "Nuovo
- * sopralluogo" e dal dialogo "Modifica dati sopralluogo" (struttura campi identica).
+ * Suggerimenti condivisi dei campi anagrafici a testo libero (Cliente/Sede/Responsabile/Area
+ * Manager, che suggeriscono lo storico: valori già usati in sopralluoghi precedenti). Il campo
+ * Tecnico non è più tra questi: è un <select> vero e proprio, gestito da popolaSelectTecnico.
+ * Usata da "Nuovo sopralluogo" e dal dialogo "Modifica dati sopralluogo" (struttura identica).
  */
-async function popolaSuggerimentiAnagrafica({ listaPuntiVendita, listaIndirizzi, listaTecnici, listaResponsabili, listaAreaManager }) {
-  const [sopralluoghi, tecniciPredefiniti] = await Promise.all([
-    db.elencaSopralluoghi(),
-    caricaTecniciPredefiniti()
-  ]);
+async function popolaSuggerimentiAnagrafica({ listaPuntiVendita, listaIndirizzi, listaResponsabili, listaAreaManager }) {
+  const sopralluoghi = await db.elencaSopralluoghi();
   popolaDatalist(listaPuntiVendita, sopralluoghi.map((s) => s.punto_vendita));
   popolaDatalist(listaIndirizzi, sopralluoghi.map((s) => s.indirizzo_punto_vendita));
-  popolaDatalist(listaTecnici, tecniciPredefiniti);
   popolaDatalist(listaResponsabili, sopralluoghi.map((s) => s.responsabile_punto_vendita));
   popolaDatalist(listaAreaManager, sopralluoghi.map((s) => s.area_manager));
+}
+
+/** Valore dell'opzione "Altro (scrivi il nome)" nel <select> Tecnico: sentinella, mai un nome reale. */
+const VALORE_TECNICO_ALTRO = '__altro__';
+
+/**
+ * Popola un <select> "Tecnico" con l'elenco fisso predefinito (checklists/tecnici.json),
+ * inserendo le opzioni tra "Seleziona…" e "Altro (scrivi il nome)" già presenti staticamente
+ * nell'HTML. Idempotente (rimuove prima le opzioni inserite da una chiamata precedente): può
+ * essere richiamata ogni volta che la schermata/il dialogo si apre senza duplicarle.
+ */
+async function popolaSelectTecnico(select) {
+  Array.from(select.options).forEach((opzione) => {
+    if (opzione.value !== '' && opzione.value !== VALORE_TECNICO_ALTRO) {
+      opzione.remove();
+    }
+  });
+  const opzioneAltro = select.querySelector(`option[value="${VALORE_TECNICO_ALTRO}"]`);
+  (await caricaTecniciPredefiniti()).forEach((nome) => {
+    const opzione = document.createElement('option');
+    opzione.value = nome;
+    opzione.textContent = nome;
+    select.insertBefore(opzione, opzioneAltro);
+  });
+}
+
+/** Mostra/nasconde il campo di testo libero "Nome del tecnico" in base alla scelta "Altro" nel <select> Tecnico. */
+function aggiornaVisibilitaTecnicoAltro(select, labelAltro, inputAltro) {
+  const mostraAltro = select.value === VALORE_TECNICO_ALTRO;
+  labelAltro.hidden = !mostraAltro;
+  if (!mostraAltro) {
+    inputAltro.value = '';
+  }
+}
+
+/** Valore effettivo del campo Tecnico: il nome scelto dal <select>, o il testo libero se è stato scelto "Altro". */
+function leggiValoreTecnico(select, inputAltro) {
+  return select.value === VALORE_TECNICO_ALTRO ? inputAltro.value.trim() : select.value;
+}
+
+/**
+ * Precompila il <select> Tecnico (+ eventuale campo "Altro") con un valore già salvato: se
+ * combacia con una delle opzioni predefinite la seleziona, altrimenti seleziona "Altro" e ci
+ * scrive dentro il valore così com'è (nome storico non/non più in elenco). Va chiamata SOLO dopo
+ * popolaSelectTecnico (deve conoscere le opzioni disponibili per capire se il valore combacia).
+ */
+function precompilaTecnico(select, labelAltro, inputAltro, valore) {
+  const valoreEsistente = valore || '';
+  const combacia = valoreEsistente !== '' && Array.from(select.options).some((o) => o.value === valoreEsistente);
+
+  if (combacia) {
+    select.value = valoreEsistente;
+    labelAltro.hidden = true;
+    inputAltro.value = '';
+  } else if (valoreEsistente !== '') {
+    select.value = VALORE_TECNICO_ALTRO;
+    labelAltro.hidden = false;
+    inputAltro.value = valoreEsistente;
+  } else {
+    select.value = '';
+    labelAltro.hidden = true;
+    inputAltro.value = '';
+  }
+}
+
+/**
+ * Correzione grammaticale/ortografica del campo Note (Compilazione) via l'API pubblica gratuita
+ * di LanguageTool — nessuna IA, nessuna chiave/carta richiesta. Applica automaticamente il primo
+ * suggerimento di ciascun errore trovato (match.replacements[0]), sostituendo dall'ultimo errore
+ * al primo (offset decrescente) così l'offset di ogni sostituzione successiva non viene invalidato
+ * da quelle già applicate prima di lui nel testo. Lancia un errore su rete assente/servizio
+ * irraggiungibile: il chiamante deve gestirlo esplicitamente (vedi compilazioneScreen.onCorreggiNota),
+ * mai lasciarlo silenzioso né far perdere il testo scritto dall'utente.
+ */
+async function correggiTestoConLanguageTool(testo) {
+  const risposta = await fetch('https://api.languagetool.org/v2/check', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ text: testo, language: 'it' })
+  });
+  if (!risposta.ok) {
+    throw new Error(`LanguageTool: HTTP ${risposta.status}`);
+  }
+  const dati = await risposta.json();
+  const errori = (dati.matches || [])
+    .filter((m) => m.replacements && m.replacements.length > 0)
+    .sort((a, b) => b.offset - a.offset);
+
+  let corretto = testo;
+  errori.forEach((errore) => {
+    const sostituzione = errore.replacements[0].value;
+    corretto = corretto.slice(0, errore.offset) + sostituzione + corretto.slice(errore.offset + errore.length);
+  });
+  return { testo: corretto, numeroCorrezioni: errori.length };
 }
 
 /**
@@ -127,6 +246,8 @@ const nuovoSopralluogoScreen = (() => {
   const inputIndirizzo = document.getElementById('input-indirizzo-punto-vendita');
   const inputNumeroDipendenti = document.getElementById('input-numero-dipendenti');
   const inputTecnico = document.getElementById('input-tecnico');
+  const labelTecnicoAltro = document.getElementById('label-input-tecnico-altro');
+  const inputTecnicoAltro = document.getElementById('input-tecnico-altro');
   const inputDataSopralluogo = document.getElementById('input-data-sopralluogo');
   const inputResponsabile = document.getElementById('input-responsabile');
   const inputAreaManager = document.getElementById('input-area-manager');
@@ -134,9 +255,12 @@ const nuovoSopralluogoScreen = (() => {
   const selectPresenzaRls = document.getElementById('select-presenza-rls');
   const selectChecklist = document.getElementById('select-checklist');
 
+  const labelPuntoVenditaTesto = document.getElementById('label-input-punto-vendita-testo');
+  const labelResponsabileTesto = document.getElementById('label-input-responsabile-testo');
+  const labelPresenzaResponsabileTesto = document.getElementById('label-select-presenza-responsabile-testo');
+
   const listaPuntiVendita = document.getElementById('lista-punti-vendita');
   const listaIndirizzi = document.getElementById('lista-indirizzi');
-  const listaTecnici = document.getElementById('lista-tecnici');
   const listaResponsabili = document.getElementById('lista-responsabili');
   const listaAreaManager = document.getElementById('lista-area-manager');
 
@@ -150,7 +274,10 @@ const nuovoSopralluogoScreen = (() => {
   let checklistIdImportato = null;
 
   async function popolaSuggerimenti() {
-    await popolaSuggerimentiAnagrafica({ listaPuntiVendita, listaIndirizzi, listaTecnici, listaResponsabili, listaAreaManager });
+    await Promise.all([
+      popolaSuggerimentiAnagrafica({ listaPuntiVendita, listaIndirizzi, listaResponsabili, listaAreaManager }),
+      popolaSelectTecnico(inputTecnico)
+    ]);
   }
 
   function oggiISO() {
@@ -158,6 +285,15 @@ const nuovoSopralluogoScreen = (() => {
     const mese = String(oggi.getMonth() + 1).padStart(2, '0');
     const giorno = String(oggi.getDate()).padStart(2, '0');
     return `${oggi.getFullYear()}-${mese}-${giorno}`;
+  }
+
+  /** Etichette anagrafiche (Punto vendita/Responsabile/presenza responsabile) coerenti con la checklist attualmente selezionata. */
+  function aggiornaEtichetteAnagrafica() {
+    applicaEtichettePersonalizzate(selectChecklist.value, {
+      puntoVendita: labelPuntoVenditaTesto,
+      responsabile: labelResponsabileTesto,
+      presenzaResponsabile: labelPresenzaResponsabileTesto
+    });
   }
 
   function popolaSelectChecklist(elenco) {
@@ -172,6 +308,7 @@ const nuovoSopralluogoScreen = (() => {
     if (elenco.some((c) => c.id === valorePrecedente)) {
       selectChecklist.value = valorePrecedente;
     }
+    aggiornaEtichetteAnagrafica();
   }
 
   /** Filtra le checklist disponibili in base al punto vendita digitato (associazioni in clients.json). */
@@ -262,7 +399,7 @@ const nuovoSopralluogoScreen = (() => {
       if (anagrafica.punto_vendita) inputPuntoVendita.value = anagrafica.punto_vendita;
       if (anagrafica.indirizzo_punto_vendita) inputIndirizzo.value = anagrafica.indirizzo_punto_vendita;
       if (anagrafica.numero_dipendenti) inputNumeroDipendenti.value = anagrafica.numero_dipendenti;
-      if (anagrafica.tecnico) inputTecnico.value = anagrafica.tecnico;
+      if (anagrafica.tecnico) precompilaTecnico(inputTecnico, labelTecnicoAltro, inputTecnicoAltro, anagrafica.tecnico);
       if (anagrafica.responsabile_punto_vendita) inputResponsabile.value = anagrafica.responsabile_punto_vendita;
       if (anagrafica.area_manager) inputAreaManager.value = anagrafica.area_manager;
       impostaSelectSeValido(selectPresenzaResponsabile, anagrafica.presenza_responsabile);
@@ -289,6 +426,7 @@ const nuovoSopralluogoScreen = (() => {
   async function onEnterScreen() {
     form.reset();
     inputDataSopralluogo.value = oggiISO();
+    aggiornaVisibilitaTecnicoAltro(inputTecnico, labelTecnicoAltro, inputTecnicoAltro);
     annullaImportazione(null);
     await Promise.all([popolaSuggerimenti(), caricaChecklistECliente()]);
   }
@@ -300,7 +438,7 @@ const nuovoSopralluogoScreen = (() => {
       punto_vendita: inputPuntoVendita.value.trim(),
       indirizzo_punto_vendita: inputIndirizzo.value.trim(),
       numero_dipendenti: inputNumeroDipendenti.value,
-      tecnico: inputTecnico.value.trim(),
+      tecnico: leggiValoreTecnico(inputTecnico, inputTecnicoAltro),
       data_sopralluogo: inputDataSopralluogo.value,
       responsabile_punto_vendita: inputResponsabile.value.trim(),
       area_manager: inputAreaManager.value.trim() || null,
@@ -325,12 +463,14 @@ const nuovoSopralluogoScreen = (() => {
   function init() {
     form.addEventListener('submit', onSubmit);
     inputPuntoVendita.addEventListener('input', filtraChecklistPerCliente);
+    inputTecnico.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico, labelTecnicoAltro, inputTecnicoAltro));
     btnImportaPdf.addEventListener('click', onClickImportaPdf);
     inputImportaPdf.addEventListener('change', onFileImportaPdfSelezionato);
     selectChecklist.addEventListener('change', () => {
       if (risposteImportate && checklistIdImportato !== selectChecklist.value) {
         annullaImportazione('Importazione annullata: la checklist selezionata è cambiata rispetto a quella usata per leggere il PDF.');
       }
+      aggiornaEtichetteAnagrafica();
     });
     router.onEnter('new-inspection', onEnterScreen);
   }
@@ -354,6 +494,9 @@ const compilazioneScreen = (() => {
   const btnFoto = document.getElementById('btn-foto');
   const notaEditor = document.getElementById('nota-editor');
   const notaTesto = document.getElementById('nota-testo');
+  const btnCorreggiNota = document.getElementById('btn-correggi-nota');
+  const btnAnnullaCorrezione = document.getElementById('btn-annulla-correzione');
+  const notaCorrezioneEsito = document.getElementById('nota-correzione-esito');
   const erroreValidazione = document.getElementById('errore-validazione');
   const btnIndietro = document.getElementById('btn-indietro');
   const btnAvanti = document.getElementById('btn-avanti');
@@ -361,6 +504,7 @@ const compilazioneScreen = (() => {
   const bannerImport = document.getElementById('compilazione-banner-import');
 
   let fotoDomandaCorrente = [];
+  let notaTestoPreCorrezione = null;
 
   /** Etichette visive delle risposte: un solo punto per cambiarle in futuro senza toccare il resto. */
   const ETICHETTE_RISPOSTA = { C: 'C', PC: 'PC', NC: 'NC', NA: 'N.P.' };
@@ -400,6 +544,15 @@ const compilazioneScreen = (() => {
     fotoDomandaCorrente = [];
     aggiornaContatoreFoto();
     nascondiErrore();
+    resetStatoCorrezioneNota();
+  }
+
+  /** Nasconde esito/pulsante "Annulla" della correzione grammaticale e scarta il testo pre-correzione salvato: va richiamata a ogni cambio domanda, la correzione in sospeso vale solo per la nota corrente. */
+  function resetStatoCorrezioneNota() {
+    notaTestoPreCorrezione = null;
+    notaCorrezioneEsito.hidden = true;
+    notaCorrezioneEsito.textContent = '';
+    btnAnnullaCorrezione.hidden = true;
   }
 
   async function salvaRispostaCorrente(valore) {
@@ -704,6 +857,57 @@ const compilazioneScreen = (() => {
     }
   }
 
+  /**
+   * Corregge grammatica/ortografia della nota corrente con LanguageTool: applica il primo
+   * suggerimento di ciascun errore, mostra subito il risultato nel campo (mai in modo invisibile:
+   * l'utente lo vede e resta libero di modificarlo ulteriormente prima che venga confermato) e
+   * offre "Annulla correzione" per tornare al testo di prima. Offline/servizio irraggiungibile:
+   * messaggio esplicito, il testo scritto dall'utente resta intatto, nessun blocco dell'app.
+   */
+  async function onCorreggiNota() {
+    const testoOriginale = notaTesto.value;
+    if (!testoOriginale.trim()) {
+      return;
+    }
+
+    const etichettaOriginale = btnCorreggiNota.textContent;
+    btnCorreggiNota.disabled = true;
+    btnCorreggiNota.textContent = 'Correzione…';
+    notaCorrezioneEsito.hidden = true;
+    btnAnnullaCorrezione.hidden = true;
+
+    try {
+      const { testo, numeroCorrezioni } = await correggiTestoConLanguageTool(testoOriginale);
+      if (numeroCorrezioni === 0) {
+        notaCorrezioneEsito.textContent = 'Nessun errore trovato.';
+        notaCorrezioneEsito.hidden = false;
+      } else {
+        notaTestoPreCorrezione = testoOriginale;
+        notaTesto.value = testo;
+        await onNotaModificata();
+        notaCorrezioneEsito.textContent = `Corrette ${numeroCorrezioni} ${numeroCorrezioni === 1 ? 'cosa' : 'cose'}: verifica il testo prima di continuare.`;
+        notaCorrezioneEsito.hidden = false;
+        btnAnnullaCorrezione.hidden = false;
+      }
+    } catch (errore) {
+      notaCorrezioneEsito.textContent = 'Correzione non disponibile offline.';
+      notaCorrezioneEsito.hidden = false;
+    } finally {
+      btnCorreggiNota.disabled = false;
+      btnCorreggiNota.textContent = etichettaOriginale;
+    }
+  }
+
+  /** Ripristina nel campo Note il testo precedente alla correzione automatica. */
+  async function onAnnullaCorrezione() {
+    if (notaTestoPreCorrezione === null) {
+      return;
+    }
+    notaTesto.value = notaTestoPreCorrezione;
+    resetStatoCorrezioneNota();
+    await onNotaModificata();
+  }
+
   function onIndietro() {
     if (checklistEngine.indietro()) {
       renderDomandaCorrente();
@@ -735,6 +939,8 @@ const compilazioneScreen = (() => {
     btnNote.addEventListener('click', onToggleNote);
     btnFoto.addEventListener('click', onFoto);
     notaTesto.addEventListener('change', onNotaModificata);
+    btnCorreggiNota.addEventListener('click', onCorreggiNota);
+    btnAnnullaCorrezione.addEventListener('click', onAnnullaCorrezione);
     btnIndietro.addEventListener('click', onIndietro);
     btnAvanti.addEventListener('click', onAvanti);
     btnModificaAnagrafica.addEventListener('click', onModificaAnagrafica);
@@ -940,8 +1146,11 @@ const storicoScreen = (() => {
 
   const DEBOUNCE_RICERCA_MS = 250;
 
+  const VALORE_CLIENTE_ALTRO = '__altro__';
+
   let sopralluoghiCache = [];
   let clienteAttivo = '';
+  let nomiClientiConfigurati = [];
   let testoRicerca = '';
   let timerDebounce = null;
   const selezionati = new Set();
@@ -950,12 +1159,54 @@ const storicoScreen = (() => {
     return new Date(iso).toLocaleDateString('it-IT');
   }
 
-  /** Stesso criterio di match usato in pdf.js per i loghi cliente, applicato al checklist_id già presente sul sopralluogo. */
-  function corrispondeCliente(sopralluogo, cliente) {
-    if (!cliente) {
+  /**
+   * Popola il filtro cliente con un'opzione per ciascun cliente in checklists/clients.json, tra
+   * "Tutti" e "Altro" già presenti staticamente nell'HTML. Idempotente (rimuove prima le opzioni
+   * inserite da una chiamata precedente): può essere richiamata a ogni ingresso nello Storico
+   * senza duplicarle. `nomiClientiConfigurati` resta aggiornato per il match di "Altro".
+   */
+  async function popolaFiltroCliente() {
+    let clienti = [];
+    try {
+      const risposta = await fetch('checklists/clients.json');
+      if (!risposta.ok) {
+        throw new Error(`HTTP ${risposta.status}`);
+      }
+      clienti = (await risposta.json()).clienti || [];
+    } catch (errore) {
+      console.error('[app.js] Impossibile caricare checklists/clients.json per il filtro Storico:', errore);
+    }
+    nomiClientiConfigurati = clienti.map((c) => c.nome);
+
+    Array.from(filtroClienteContainer.options).forEach((opzione) => {
+      if (opzione.value !== '' && opzione.value !== VALORE_CLIENTE_ALTRO) {
+        opzione.remove();
+      }
+    });
+    const opzioneAltro = filtroClienteContainer.querySelector(`option[value="${VALORE_CLIENTE_ALTRO}"]`);
+    clienti.forEach(({ nome }) => {
+      const opzione = document.createElement('option');
+      opzione.value = nome;
+      opzione.textContent = nome;
+      filtroClienteContainer.insertBefore(opzione, opzioneAltro);
+    });
+  }
+
+  /**
+   * Match sul "Punto vendita" del sopralluogo (stessa logica esatta, case-insensitive, di
+   * filtraChecklistPerCliente in nuovoSopralluogoScreen — non più sul checklist_id): "Altro"
+   * cattura i sopralluoghi il cui punto vendita non combacia con nessun cliente configurato
+   * (incluso il caso di punto vendita vuoto, ora possibile con l'anagrafica facoltativa).
+   */
+  function corrispondeCliente(sopralluogo, filtro) {
+    if (!filtro) {
       return true;
     }
-    return String(sopralluogo.checklist_id || '').toLowerCase().includes(cliente);
+    const puntoVendita = String(sopralluogo.punto_vendita || '').toLowerCase();
+    if (filtro === VALORE_CLIENTE_ALTRO) {
+      return !nomiClientiConfigurati.some((nome) => nome.toLowerCase() === puntoVendita);
+    }
+    return puntoVendita === filtro.toLowerCase();
   }
 
   function corrispondeRicerca(sopralluogo, testo) {
@@ -1233,15 +1484,8 @@ const storicoScreen = (() => {
     }, DEBOUNCE_RICERCA_MS);
   }
 
-  function onFiltroClienteClick(event) {
-    const bottone = event.target.closest('.filtro-cliente-btn');
-    if (!bottone) {
-      return;
-    }
-    clienteAttivo = bottone.dataset.cliente || '';
-    Array.from(filtroClienteContainer.querySelectorAll('.filtro-cliente-btn')).forEach((btn) => {
-      btn.classList.toggle('is-attivo', btn === bottone);
-    });
+  function onFiltroClienteChange() {
+    clienteAttivo = filtroClienteContainer.value;
     applicaFiltri();
   }
 
@@ -1331,14 +1575,13 @@ const storicoScreen = (() => {
   }
 
   async function render() {
-    sopralluoghiCache = await db.elencaSopralluoghi();
+    const [sopralluoghi] = await Promise.all([db.elencaSopralluoghi(), popolaFiltroCliente()]);
+    sopralluoghiCache = sopralluoghi;
     selezionati.clear();
     clienteAttivo = '';
     testoRicerca = '';
     inputRicerca.value = '';
-    Array.from(filtroClienteContainer.querySelectorAll('.filtro-cliente-btn')).forEach((btn) => {
-      btn.classList.toggle('is-attivo', !btn.dataset.cliente);
-    });
+    filtroClienteContainer.value = '';
     applicaFiltri();
     await aggiornaContatoreCestino();
   }
@@ -1353,7 +1596,7 @@ const storicoScreen = (() => {
 
   function init() {
     inputRicerca.addEventListener('input', onRicercaInput);
-    filtroClienteContainer.addEventListener('click', onFiltroClienteClick);
+    filtroClienteContainer.addEventListener('change', onFiltroClienteChange);
     checkboxSelezionaTutti.addEventListener('change', onSelezionaTuttiChange);
     bottoneScaricaSelezionati.addEventListener('click', scaricaSelezionati);
     router.onEnter('history', render);
@@ -1375,9 +1618,11 @@ const duplicaDialog = (() => {
   const inputPuntoVendita = document.getElementById('duplica-punto-vendita');
   const inputIndirizzo = document.getElementById('duplica-indirizzo');
   const inputTecnico = document.getElementById('duplica-tecnico');
-  const listaTecnici = document.getElementById('duplica-lista-tecnici');
+  const labelTecnicoAltro = document.getElementById('label-duplica-tecnico-altro');
+  const inputTecnicoAltro = document.getElementById('duplica-tecnico-altro');
   const inputData = document.getElementById('duplica-data');
   const bottoneAnnulla = document.getElementById('btn-duplica-annulla');
+  const labelPuntoVenditaTesto = document.getElementById('label-duplica-punto-vendita-testo');
 
   let sopralluogoOriginale = null;
 
@@ -1388,19 +1633,15 @@ const duplicaDialog = (() => {
     return `${oggi.getFullYear()}-${mese}-${giorno}`;
   }
 
-  /** Stesso elenco fisso predefinito (solo checklists/tecnici.json, niente storico) del campo Tecnico di "Nuovo sopralluogo". */
-  async function popolaListaTecnici() {
-    popolaDatalist(listaTecnici, await caricaTecniciPredefiniti());
-  }
-
   /** Apre il dialogo precompilato con i dati del sopralluogo da duplicare (data proposta: oggi). */
-  function apri(sopralluogo) {
+  async function apri(sopralluogo) {
     sopralluogoOriginale = sopralluogo;
     inputPuntoVendita.value = sopralluogo.punto_vendita || '';
     inputIndirizzo.value = sopralluogo.indirizzo_punto_vendita || '';
-    inputTecnico.value = sopralluogo.tecnico || '';
     inputData.value = oggiISO();
-    popolaListaTecnici();
+    applicaEtichettePersonalizzate(sopralluogo.checklist_id, { puntoVendita: labelPuntoVenditaTesto });
+    await popolaSelectTecnico(inputTecnico);
+    precompilaTecnico(inputTecnico, labelTecnicoAltro, inputTecnicoAltro, sopralluogo.tecnico);
     dialog.showModal();
   }
 
@@ -1413,7 +1654,7 @@ const duplicaDialog = (() => {
     const nuovo = await db.duplicaSopralluogo(sopralluogoOriginale.id, {
       punto_vendita: inputPuntoVendita.value.trim(),
       indirizzo_punto_vendita: inputIndirizzo.value.trim(),
-      tecnico: inputTecnico.value.trim(),
+      tecnico: leggiValoreTecnico(inputTecnico, inputTecnicoAltro),
       data_sopralluogo: inputData.value
     });
     sopralluogoOriginale = null;
@@ -1428,6 +1669,7 @@ const duplicaDialog = (() => {
 
   function init() {
     form.addEventListener('submit', onSubmit);
+    inputTecnico.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico, labelTecnicoAltro, inputTecnicoAltro));
     bottoneAnnulla.addEventListener('click', () => dialog.close());
   }
 
@@ -1451,6 +1693,8 @@ const anagraficaDialog = (() => {
   const inputIndirizzo = document.getElementById('anagrafica-indirizzo');
   const inputNumeroDipendenti = document.getElementById('anagrafica-numero-dipendenti');
   const inputTecnico = document.getElementById('anagrafica-tecnico');
+  const labelTecnicoAltro = document.getElementById('label-anagrafica-tecnico-altro');
+  const inputTecnicoAltro = document.getElementById('anagrafica-tecnico-altro');
   const inputData = document.getElementById('anagrafica-data');
   const inputResponsabile = document.getElementById('anagrafica-responsabile');
   const inputAreaManager = document.getElementById('anagrafica-area-manager');
@@ -1458,9 +1702,12 @@ const anagraficaDialog = (() => {
   const selectPresenzaRls = document.getElementById('anagrafica-presenza-rls');
   const bottoneAnnulla = document.getElementById('btn-anagrafica-annulla');
 
+  const labelPuntoVenditaTesto = document.getElementById('label-anagrafica-punto-vendita-testo');
+  const labelResponsabileTesto = document.getElementById('label-anagrafica-responsabile-testo');
+  const labelPresenzaResponsabileTesto = document.getElementById('label-anagrafica-presenza-responsabile-testo');
+
   const listaPuntiVendita = document.getElementById('anagrafica-lista-punti-vendita');
   const listaIndirizzi = document.getElementById('anagrafica-lista-indirizzi');
-  const listaTecnici = document.getElementById('anagrafica-lista-tecnici');
   const listaResponsabili = document.getElementById('anagrafica-lista-responsabili');
   const listaAreaManager = document.getElementById('anagrafica-lista-area-manager');
 
@@ -1483,14 +1730,22 @@ const anagraficaDialog = (() => {
     inputPuntoVendita.value = sopralluogo.punto_vendita || '';
     inputIndirizzo.value = sopralluogo.indirizzo_punto_vendita || '';
     inputNumeroDipendenti.value = sopralluogo.numero_dipendenti || '';
-    inputTecnico.value = sopralluogo.tecnico || '';
     inputData.value = sopralluogo.data_sopralluogo || '';
     inputResponsabile.value = sopralluogo.responsabile_punto_vendita || '';
     inputAreaManager.value = sopralluogo.area_manager || '';
     selectPresenzaResponsabile.value = sopralluogo.presenza_responsabile || '';
     selectPresenzaRls.value = sopralluogo.presenza_rls || '';
 
-    popolaSuggerimentiAnagrafica({ listaPuntiVendita, listaIndirizzi, listaTecnici, listaResponsabili, listaAreaManager });
+    applicaEtichettePersonalizzate(sopralluogo.checklist_id, {
+      puntoVendita: labelPuntoVenditaTesto,
+      responsabile: labelResponsabileTesto,
+      presenzaResponsabile: labelPresenzaResponsabileTesto
+    });
+
+    await popolaSelectTecnico(inputTecnico);
+    precompilaTecnico(inputTecnico, labelTecnicoAltro, inputTecnicoAltro, sopralluogo.tecnico);
+
+    popolaSuggerimentiAnagrafica({ listaPuntiVendita, listaIndirizzi, listaResponsabili, listaAreaManager });
     dialog.showModal();
   }
 
@@ -1501,7 +1756,7 @@ const anagraficaDialog = (() => {
       punto_vendita: inputPuntoVendita.value.trim(),
       indirizzo_punto_vendita: inputIndirizzo.value.trim(),
       numero_dipendenti: inputNumeroDipendenti.value,
-      tecnico: inputTecnico.value.trim(),
+      tecnico: leggiValoreTecnico(inputTecnico, inputTecnicoAltro),
       data_sopralluogo: inputData.value,
       responsabile_punto_vendita: inputResponsabile.value.trim(),
       area_manager: inputAreaManager.value.trim() || null,
@@ -1517,6 +1772,7 @@ const anagraficaDialog = (() => {
 
   function init() {
     form.addEventListener('submit', onSubmit);
+    inputTecnico.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico, labelTecnicoAltro, inputTecnicoAltro));
     bottoneAnnulla.addEventListener('click', () => dialog.close());
   }
 
