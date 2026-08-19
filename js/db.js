@@ -410,10 +410,15 @@ const db = (() => {
     return richiesta(store.getAll());
   }
 
-  /** Salva (o sovrascrive) il PDF già generato di un sopralluogo, per poterlo riaprire/scaricare senza rigenerarlo. */
+  /**
+   * Salva (o sovrascrive) il PDF già generato di un sopralluogo, per poterlo riaprire/scaricare
+   * senza rigenerarlo. "generato_il" permette di confrontarlo con l'"aggiornato_il" del
+   * sopralluogo (es. dopo una modifica ai soli dati anagrafici) per capire se il PDF salvato è
+   * ancora aggiornato o andrebbe rigenerato (vedi riepilogoScreen in app.js).
+   */
   async function salvaPdfReport({ sopralluogo_id, blob, filename }) {
     const store = await transazione('pdf_report', 'readwrite');
-    await richiesta(store.put({ sopralluogo_id, blob, filename }));
+    await richiesta(store.put({ sopralluogo_id, blob, filename, generato_il: new Date().toISOString() }));
   }
 
   /** Legge il PDF salvato di un sopralluogo. Ritorna undefined se non è mai stato generato/salvato. */

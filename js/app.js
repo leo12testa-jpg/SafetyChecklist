@@ -72,12 +72,15 @@ function popolaDatalist(datalist, valori) {
 }
 
 /**
- * Elenco tecnici predefinito (checklists/tecnici.json), per suggerire i nomi noti nel campo
- * "Tecnico" (nuovo sopralluogo, duplica) oltre ai nomi già usati in sopralluoghi precedenti. Il
- * campo resta comunque testo libero (<input list> + <datalist>, come già per Cliente/Sede): un
- * tecnico non ancora in elenco si può sempre scrivere a mano, senza bisogno di modificare il
- * codice. Se il file non si carica (rete assente e non ancora in cache), i suggerimenti si
- * riducono ai soli nomi storici, senza far fallire il resto della schermata.
+ * Elenco tecnici predefinito (checklists/tecnici.json), unica fonte dei suggerimenti nel campo
+ * "Tecnico" (nuovo sopralluogo, duplica, modifica dati sopralluogo) — a differenza di Cliente/
+ * Sede/Responsabile/Area Manager, qui i suggerimenti NON includono i nomi già usati in
+ * sopralluoghi precedenti: solo l'elenco fisso, così un refuso o un nome estemporaneo scritto
+ * a mano una volta non ricompare come suggerimento in futuro. Il campo resta comunque testo
+ * libero (<input list> + <datalist>): un tecnico non ancora in elenco si può sempre scrivere a
+ * mano, senza bisogno di modificare il codice, semplicemente non verrà più suggerito. Se il
+ * file non si carica (rete assente e non ancora in cache), niente suggerimenti, senza far
+ * fallire il resto della schermata.
  */
 async function caricaTecniciPredefiniti() {
   try {
@@ -90,6 +93,24 @@ async function caricaTecniciPredefiniti() {
     console.error('[app.js] Impossibile caricare l\'elenco tecnici predefinito (checklists/tecnici.json):', errore);
     return [];
   }
+}
+
+/**
+ * Suggerimenti condivisi dei campi anagrafici a testo libero: Cliente/Sede/Responsabile/Area
+ * Manager suggeriscono lo storico (valori già usati in sopralluoghi precedenti), mentre Tecnico
+ * suggerisce SOLO l'elenco fisso predefinito (vedi caricaTecniciPredefiniti). Usata da "Nuovo
+ * sopralluogo" e dal dialogo "Modifica dati sopralluogo" (struttura campi identica).
+ */
+async function popolaSuggerimentiAnagrafica({ listaPuntiVendita, listaIndirizzi, listaTecnici, listaResponsabili, listaAreaManager }) {
+  const [sopralluoghi, tecniciPredefiniti] = await Promise.all([
+    db.elencaSopralluoghi(),
+    caricaTecniciPredefiniti()
+  ]);
+  popolaDatalist(listaPuntiVendita, sopralluoghi.map((s) => s.punto_vendita));
+  popolaDatalist(listaIndirizzi, sopralluoghi.map((s) => s.indirizzo_punto_vendita));
+  popolaDatalist(listaTecnici, tecniciPredefiniti);
+  popolaDatalist(listaResponsabili, sopralluoghi.map((s) => s.responsabile_punto_vendita));
+  popolaDatalist(listaAreaManager, sopralluoghi.map((s) => s.area_manager));
 }
 
 /**
@@ -129,15 +150,7 @@ const nuovoSopralluogoScreen = (() => {
   let checklistIdImportato = null;
 
   async function popolaSuggerimenti() {
-    const [sopralluoghi, tecniciPredefiniti] = await Promise.all([
-      db.elencaSopralluoghi(),
-      caricaTecniciPredefiniti()
-    ]);
-    popolaDatalist(listaPuntiVendita, sopralluoghi.map((s) => s.punto_vendita));
-    popolaDatalist(listaIndirizzi, sopralluoghi.map((s) => s.indirizzo_punto_vendita));
-    popolaDatalist(listaTecnici, [...tecniciPredefiniti, ...sopralluoghi.map((s) => s.tecnico)]);
-    popolaDatalist(listaResponsabili, sopralluoghi.map((s) => s.responsabile_punto_vendita));
-    popolaDatalist(listaAreaManager, sopralluoghi.map((s) => s.area_manager));
+    await popolaSuggerimentiAnagrafica({ listaPuntiVendita, listaIndirizzi, listaTecnici, listaResponsabili, listaAreaManager });
   }
 
   function oggiISO() {
@@ -344,6 +357,7 @@ const compilazioneScreen = (() => {
   const erroreValidazione = document.getElementById('errore-validazione');
   const btnIndietro = document.getElementById('btn-indietro');
   const btnAvanti = document.getElementById('btn-avanti');
+  const btnModificaAnagrafica = document.getElementById('btn-modifica-anagrafica-compilazione');
   const bannerImport = document.getElementById('compilazione-banner-import');
 
   let fotoDomandaCorrente = [];
@@ -711,6 +725,10 @@ const compilazioneScreen = (() => {
     renderDomandaCorrente();
   }
 
+  function onModificaAnagrafica() {
+    anagraficaDialog.apri(checklistEngine.sopralluogoCorrente().id);
+  }
+
   function init() {
     applicaEtichetteRisposta();
     opzioniRisposta.forEach((input) => input.addEventListener('change', onCambioRisposta));
@@ -719,6 +737,7 @@ const compilazioneScreen = (() => {
     notaTesto.addEventListener('change', onNotaModificata);
     btnIndietro.addEventListener('click', onIndietro);
     btnAvanti.addEventListener('click', onAvanti);
+    btnModificaAnagrafica.addEventListener('click', onModificaAnagrafica);
   }
 
   return { init, renderDomandaCorrente };
@@ -764,6 +783,8 @@ const riepilogoScreen = (() => {
   const pdfEsito = document.getElementById('pdf-esito');
   const btnGeneraPdf = document.getElementById('btn-genera-pdf');
   const btnSalvaCondividi = document.getElementById('btn-salva-condividi');
+  const btnModificaAnagrafica = document.getElementById('btn-modifica-anagrafica-riepilogo');
+  const bannerAnagrafica = document.getElementById('riepilogo-banner-anagrafica');
   const erroreEl = document.getElementById('riepilogo-errore');
 
   const ETICHETTE = { C: '✔ Conformi', PC: '⚠ Parz. conformi', NC: '✘ Non conformi', NA: '– Non applicabili' };
@@ -780,11 +801,31 @@ const riepilogoScreen = (() => {
     erroreEl.hidden = true;
   }
 
+  /**
+   * Mostra il banner "rigenera il PDF" se un PDF è già stato salvato per questo sopralluogo ma
+   * i dati anagrafici sono stati modificati dopo, confrontando aggiornato_il del sopralluogo con
+   * generato_il del PDF salvato — letti freschi dal DB (non dalla copia in memoria di
+   * checklistEngine, che "Modifica dati sopralluogo" aggiorna solo su IndexedDB, non nella
+   * cache del motore): corretto anche se la modifica arriva da un'altra sessione/dispositivo
+   * via sync. Nessun PDF ancora generato = nulla da segnalare.
+   */
+  async function aggiornaBannerAnagrafica(sopralluogoId) {
+    const [sopralluogo, pdfReport] = await Promise.all([
+      db.leggiSopralluogo(sopralluogoId),
+      db.leggiPdfReport(sopralluogoId)
+    ]);
+    const modificatoDopoGenerazione = Boolean(
+      pdfReport && sopralluogo && sopralluogo.aggiornato_il > pdfReport.generato_il
+    );
+    bannerAnagrafica.hidden = !modificatoDopoGenerazione;
+  }
+
   /** Ricalcola e mostra i conteggi e l'elenco NC del sopralluogo in compilazione. */
   function render() {
     const checklist = checklistEngine.getChecklist();
     const sopralluogo = checklistEngine.sopralluogoCorrente();
     const { totale, conteggi, nonRisposte, nonConformita } = checklistEngine.calcolaRiepilogo(checklist, sopralluogo);
+    aggiornaBannerAnagrafica(sopralluogo.id);
 
     listaConteggi.innerHTML = '';
     const totaleEl = document.createElement('li');
@@ -838,6 +879,7 @@ const riepilogoScreen = (() => {
       await db.salvaPdfReport({ sopralluogo_id: sopralluogoId, blob: pdfBlob, filename: pdfFilename });
 
       pdfEsito.hidden = false;
+      bannerAnagrafica.hidden = true;
     } catch (errore) {
       mostraErrore(`Generazione PDF non riuscita: ${errore.message}`);
     } finally {
@@ -860,9 +902,14 @@ const riepilogoScreen = (() => {
     }
   }
 
+  function onModificaAnagrafica() {
+    anagraficaDialog.apri(checklistEngine.sopralluogoCorrente().id, { onSalvato: render });
+  }
+
   function init() {
     btnGeneraPdf.addEventListener('click', onGeneraPdf);
     btnSalvaCondividi.addEventListener('click', onSalvaCondividi);
+    btnModificaAnagrafica.addEventListener('click', onModificaAnagrafica);
   }
 
   return { init, render };
@@ -1341,13 +1388,9 @@ const duplicaDialog = (() => {
     return `${oggi.getFullYear()}-${mese}-${giorno}`;
   }
 
-  /** Stessi suggerimenti (predefiniti + storico) del campo Tecnico di "Nuovo sopralluogo". */
+  /** Stesso elenco fisso predefinito (solo checklists/tecnici.json, niente storico) del campo Tecnico di "Nuovo sopralluogo". */
   async function popolaListaTecnici() {
-    const [sopralluoghi, tecniciPredefiniti] = await Promise.all([
-      db.elencaSopralluoghi(),
-      caricaTecniciPredefiniti()
-    ]);
-    popolaDatalist(listaTecnici, [...tecniciPredefiniti, ...sopralluoghi.map((s) => s.tecnico)]);
+    popolaDatalist(listaTecnici, await caricaTecniciPredefiniti());
   }
 
   /** Apre il dialogo precompilato con i dati del sopralluogo da duplicare (data proposta: oggi). */
@@ -1381,6 +1424,95 @@ const duplicaDialog = (() => {
 
     router.navigate('compilazione');
     compilazioneScreen.renderDomandaCorrente();
+  }
+
+  function init() {
+    form.addEventListener('submit', onSubmit);
+    bottoneAnnulla.addEventListener('click', () => dialog.close());
+  }
+
+  return { init, apri };
+})();
+
+/**
+ * Dialogo "Modifica dati sopralluogo": stessi campi anagrafici del form "Nuovo sopralluogo"
+ * (nessuna Checklist: cambiarla a metà compilazione invaliderebbe le risposte già date), tutti
+ * facoltativi, riusabile da Compilazione e da Riepilogo per un sopralluogo già iniziato o già
+ * completato. Salva con lo stesso db.aggiornaSopralluogo già usato da "Altri aspetti" (bump di
+ * aggiornato_il, propagato alla sincronizzazione) — non passa da checklistEngine, quindi non
+ * rigenera né tocca in alcun modo risposte/PDF già generati: chi apre il dialogo riceve il
+ * sopralluogo aggiornato in un callback opzionale, per reagire (es. il banner "rigenera il PDF"
+ * di Riepilogo).
+ */
+const anagraficaDialog = (() => {
+  const dialog = document.getElementById('dialog-anagrafica');
+  const form = document.getElementById('form-anagrafica');
+  const inputPuntoVendita = document.getElementById('anagrafica-punto-vendita');
+  const inputIndirizzo = document.getElementById('anagrafica-indirizzo');
+  const inputNumeroDipendenti = document.getElementById('anagrafica-numero-dipendenti');
+  const inputTecnico = document.getElementById('anagrafica-tecnico');
+  const inputData = document.getElementById('anagrafica-data');
+  const inputResponsabile = document.getElementById('anagrafica-responsabile');
+  const inputAreaManager = document.getElementById('anagrafica-area-manager');
+  const selectPresenzaResponsabile = document.getElementById('anagrafica-presenza-responsabile');
+  const selectPresenzaRls = document.getElementById('anagrafica-presenza-rls');
+  const bottoneAnnulla = document.getElementById('btn-anagrafica-annulla');
+
+  const listaPuntiVendita = document.getElementById('anagrafica-lista-punti-vendita');
+  const listaIndirizzi = document.getElementById('anagrafica-lista-indirizzi');
+  const listaTecnici = document.getElementById('anagrafica-lista-tecnici');
+  const listaResponsabili = document.getElementById('anagrafica-lista-responsabili');
+  const listaAreaManager = document.getElementById('anagrafica-lista-area-manager');
+
+  let sopralluogoId = null;
+  let alSalvataggio = null;
+
+  /**
+   * Apre il dialogo precompilato con i dati anagrafici correnti. `onSalvato(sopralluogoAggiornato)`
+   * è opzionale. Riceve solo l'id e rilegge il sopralluogo fresco da IndexedDB (mai da
+   * checklistEngine.sopralluogoCorrente(), che resta quella del momento di avvia() e non viene
+   * aggiornata dai salvataggi diretti di questo stesso dialogo): un secondo giro di apertura
+   * dopo una prima modifica altrimenti precompilerebbe con dati vecchi, e risalvare
+   * sovrascriverebbe silenziosamente i campi nel frattempo cambiati con quei valori stantii.
+   */
+  async function apri(sopralluogoIdDaAprire, { onSalvato } = {}) {
+    sopralluogoId = sopralluogoIdDaAprire;
+    alSalvataggio = onSalvato || null;
+    const sopralluogo = await db.leggiSopralluogo(sopralluogoId);
+
+    inputPuntoVendita.value = sopralluogo.punto_vendita || '';
+    inputIndirizzo.value = sopralluogo.indirizzo_punto_vendita || '';
+    inputNumeroDipendenti.value = sopralluogo.numero_dipendenti || '';
+    inputTecnico.value = sopralluogo.tecnico || '';
+    inputData.value = sopralluogo.data_sopralluogo || '';
+    inputResponsabile.value = sopralluogo.responsabile_punto_vendita || '';
+    inputAreaManager.value = sopralluogo.area_manager || '';
+    selectPresenzaResponsabile.value = sopralluogo.presenza_responsabile || '';
+    selectPresenzaRls.value = sopralluogo.presenza_rls || '';
+
+    popolaSuggerimentiAnagrafica({ listaPuntiVendita, listaIndirizzi, listaTecnici, listaResponsabili, listaAreaManager });
+    dialog.showModal();
+  }
+
+  async function onSubmit(event) {
+    event.preventDefault();
+
+    const aggiornato = await db.aggiornaSopralluogo(sopralluogoId, {
+      punto_vendita: inputPuntoVendita.value.trim(),
+      indirizzo_punto_vendita: inputIndirizzo.value.trim(),
+      numero_dipendenti: inputNumeroDipendenti.value,
+      tecnico: inputTecnico.value.trim(),
+      data_sopralluogo: inputData.value,
+      responsabile_punto_vendita: inputResponsabile.value.trim(),
+      area_manager: inputAreaManager.value.trim() || null,
+      presenza_responsabile: selectPresenzaResponsabile.value,
+      presenza_rls: selectPresenzaRls.value
+    });
+
+    dialog.close();
+    if (alSalvataggio) {
+      alSalvataggio(aggiornato);
+    }
   }
 
   function init() {
@@ -1569,6 +1701,7 @@ document.addEventListener('DOMContentLoaded', () => {
   riepilogoScreen.init();
   storicoScreen.init();
   duplicaDialog.init();
+  anagraficaDialog.init();
   cestinoScreen.init();
   impostazioniScreen.init();
   sync.init();

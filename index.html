@@ -33,32 +33,33 @@
         <button type="button" class="btn-back" data-nav="home">← Indietro</button>
         <h2>Nuovo sopralluogo</h2>
 
+        <p class="placeholder-text">Tutti i campi anagrafici sono facoltativi: si possono completare o correggere più tardi con "✏️ Modifica dati sopralluogo", durante la compilazione o dal Riepilogo.</p>
         <form id="form-nuovo-sopralluogo">
           <label class="campo-form" for="input-punto-vendita">Punto vendita
-            <input type="text" id="input-punto-vendita" list="lista-punti-vendita" autocomplete="off" required>
+            <input type="text" id="input-punto-vendita" list="lista-punti-vendita" autocomplete="off">
             <datalist id="lista-punti-vendita"></datalist>
           </label>
 
           <label class="campo-form" for="input-indirizzo-punto-vendita">Indirizzo punto vendita
-            <input type="text" id="input-indirizzo-punto-vendita" list="lista-indirizzi" autocomplete="off" required>
+            <input type="text" id="input-indirizzo-punto-vendita" list="lista-indirizzi" autocomplete="off">
             <datalist id="lista-indirizzi"></datalist>
           </label>
 
           <label class="campo-form" for="input-numero-dipendenti">Numero di dipendenti in forza al momento del sopralluogo
-            <input type="number" id="input-numero-dipendenti" inputmode="numeric" min="0" required>
+            <input type="number" id="input-numero-dipendenti" inputmode="numeric" min="0">
           </label>
 
           <label class="campo-form" for="input-tecnico">Tecnico che ha eseguito il sopralluogo
-            <input type="text" id="input-tecnico" list="lista-tecnici" autocomplete="off" required>
+            <input type="text" id="input-tecnico" list="lista-tecnici" autocomplete="off">
             <datalist id="lista-tecnici"></datalist>
           </label>
 
           <label class="campo-form" for="input-data-sopralluogo">Data del sopralluogo
-            <input type="date" id="input-data-sopralluogo" required>
+            <input type="date" id="input-data-sopralluogo">
           </label>
 
           <label class="campo-form" for="input-responsabile">Responsabile del punto vendita
-            <input type="text" id="input-responsabile" list="lista-responsabili" autocomplete="off" required>
+            <input type="text" id="input-responsabile" list="lista-responsabili" autocomplete="off">
             <datalist id="lista-responsabili"></datalist>
           </label>
 
@@ -68,7 +69,7 @@
           </label>
 
           <label class="campo-form" for="select-presenza-responsabile">Il sopralluogo è fatto alla presenza del responsabile del punto vendita?
-            <select id="select-presenza-responsabile" required>
+            <select id="select-presenza-responsabile">
               <option value="">Seleziona…</option>
               <option value="Sì">Sì</option>
               <option value="No">No</option>
@@ -76,7 +77,7 @@
           </label>
 
           <label class="campo-form" for="select-presenza-rls">Il sopralluogo è fatto alla presenza dell'R.L.S.?
-            <select id="select-presenza-rls" required>
+            <select id="select-presenza-rls">
               <option value="">Seleziona…</option>
               <option value="Sì">Sì</option>
               <option value="No">No</option>
@@ -99,6 +100,7 @@
 
       <section id="screen-compilazione" class="screen" data-screen="compilazione" hidden>
         <button type="button" class="btn-back" data-nav="home">← Home</button>
+        <button type="button" class="btn-secondario" id="btn-modifica-anagrafica-compilazione">✏️ Modifica dati sopralluogo</button>
 
         <p class="banner-avviso" id="compilazione-banner-import" hidden>⚠️ Dati importati da PDF: verifica ogni risposta prima di generare il nuovo report.</p>
 
@@ -148,6 +150,9 @@
       <section id="screen-riepilogo" class="screen" data-screen="riepilogo" hidden>
         <button type="button" class="btn-back" data-nav="home">← Home</button>
         <h2>Riepilogo sopralluogo</h2>
+        <button type="button" class="btn-secondario" id="btn-modifica-anagrafica-riepilogo">✏️ Modifica dati sopralluogo</button>
+
+        <p class="banner-avviso" id="riepilogo-banner-anagrafica" hidden>✏️ I dati anagrafici sono stati modificati: rigenera il PDF per aggiornarlo.</p>
 
         <ul class="riepilogo-conteggi" id="riepilogo-conteggi"></ul>
 
@@ -242,6 +247,67 @@
         <div class="dialog-duplica-azioni">
           <button type="button" class="btn" id="btn-duplica-annulla">Annulla</button>
           <button type="submit" class="btn btn-primary">Duplica e apri compilazione</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="dialog-anagrafica" class="dialog-duplica">
+      <form id="form-anagrafica">
+        <h3>Modifica dati sopralluogo</h3>
+        <p class="placeholder-text">Tutti i campi sono facoltativi. Checklist e risposte già date non cambiano.</p>
+
+        <label class="campo-form" for="anagrafica-punto-vendita">Punto vendita
+          <input type="text" id="anagrafica-punto-vendita" list="anagrafica-lista-punti-vendita" autocomplete="off">
+          <datalist id="anagrafica-lista-punti-vendita"></datalist>
+        </label>
+
+        <label class="campo-form" for="anagrafica-indirizzo">Indirizzo punto vendita
+          <input type="text" id="anagrafica-indirizzo" list="anagrafica-lista-indirizzi" autocomplete="off">
+          <datalist id="anagrafica-lista-indirizzi"></datalist>
+        </label>
+
+        <label class="campo-form" for="anagrafica-numero-dipendenti">Numero di dipendenti in forza al momento del sopralluogo
+          <input type="number" id="anagrafica-numero-dipendenti" inputmode="numeric" min="0">
+        </label>
+
+        <label class="campo-form" for="anagrafica-tecnico">Tecnico che ha eseguito il sopralluogo
+          <input type="text" id="anagrafica-tecnico" list="anagrafica-lista-tecnici" autocomplete="off">
+          <datalist id="anagrafica-lista-tecnici"></datalist>
+        </label>
+
+        <label class="campo-form" for="anagrafica-data">Data del sopralluogo
+          <input type="date" id="anagrafica-data">
+        </label>
+
+        <label class="campo-form" for="anagrafica-responsabile">Responsabile del punto vendita
+          <input type="text" id="anagrafica-responsabile" list="anagrafica-lista-responsabili" autocomplete="off">
+          <datalist id="anagrafica-lista-responsabili"></datalist>
+        </label>
+
+        <label class="campo-form" for="anagrafica-area-manager">Area Manager (facoltativo)
+          <input type="text" id="anagrafica-area-manager" list="anagrafica-lista-area-manager" autocomplete="off">
+          <datalist id="anagrafica-lista-area-manager"></datalist>
+        </label>
+
+        <label class="campo-form" for="anagrafica-presenza-responsabile">Il sopralluogo è fatto alla presenza del responsabile del punto vendita?
+          <select id="anagrafica-presenza-responsabile">
+            <option value="">Seleziona…</option>
+            <option value="Sì">Sì</option>
+            <option value="No">No</option>
+          </select>
+        </label>
+
+        <label class="campo-form" for="anagrafica-presenza-rls">Il sopralluogo è fatto alla presenza dell'R.L.S.?
+          <select id="anagrafica-presenza-rls">
+            <option value="">Seleziona…</option>
+            <option value="Sì">Sì</option>
+            <option value="No">No</option>
+          </select>
+        </label>
+
+        <div class="dialog-duplica-azioni">
+          <button type="button" class="btn" id="btn-anagrafica-annulla">Annulla</button>
+          <button type="submit" class="btn btn-primary">Salva</button>
         </div>
       </form>
     </dialog>
