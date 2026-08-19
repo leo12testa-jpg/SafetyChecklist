@@ -161,6 +161,35 @@ body {
   resize: vertical;
 }
 
+/*
+ * <datalist> non mostra di suo alcuna affordance visiva su Safari/mobile (a differenza di
+ * <select>, non c'è nessuna freccina nativa): questo wrapper aggiunge una freccina puramente
+ * decorativa via ::after su uno <span> normale (mai su un <input>: i pseudo-elementi su
+ * elementi form/replaced non sono affidabili tra browser, specialmente Safari). pointer-events:
+ * none così il click passa sempre all'input sottostante; padding-right sull'input riserva lo
+ * spazio così un testo digitato lungo non ci finisce mai sotto.
+ */
+.campo-con-suggerimenti {
+  position: relative;
+  display: block;
+}
+
+.campo-con-suggerimenti input {
+  padding-right: 34px;
+}
+
+.campo-con-suggerimenti::after {
+  content: '▾';
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
 .progress-bar {
   height: 8px;
   border-radius: 4px;
