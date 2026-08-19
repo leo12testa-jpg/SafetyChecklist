@@ -1,6 +1,7 @@
 {
   "clienti": [
     { "nome": "Coin", "checklist_ids": ["coin_sopralluogo"] },
-    { "nome": "Interparking", "checklist_ids": ["interparking_sopralluogo"] }
+    { "nome": "Interparking", "checklist_ids": ["interparking_sopralluogo"] },
+    { "nome": "Restage", "checklist_ids": ["restage_sopralluogo"] }
   ]
 }

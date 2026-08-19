@@ -72,12 +72,13 @@ const pdf = (() => {
    */
   const LOGO_CLIENTE_PER_CHECKLIST = [
     { corrispondenza: 'coin', file: 'assets/logo_coin.webp' },
-    { corrispondenza: 'interparking', file: 'assets/logo_interparking.webp' }
+    { corrispondenza: 'interparking', file: 'assets/logo_interparking.webp' },
+    { corrispondenza: 'restage', file: 'assets/logo_restage.png' }
   ];
 
   /**
    * Logo del cliente corrispondente alla checklist del sopralluogo (match case-insensitive su
-   * "coin"/"interparking" nell'id o nel titolo della checklist). Loghi fissi, bundled nell'app.
+   * "coin"/"interparking"/"restage" nell'id o nel titolo della checklist). Loghi fissi, bundled nell'app.
    * Se la checklist non corrisponde a nessun cliente conosciuto, ritorna null (l'intestazione
    * non mostra nulla a destra, nessun placeholder rotto) e lo segnala con un console.warn per
    * poterlo individuare in futuro. Se il file è previsto ma non si riesce a caricare, l'errore

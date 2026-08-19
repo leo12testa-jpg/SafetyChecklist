@@ -1,4 +1,4 @@
-const CACHE_NAME = 'safety-checklist-shell-v34';
+const CACHE_NAME = 'safety-checklist-shell-v35';
 
 const APP_SHELL = [
   './',
@@ -27,7 +27,8 @@ const APP_SHELL = [
   './assets/icon-512-maskable.png',
   './assets/logo_colligo.webp',
   './assets/logo_coin.webp',
-  './assets/logo_interparking.webp'
+  './assets/logo_interparking.webp',
+  './assets/logo_restage.png'
 ];
 
 /** Precachea l'App Shell statica più tutte le checklist elencate in checklists/index.json. */

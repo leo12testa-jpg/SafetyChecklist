@@ -1,6 +1,7 @@
 {
   "checklists": [
     { "id": "coin_sopralluogo", "titolo": "Coin - Sopralluogo" },
-    { "id": "interparking_sopralluogo", "titolo": "Interparking - Sopralluogo" }
+    { "id": "interparking_sopralluogo", "titolo": "Interparking - Sopralluogo" },
+    { "id": "restage_sopralluogo", "titolo": "Restage - Sopralluogo" }
   ]
 }
