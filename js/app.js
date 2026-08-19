@@ -998,6 +998,26 @@ const storicoScreen = (() => {
     });
   }
 
+  /**
+   * Riapre in Compilazione lo STESSO sopralluogo (stesso id, nessuna copia): risposte/note/foto
+   * già date arrivano precompilate (checklistEngine.avvia le legge da sopralluogo.risposte come
+   * in qualsiasi altra compilazione) e restano modificabili con la stessa navigazione avanti/
+   * indietro. Nessun dialogo di conferma (a differenza di Duplica: qui non c'è nulla da decidere
+   * prima di entrare). Se il sopralluogo era "completato", arrivare di nuovo a Riepilogo →
+   * Genera PDF lo sovrascrive (db.salvaPdfReport fa un put sullo stesso sopralluogo_id) e
+   * aggiorna aggiornato_il (db.aggiornaSopralluogo/salvaRisposta), riflettendosi sulla sync;
+   * se invece si torna alla Home senza generare un nuovo PDF, le risposte nel frattempo
+   * modificate restano comunque salvate (autosalvataggio già esistente in salvaRisposta) e lo
+   * stato resta quello precedente.
+   */
+  async function apriModifica(sopralluogo) {
+    const checklist = await checklistEngine.carica(sopralluogo.checklist_id);
+    checklistEngine.avvia(checklist, sopralluogo);
+
+    router.navigate('compilazione');
+    compilazioneScreen.renderDomandaCorrente();
+  }
+
   /** Aggiorna il contatore sul pulsante "Cestino" nello Storico. */
   async function aggiornaContatoreCestino() {
     const cestino = await db.elencaCestino();
@@ -1086,6 +1106,13 @@ const storicoScreen = (() => {
     bottoneScarica.textContent = 'Scarica';
     bottoneScarica.addEventListener('click', () => scaricaPdf(sopralluogo.id, bottoneScarica));
 
+    const bottoneModifica = document.createElement('button');
+    bottoneModifica.type = 'button';
+    bottoneModifica.className = 'btn-secondario';
+    bottoneModifica.textContent = '✏️ Modifica';
+    bottoneModifica.setAttribute('aria-label', `Modifica ${sopralluogo.punto_vendita}`);
+    bottoneModifica.addEventListener('click', () => apriModifica(sopralluogo));
+
     const bottoneDuplica = document.createElement('button');
     bottoneDuplica.type = 'button';
     bottoneDuplica.className = 'btn-secondario';
@@ -1103,6 +1130,7 @@ const storicoScreen = (() => {
 
     azioni.appendChild(bottoneApri);
     azioni.appendChild(bottoneScarica);
+    azioni.appendChild(bottoneModifica);
     azioni.appendChild(bottoneDuplica);
     azioni.appendChild(bottoneElimina);
 

@@ -469,7 +469,7 @@ body {
 }
 
 /*
- * Fino a 4 pulsanti per voce (Apri/Scarica/Duplica/Elimina): su schermi stretti non c'è spazio
+ * Fino a 5 pulsanti per voce (Apri/Scarica/Modifica/Duplica/Elimina): su schermi stretti non c'è spazio
  * per allinearli tutti su una riga sola insieme a checkbox e info. flex-wrap qui e sulla voce
  * permette al gruppo di azioni di scendere su una riga propria e, se necessario, ai pulsanti
  * stessi di andare su due righe, invece di restringersi/sovrapporsi o uscire dal bordo della card.
