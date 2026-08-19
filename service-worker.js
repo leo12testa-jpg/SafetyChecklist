@@ -1,4 +1,4 @@
-const CACHE_NAME = 'safety-checklist-shell-v48';
+const CACHE_NAME = 'safety-checklist-shell-v49';
 
 const APP_SHELL = [
   './',

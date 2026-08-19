@@ -167,8 +167,44 @@ const pdf = (() => {
     };
   }
 
+  /**
+   * Tracciatore della legenda a piè di pagina: disegnata via l'hook didDrawPage di autoTable,
+   * così ogni tabella la ridisegna in automatico su ogni pagina che tocca (compresa la
+   * continuazione su pagine successive), senza doverla ripetere sotto ogni singola tabella né
+   * fare un secondo giro a fine documento. Il Set tiene traccia delle pagine già servite: più
+   * tabelle diverse possono condividere la stessa pagina (es. la coda di una sezione e l'inizio
+   * della successiva), e didDrawPage spara per ciascuna di esse — senza questo controllo la
+   * legenda verrebbe disegnata più volte, sovrapposta, sulla stessa pagina. completaPagineRestanti
+   * è una rete di sicurezza per le pagine senza alcuna tabella (Altri aspetti, Allegati).
+   */
+  function creaTracciatoreLegenda(doc) {
+    const pagineFatte = new Set();
+    function disegnaSeNonGiaFatta(numeroPagina) {
+      if (pagineFatte.has(numeroPagina)) {
+        return;
+      }
+      pagineFatte.add(numeroPagina);
+      const paginaPrecedente = doc.internal.getCurrentPageInfo().pageNumber;
+      doc.setPage(numeroPagina);
+      doc.setFontSize(7.5);
+      doc.setFont(undefined, 'italic');
+      doc.text(LEGENDA, MARGINE, ALTEZZA_PAGINA - 8);
+      doc.setFont(undefined, 'normal');
+      doc.setPage(paginaPrecedente);
+    }
+    return {
+      hookDidDrawPage: (data) => disegnaSeNonGiaFatta(data.pageNumber),
+      completaPagineRestanti() {
+        const totale = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totale; i += 1) {
+          disegnaSeNonGiaFatta(i);
+        }
+      }
+    };
+  }
+
   /** Tabella "DATI GENERALI": titolo su sfondo arancione, righe con bordi neri. */
-  function disegnaTabellaDatiGenerali(doc, checklist, sopralluogo, y) {
+  function disegnaTabellaDatiGenerali(doc, checklist, sopralluogo, y, hookLegenda) {
     const etichette = etichetteDatiGenerali(checklist.id);
     const puntoVendita = `${sopralluogo.punto_vendita || ''}\n${sopralluogo.indirizzo_punto_vendita || ''}`;
 
@@ -190,7 +226,8 @@ const pdf = (() => {
       theme: 'grid',
       styles: { lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: 9, cellPadding: 2, valign: 'middle', textColor: [0, 0, 0] },
       headStyles: { fillColor: [250, 200, 120], textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 11, halign: 'left' },
-      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 65 }, 1: { cellWidth: 'auto' } }
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 65 }, 1: { cellWidth: 'auto' } },
+      didDrawPage: hookLegenda
     });
 
     return doc.lastAutoTable.finalY + 8;
@@ -277,6 +314,30 @@ const pdf = (() => {
   }
 
   /**
+   * Compatta un elenco di numeri (già ordinato crescente) in intervalli tipografici: run
+   * consecutivi diventano "3-4", numeri isolati o run non contigui restano separati da virgola
+   * (es. [2,3,4,7] -> "2-4, 7"). Nel caso pratico più comune (più foto scattate per la stessa
+   * domanda) i numeri sono sempre consecutivi, essendo assegnati nello stesso ordine in cui le
+   * foto di quella risposta vengono raccolte da raccogliFotoConDidascalia.
+   */
+  function formattaIntervalliNumerici(numeri) {
+    const pezzi = [];
+    let inizio = numeri[0];
+    let precedente = numeri[0];
+    for (let i = 1; i <= numeri.length; i += 1) {
+      const attuale = numeri[i];
+      if (attuale === precedente + 1) {
+        precedente = attuale;
+        continue;
+      }
+      pezzi.push(inizio === precedente ? `${inizio}` : `${inizio}-${precedente}`);
+      inizio = attuale;
+      precedente = attuale;
+    }
+    return pezzi.join(', ');
+  }
+
+  /**
    * Suffisso "(Vedi Foto N)" per una domanda con foto associate, numerazione coerente con la
    * pagina Allegati (stesso ordine, stesso indice+1 di raccogliFotoConDidascalia).
    */
@@ -285,7 +346,7 @@ const pdf = (() => {
     if (!numeri || !numeri.length) {
       return '';
     }
-    return `(Vedi Foto ${numeri.join(', ')})`;
+    return `(Vedi Foto ${formattaIntervalliNumerici(numeri)})`;
   }
 
   /**
@@ -296,7 +357,7 @@ const pdf = (() => {
    * il default), eliminando sia il titolo "orfano" a fine pagina sia lo spreco di spazio. Nessun
    * page-break manuale prima della tabella: la paginazione naturale di autoTable basta.
    */
-  function disegnaTabellaSezione(doc, sezione, sopralluogo, y, mappaFotoPerDomanda) {
+  function disegnaTabellaSezione(doc, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda) {
     const corpo = sezione.domande.map((domanda) => {
       const risposta = (sopralluogo.risposte || []).find((r) => r.domanda_id === domanda.id);
       const valore = risposta ? risposta.risposta : '';
@@ -353,7 +414,8 @@ const pdf = (() => {
         if (data.section === 'body' && data.column.index === 6) {
           disegnaNotaGiustificataCentrata(doc, data.cell);
         }
-      }
+      },
+      didDrawPage: hookLegenda
     });
 
     return doc.lastAutoTable.finalY + 4;
@@ -378,7 +440,7 @@ const pdf = (() => {
   }
 
   /** Disegna tutti i macro-gruppi di sezioni (con relative tabelle), coprendo sempre tutte le sezioni della checklist. */
-  function disegnaGruppiSezioni(doc, checklist, sopralluogo, y, mappaFotoPerDomanda) {
+  function disegnaGruppiSezioni(doc, checklist, sopralluogo, y, mappaFotoPerDomanda, hookLegenda) {
     const puntoDivisione = calcolaPuntoDivisioneGruppi(checklist);
     const gruppi = [
       { titolo: TITOLI_GRUPPI_SEZIONI[0], sezioni: checklist.sezioni.slice(0, puntoDivisione) },
@@ -391,23 +453,11 @@ const pdf = (() => {
       }
       y = disegnaIntestazioneGruppo(doc, gruppo.titolo, y);
       gruppo.sezioni.forEach((sezione) => {
-        y = disegnaTabellaSezione(doc, sezione, sopralluogo, y, mappaFotoPerDomanda);
+        y = disegnaTabellaSezione(doc, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda);
       });
     });
 
     return y;
-  }
-
-  /** Legenda dei codici di stato, ripetuta a fondo pagina su ogni pagina del PDF. */
-  function aggiungiLegendaSuOgniPagina(doc) {
-    const numeroPagine = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= numeroPagine; i += 1) {
-      doc.setPage(i);
-      doc.setFontSize(7.5);
-      doc.setFont(undefined, 'italic');
-      doc.text(LEGENDA, MARGINE, ALTEZZA_PAGINA - 8);
-      doc.setFont(undefined, 'normal');
-    }
   }
 
   /** Pagina dedicata "ALTRI ASPETTI DA EVIDENZIARE" (facoltativa, compilata dopo l'ultima domanda). */
@@ -540,7 +590,7 @@ const pdf = (() => {
        * finché non ci sta - non un taglio arbitrario indipendente dal font/dalla larghezza reale.
        */
       doc.setFontSize(8);
-      const prefisso = `Foto ${indice + 1} – Domanda ${voce.domandaId}: `;
+      const prefisso = `Foto ${indice + 1} — Domanda ${voce.domandaId}: `;
       let didascalia = avvolgiTesto(doc, `${prefisso}${voce.domandaTesto}`, LARGHEZZA_CELLA);
       if (didascalia.length > MASSIMO_RIGHE_DIDASCALIA) {
         let lunghezzaMassima = String(voce.domandaTesto || '').length;
@@ -647,16 +697,20 @@ const pdf = (() => {
 
     const fotoAllegati = raccogliFotoConDidascalia(checklist, sopralluogo);
     const mappaFotoPerDomanda = costruisciMappaFotoPerDomanda(fotoAllegati);
+    const tracciatoreLegenda = creaTracciatoreLegenda(doc);
 
     let y = disegnaIntestazione(doc, logoClienteURL, logoColligoURL);
-    y = disegnaTabellaDatiGenerali(doc, checklist, sopralluogo, y);
-    disegnaGruppiSezioni(doc, checklist, sopralluogo, y, mappaFotoPerDomanda);
+    y = disegnaTabellaDatiGenerali(doc, checklist, sopralluogo, y, tracciatoreLegenda.hookDidDrawPage);
+    disegnaGruppiSezioni(doc, checklist, sopralluogo, y, mappaFotoPerDomanda, tracciatoreLegenda.hookDidDrawPage);
 
     disegnaAltriAspetti(doc, sopralluogo);
 
     await disegnaPaginaAllegati(doc, fotoAllegati);
 
-    aggiungiLegendaSuOgniPagina(doc);
+    // Rete di sicurezza per le pagine senza alcuna tabella (Altri aspetti, Allegati): l'hook
+    // didDrawPage sopra copre già tutte le pagine toccate da DATI GENERALI o da una tabella di
+    // sezione, questo completa solo quelle rimaste scoperte, senza mai ridisegnare le altre.
+    tracciatoreLegenda.completaPagineRestanti();
 
     return doc.output('blob');
   }
