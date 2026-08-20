@@ -75,7 +75,8 @@
         { "id": 42, "testo": "Gli estintori sono mantenuti accessibili, visibili e in buono stato di conservazione?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
         { "id": 43, "testo": "Gli idranti sono mantenuti accessibili e visibili e in buono stato di conservazione?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
         { "id": 44, "testo": "Il dispositivo uomo a terra funziona correttamente?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 45, "testo": "È presente materiale assorbente per emergenza sversamento liquidi infiammabili (es. sepiolite)?", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
+        { "id": 45, "testo": "È presente materiale assorbente per emergenza sversamento liquidi infiammabili (es. sepiolite)?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 77, "testo": "Sono presenti materiali combustibili all'interno dei box?", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
       ]
     },
     {
