@@ -1043,6 +1043,7 @@ const storicoScreen = (() => {
   const vuoto = document.getElementById('storico-vuoto');
   const nessunRisultato = document.getElementById('storico-nessun-risultato');
   const filtroClienteContainer = document.getElementById('storico-filtro-cliente');
+  const filtroStatoChiusuraContainer = document.getElementById('storico-filtro-stato-chiusura');
   const inputRicerca = document.getElementById('storico-ricerca');
   const checkboxSelezionaTutti = document.getElementById('storico-seleziona-tutti');
   const bottoneScaricaSelezionati = document.getElementById('storico-scarica-selezionati');
@@ -1054,6 +1055,7 @@ const storicoScreen = (() => {
 
   let sopralluoghiCache = [];
   let clienteAttivo = '';
+  let statoChiusuraAttivo = '';
   let nomiClientiConfigurati = [];
   let testoRicerca = '';
   let timerDebounce = null;
@@ -1120,9 +1122,27 @@ const storicoScreen = (() => {
     return String(sopralluogo.punto_vendita || '').toLowerCase().includes(testo);
   }
 
+  /**
+   * Filtro "Tutti"/"Da completare"/"Chiuse" sullo stato_chiusura (vedi isChiuso più sotto): i
+   * sopralluoghi "in corso" non hanno questo concetto (nessun pallino, vedi creaVoce), quindi
+   * spariscono quando si filtra su "aperto" o "chiuso" e restano visibili solo con "Tutti".
+   */
+  function corrispondeStatoChiusura(sopralluogo, filtro) {
+    if (!filtro) {
+      return true;
+    }
+    if (sopralluogo.stato !== 'completato') {
+      return false;
+    }
+    return isChiuso(sopralluogo) === (filtro === 'chiuso');
+  }
+
   function elencoFiltrato() {
     return sopralluoghiCache.filter(
-      (s) => corrispondeCliente(s, clienteAttivo) && corrispondeRicerca(s, testoRicerca)
+      (s) =>
+        corrispondeCliente(s, clienteAttivo) &&
+        corrispondeStatoChiusura(s, statoChiusuraAttivo) &&
+        corrispondeRicerca(s, testoRicerca)
     );
   }
 
@@ -1270,6 +1290,56 @@ const storicoScreen = (() => {
     });
   }
 
+  /**
+   * Stato di chiusura amministrativa (Da completare/Chiusa): puramente manuale, non dipende dal
+   * numero di conformità/non conformità né dal campo "stato" di compilazione. I sopralluoghi
+   * salvati prima dell'introduzione di questo campo non lo hanno: vanno trattati come "aperto".
+   */
+  function isChiuso(sopralluogo) {
+    return sopralluogo.stato_chiusura === 'chiuso';
+  }
+
+  /** Sostituisce in cache il sopralluogo aggiornato (stessa identità di riferimento delle altre voci) e ridisegna subito la lista. */
+  function aggiornaSopralluogoInCache(sopralluogoAggiornato) {
+    const indice = sopralluoghiCache.findIndex((s) => s.id === sopralluogoAggiornato.id);
+    if (indice >= 0) {
+      sopralluoghiCache[indice] = sopralluogoAggiornato;
+    }
+    applicaFiltri();
+  }
+
+  /** Chiede conferma, poi marca il sopralluogo come "Chiusa" (con data di chiusura) e aggiorna subito l'elenco a schermo. */
+  async function chiudiChecklist(sopralluogo, bottone) {
+    if (!confirm('Segnare questo sopralluogo come chiuso?')) {
+      return;
+    }
+    await eseguiConBottone(bottone, async () => {
+      bottone.textContent = 'Chiusura…';
+      try {
+        const aggiornato = await db.chiudiSopralluogo(sopralluogo.id);
+        aggiornaSopralluogoInCache(aggiornato);
+      } catch (errore) {
+        alert(`Impossibile chiudere il sopralluogo: ${errore.message}`);
+      }
+    });
+  }
+
+  /** Chiede conferma, poi riporta il sopralluogo a "Da completare" e aggiorna subito l'elenco a schermo. */
+  async function riapriChecklist(sopralluogo, bottone) {
+    if (!confirm('Riaprire questo sopralluogo?')) {
+      return;
+    }
+    await eseguiConBottone(bottone, async () => {
+      bottone.textContent = 'Riapertura…';
+      try {
+        const aggiornato = await db.riapriSopralluogo(sopralluogo.id);
+        aggiornaSopralluogoInCache(aggiornato);
+      } catch (errore) {
+        alert(`Impossibile riaprire il sopralluogo: ${errore.message}`);
+      }
+    });
+  }
+
   function aggiornaBottoneScaricaSelezionati() {
     bottoneScaricaSelezionati.hidden = selezionati.size === 0;
     bottoneScaricaSelezionati.textContent = `Scarica selezionati (${selezionati.size})`;
@@ -1308,6 +1378,15 @@ const storicoScreen = (() => {
     const titolo = document.createElement('strong');
     titolo.textContent = sopralluogo.punto_vendita;
 
+    const completato = sopralluogo.stato === 'completato';
+    const chiuso = isChiuso(sopralluogo);
+    const statoChiusura = document.createElement('span');
+    statoChiusura.className = `storico-stato${chiuso ? ' is-chiuso' : ''}`;
+    const pallinoStato = document.createElement('span');
+    pallinoStato.className = 'storico-stato-pallino';
+    statoChiusura.appendChild(pallinoStato);
+    statoChiusura.appendChild(document.createTextNode(chiuso ? 'Chiusa' : 'Da completare'));
+
     const dettaglio = document.createElement('span');
     dettaglio.textContent = `${sopralluogo.indirizzo_punto_vendita || ''} · ${formattaData(sopralluogo.data)} · ${sopralluogo.stato}`;
 
@@ -1315,6 +1394,9 @@ const storicoScreen = (() => {
     tecnico.textContent = `Tecnico: ${sopralluogo.tecnico || '—'}`;
 
     info.appendChild(titolo);
+    if (completato) {
+      info.appendChild(statoChiusura);
+    }
     info.appendChild(dettaglio);
     info.appendChild(tecnico);
 
@@ -1347,6 +1429,17 @@ const storicoScreen = (() => {
     bottoneDuplica.setAttribute('aria-label', `Duplica ${sopralluogo.punto_vendita}`);
     bottoneDuplica.addEventListener('click', () => duplicaDialog.apri(sopralluogo));
 
+    const bottoneChiusura = document.createElement('button');
+    bottoneChiusura.type = 'button';
+    bottoneChiusura.className = 'btn-secondario';
+    if (chiuso) {
+      bottoneChiusura.textContent = 'Riapri';
+      bottoneChiusura.addEventListener('click', () => riapriChecklist(sopralluogo, bottoneChiusura));
+    } else {
+      bottoneChiusura.textContent = 'Segna come chiusa';
+      bottoneChiusura.addEventListener('click', () => chiudiChecklist(sopralluogo, bottoneChiusura));
+    }
+
     const bottoneElimina = document.createElement('button');
     bottoneElimina.type = 'button';
     bottoneElimina.className = 'btn-secondario btn-elimina';
@@ -1359,6 +1452,9 @@ const storicoScreen = (() => {
     azioni.appendChild(bottoneScarica);
     azioni.appendChild(bottoneModifica);
     azioni.appendChild(bottoneDuplica);
+    if (completato) {
+      azioni.appendChild(bottoneChiusura);
+    }
     azioni.appendChild(bottoneElimina);
 
     li.appendChild(selezione);
@@ -1390,6 +1486,11 @@ const storicoScreen = (() => {
 
   function onFiltroClienteChange() {
     clienteAttivo = filtroClienteContainer.value;
+    applicaFiltri();
+  }
+
+  function onFiltroStatoChiusuraChange() {
+    statoChiusuraAttivo = filtroStatoChiusuraContainer.value;
     applicaFiltri();
   }
 
@@ -1483,9 +1584,11 @@ const storicoScreen = (() => {
     sopralluoghiCache = sopralluoghi;
     selezionati.clear();
     clienteAttivo = '';
+    statoChiusuraAttivo = '';
     testoRicerca = '';
     inputRicerca.value = '';
     filtroClienteContainer.value = '';
+    filtroStatoChiusuraContainer.value = '';
     applicaFiltri();
     await aggiornaContatoreCestino();
   }
@@ -1501,6 +1604,7 @@ const storicoScreen = (() => {
   function init() {
     inputRicerca.addEventListener('input', onRicercaInput);
     filtroClienteContainer.addEventListener('change', onFiltroClienteChange);
+    filtroStatoChiusuraContainer.addEventListener('change', onFiltroStatoChiusuraChange);
     checkboxSelezionaTutti.addEventListener('change', onSelezionaTuttiChange);
     bottoneScaricaSelezionati.addEventListener('click', scaricaSelezionati);
     router.onEnter('history', render);

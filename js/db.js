@@ -289,6 +289,22 @@ const db = (() => {
     return sopralluogo;
   }
 
+  /**
+   * Stato di chiusura amministrativa dello Storico ("Da completare"/"Chiusa"): del tutto
+   * manuale, indipendente dal campo "stato" (in corso/completato, legato alla compilazione) e
+   * dal conteggio di conformità/non conformità. I sopralluoghi esistenti non hanno questo campo:
+   * vanno letti come "aperto" ovunque venga mostrato/valutato (mai scritto qui in massa, per non
+   * toccare dati già salvati - vedi storicoScreen.isChiuso in app.js).
+   */
+  async function chiudiSopralluogo(sopralluogoId) {
+    return aggiornaSopralluogo(sopralluogoId, { stato_chiusura: 'chiuso', chiuso_il: new Date().toISOString() });
+  }
+
+  /** Riporta un sopralluogo chiuso a "Da completare" (stato_chiusura: "aperto"). */
+  async function riapriSopralluogo(sopralluogoId) {
+    return aggiornaSopralluogo(sopralluogoId, { stato_chiusura: 'aperto' });
+  }
+
   /** Sposta un sopralluogo nel cestino (soft-delete): marcato con "eliminato_il", resta in DB con le sue foto. */
   async function spostaNelCestino(sopralluogoId) {
     return aggiornaSopralluogo(sopralluogoId, { eliminato_il: new Date().toISOString() });
@@ -445,6 +461,8 @@ const db = (() => {
     salvaRisposta,
     impostaRisposte,
     aggiornaSopralluogo,
+    chiudiSopralluogo,
+    riapriSopralluogo,
     salvaFoto,
     leggiFoto,
     leggiSopralluogo,

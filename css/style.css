@@ -75,6 +75,25 @@ body {
   background: #f59e0b;
 }
 
+/* Stato di chiusura amministrativa nello Storico ("Da completare"/"Chiusa"): stesso linguaggio visivo del pallino di stato-connessione qui sopra, solo leggermente più grande. */
+.storico-stato {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.storico-stato-pallino {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+  background: #f59e0b;
+}
+
+.storico-stato.is-chiuso .storico-stato-pallino {
+  background: #22c55e;
+}
+
 #screens {
   flex: 1;
   padding: var(--spacing);
@@ -390,7 +409,8 @@ body {
   margin-top: 12px;
 }
 
-.storico-filtro-cliente {
+.storico-filtro-cliente,
+.storico-filtro-stato-chiusura {
   width: 100%;
   min-height: 40px;
   padding: 8px 12px;
