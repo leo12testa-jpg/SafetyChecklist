@@ -377,6 +377,15 @@ const pdf = (() => {
     doc.autoTable({
       startY: y,
       margin: { left: MARGINE, right: MARGINE },
+      // Una riga non viene mai spezzata a metà fra due pagine: il testo della nota è disegnato a
+      // mano in didDrawCell (vedi disegnaNotaGiustificataCentrata) partendo sempre dall'inizio
+      // della nota, quindi non sa "riprendere da dove interrotto" come farebbe autoTable con le
+      // celle che disegna nativamente — con lo split di default (rowPageBreak: 'auto') una riga
+      // con una nota lunga che cade a cavallo di un'interruzione di pagina veniva tagliata a metà
+      // sulla prima pagina E ridisegnata per intero (duplicata) in un frammento di riga orfano in
+      // cima alla pagina successiva. 'avoid' sposta l'intera riga sulla pagina successiva se non
+      // ci sta, invece di spezzarla.
+      rowPageBreak: 'avoid',
       head: [
         [{ content: sezione.titolo, colSpan: 7, styles: { halign: 'left', fontStyle: 'bold', fontSize: 10, fillColor: [255, 255, 255], textColor: [0, 0, 0] } }],
         ['n.', 'Descrizione attività', 'C', 'P.C', 'N.C', 'N.P', 'Note']
