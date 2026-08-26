@@ -1150,16 +1150,13 @@ const storicoScreen = (() => {
   }
 
   /**
-   * Filtro "Tutti"/"Da completare"/"Chiuse" sullo stato_chiusura (vedi isChiuso più sotto): i
-   * sopralluoghi "in corso" non hanno questo concetto (nessun pallino, vedi creaVoce), quindi
-   * spariscono quando si filtra su "aperto" o "chiuso" e restano visibili solo con "Tutti".
+   * Filtro "Tutti"/"Da completare"/"Chiuse" sullo stato_chiusura (vedi isChiuso più sotto): si
+   * applica a ogni sopralluogo indipendentemente dallo stato di compilazione (anche "in corso",
+   * non solo "completato" — è un tracciamento manuale separato, vedi creaVoce).
    */
   function corrispondeStatoChiusura(sopralluogo, filtro) {
     if (!filtro) {
       return true;
-    }
-    if (sopralluogo.stato !== 'completato') {
-      return false;
     }
     return isChiuso(sopralluogo) === (filtro === 'chiuso');
   }
@@ -1405,7 +1402,6 @@ const storicoScreen = (() => {
     const titolo = document.createElement('strong');
     titolo.textContent = sopralluogo.punto_vendita;
 
-    const completato = sopralluogo.stato === 'completato';
     const chiuso = isChiuso(sopralluogo);
     const statoChiusura = document.createElement('span');
     statoChiusura.className = `storico-stato${chiuso ? ' is-chiuso' : ''}`;
@@ -1421,9 +1417,7 @@ const storicoScreen = (() => {
     tecnico.textContent = `Tecnico: ${sopralluogo.tecnico || '—'}`;
 
     info.appendChild(titolo);
-    if (completato) {
-      info.appendChild(statoChiusura);
-    }
+    info.appendChild(statoChiusura);
     info.appendChild(dettaglio);
     info.appendChild(tecnico);
 
@@ -1479,9 +1473,7 @@ const storicoScreen = (() => {
     azioni.appendChild(bottoneScarica);
     azioni.appendChild(bottoneModifica);
     azioni.appendChild(bottoneDuplica);
-    if (completato) {
-      azioni.appendChild(bottoneChiusura);
-    }
+    azioni.appendChild(bottoneChiusura);
     azioni.appendChild(bottoneElimina);
 
     li.appendChild(selezione);
