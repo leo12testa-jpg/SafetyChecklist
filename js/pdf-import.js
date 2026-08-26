@@ -142,8 +142,54 @@ const pdfImport = (() => {
       .trim();
   }
 
-  /** Estrae risposte/note dalle righe della tabella sezione presenti in questa pagina. Aggiorna `risultatiPerId`. */
-  function estraiRisposteDiPaginaNostro(items, colonne, idValidi, risultatiPerId) {
+  /**
+   * Assegna dei candidati di testo (già filtrati a una colonna) alla riga più vicina in y, entro
+   * una tolleranza: stessa tecnica usata sia per le note (colonna a destra) sia, qui sotto, per il
+   * testo della domanda (colonna centrale) — il testo di una riga può sforare in y rispetto
+   * all'ancora numerica quando va su più righe, quindi non basta un confronto diretto sulla y del
+   * numero. Ritorna Map<id, testo ricomposto>.
+   */
+  function assegnaTestoAllaRigaPiuVicina(candidati, righe, tolleranza) {
+    const parolePerRiga = new Map();
+    candidati.forEach((candidato) => {
+      let rigaVicina = null;
+      let distanzaMinima = Infinity;
+      righe.forEach((riga) => {
+        const distanza = Math.abs(candidato.y - riga.y);
+        if (distanza < distanzaMinima) {
+          distanzaMinima = distanza;
+          rigaVicina = riga;
+        }
+      });
+      if (!rigaVicina || distanzaMinima > tolleranza) {
+        return;
+      }
+      if (!parolePerRiga.has(rigaVicina.id)) {
+        parolePerRiga.set(rigaVicina.id, []);
+      }
+      parolePerRiga.get(rigaVicina.id).push(candidato);
+    });
+
+    const testoPerId = new Map();
+    parolePerRiga.forEach((parti, id) => {
+      const testo = ricomponiTesto(raggruppaInLinee(parti, TOLLERANZA_RIGA_PT));
+      if (testo) {
+        testoPerId.set(id, testo);
+      }
+    });
+    return testoPerId;
+  }
+
+  /**
+   * Estrae risposte/note dalle righe della tabella sezione presenti in questa pagina. Aggiorna
+   * `risultatiPerId` e, per ogni riga trovata, registra anche il testo della colonna "Descrizione
+   * attività" in `testoDomandaPerId` (chiave: id di riga) — non per compilare nulla, ma perché è
+   * il modo per accertarsi che il PDF appartenga davvero alla checklist selezionata (vedi
+   * verificaCorrispondenzaChecklist: da quando non c'è più un titolo unico in cima al documento,
+   * ogni tabella/sezione porta solo la propria intestazione, quindi il confronto va fatto domanda
+   * per domanda, non su un singolo "titolo").
+   */
+  function estraiRisposteDiPaginaNostro(items, colonne, idValidi, risultatiPerId, testoDomandaPerId) {
     const righe = items
       .filter((it) => /^\d+$/.test(it.testo.trim()) && Math.abs(it.x - colonne.idX) < TOLLERANZA_COLONNA_ID_PT)
       .map((it) => ({ id: parseInt(it.testo.trim(), 10), y: it.y }))
@@ -169,31 +215,24 @@ const pdfImport = (() => {
     });
 
     const candidatiNota = items.filter((it) => it.x > colonne.sogliaNota && it.testo.trim() !== 'Note');
-    const parolePerRiga = new Map();
-
-    candidatiNota.forEach((candidato) => {
-      let rigaVicina = null;
-      let distanzaMinima = Infinity;
-      righe.forEach((riga) => {
-        const distanza = Math.abs(candidato.y - riga.y);
-        if (distanza < distanzaMinima) {
-          distanzaMinima = distanza;
-          rigaVicina = riga;
-        }
-      });
-      if (!rigaVicina || distanzaMinima > TOLLERANZA_RIGA_NOTA_PT) {
-        return;
-      }
-      if (!parolePerRiga.has(rigaVicina.id)) {
-        parolePerRiga.set(rigaVicina.id, []);
-      }
-      parolePerRiga.get(rigaVicina.id).push(candidato);
-    });
-
-    parolePerRiga.forEach((parti, id) => {
+    assegnaTestoAllaRigaPiuVicina(candidatiNota, righe, TOLLERANZA_RIGA_NOTA_PT).forEach((testo, id) => {
       const voce = risultatiPerId.get(id);
       if (voce) {
-        voce.note = ricomponiTesto(raggruppaInLinee(parti, TOLLERANZA_RIGA_PT)) || null;
+        voce.note = testo;
+      }
+    });
+
+    // Colonna "Descrizione attività": subito dopo l'id (con margine, per non riassorbire la
+    // cifra stessa) e prima della colonna "C" (con margine, per restare fuori dalle "X" di stato).
+    const candidatiDomanda = items.filter(
+      (it) =>
+        it.x > colonne.idX + TOLLERANZA_COLONNA_ID_PT &&
+        it.x < colonne.C - TOLLERANZA_COLONNA_ID_PT &&
+        it.testo.trim() !== 'Descrizione attività'
+    );
+    assegnaTestoAllaRigaPiuVicina(candidatiDomanda, righe, TOLLERANZA_RIGA_NOTA_PT).forEach((testo, id) => {
+      if (!testoDomandaPerId.has(id)) {
+        testoDomandaPerId.set(id, testo);
       }
     });
   }
@@ -257,21 +296,66 @@ const pdfImport = (() => {
     return risultato;
   }
 
+  // Legenda di piè di pagina ("C = Conforme; P.C = Parzialmente conforme; ..."), ripetuta su
+  // OGNI pagina dal generatore PDF (vedi js/pdf.js, legenda via didDrawPage): capita di essere il
+  // primo elemento di testo restituito da pdf.js per una pagina (l'ordine di getTextContent segue
+  // l'ordine di disegno nello stream, non la posizione verticale), quindi va sempre esclusa a
+  // priori da qualunque lettura strutturale — non è mai un titolo, una domanda o una nota.
+  const REGEX_LEGENDA_PIE_PAGINA = /^C\s*=\s*Conforme/i;
+
+  /** Confronto testi tollerante a differenze di spaziatura/a-capo (l'a-capo nel PDF dipende dal wrap di autoTable, diverso da quello nel JSON della checklist). */
+  function normalizzaTestoConfronto(testo) {
+    return String(testo || '')
+      .toLowerCase()
+      .replace(/\s+/g, '')
+      .trim();
+  }
+
+  /**
+   * Da quando il documento non ha più un titolo unico in cima (ogni sezione porta solo la propria
+   * intestazione di tabella), l'unico modo affidabile per accertarsi che il PDF appartenga alla
+   * checklist selezionata è confrontare, domanda per domanda, il testo estratto dalla colonna
+   * "Descrizione attività" con quello della checklist (stesso id di riga). I numeri di riga da
+   * soli non bastano: coincidono comunque fra checklist diverse (sono una sequenza 1..N), quindi
+   * con la checklist sbagliata selezionata le risposte finirebbero comunque su "qualche" domanda,
+   * solo sbagliata. Ritorna null se il campione è troppo piccolo per pronunciarsi.
+   */
+  function verificaCorrispondenzaChecklist(testoDomandaPerId, domande) {
+    let confrontate = 0;
+    let corrispondenti = 0;
+    domande.forEach(({ domanda }) => {
+      const estratto = testoDomandaPerId.get(domanda.id);
+      if (!estratto) {
+        return;
+      }
+      confrontate += 1;
+      if (normalizzaTestoConfronto(estratto) === normalizzaTestoConfronto(domanda.testo)) {
+        corrispondenti += 1;
+      }
+    });
+    if (confrontate === 0) {
+      return null;
+    }
+    return { confrontate, corrispondenti };
+  }
+
   /**
    * Prova il formato "nostro" sull'intero documento (pagine già estratte). Ritorna
    * { risposte, anagrafica, totaleDomande, domandeRiconosciute, strutturaRiconosciuta }.
    * Lancia un errore SOLO se le intestazioni di colonna nostre sono state trovate (quindi il
-   * PDF sembra davvero generato da questa app) ma per una checklist diversa da quella scelta.
+   * PDF sembra davvero generato da questa app) ma il testo delle domande non corrisponde alla
+   * checklist scelta (vedi verificaCorrispondenzaChecklist).
    */
   function provaFormatoNostro(pagine, checklist, domande, idValidi) {
     const risultatiPerId = new Map();
+    const testoDomandaPerId = new Map();
     let anagrafica = {};
     let colonneCorrenti = null;
     let strutturaRiconosciuta = false;
-    let titoloRilevato = null;
 
-    pagine.forEach((items, indice) => {
+    pagine.forEach((itemsGrezzi, indice) => {
       const numeroPagina = indice + 1;
+      const items = itemsGrezzi.filter((it) => !REGEX_LEGENDA_PIE_PAGINA.test(it.testo.trim()));
       const intestazioni = trovaIntestazioniColonneNostro(items);
       if (intestazioni) {
         colonneCorrenti = intestazioni;
@@ -280,22 +364,18 @@ const pdfImport = (() => {
 
       if (numeroPagina === 1) {
         anagrafica = estraiDatiGeneraliNostro(items);
-        // Il titolo della checklist è il primo testo disegnato nell'intestazione (vedi
-        // disegnaIntestazione). Il controllo ha senso SOLO se in tutto il documento sono state
-        // trovate le intestazioni di colonna nostre: altrimenti "titoloRilevato" è solo il primo
-        // frammento di testo di un PDF di formato completamente diverso (es. un "Pag." di
-        // footer nel formato storico) e confrontarlo darebbe un errore fuorviante.
-        titoloRilevato = items.length ? items[0].testo.trim() : null;
       }
 
       if (colonneCorrenti) {
-        estraiRisposteDiPaginaNostro(items, colonneCorrenti, idValidi, risultatiPerId);
+        estraiRisposteDiPaginaNostro(items, colonneCorrenti, idValidi, risultatiPerId, testoDomandaPerId);
       }
     });
 
-    if (strutturaRiconosciuta && titoloRilevato && checklist.titolo && titoloRilevato !== checklist.titolo.trim()) {
+    const corrispondenza = verificaCorrispondenzaChecklist(testoDomandaPerId, domande);
+    if (strutturaRiconosciuta && corrispondenza && corrispondenza.corrispondenti / corrispondenza.confrontate < SOGLIA_RICONOSCIMENTO) {
       throw new Error(
-        `Il PDF sembra generato per la checklist "${titoloRilevato}", non "${checklist.titolo}". ` +
+        `Il contenuto di questo PDF non corrisponde alla checklist "${checklist.titolo}" selezionata ` +
+        `(solo ${corrispondenza.corrispondenti} domande su ${corrispondenza.confrontate} confrontate combaciano). ` +
         'Seleziona la checklist corretta e riprova: con quella sbagliata i numeri di riga combaciano comunque, ma le risposte finirebbero sulle domande sbagliate.'
       );
     }
