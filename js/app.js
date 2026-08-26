@@ -162,10 +162,34 @@ async function popolaSelectTecnico(select) {
   });
 }
 
-/** Mostra/nasconde il campo di testo libero "Nome del tecnico" in base alla scelta "Altro" nel <select> Tecnico. */
+/**
+ * Solo il campo "Nome del tecnico" del dialogo Duplica è `required` nel markup statico (Nuovo
+ * sopralluogo e Modifica dati sopralluogo lo lasciano facoltativo): questa mappa ricorda, per
+ * ciascun elemento, quel valore originale la prima volta che lo si incontra, PRIMA che
+ * aggiornaVisibilitaTecnicoAltro/precompilaTecnico lo tocchino (altrimenti da quel momento in poi
+ * `hasAttribute('required')` rifletterebbe solo l'ultimo valore impostato via JS, non l'originale).
+ */
+const obbligatorioAltroPerElemento = new WeakMap();
+
+function tecnicoAltroEObbligatorioPerDefault(inputAltro) {
+  if (!obbligatorioAltroPerElemento.has(inputAltro)) {
+    obbligatorioAltroPerElemento.set(inputAltro, inputAltro.hasAttribute('required'));
+  }
+  return obbligatorioAltroPerElemento.get(inputAltro);
+}
+
+/**
+ * Mostra/nasconde il campo di testo libero "Nome del tecnico" in base alla scelta "Altro" nel
+ * <select> Tecnico. Quando il campo è nascosto va anche reso non `required`, altrimenti il
+ * browser lo considera comunque parte della validazione del form (un elemento con `hidden` su un
+ * antenato NON viene escluso automaticamente dalla constraint validation) e blocca il submit senza
+ * alcun errore visibile, perché non può mostrare il popup di validazione su un campo non
+ * renderizzato (in console compare solo "An invalid form control ... is not focusable").
+ */
 function aggiornaVisibilitaTecnicoAltro(select, labelAltro, inputAltro) {
   const mostraAltro = select.value === VALORE_TECNICO_ALTRO;
   labelAltro.hidden = !mostraAltro;
+  inputAltro.required = mostraAltro && tecnicoAltroEObbligatorioPerDefault(inputAltro);
   if (!mostraAltro) {
     inputAltro.value = '';
   }
@@ -189,14 +213,17 @@ function precompilaTecnico(select, labelAltro, inputAltro, valore) {
   if (combacia) {
     select.value = valoreEsistente;
     labelAltro.hidden = true;
+    inputAltro.required = false;
     inputAltro.value = '';
   } else if (valoreEsistente !== '') {
     select.value = VALORE_TECNICO_ALTRO;
     labelAltro.hidden = false;
+    inputAltro.required = tecnicoAltroEObbligatorioPerDefault(inputAltro);
     inputAltro.value = valoreEsistente;
   } else {
     select.value = '';
     labelAltro.hidden = true;
+    inputAltro.required = false;
     inputAltro.value = '';
   }
 }
