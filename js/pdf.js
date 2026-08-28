@@ -584,10 +584,17 @@ const pdf = (() => {
     const COLONNE = 2;
     const GAP = 6;
     const LARGHEZZA_CELLA = (LARGHEZZA_PAGINA - MARGINE * 2 - GAP * (COLONNE - 1)) / COLONNE;
-    const ALTEZZA_IMMAGINE = 48;
+    /**
+     * La foto non occupa mai l'intera cella: un riquadro max (78% larghezza cella × 65mm
+     * d'altezza) evita che le foto orizzontali risultino sproporzionatamente estese in una
+     * griglia a 2 colonne. Le proporzioni originali sono sempre preservate (mai deformata) -
+     * vedi lo stesso pattern di scala in disegnaLogoProporzionato più sopra.
+     */
+    const LARGHEZZA_MASSIMA_IMMAGINE = LARGHEZZA_CELLA * 0.78;
+    const ALTEZZA_MASSIMA_IMMAGINE = 65;
     const MASSIMO_RIGHE_DIDASCALIA = 4;
     const ALTEZZA_DIDASCALIA = 4 + MASSIMO_RIGHE_DIDASCALIA * 3.5;
-    const ALTEZZA_CELLA = ALTEZZA_IMMAGINE + ALTEZZA_DIDASCALIA;
+    const ALTEZZA_CELLA = ALTEZZA_MASSIMA_IMMAGINE + ALTEZZA_DIDASCALIA;
 
     let colonna = 0;
 
@@ -611,7 +618,17 @@ const pdf = (() => {
 
       const x = MARGINE + colonna * (LARGHEZZA_CELLA + GAP);
       const dataURL = await blobADataURL(record.blob);
-      doc.addImage(dataURL, 'JPEG', x, y, LARGHEZZA_CELLA, ALTEZZA_IMMAGINE);
+      const proprietaImmagine = doc.getImageProperties(dataURL);
+      const scalaImmagine = Math.min(
+        LARGHEZZA_MASSIMA_IMMAGINE / proprietaImmagine.width,
+        ALTEZZA_MASSIMA_IMMAGINE / proprietaImmagine.height,
+        1
+      );
+      const larghezzaImmagine = proprietaImmagine.width * scalaImmagine;
+      const altezzaImmagine = proprietaImmagine.height * scalaImmagine;
+      const xImmagine = x + (LARGHEZZA_CELLA - larghezzaImmagine) / 2;
+      const yImmagine = y + (ALTEZZA_MASSIMA_IMMAGINE - altezzaImmagine) / 2;
+      doc.addImage(dataURL, proprietaImmagine.fileType, xImmagine, yImmagine, larghezzaImmagine, altezzaImmagine);
 
       /**
        * Didascalia MAI troncata a metà parola: si prova prima il testo della domanda per
@@ -636,7 +653,7 @@ const pdf = (() => {
           } while (didascalia.length > MASSIMO_RIGHE_DIDASCALIA && lunghezzaMassima > 0);
         }
       }
-      doc.text(didascalia, x, y + ALTEZZA_IMMAGINE + 4);
+      doc.text(didascalia, x + LARGHEZZA_CELLA / 2, y + ALTEZZA_MASSIMA_IMMAGINE + 4, { align: 'center' });
 
       colonna += 1;
       if (colonna >= COLONNE) {
