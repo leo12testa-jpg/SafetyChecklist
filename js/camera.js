@@ -12,7 +12,6 @@ const camera = (() => {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
-      input.capture = 'environment';
 
       input.addEventListener('change', () => {
         const file = input.files && input.files[0];
