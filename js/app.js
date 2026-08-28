@@ -887,11 +887,41 @@ const compilazioneScreen = (() => {
 const altriAspettiScreen = (() => {
   const textarea = document.getElementById('altri-aspetti-testo');
   const btnAvanti = document.getElementById('btn-altri-aspetti-avanti');
+  const btnFoto = document.getElementById('btn-altri-aspetti-foto');
+  const erroreEl = document.getElementById('altri-aspetti-errore');
+
+  // Foto collegate a questo campo speciale (non a una domanda): sopralluogo.altri_aspetti_foto,
+  // stesso meccanismo di camera.js/db.salvaFoto già usato per le domande, con domanda_id null.
+  let fotoAltriAspetti = [];
+
+  function aggiornaContatoreFoto() {
+    btnFoto.textContent = fotoAltriAspetti.length ? `📷 Foto (${fotoAltriAspetti.length})` : '📷 Foto';
+  }
+
+  function mostraErrore(messaggio) {
+    erroreEl.textContent = messaggio;
+    erroreEl.hidden = false;
+  }
 
   /** Precompila il campo con quanto eventualmente già salvato (riapertura di un sopralluogo). */
   function prepara() {
     const sopralluogo = checklistEngine.sopralluogoCorrente();
     textarea.value = sopralluogo.altri_aspetti || '';
+    fotoAltriAspetti = sopralluogo.altri_aspetti_foto || [];
+    erroreEl.hidden = true;
+    aggiornaContatoreFoto();
+  }
+
+  async function onFoto() {
+    try {
+      const sopralluogo = checklistEngine.sopralluogoCorrente();
+      const fotoId = await camera.scattaFoto({ sopralluogo_id: sopralluogo.id, domanda_id: null });
+      fotoAltriAspetti = [...fotoAltriAspetti, fotoId];
+      aggiornaContatoreFoto();
+      await db.aggiornaSopralluogo(sopralluogo.id, { altri_aspetti_foto: fotoAltriAspetti });
+    } catch (errore) {
+      mostraErrore(errore.message);
+    }
   }
 
   async function onAvanti() {
@@ -903,6 +933,7 @@ const altriAspettiScreen = (() => {
 
   function init() {
     btnAvanti.addEventListener('click', onAvanti);
+    btnFoto.addEventListener('click', onFoto);
   }
 
   return { init, prepara };
@@ -1181,9 +1212,11 @@ const storicoScreen = (() => {
     }
   }
 
-  /** Conta quante foto referenziate dalle risposte di un sopralluogo non sono (più) presenti in locale. */
+  /** Conta quante foto referenziate dalle risposte (o da "Altri aspetti") di un sopralluogo non sono (più) presenti in locale. */
   async function contaFotoMancanti(sopralluogo) {
-    const idFoto = (sopralluogo.risposte || []).flatMap((r) => r.foto || []);
+    const idFoto = (sopralluogo.risposte || [])
+      .flatMap((r) => r.foto || [])
+      .concat(sopralluogo.altri_aspetti_foto || []);
     if (!idFoto.length) {
       return 0;
     }

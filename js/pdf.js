@@ -265,6 +265,18 @@ const pdf = (() => {
   const LARGHEZZA_NOTA_DISPONIBILE = LARGHEZZA_COLONNA_NOTE - PADDING_TABELLA_SEZIONE * 2;
 
   /**
+   * Padding verticale (sopra/sotto) della sola colonna Note, più ampio del cellPadding generico
+   * PADDING_TABELLA_SEZIONE (che resta invariato per il padding orizzontale della stessa colonna
+   * e per tutte le altre colonne): dà più respiro alle note lunghe su più righe, così l'ultima
+   * riga di testo non risulti mai a ridosso del bordo inferiore della cella (e quindi della
+   * domanda successiva). Usato sia per calcolare l'altezza minima della riga (minCellHeight in
+   * didParseCell) sia per centrare verticalmente il testo (disegnaNotaGiustificataCentrata): le
+   * due cose devono restare in sincrono, altrimenti il centraggio non userebbe davvero lo spazio
+   * extra appena riservato.
+   */
+  const PADDING_VERTICALE_NOTA = 3.5;
+
+  /**
    * Testo della colonna Note giustificato (allineato sia a sinistra che a destra, come un
    * paragrafo) e centrato verticalmente nell'altezza della riga — su tutte le righe, non solo
    * N.C./P.C., per coerenza visiva. jsPDF-autotable non supporta halign:'justify' nativamente
@@ -414,7 +426,7 @@ const pdf = (() => {
         }
         if (data.section === 'body' && data.column.index === 6) {
           const righe = calcolaRigheNota(doc, data.cell.raw);
-          data.cell.styles.minCellHeight = righe.length * altezzaRigaMm(doc) + PADDING_TABELLA_SEZIONE * 2;
+          data.cell.styles.minCellHeight = righe.length * altezzaRigaMm(doc) + PADDING_VERTICALE_NOTA * 2;
           data.cell._righeGiustificate = righe;
           data.cell.text = [];
         }
@@ -503,7 +515,13 @@ const pdf = (() => {
     return `${ultimoSpazio > 0 ? tagliato.slice(0, ultimoSpazio) : tagliato}…`;
   }
 
-  /** Raccoglie tutte le foto (di qualsiasi domanda, qualsiasi stile di checklist) con id/testo domanda per la pagina Allegati. */
+  /**
+   * Raccoglie tutte le foto (di qualsiasi domanda, qualsiasi stile di checklist, più le
+   * eventuali foto di "Altri aspetti da evidenziare") con id/testo domanda per la pagina
+   * Allegati. Le foto di "Altri aspetti" sono aggiunte in coda, così la numerazione progressiva
+   * (indice+1, usata sia dalla didascalia sia da "(Vedi Foto N)" nelle tabelle di sezione) resta
+   * unica su tutto il documento senza bisogno di un contatore separato.
+   */
   function raccogliFotoConDidascalia(checklist, sopralluogo) {
     const domandeComplete = [];
     checklist.sezioni.forEach((sezione) => {
@@ -525,6 +543,10 @@ const pdf = (() => {
           domandaTesto: info ? info.domanda.testo : ''
         });
       });
+    });
+
+    (sopralluogo.altri_aspetti_foto || []).forEach((fotoId) => {
+      elenco.push({ fotoId, altriAspetti: true });
     });
 
     return elenco;
@@ -599,15 +621,20 @@ const pdf = (() => {
        * finché non ci sta - non un taglio arbitrario indipendente dal font/dalla larghezza reale.
        */
       doc.setFontSize(8);
-      const prefisso = `Foto ${indice + 1} — Domanda ${voce.domandaId}: `;
-      let didascalia = avvolgiTesto(doc, `${prefisso}${voce.domandaTesto}`, LARGHEZZA_CELLA);
-      if (didascalia.length > MASSIMO_RIGHE_DIDASCALIA) {
-        let lunghezzaMassima = String(voce.domandaTesto || '').length;
-        do {
-          lunghezzaMassima -= 10;
-          const domandaTroncata = troncaAConfineDiParola(voce.domandaTesto, lunghezzaMassima);
-          didascalia = avvolgiTesto(doc, `${prefisso}${domandaTroncata}`, LARGHEZZA_CELLA);
-        } while (didascalia.length > MASSIMO_RIGHE_DIDASCALIA && lunghezzaMassima > 0);
+      let didascalia;
+      if (voce.altriAspetti) {
+        didascalia = avvolgiTesto(doc, `Foto ${indice + 1} — Altri aspetti da evidenziare`, LARGHEZZA_CELLA);
+      } else {
+        const prefisso = `Foto ${indice + 1} — Domanda ${voce.domandaId}: `;
+        didascalia = avvolgiTesto(doc, `${prefisso}${voce.domandaTesto}`, LARGHEZZA_CELLA);
+        if (didascalia.length > MASSIMO_RIGHE_DIDASCALIA) {
+          let lunghezzaMassima = String(voce.domandaTesto || '').length;
+          do {
+            lunghezzaMassima -= 10;
+            const domandaTroncata = troncaAConfineDiParola(voce.domandaTesto, lunghezzaMassima);
+            didascalia = avvolgiTesto(doc, `${prefisso}${domandaTroncata}`, LARGHEZZA_CELLA);
+          } while (didascalia.length > MASSIMO_RIGHE_DIDASCALIA && lunghezzaMassima > 0);
+        }
       }
       doc.text(didascalia, x, y + ALTEZZA_IMMAGINE + 4);
 

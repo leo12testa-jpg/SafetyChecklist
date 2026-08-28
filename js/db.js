@@ -124,6 +124,7 @@ const db = (() => {
       stato: 'in corso',
       risposte: [],
       altri_aspetti: null,
+      altri_aspetti_foto: [],
       aggiornato_il: adesso
     };
     await richiesta(store.add(sopralluogo));
@@ -134,7 +135,8 @@ const db = (() => {
   /**
    * Duplica un sopralluogo esistente in uno nuovo (nuovo id, data odierna, stato "in corso"):
    * copia checklist_id e tutte le risposte già date (domanda per domanda, incluse le note),
-   * ma NON le foto (restano solo sul sopralluogo originale) né firma/stato/altri_aspetti.
+   * ma NON le foto (restano solo sul sopralluogo originale, incluse quelle di "Altri aspetti")
+   * né firma/stato/altri_aspetti.
    * "overrides" permette di aggiornare Cliente/Sede/Tecnico/Data prima della duplicazione
    * (il resto dei campi anagrafici è copiato dall'originale).
    */
@@ -162,6 +164,7 @@ const db = (() => {
       stato: 'in corso',
       risposte: (originale.risposte || []).map((risposta) => ({ ...risposta, foto: [] })),
       altri_aspetti: null,
+      altri_aspetti_foto: [],
       aggiornato_il: adesso
     };
 
