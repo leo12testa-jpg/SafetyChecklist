@@ -486,9 +486,12 @@ const pdf = (() => {
     return y;
   }
 
-  /** Pagina dedicata "ALTRI ASPETTI DA EVIDENZIARE" (facoltativa, compilata dopo l'ultima domanda). */
-  function disegnaAltriAspetti(doc, sopralluogo) {
-    if (!sopralluogo.altri_aspetti) {
+  /**
+   * Pagina finale "ALTRI ASPETTI DA EVIDENZIARE": testo e relative immagini restano nello
+   * stesso blocco, dopo la sezione delle fotografie numerate associate alle domande.
+   */
+  async function disegnaAltriAspetti(doc, sopralluogo, allegatiNote) {
+    if (!sopralluogo.altri_aspetti && !allegatiNote.length) {
       return;
     }
 
@@ -501,8 +504,17 @@ const pdf = (() => {
     y += 10;
 
     doc.setFontSize(10);
-    const righe = avvolgiTesto(doc, sopralluogo.altri_aspetti, LARGHEZZA_PAGINA - MARGINE * 2);
-    doc.text(righe, MARGINE, y);
+    if (sopralluogo.altri_aspetti) {
+      const righe = avvolgiTesto(doc, sopralluogo.altri_aspetti, LARGHEZZA_PAGINA - MARGINE * 2);
+      doc.text(righe, MARGINE, y);
+      y += righe.length * 4.5 + 8;
+    }
+
+    await disegnaPaginaAllegati(doc, allegatiNote, {
+      aggiungiPagina: false,
+      yIniziale: y,
+      titolo: null
+    });
   }
 
   /**
@@ -578,19 +590,22 @@ const pdf = (() => {
   }
 
   /** Pagina "ALLEGATI": tutte le foto scattate durante il sopralluogo, in griglia con didascalia. */
-  async function disegnaPaginaAllegati(doc, elencoFoto) {
+  async function disegnaPaginaAllegati(doc, elencoFoto, opzioni = {}) {
     if (!elencoFoto.length) {
       return;
     }
 
-    doc.addPage();
-    let y = MARGINE;
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'bold');
-    const titoloPagina = elencoFoto[0].altriAspetti ? 'ALLEGATI — NOTE AGGIUNTIVE' : 'ALLEGATI — FOTOGRAFIE';
-    doc.text(titoloPagina, MARGINE, y);
-    doc.setFont(undefined, 'normal');
-    y += 10;
+    const aggiungiPagina = opzioni.aggiungiPagina !== false;
+    if (aggiungiPagina) doc.addPage();
+    let y = opzioni.yIniziale ?? MARGINE;
+    const titoloPagina = opzioni.titolo === undefined ? 'ALLEGATI — FOTOGRAFIE' : opzioni.titolo;
+    if (titoloPagina) {
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      doc.text(titoloPagina, MARGINE, y);
+      doc.setFont(undefined, 'normal');
+      y += 10;
+    }
 
     const COLONNE = 2;
     const GAP = 6;
@@ -619,11 +634,13 @@ const pdf = (() => {
         const yPrima = y;
         y = nuovaRigaSeNecessario(doc, y, ALTEZZA_CELLA + GAP);
         if (y !== yPrima) {
-          doc.setFontSize(14);
-          doc.setFont(undefined, 'bold');
-          doc.text(`${titoloPagina} (segue)`, MARGINE, y);
-          doc.setFont(undefined, 'normal');
-          y += 10;
+          if (titoloPagina) {
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.text(`${titoloPagina} (segue)`, MARGINE, y);
+            doc.setFont(undefined, 'normal');
+            y += 10;
+          }
         }
       }
 
@@ -651,7 +668,7 @@ const pdf = (() => {
       doc.setFontSize(8);
       let didascalia;
       if (voce.altriAspetti) {
-        didascalia = avvolgiTesto(doc, `Allegato note aggiuntive ${indice + 1}`, LARGHEZZA_CELLA);
+        didascalia = [];
       } else {
         const prefisso = `Foto ${indice + 1} — Domanda ${voce.domandaId}: `;
         didascalia = avvolgiTesto(doc, `${prefisso}${voce.domandaTesto}`, LARGHEZZA_CELLA);
@@ -664,7 +681,9 @@ const pdf = (() => {
           } while (didascalia.length > MASSIMO_RIGHE_DIDASCALIA && lunghezzaMassima > 0);
         }
       }
-      doc.text(didascalia, x + LARGHEZZA_CELLA / 2, y + ALTEZZA_MASSIMA_IMMAGINE + 4, { align: 'center' });
+      if (didascalia.length) {
+        doc.text(didascalia, x + LARGHEZZA_CELLA / 2, y + ALTEZZA_MASSIMA_IMMAGINE + 4, { align: 'center' });
+      }
 
       colonna += 1;
       if (colonna >= COLONNE) {
@@ -741,7 +760,7 @@ const pdf = (() => {
     const fotoDomande = await filtraFotoEsistenti(raccoltaFoto.fotoDomande);
     const allegatiNote = await filtraFotoEsistenti(raccoltaFoto.allegatiNote);
     await disegnaPaginaAllegati(doc, fotoDomande);
-    await disegnaPaginaAllegati(doc, allegatiNote);
+    await disegnaAltriAspetti(doc, sopralluogo, allegatiNote);
 
     return doc.output('blob');
   }
@@ -772,10 +791,8 @@ const pdf = (() => {
     y = disegnaTabellaDatiGenerali(doc, checklist, sopralluogo, y, tracciatoreLegenda.hookDidDrawPage);
     disegnaGruppiSezioni(doc, checklist, sopralluogo, y, mappaFotoPerDomanda, tracciatoreLegenda.hookDidDrawPage);
 
-    disegnaAltriAspetti(doc, sopralluogo);
-
     await disegnaPaginaAllegati(doc, fotoDomande);
-    await disegnaPaginaAllegati(doc, allegatiNote);
+    await disegnaAltriAspetti(doc, sopralluogo, allegatiNote);
 
     // Rete di sicurezza per le pagine senza alcuna tabella (Altri aspetti, Allegati): l'hook
     // didDrawPage sopra copre già tutte le pagine toccate da DATI GENERALI o da una tabella di
