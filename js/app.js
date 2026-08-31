@@ -244,6 +244,9 @@ const nuovoSopralluogoScreen = (() => {
   const inputTecnico = document.getElementById('input-tecnico');
   const labelTecnicoAltro = document.getElementById('label-input-tecnico-altro');
   const inputTecnicoAltro = document.getElementById('input-tecnico-altro');
+  const inputTecnico2 = document.getElementById('input-tecnico-2');
+  const labelTecnico2Altro = document.getElementById('label-input-tecnico-2-altro');
+  const inputTecnico2Altro = document.getElementById('input-tecnico-2-altro');
   const inputDataSopralluogo = document.getElementById('input-data-sopralluogo');
   const inputResponsabile = document.getElementById('input-responsabile');
   const inputAreaManager = document.getElementById('input-area-manager');
@@ -272,7 +275,8 @@ const nuovoSopralluogoScreen = (() => {
   async function popolaSuggerimenti() {
     await Promise.all([
       popolaSuggerimentiAnagrafica({ listaPuntiVendita, listaIndirizzi, listaResponsabili, listaAreaManager }),
-      popolaSelectTecnico(inputTecnico)
+      popolaSelectTecnico(inputTecnico),
+      popolaSelectTecnico(inputTecnico2)
     ]);
   }
 
@@ -423,6 +427,7 @@ const nuovoSopralluogoScreen = (() => {
     form.reset();
     inputDataSopralluogo.value = oggiISO();
     aggiornaVisibilitaTecnicoAltro(inputTecnico, labelTecnicoAltro, inputTecnicoAltro);
+    aggiornaVisibilitaTecnicoAltro(inputTecnico2, labelTecnico2Altro, inputTecnico2Altro);
     annullaImportazione(null);
     await Promise.all([popolaSuggerimenti(), caricaChecklistECliente()]);
   }
@@ -435,6 +440,7 @@ const nuovoSopralluogoScreen = (() => {
       indirizzo_punto_vendita: inputIndirizzo.value.trim(),
       numero_dipendenti: inputNumeroDipendenti.value,
       tecnico: leggiValoreTecnico(inputTecnico, inputTecnicoAltro),
+      tecnico_2: leggiValoreTecnico(inputTecnico2, inputTecnico2Altro) || null,
       data_sopralluogo: inputDataSopralluogo.value,
       responsabile_punto_vendita: inputResponsabile.value.trim(),
       area_manager: inputAreaManager.value.trim() || null,
@@ -460,6 +466,7 @@ const nuovoSopralluogoScreen = (() => {
     form.addEventListener('submit', onSubmit);
     inputPuntoVendita.addEventListener('input', filtraChecklistPerCliente);
     inputTecnico.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico, labelTecnicoAltro, inputTecnicoAltro));
+    inputTecnico2.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico2, labelTecnico2Altro, inputTecnico2Altro));
     btnImportaPdf.addEventListener('click', onClickImportaPdf);
     inputImportaPdf.addEventListener('change', onFileImportaPdfSelezionato);
     selectChecklist.addEventListener('change', () => {
@@ -490,6 +497,7 @@ const compilazioneScreen = (() => {
   const btnFoto = document.getElementById('btn-foto');
   const notaEditor = document.getElementById('nota-editor');
   const notaTesto = document.getElementById('nota-testo');
+  const fotoLista = document.getElementById('foto-domanda-lista');
   const erroreValidazione = document.getElementById('errore-validazione');
   const btnIndietro = document.getElementById('btn-indietro');
   const btnAvanti = document.getElementById('btn-avanti');
@@ -517,6 +525,41 @@ const compilazioneScreen = (() => {
 
   function aggiornaContatoreFoto() {
     btnFoto.textContent = fotoDomandaCorrente.length ? `📷 Foto (${fotoDomandaCorrente.length})` : '📷 Foto';
+    fotoLista.hidden = fotoDomandaCorrente.length === 0;
+    fotoLista.innerHTML = '';
+    fotoDomandaCorrente.forEach((fotoId, indice) => {
+      const voce = document.createElement('div');
+      voce.className = 'foto-gestione-voce';
+      const testo = document.createElement('span');
+      testo.textContent = `Foto ${indice + 1}`;
+      voce.appendChild(testo);
+      [['↑', -1], ['↓', 1]].forEach(([etichetta, spostamento]) => {
+        const bottone = document.createElement('button');
+        bottone.type = 'button';
+        bottone.textContent = etichetta;
+        bottone.disabled = indice + spostamento < 0 || indice + spostamento >= fotoDomandaCorrente.length;
+        bottone.addEventListener('click', async () => {
+          const nuovaPosizione = indice + spostamento;
+          [fotoDomandaCorrente[indice], fotoDomandaCorrente[nuovaPosizione]] = [fotoDomandaCorrente[nuovaPosizione], fotoDomandaCorrente[indice]];
+          aggiornaContatoreFoto();
+          const corrente = checklistEngine.domandaCorrente();
+          await salvaRispostaCorrente(corrente.risposta ? corrente.risposta.risposta : null);
+        });
+        voce.appendChild(bottone);
+      });
+      const elimina = document.createElement('button');
+      elimina.type = 'button';
+      elimina.textContent = 'Elimina';
+      elimina.addEventListener('click', async () => {
+        fotoDomandaCorrente = fotoDomandaCorrente.filter((id) => id !== fotoId);
+        aggiornaContatoreFoto();
+        const corrente = checklistEngine.domandaCorrente();
+        await salvaRispostaCorrente(corrente.risposta ? corrente.risposta.risposta : null);
+        await db.eliminaFoto(fotoId);
+      });
+      voce.appendChild(elimina);
+      fotoLista.appendChild(voce);
+    });
   }
 
   function mostraErrore(messaggio) {
@@ -1447,7 +1490,7 @@ const storicoScreen = (() => {
     dettaglio.textContent = `${sopralluogo.indirizzo_punto_vendita || ''} · ${formattaData(sopralluogo.data)} · ${sopralluogo.stato}`;
 
     const tecnico = document.createElement('span');
-    tecnico.textContent = `Tecnico: ${sopralluogo.tecnico || '—'}`;
+    tecnico.textContent = `Tecnico: ${[sopralluogo.tecnico, sopralluogo.tecnico_2].filter(Boolean).join(', ') || '—'}`;
 
     info.appendChild(titolo);
     info.appendChild(statoChiusura);
@@ -1680,6 +1723,9 @@ const duplicaDialog = (() => {
   const inputTecnico = document.getElementById('duplica-tecnico');
   const labelTecnicoAltro = document.getElementById('label-duplica-tecnico-altro');
   const inputTecnicoAltro = document.getElementById('duplica-tecnico-altro');
+  const inputTecnico2 = document.getElementById('duplica-tecnico-2');
+  const labelTecnico2Altro = document.getElementById('label-duplica-tecnico-2-altro');
+  const inputTecnico2Altro = document.getElementById('duplica-tecnico-2-altro');
   const inputData = document.getElementById('duplica-data');
   const bottoneAnnulla = document.getElementById('btn-duplica-annulla');
   const labelPuntoVenditaTesto = document.getElementById('label-duplica-punto-vendita-testo');
@@ -1701,7 +1747,9 @@ const duplicaDialog = (() => {
     inputData.value = oggiISO();
     applicaEtichettePersonalizzate(sopralluogo.checklist_id, { puntoVendita: labelPuntoVenditaTesto });
     await popolaSelectTecnico(inputTecnico);
+    await popolaSelectTecnico(inputTecnico2);
     precompilaTecnico(inputTecnico, labelTecnicoAltro, inputTecnicoAltro, sopralluogo.tecnico);
+    precompilaTecnico(inputTecnico2, labelTecnico2Altro, inputTecnico2Altro, sopralluogo.tecnico_2);
     dialog.showModal();
   }
 
@@ -1715,6 +1763,7 @@ const duplicaDialog = (() => {
       punto_vendita: inputPuntoVendita.value.trim(),
       indirizzo_punto_vendita: inputIndirizzo.value.trim(),
       tecnico: leggiValoreTecnico(inputTecnico, inputTecnicoAltro),
+      tecnico_2: leggiValoreTecnico(inputTecnico2, inputTecnico2Altro) || null,
       data_sopralluogo: inputData.value
     });
     sopralluogoOriginale = null;
@@ -1730,6 +1779,7 @@ const duplicaDialog = (() => {
   function init() {
     form.addEventListener('submit', onSubmit);
     inputTecnico.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico, labelTecnicoAltro, inputTecnicoAltro));
+    inputTecnico2.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico2, labelTecnico2Altro, inputTecnico2Altro));
     bottoneAnnulla.addEventListener('click', () => dialog.close());
   }
 
@@ -1755,6 +1805,9 @@ const anagraficaDialog = (() => {
   const inputTecnico = document.getElementById('anagrafica-tecnico');
   const labelTecnicoAltro = document.getElementById('label-anagrafica-tecnico-altro');
   const inputTecnicoAltro = document.getElementById('anagrafica-tecnico-altro');
+  const inputTecnico2 = document.getElementById('anagrafica-tecnico-2');
+  const labelTecnico2Altro = document.getElementById('label-anagrafica-tecnico-2-altro');
+  const inputTecnico2Altro = document.getElementById('anagrafica-tecnico-2-altro');
   const inputData = document.getElementById('anagrafica-data');
   const inputResponsabile = document.getElementById('anagrafica-responsabile');
   const inputAreaManager = document.getElementById('anagrafica-area-manager');
@@ -1803,7 +1856,9 @@ const anagraficaDialog = (() => {
     });
 
     await popolaSelectTecnico(inputTecnico);
+    await popolaSelectTecnico(inputTecnico2);
     precompilaTecnico(inputTecnico, labelTecnicoAltro, inputTecnicoAltro, sopralluogo.tecnico);
+    precompilaTecnico(inputTecnico2, labelTecnico2Altro, inputTecnico2Altro, sopralluogo.tecnico_2);
 
     popolaSuggerimentiAnagrafica({ listaPuntiVendita, listaIndirizzi, listaResponsabili, listaAreaManager });
     dialog.showModal();
@@ -1817,6 +1872,7 @@ const anagraficaDialog = (() => {
       indirizzo_punto_vendita: inputIndirizzo.value.trim(),
       numero_dipendenti: inputNumeroDipendenti.value,
       tecnico: leggiValoreTecnico(inputTecnico, inputTecnicoAltro),
+      tecnico_2: leggiValoreTecnico(inputTecnico2, inputTecnico2Altro) || null,
       data_sopralluogo: inputData.value,
       responsabile_punto_vendita: inputResponsabile.value.trim(),
       area_manager: inputAreaManager.value.trim() || null,
@@ -1833,6 +1889,7 @@ const anagraficaDialog = (() => {
   function init() {
     form.addEventListener('submit', onSubmit);
     inputTecnico.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico, labelTecnicoAltro, inputTecnicoAltro));
+    inputTecnico2.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico2, labelTecnico2Altro, inputTecnico2Altro));
     bottoneAnnulla.addEventListener('click', () => dialog.close());
   }
 

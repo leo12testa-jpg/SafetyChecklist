@@ -211,7 +211,8 @@ const pdf = (() => {
     const corpo = [
       [etichette.puntoVendita, puntoVendita],
       ['Numero di dipendenti in forza al momento del sopralluogo', String(sopralluogo.numero_dipendenti || '')],
-      ['Tecnico che ha eseguito il sopralluogo', sopralluogo.tecnico || ''],
+      [sopralluogo.tecnico_2 ? 'Tecnici che hanno eseguito il sopralluogo' : 'Tecnico che ha eseguito il sopralluogo',
+        formattaTecnici(sopralluogo)],
       ['Data del sopralluogo', formattaDataSemplice(sopralluogo.data_sopralluogo)],
       [etichette.responsabile, sopralluogo.responsabile_punto_vendita || ''],
       [etichette.presenzaResponsabile, sopralluogo.presenza_responsabile || ''],
@@ -231,6 +232,10 @@ const pdf = (() => {
     });
 
     return doc.lastAutoTable.finalY + 8;
+  }
+
+  function formattaTecnici(sopralluogo) {
+    return [sopralluogo.tecnico, sopralluogo.tecnico_2].filter(Boolean).join('\n');
   }
 
   /** Bandiera blu a piena larghezza con il titolo del macro-gruppo (ANALISI DOCUMENTALE / SOPRALLUOGO AMBIENTI DI LAVORO). */
@@ -358,7 +363,7 @@ const pdf = (() => {
     if (!numeri || !numeri.length) {
       return '';
     }
-    return `(Vedi Foto ${formattaIntervalliNumerici(numeri)})`;
+    return `Vedi ${numeri.map((numero) => `Foto ${numero}`).join(', ')}`;
   }
 
   /**
@@ -516,11 +521,8 @@ const pdf = (() => {
   }
 
   /**
-   * Raccoglie tutte le foto (di qualsiasi domanda, qualsiasi stile di checklist, più le
-   * eventuali foto di "Altri aspetti da evidenziare") con id/testo domanda per la pagina
-   * Allegati. Le foto di "Altri aspetti" sono aggiunte in coda, così la numerazione progressiva
-   * (indice+1, usata sia dalla didascalia sia da "(Vedi Foto N)" nelle tabelle di sezione) resta
-   * unica su tutto il documento senza bisogno di un contatore separato.
+   * Raccoglie separatamente foto delle domande e allegati delle note aggiuntive: soltanto le
+   * prime ricevono la numerazione progressiva usata dai riferimenti incrociati nelle tabelle.
    */
   function raccogliFotoConDidascalia(checklist, sopralluogo) {
     const domandeComplete = [];
@@ -530,14 +532,14 @@ const pdf = (() => {
       });
     });
 
-    const elenco = [];
+    const fotoDomande = [];
     (sopralluogo.risposte || []).forEach((risposta) => {
       if (!risposta.foto || !risposta.foto.length) {
         return;
       }
       const info = domandeComplete.find((d) => d.domanda.id === risposta.domanda_id);
       risposta.foto.forEach((fotoId) => {
-        elenco.push({
+        fotoDomande.push({
           fotoId,
           domandaId: risposta.domanda_id,
           domandaTesto: info ? info.domanda.testo : ''
@@ -545,11 +547,19 @@ const pdf = (() => {
       });
     });
 
-    (sopralluogo.altri_aspetti_foto || []).forEach((fotoId) => {
-      elenco.push({ fotoId, altriAspetti: true });
-    });
+    const allegatiNote = (sopralluogo.altri_aspetti_foto || [])
+      .map((fotoId) => ({ fotoId, altriAspetti: true }));
+    return { fotoDomande, allegatiNote };
+  }
 
-    return elenco;
+  /** Scarta riferimenti orfani storici prima di assegnare i numeri definitivi. */
+  async function filtraFotoEsistenti(elenco) {
+    const risultato = [];
+    for (const voce of elenco) {
+      const record = await db.leggiFoto(voce.fotoId);
+      if (record) risultato.push({ ...voce, record });
+    }
+    return risultato;
   }
 
   /**
@@ -577,7 +587,8 @@ const pdf = (() => {
     let y = MARGINE;
     doc.setFontSize(14);
     doc.setFont(undefined, 'bold');
-    doc.text('ALLEGATI', MARGINE, y);
+    const titoloPagina = elencoFoto[0].altriAspetti ? 'ALLEGATI — NOTE AGGIUNTIVE' : 'ALLEGATI — FOTOGRAFIE';
+    doc.text(titoloPagina, MARGINE, y);
     doc.setFont(undefined, 'normal');
     y += 10;
 
@@ -599,7 +610,7 @@ const pdf = (() => {
     let colonna = 0;
 
     for (const [indice, voce] of elencoFoto.entries()) {
-      const record = await db.leggiFoto(voce.fotoId);
+      const record = voce.record || await db.leggiFoto(voce.fotoId);
       if (!record) {
         continue;
       }
@@ -610,7 +621,7 @@ const pdf = (() => {
         if (y !== yPrima) {
           doc.setFontSize(14);
           doc.setFont(undefined, 'bold');
-          doc.text('ALLEGATI (segue)', MARGINE, y);
+          doc.text(`${titoloPagina} (segue)`, MARGINE, y);
           doc.setFont(undefined, 'normal');
           y += 10;
         }
@@ -640,7 +651,7 @@ const pdf = (() => {
       doc.setFontSize(8);
       let didascalia;
       if (voce.altriAspetti) {
-        didascalia = avvolgiTesto(doc, `Foto ${indice + 1} — Altri aspetti da evidenziare`, LARGHEZZA_CELLA);
+        didascalia = avvolgiTesto(doc, `Allegato note aggiuntive ${indice + 1}`, LARGHEZZA_CELLA);
       } else {
         const prefisso = `Foto ${indice + 1} — Domanda ${voce.domandaId}: `;
         didascalia = avvolgiTesto(doc, `${prefisso}${voce.domandaTesto}`, LARGHEZZA_CELLA);
@@ -726,8 +737,11 @@ const pdf = (() => {
       y += 4;
     });
 
-    const fotoAllegati = raccogliFotoConDidascalia(checklist, sopralluogo);
-    await disegnaPaginaAllegati(doc, fotoAllegati);
+    const raccoltaFoto = raccogliFotoConDidascalia(checklist, sopralluogo);
+    const fotoDomande = await filtraFotoEsistenti(raccoltaFoto.fotoDomande);
+    const allegatiNote = await filtraFotoEsistenti(raccoltaFoto.allegatiNote);
+    await disegnaPaginaAllegati(doc, fotoDomande);
+    await disegnaPaginaAllegati(doc, allegatiNote);
 
     return doc.output('blob');
   }
@@ -748,8 +762,10 @@ const pdf = (() => {
     const logoColligoURL = await ottieniLogoColligo();
     const logoClienteURL = await ottieniLogoCliente(checklist, sopralluogo.punto_vendita);
 
-    const fotoAllegati = raccogliFotoConDidascalia(checklist, sopralluogo);
-    const mappaFotoPerDomanda = costruisciMappaFotoPerDomanda(fotoAllegati);
+    const raccoltaFoto = raccogliFotoConDidascalia(checklist, sopralluogo);
+    const fotoDomande = await filtraFotoEsistenti(raccoltaFoto.fotoDomande);
+    const allegatiNote = await filtraFotoEsistenti(raccoltaFoto.allegatiNote);
+    const mappaFotoPerDomanda = costruisciMappaFotoPerDomanda(fotoDomande);
     const tracciatoreLegenda = creaTracciatoreLegenda(doc);
 
     let y = disegnaIntestazione(doc, logoClienteURL, logoColligoURL);
@@ -758,7 +774,8 @@ const pdf = (() => {
 
     disegnaAltriAspetti(doc, sopralluogo);
 
-    await disegnaPaginaAllegati(doc, fotoAllegati);
+    await disegnaPaginaAllegati(doc, fotoDomande);
+    await disegnaPaginaAllegati(doc, allegatiNote);
 
     // Rete di sicurezza per le pagine senza alcuna tabella (Altri aspetti, Allegati): l'hook
     // didDrawPage sopra copre già tutte le pagine toccate da DATI GENERALI o da una tabella di
@@ -791,5 +808,7 @@ const pdf = (() => {
     URL.revokeObjectURL(url);
   }
 
-  return { generaReport, nomeFile, salvaOCondividi };
+  return { generaReport, nomeFile, salvaOCondividi,
+    _test: { raccogliFotoConDidascalia, costruisciMappaFotoPerDomanda, suffissoVediFoto, filtraFotoEsistenti, formattaTecnici }
+  };
 })();

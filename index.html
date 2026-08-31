@@ -49,15 +49,24 @@
             <input type="number" id="input-numero-dipendenti" inputmode="numeric" min="0">
           </label>
 
-          <label class="campo-form" for="input-tecnico">Tecnico che ha eseguito il sopralluogo
+          <label class="campo-form" for="input-tecnico">Tecnico 1
             <select id="input-tecnico">
               <option value="">Seleziona…</option>
               <option value="__altro__">Altro (scrivi il nome)</option>
             </select>
           </label>
-
           <label class="campo-form" for="input-tecnico-altro" id="label-input-tecnico-altro" hidden>Nome del tecnico
             <input type="text" id="input-tecnico-altro" autocomplete="off">
+          </label>
+
+          <label class="campo-form" for="input-tecnico-2">Tecnico 2 (facoltativo)
+            <select id="input-tecnico-2">
+              <option value="">Nessun secondo tecnico</option>
+              <option value="__altro__">Altro (scrivi il nome)</option>
+            </select>
+          </label>
+          <label class="campo-form" for="input-tecnico-2-altro" id="label-input-tecnico-2-altro" hidden>Nome del secondo tecnico
+            <input type="text" id="input-tecnico-2-altro" autocomplete="off">
           </label>
 
           <label class="campo-form" for="input-data-sopralluogo">Data del sopralluogo
@@ -133,6 +142,7 @@
         <div class="nota-editor" id="nota-editor" hidden>
           <textarea id="nota-testo" placeholder="Note"></textarea>
         </div>
+        <div class="foto-gestione" id="foto-domanda-lista" hidden></div>
 
         <p class="errore-validazione" id="errore-validazione" hidden></p>
 
@@ -251,15 +261,24 @@
           <input type="text" id="duplica-indirizzo" required>
         </label>
 
-        <label class="campo-form" for="duplica-tecnico">Tecnico che esegue il sopralluogo
+          <label class="campo-form" for="duplica-tecnico">Tecnico 1
           <select id="duplica-tecnico" required>
             <option value="">Seleziona…</option>
             <option value="__altro__">Altro (scrivi il nome)</option>
           </select>
-        </label>
+          </label>
+          <label class="campo-form" for="duplica-tecnico-altro" id="label-duplica-tecnico-altro" hidden>Nome del tecnico
+            <input type="text" id="duplica-tecnico-altro" autocomplete="off" required>
+          </label>
 
-        <label class="campo-form" for="duplica-tecnico-altro" id="label-duplica-tecnico-altro" hidden>Nome del tecnico
-          <input type="text" id="duplica-tecnico-altro" autocomplete="off" required>
+        <label class="campo-form" for="duplica-tecnico-2">Tecnico 2 (facoltativo)
+          <select id="duplica-tecnico-2">
+            <option value="">Nessun secondo tecnico</option>
+            <option value="__altro__">Altro (scrivi il nome)</option>
+          </select>
+        </label>
+        <label class="campo-form" for="duplica-tecnico-2-altro" id="label-duplica-tecnico-2-altro" hidden>Nome del secondo tecnico
+          <input type="text" id="duplica-tecnico-2-altro" autocomplete="off">
         </label>
 
         <label class="campo-form" for="duplica-data">Data del sopralluogo
@@ -292,15 +311,24 @@
           <input type="number" id="anagrafica-numero-dipendenti" inputmode="numeric" min="0">
         </label>
 
-        <label class="campo-form" for="anagrafica-tecnico">Tecnico che ha eseguito il sopralluogo
+        <label class="campo-form" for="anagrafica-tecnico">Tecnico 1
           <select id="anagrafica-tecnico">
             <option value="">Seleziona…</option>
             <option value="__altro__">Altro (scrivi il nome)</option>
           </select>
         </label>
-
         <label class="campo-form" for="anagrafica-tecnico-altro" id="label-anagrafica-tecnico-altro" hidden>Nome del tecnico
           <input type="text" id="anagrafica-tecnico-altro" autocomplete="off">
+        </label>
+
+        <label class="campo-form" for="anagrafica-tecnico-2">Tecnico 2 (facoltativo)
+          <select id="anagrafica-tecnico-2">
+            <option value="">Nessun secondo tecnico</option>
+            <option value="__altro__">Altro (scrivi il nome)</option>
+          </select>
+        </label>
+        <label class="campo-form" for="anagrafica-tecnico-2-altro" id="label-anagrafica-tecnico-2-altro" hidden>Nome del secondo tecnico
+          <input type="text" id="anagrafica-tecnico-2-altro" autocomplete="off">
         </label>
 
         <label class="campo-form" for="anagrafica-data">Data del sopralluogo

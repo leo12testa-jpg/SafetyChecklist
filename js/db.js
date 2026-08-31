@@ -96,6 +96,7 @@ const db = (() => {
     indirizzo_punto_vendita,
     numero_dipendenti,
     tecnico,
+    tecnico_2 = null,
     data_sopralluogo,
     responsabile_punto_vendita,
     area_manager = null,
@@ -111,6 +112,7 @@ const db = (() => {
       indirizzo_punto_vendita,
       numero_dipendenti,
       tecnico,
+      tecnico_2: tecnico_2 || null,
       data_sopralluogo,
       responsabile_punto_vendita,
       // Ruolo distinto dal responsabile del punto vendita (un'area manager segue più punti
@@ -154,6 +156,7 @@ const db = (() => {
       indirizzo_punto_vendita: overrides.indirizzo_punto_vendita ?? originale.indirizzo_punto_vendita,
       numero_dipendenti: originale.numero_dipendenti,
       tecnico: overrides.tecnico ?? originale.tecnico,
+      tecnico_2: overrides.tecnico_2 ?? originale.tecnico_2 ?? null,
       data_sopralluogo: overrides.data_sopralluogo ?? originale.data_sopralluogo,
       responsabile_punto_vendita: originale.responsabile_punto_vendita,
       area_manager: originale.area_manager ?? null,
@@ -241,6 +244,12 @@ const db = (() => {
   async function leggiFoto(fotoId) {
     const store = await transazione('foto', 'readonly');
     return richiesta(store.get(fotoId));
+  }
+
+  /** Elimina una singola foto. Il chiamante aggiorna prima l'array che la referenzia. */
+  async function eliminaFoto(fotoId) {
+    const store = await transazione('foto', 'readwrite');
+    await richiesta(store.delete(fotoId));
   }
 
   /** Legge un sopralluogo completo, con l'elenco delle foto collegate (indice sopralluogo_id). */
@@ -468,6 +477,7 @@ const db = (() => {
     riapriSopralluogo,
     salvaFoto,
     leggiFoto,
+    eliminaFoto,
     leggiSopralluogo,
     elencaSopralluoghi,
     elencaCestino,
