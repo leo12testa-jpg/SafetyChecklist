@@ -694,6 +694,15 @@ const pdf = (() => {
   }
 
   /**
+   * Unico punto che governa l'ordine fisico delle sezioni finali del PDF. Ogni funzione
+   * sottostante esegue il proprio addPage soltanto se la relativa sezione esiste.
+   */
+  async function disegnaSezioniFinali(doc, sopralluogo, fotoDomande, allegatiNote) {
+    await disegnaPaginaAllegati(doc, fotoDomande);
+    await disegnaAltriAspetti(doc, sopralluogo, allegatiNote);
+  }
+
+  /**
    * Report segnaposto per checklist "stile": "raccolta-dati" (tipi di domanda eterogenei non
    * ancora supportati dal motore di compilazione né da un layout dedicato). Elenca id/testo
    * domanda e valore salvato in forma leggibile, qualunque sia il tipo (testo, numero, si-no,
@@ -759,8 +768,7 @@ const pdf = (() => {
     const raccoltaFoto = raccogliFotoConDidascalia(checklist, sopralluogo);
     const fotoDomande = await filtraFotoEsistenti(raccoltaFoto.fotoDomande);
     const allegatiNote = await filtraFotoEsistenti(raccoltaFoto.allegatiNote);
-    await disegnaPaginaAllegati(doc, fotoDomande);
-    await disegnaAltriAspetti(doc, sopralluogo, allegatiNote);
+    await disegnaSezioniFinali(doc, sopralluogo, fotoDomande, allegatiNote);
 
     return doc.output('blob');
   }
@@ -791,8 +799,7 @@ const pdf = (() => {
     y = disegnaTabellaDatiGenerali(doc, checklist, sopralluogo, y, tracciatoreLegenda.hookDidDrawPage);
     disegnaGruppiSezioni(doc, checklist, sopralluogo, y, mappaFotoPerDomanda, tracciatoreLegenda.hookDidDrawPage);
 
-    await disegnaPaginaAllegati(doc, fotoDomande);
-    await disegnaAltriAspetti(doc, sopralluogo, allegatiNote);
+    await disegnaSezioniFinali(doc, sopralluogo, fotoDomande, allegatiNote);
 
     // Rete di sicurezza per le pagine senza alcuna tabella (Altri aspetti, Allegati): l'hook
     // didDrawPage sopra copre già tutte le pagine toccate da DATI GENERALI o da una tabella di
@@ -826,6 +833,13 @@ const pdf = (() => {
   }
 
   return { generaReport, nomeFile, salvaOCondividi,
-    _test: { raccogliFotoConDidascalia, costruisciMappaFotoPerDomanda, suffissoVediFoto, filtraFotoEsistenti, formattaTecnici }
+    _test: {
+      raccogliFotoConDidascalia,
+      costruisciMappaFotoPerDomanda,
+      suffissoVediFoto,
+      filtraFotoEsistenti,
+      formattaTecnici,
+      disegnaSezioniFinali
+    }
   };
 })();
