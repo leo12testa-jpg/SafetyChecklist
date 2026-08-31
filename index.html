@@ -119,7 +119,12 @@
 
         <p class="banner-avviso" id="compilazione-banner-import" hidden>⚠️ Dati importati da PDF: verifica ogni risposta prima di generare il nuovo report.</p>
 
-        <div class="progress-bar"><div class="progress-bar-fill" id="progress-fill"></div></div>
+        <div class="progress-bar" id="question-navigator" role="slider" tabindex="0"
+             aria-label="Naviga tra le domande" aria-valuemin="1">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+          <div class="progress-markers" id="progress-markers" aria-hidden="true"></div>
+          <div class="progress-thumb" id="progress-thumb" aria-hidden="true"></div>
+        </div>
         <p class="progress-label" id="progress-label"></p>
 
         <h2 id="compilazione-sezione"></h2>
@@ -378,6 +383,7 @@
   <script src="js/vendor/pdf.min.js"></script>
   <script src="js/db.js"></script>
   <script src="js/checklist.js"></script>
+  <script src="js/question-navigator.js"></script>
   <script src="js/camera.js"></script>
   <script src="js/pdf.js"></script>
   <script src="js/pdf-import.js"></script>

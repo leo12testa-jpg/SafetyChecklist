@@ -108,6 +108,15 @@ const checklistEngine = (() => {
     return true;
   }
 
+  /** Salta a un indice domanda specifico (0-based), senza modificare alcun dato. */
+  function vaiA(nuovoIndice) {
+    if (!Number.isInteger(nuovoIndice) || nuovoIndice < 0 || nuovoIndice >= domande.length) {
+      return false;
+    }
+    indice = nuovoIndice;
+    return true;
+  }
+
   /** Ritorna il sopralluogo attualmente in compilazione (serve a camera.js/pdf.js per l'id). */
   function sopralluogoCorrente() {
     return sopralluogo;
@@ -166,6 +175,7 @@ const checklistEngine = (() => {
     puoAvanzare,
     avanti,
     indietro,
+    vaiA,
     sopralluogoCorrente,
     getChecklist,
     calcolaRiepilogo

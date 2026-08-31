@@ -1,4 +1,4 @@
-const CACHE_NAME = 'safety-checklist-shell-v58';
+const CACHE_NAME = 'safety-checklist-shell-v59';
 
 const APP_SHELL = [
   './',
@@ -16,6 +16,7 @@ const APP_SHELL = [
   './js/app.js',
   './js/db.js',
   './js/checklist.js',
+  './js/question-navigator.js',
   './js/pdf.js',
   './js/pdf-import.js',
   './js/camera.js',

@@ -486,8 +486,12 @@ const nuovoSopralluogoScreen = (() => {
  * Non Conformità e navigazione avanti/indietro (PROJECT.md §7.3, §7.4).
  */
 const compilazioneScreen = (() => {
+  const screen = document.getElementById('screen-compilazione');
+  const progressBar = document.getElementById('question-navigator');
   const progressFill = document.getElementById('progress-fill');
   const progressLabel = document.getElementById('progress-label');
+  const progressMarkers = document.getElementById('progress-markers');
+  const progressThumb = document.getElementById('progress-thumb');
   const sezioneEl = document.getElementById('compilazione-sezione');
   const domandaEl = document.getElementById('compilazione-domanda');
   const opzioniRispostaContainer = document.getElementById('risposte-opzioni');
@@ -505,6 +509,9 @@ const compilazioneScreen = (() => {
   const bannerImport = document.getElementById('compilazione-banner-import');
 
   let fotoDomandaCorrente = [];
+  let ultimoSalvataggio = Promise.resolve(true);
+  let gestoBarra = null;
+  let navigazioneInCorso = false;
 
   /** Etichette visive delle risposte: un solo punto per cambiarle in futuro senza toccare il resto. */
   const ETICHETTE_RISPOSTA = { C: 'C', PC: 'PC', NC: 'NC', NA: 'N.P.' };
@@ -582,18 +589,72 @@ const compilazioneScreen = (() => {
   }
 
   async function salvaRispostaCorrente(valore) {
-    try {
-      await checklistEngine.rispondi({
-        valore,
-        note: notaTesto.value.trim() || null,
-        foto: fotoDomandaCorrente
-      });
-      nascondiErrore();
-      return true;
-    } catch (errore) {
-      mostraErrore(errore.message);
-      return false;
+    ultimoSalvataggio = ultimoSalvataggio.then(async () => {
+      try {
+        await checklistEngine.rispondi({
+          valore,
+          note: notaTesto.value.trim() || null,
+          foto: fotoDomandaCorrente
+        });
+        nascondiErrore();
+        return true;
+      } catch (errore) {
+        mostraErrore(errore.message);
+        return false;
+      }
+    });
+    return ultimoSalvataggio;
+  }
+
+  /** Salva anche l'ultimo valore ancora a fuoco prima di qualsiasi cambio domanda. */
+  async function salvaPrimaDiNavigare() {
+    const elementoAttivo = document.activeElement;
+    if (elementoAttivo && screen.contains(elementoAttivo) && elementoAttivo !== progressBar) {
+      elementoAttivo.blur();
     }
+    await ultimoSalvataggio;
+
+    if (!isStileRaccoltaDati()) {
+      const corrente = checklistEngine.domandaCorrente();
+      const selezionata = opzioniRisposta.find((input) => input.checked);
+      const valore = selezionata ? selezionata.value : (corrente.risposta ? corrente.risposta.risposta : null);
+      const haDati = valore !== null || notaTesto.value.trim() || fotoDomandaCorrente.length;
+      if (haDati && !await salvaRispostaCorrente(valore)) return false;
+    }
+    return ultimoSalvataggio;
+  }
+
+  function percentualeIndice(indice, totale) {
+    return totale <= 1 ? 0 : (indice / (totale - 1)) * 100;
+  }
+
+  function aggiornaAnteprimaBarra(indice, totale) {
+    progressFill.style.width = `${((indice + 1) / totale) * 100}%`;
+    progressThumb.style.left = `${percentualeIndice(indice, totale)}%`;
+    progressLabel.textContent = `Domanda ${indice + 1} / ${totale}`;
+  }
+
+  function ripristinaBarraCorrente() {
+    const corrente = checklistEngine.domandaCorrente();
+    if (!corrente) return;
+    progressFill.style.width = `${((corrente.indice + 1) / corrente.totale) * 100}%`;
+    progressThumb.style.left = `${percentualeIndice(corrente.indice, corrente.totale)}%`;
+    progressLabel.textContent = `Domanda ${corrente.indice + 1} di ${corrente.totale}`;
+  }
+
+  function renderIndicatori(totale, indiceCorrente) {
+    const compilate = new Set((checklistEngine.sopralluogoCorrente().risposte || [])
+      .filter((risposta) => risposta.risposta !== null && risposta.risposta !== undefined && risposta.risposta !== '')
+      .map((risposta) => risposta.domanda_id));
+    const checklist = checklistEngine.getChecklist();
+    const ids = (checklist.sezioni || []).flatMap((sezione) => (sezione.domande || []).map((domanda) => domanda.id));
+    progressMarkers.innerHTML = '';
+    ids.forEach((id, indice) => {
+      const marker = document.createElement('span');
+      marker.className = `progress-marker${compilate.has(id) ? ' is-completed' : ''}${indice === indiceCorrente ? ' is-current' : ''}`;
+      progressMarkers.appendChild(marker);
+    });
+    progressBar.title = `${compilate.size} domande compilate su ${totale}`;
   }
 
   // --- Rendering dinamico dei controlli per checklist "stile": "raccolta-dati" ---
@@ -805,7 +866,12 @@ const compilazioneScreen = (() => {
     bannerImport.hidden = checklistEngine.sopralluogoCorrente().id !== sopralluogoImportatoDaPdf;
 
     progressFill.style.width = `${((indice + 1) / totale) * 100}%`;
+    progressThumb.style.left = `${percentualeIndice(indice, totale)}%`;
     progressLabel.textContent = `Domanda ${indice + 1} di ${totale}`;
+    progressBar.setAttribute('aria-valuemax', String(totale));
+    progressBar.setAttribute('aria-valuenow', String(indice + 1));
+    progressBar.setAttribute('aria-valuetext', `Domanda ${indice + 1} di ${totale}`);
+    renderIndicatori(totale, indice);
     sezioneEl.textContent = sezione;
     domandaEl.textContent = domanda.testo;
 
@@ -884,16 +950,18 @@ const compilazioneScreen = (() => {
   }
 
 
-  function onIndietro() {
-    if (checklistEngine.indietro()) {
+  async function onIndietro() {
+    if (await salvaPrimaDiNavigare() && checklistEngine.indietro()) {
       renderDomandaCorrente();
     }
   }
 
   /** Rispondere è facoltativo: si può avanzare (e terminare) anche senza aver risposto alla domanda corrente. */
-  function onAvanti() {
+  async function onAvanti() {
     const corrente = checklistEngine.domandaCorrente();
     const isUltima = corrente.indice === corrente.totale - 1;
+
+    if (!await salvaPrimaDiNavigare()) return;
 
     if (isUltima) {
       router.navigate('altri-aspetti');
@@ -903,6 +971,84 @@ const compilazioneScreen = (() => {
 
     checklistEngine.avanti();
     renderDomandaCorrente();
+  }
+
+  function indiceDaEvento(evento) {
+    const rect = progressBar.getBoundingClientRect();
+    const totale = checklistEngine.domandaCorrente().totale;
+    return questionNavigator.indiceDaPosizione(evento.clientX, rect.left, rect.width, totale);
+  }
+
+  async function vaiAllaDomanda(indice) {
+    const corrente = checklistEngine.domandaCorrente();
+    if (navigazioneInCorso || !corrente || indice === corrente.indice) {
+      ripristinaBarraCorrente();
+      return;
+    }
+    navigazioneInCorso = true;
+    progressBar.setAttribute('aria-busy', 'true');
+    try {
+      if (await salvaPrimaDiNavigare() && checklistEngine.vaiA(indice)) renderDomandaCorrente();
+      else ripristinaBarraCorrente();
+    } finally {
+      navigazioneInCorso = false;
+      progressBar.removeAttribute('aria-busy');
+    }
+  }
+
+  function terminaGestoBarra(evento, conferma) {
+    if (!gestoBarra || evento.pointerId !== gestoBarra.pointerId) return;
+    const gesto = gestoBarra;
+    gestoBarra = null;
+    progressBar.classList.remove('is-dragging');
+    if (progressBar.hasPointerCapture(evento.pointerId)) progressBar.releasePointerCapture(evento.pointerId);
+    if (conferma && !gesto.annullato) vaiAllaDomanda(gesto.indice);
+    else ripristinaBarraCorrente();
+  }
+
+  function onPointerDownBarra(evento) {
+    if (navigazioneInCorso || evento.button > 0) return;
+    const corrente = checklistEngine.domandaCorrente();
+    if (!corrente) return;
+    gestoBarra = {
+      pointerId: evento.pointerId,
+      xIniziale: evento.clientX,
+      yIniziale: evento.clientY,
+      indice: indiceDaEvento(evento),
+      annullato: false
+    };
+    progressBar.setPointerCapture(evento.pointerId);
+    progressBar.classList.add('is-dragging');
+    aggiornaAnteprimaBarra(gestoBarra.indice, corrente.totale);
+  }
+
+  function onPointerMoveBarra(evento) {
+    if (!gestoBarra || evento.pointerId !== gestoBarra.pointerId) return;
+    const tipo = questionNavigator.classificaMovimento(
+      evento.clientX - gestoBarra.xIniziale,
+      evento.clientY - gestoBarra.yIniziale
+    );
+    if (tipo === 'verticale') {
+      gestoBarra.annullato = true;
+      return;
+    }
+    if (gestoBarra.annullato) return;
+    if (tipo === 'orizzontale') evento.preventDefault();
+    gestoBarra.indice = indiceDaEvento(evento);
+    aggiornaAnteprimaBarra(gestoBarra.indice, checklistEngine.domandaCorrente().totale);
+  }
+
+  function onKeyDownBarra(evento) {
+    const corrente = checklistEngine.domandaCorrente();
+    if (!corrente) return;
+    let destinazione = corrente.indice;
+    if (evento.key === 'ArrowLeft') destinazione -= 1;
+    else if (evento.key === 'ArrowRight') destinazione += 1;
+    else if (evento.key === 'Home') destinazione = 0;
+    else if (evento.key === 'End') destinazione = corrente.totale - 1;
+    else return;
+    evento.preventDefault();
+    vaiAllaDomanda(Math.max(0, Math.min(corrente.totale - 1, destinazione)));
   }
 
   function onModificaAnagrafica() {
@@ -918,6 +1064,11 @@ const compilazioneScreen = (() => {
     btnIndietro.addEventListener('click', onIndietro);
     btnAvanti.addEventListener('click', onAvanti);
     btnModificaAnagrafica.addEventListener('click', onModificaAnagrafica);
+    progressBar.addEventListener('pointerdown', onPointerDownBarra);
+    progressBar.addEventListener('pointermove', onPointerMoveBarra);
+    progressBar.addEventListener('pointerup', (evento) => terminaGestoBarra(evento, true));
+    progressBar.addEventListener('pointercancel', (evento) => terminaGestoBarra(evento, false));
+    progressBar.addEventListener('keydown', onKeyDownBarra);
   }
 
   return { init, renderDomandaCorrente };
