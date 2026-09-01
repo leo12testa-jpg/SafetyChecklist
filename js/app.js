@@ -950,27 +950,50 @@ const compilazioneScreen = (() => {
   }
 
 
+  /**
+   * Guardia di rientranza condivisa con vaiAllaDomanda: senza, un doppio tap/click rapido su
+   * "Avanti"/"Indietro" avvia una SECONDA chiamata mentre la prima è ancora in attesa del
+   * salvataggio asincrono (salvaPrimaDiNavigare). checklistEngine.avanti()/indietro() leggono
+   * l'indice corrente del motore SOLO al termine dell'attesa: se entrambe le chiamate erano
+   * partite con lo stesso indice "di partenza", la seconda avanza/retrocede ANCORA una volta
+   * rispetto al punto in cui la prima è già arrivata, saltando una domanda senza mai mostrarla
+   * (bug riprodotto concretamente con un test dedicato sul motore checklist.js). Chi digita una
+   * nota subito dopo, pensando di essere sulla domanda saltata, la scrive in realtà su quella
+   * successiva.
+   */
   async function onIndietro() {
-    if (await salvaPrimaDiNavigare() && checklistEngine.indietro()) {
-      renderDomandaCorrente();
+    if (navigazioneInCorso) return;
+    navigazioneInCorso = true;
+    try {
+      if (await salvaPrimaDiNavigare() && checklistEngine.indietro()) {
+        renderDomandaCorrente();
+      }
+    } finally {
+      navigazioneInCorso = false;
     }
   }
 
   /** Rispondere è facoltativo: si può avanzare (e terminare) anche senza aver risposto alla domanda corrente. */
   async function onAvanti() {
-    const corrente = checklistEngine.domandaCorrente();
-    const isUltima = corrente.indice === corrente.totale - 1;
+    if (navigazioneInCorso) return;
+    navigazioneInCorso = true;
+    try {
+      const corrente = checklistEngine.domandaCorrente();
+      const isUltima = corrente.indice === corrente.totale - 1;
 
-    if (!await salvaPrimaDiNavigare()) return;
+      if (!await salvaPrimaDiNavigare()) return;
 
-    if (isUltima) {
-      router.navigate('altri-aspetti');
-      altriAspettiScreen.prepara();
-      return;
+      if (isUltima) {
+        router.navigate('altri-aspetti');
+        altriAspettiScreen.prepara();
+        return;
+      }
+
+      checklistEngine.avanti();
+      renderDomandaCorrente();
+    } finally {
+      navigazioneInCorso = false;
     }
-
-    checklistEngine.avanti();
-    renderDomandaCorrente();
   }
 
   function indiceDaEvento(evento) {

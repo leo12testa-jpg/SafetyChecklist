@@ -443,6 +443,20 @@ const pdf = (() => {
           return;
         }
         if (data.section === 'body' && data.column.index === 6) {
+          // jsPDF-autotable chiama questo hook (in fase di calcolo larghezze/altezze) SENZA aver
+          // applicato lo stile della cella al `doc`: il font/stile attivo in questo momento è
+          // quello lasciato da qualunque cosa sia stata disegnata prima (es. "X" in grassetto di
+          // un'altra colonna), non l'italic dichiarato in columnStyles per questa colonna. Se qui
+          // si calcolano le righe con un font diverso da quello usato davvero al disegno (vedi
+          // disegnaNotaGiustificataCentrata, che imposta italic/FONT_SIZE_TABELLA_SEZIONE), il
+          // conteggio delle righe non corrisponde al wrapping reale: osservato concretamente con
+          // lo stile "bold" (più largo) che restava impostato dopo una cella di stato "X" nella
+          // colonna N.P, causando un a-capo più aggressivo del necessario nella nota della riga
+          // subito successiva. Impostare esplicitamente lo stesso font del disegno PRIMA di
+          // calcolare le righe elimina la discrepanza indipendentemente da cosa sia stato
+          // disegnato prima.
+          doc.setFont(undefined, 'italic');
+          doc.setFontSize(FONT_SIZE_TABELLA_SEZIONE);
           const righe = calcolaRigheNota(doc, data.cell.raw);
           data.cell.styles.minCellHeight = righe.length * altezzaRigaMm(doc) + PADDING_VERTICALE_NOTA * 2;
           data.cell._righeGiustificate = righe;
