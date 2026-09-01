@@ -405,7 +405,20 @@ const pdf = (() => {
       rowPageBreak: 'avoid',
       head: [
         [{ content: sezione.titolo, colSpan: 7, styles: { halign: 'left', fontStyle: 'bold', fontSize: 10, fillColor: [255, 255, 255], textColor: [0, 0, 0] } }],
-        ['n.', 'Descrizione attività', 'C', 'P.C', 'N.C', 'N.P', 'Note']
+        [
+          'n.',
+          'Descrizione attività',
+          // Le colonne di stato (C/P.C/N.C/N.P) sono strette (7mm): il cellPadding generico
+          // PADDING_TABELLA_SEZIONE (2.5mm per lato) lascerebbe solo ~2mm di spazio al testo,
+          // troppo poco per "P.C"/"N.C"/"N.P" che andrebbero a capo lettera per lettera. Un
+          // padding e un font ridotti solo per questi 4 header (non per il resto della riga né
+          // per le celle "X" del corpo) bastano a farli stare su una riga sola.
+          { content: 'C', styles: { fontSize: 6.5, cellPadding: 0.5 } },
+          { content: 'P.C', styles: { fontSize: 6.5, cellPadding: 0.5 } },
+          { content: 'N.C', styles: { fontSize: 6.5, cellPadding: 0.5 } },
+          { content: 'N.P', styles: { fontSize: 6.5, cellPadding: 0.5 } },
+          'Note'
+        ]
       ],
       body: corpo,
       theme: 'grid',
