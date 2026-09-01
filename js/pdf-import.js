@@ -62,6 +62,19 @@ const pdfImport = (() => {
   const TOLLERANZA_RIGA_NOTA_PT = 40;
   const TOLLERANZA_RIGA_MULTILINEA_PT = 12;
 
+  /**
+   * Gap (in pt) oltre il quale due righe consecutive di testo (colonna Note o Descrizione
+   * attività) NON sono più considerate parte dello stesso blocco/nota, ma appartengono a una
+   * domanda diversa: deve stare fra l'interlinea normale DENTRO una nota multi-riga e il distacco
+   * minimo FRA due note di righe adiacenti. In js/pdf.js: FONT_SIZE_TABELLA_SEZIONE=7.5pt con
+   * l'interlinea di default di jsPDF (~1.15) dà un'interlinea reale di ~8.6pt entro la stessa
+   * nota; PADDING_VERTICALE_NOTA=3.5mm sopra E sotto ogni blocco nota dà un distacco minimo di
+   * almeno 2*3.5mm ≈ 19.8pt fra il blocco di una riga e quello della riga successiva (mai meno,
+   * anche se la riga è più alta per via della sola Descrizione attività: il testo nota resta
+   * comunque centrato nella sua stessa altezza di riga). 14pt sta a metà, con margine da entrambi.
+   */
+  const SOGLIA_GAP_BLOCCO_PT = 14;
+
   const ETICHETTE_DATI_GENERALI = [
     'punto_vendita',
     'numero_dipendenti',
@@ -143,19 +156,57 @@ const pdfImport = (() => {
   }
 
   /**
+   * Raggruppa delle righe di testo già ordinate dall'alto in basso (vedi raggruppaInLinee) in
+   * "blocchi" di righe contigue: una riga entra nel blocco corrente se il gap dalla riga
+   * precedente è inferiore a SOGLIA_GAP_BLOCCO_PT (interlinea normale dentro una nota multi-
+   * riga), altrimenti apre un blocco nuovo (il gap più ampio segnala il passaggio a una nota/
+   * domanda diversa). Ritorna [{ y, testo }], con `y` pari alla MEDIA delle y di tutte le righe
+   * del blocco — non alla y di una singola riga.
+   */
+  function raggruppaInBlocchi(linee) {
+    const blocchi = [];
+    linee.forEach((riga) => {
+      const blocco = blocchi[blocchi.length - 1];
+      const ultimaRiga = blocco && blocco.righe[blocco.righe.length - 1];
+      if (ultimaRiga && ultimaRiga.y - riga.y < SOGLIA_GAP_BLOCCO_PT) {
+        blocco.righe.push(riga);
+      } else {
+        blocchi.push({ righe: [riga] });
+      }
+    });
+    return blocchi.map((blocco) => ({
+      y: blocco.righe.reduce((somma, r) => somma + r.y, 0) / blocco.righe.length,
+      testo: ricomponiTesto(blocco.righe)
+    }));
+  }
+
+  /**
    * Assegna dei candidati di testo (già filtrati a una colonna) alla riga più vicina in y, entro
    * una tolleranza: stessa tecnica usata sia per le note (colonna a destra) sia, qui sotto, per il
-   * testo della domanda (colonna centrale) — il testo di una riga può sforare in y rispetto
-   * all'ancora numerica quando va su più righe, quindi non basta un confronto diretto sulla y del
-   * numero. Ritorna Map<id, testo ricomposto>.
+   * testo della domanda (colonna centrale). L'assegnazione avviene per BLOCCO di righe contigue
+   * (vedi raggruppaInBlocchi), non riga per riga: sia il testo nota sia il numero "n." sono
+   * disegnati centrati verticalmente nella stessa altezza di riga della tabella (styles.valign:
+   * 'middle' in js/pdf.js), quindi la y MEDIA di un intero blocco coincide con la y del numero
+   * "n." della domanda a cui appartiene molto più precisamente della y di una sua singola riga —
+   * che, specie nell'ultima riga di una nota lunga (5+ righe), può ricadere numericamente più
+   * vicina al numero della domanda SUCCESSIVA se questa ha una riga più corta o senza nota,
+   * "rubandole" quella riga (bug osservato concretamente con note lunghe su domande consecutive:
+   * l'assegnazione riga-per-riga spezzava a metà l'ultima riga di una nota fra la domanda giusta
+   * e quella dopo). Ritorna Map<id, testo ricomposto>.
    */
   function assegnaTestoAllaRigaPiuVicina(candidati, righe, tolleranza) {
-    const parolePerRiga = new Map();
-    candidati.forEach((candidato) => {
+    const linee = raggruppaInLinee(candidati, TOLLERANZA_RIGA_PT);
+    const blocchi = raggruppaInBlocchi(linee);
+
+    const testoPerId = new Map();
+    blocchi.forEach((blocco) => {
+      if (!blocco.testo) {
+        return;
+      }
       let rigaVicina = null;
       let distanzaMinima = Infinity;
       righe.forEach((riga) => {
-        const distanza = Math.abs(candidato.y - riga.y);
+        const distanza = Math.abs(blocco.y - riga.y);
         if (distanza < distanzaMinima) {
           distanzaMinima = distanza;
           rigaVicina = riga;
@@ -164,18 +215,8 @@ const pdfImport = (() => {
       if (!rigaVicina || distanzaMinima > tolleranza) {
         return;
       }
-      if (!parolePerRiga.has(rigaVicina.id)) {
-        parolePerRiga.set(rigaVicina.id, []);
-      }
-      parolePerRiga.get(rigaVicina.id).push(candidato);
-    });
-
-    const testoPerId = new Map();
-    parolePerRiga.forEach((parti, id) => {
-      const testo = ricomponiTesto(raggruppaInLinee(parti, TOLLERANZA_RIGA_PT));
-      if (testo) {
-        testoPerId.set(id, testo);
-      }
+      const precedente = testoPerId.get(rigaVicina.id);
+      testoPerId.set(rigaVicina.id, precedente ? `${precedente} ${blocco.testo}` : blocco.testo);
     });
     return testoPerId;
   }
