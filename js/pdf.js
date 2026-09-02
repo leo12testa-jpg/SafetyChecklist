@@ -268,6 +268,24 @@ const pdf = (() => {
   const PADDING_TABELLA_SEZIONE = 2.5;
   const LARGHEZZA_COLONNA_NOTE = 77;
   const LARGHEZZA_NOTA_DISPONIBILE = LARGHEZZA_COLONNA_NOTE - PADDING_TABELLA_SEZIONE * 2;
+  const LARGHEZZA_COLONNA_DOMANDA = 65;
+  const LARGHEZZA_DOMANDA_DISPONIBILE = LARGHEZZA_COLONNA_DOMANDA - PADDING_TABELLA_SEZIONE * 2;
+
+  /**
+   * Separa il testo di una domanda in "titolo" (riferimento normativo/titolo, prima del primo
+   * a-capo — disegnato in grassetto nella colonna "Descrizione attività") e "resto" (la domanda
+   * vera e propria che segue, in chiaro). Le domande senza a-capo (una singola frase, es.
+   * "Gli estintori sono mantenuti accessibili e visibili?") non hanno un titolo da distinguere:
+   * restano interamente in chiaro, tutte nel "resto".
+   */
+  function dividiTitoloDomanda(testo) {
+    const testoStr = String(testo || '');
+    const indice = testoStr.indexOf('\n');
+    if (indice === -1) {
+      return { titolo: '', resto: testoStr };
+    }
+    return { titolo: testoStr.slice(0, indice), resto: testoStr.slice(indice + 1) };
+  }
 
   /**
    * Padding verticale (sopra/sotto) della sola colonna Note, più ampio del cellPadding generico
@@ -327,6 +345,40 @@ const pdf = (() => {
     // + altezzaRiga*0.75: doc.text usa la baseline, non il top del blocco di testo.
     const yIniziale = cella.y + (cella.height - altezzaBlocco) / 2 + altezzaRiga * 0.75;
     doc.text(righe, x, yIniziale, { maxWidth: LARGHEZZA_NOTA_DISPONIBILE, align: 'justify' });
+    doc.setFont(undefined, 'normal');
+  }
+
+  /**
+   * Testo della colonna "Descrizione attività" a stili misti: le righe del titolo/riferimento
+   * normativo (prima del primo a-capo, vedi dividiTitoloDomanda) in grassetto, seguite dalle
+   * righe della domanda vera e propria in chiaro — stesso blocco, centrato verticalmente
+   * nell'altezza della riga come il resto della tabella (jsPDF-autotable non supporta run di
+   * stili diversi nella stessa cella nativamente, quindi qui si disabilita il disegno automatico
+   * della cella, come per la colonna Note, e si disegna a mano in didDrawCell).
+   */
+  function disegnaDomandaMista(doc, cella) {
+    const righeTitolo = cella._righeTitoloDomanda || [];
+    const righeResto = cella._righeRestoDomanda || [];
+    const totaleRighe = righeTitolo.length + righeResto.length;
+    if (!totaleRighe) {
+      return;
+    }
+    doc.setFontSize(FONT_SIZE_TABELLA_SEZIONE);
+    const altezzaRiga = altezzaRigaMm(doc);
+    const altezzaBlocco = totaleRighe * altezzaRiga;
+    const x = cella.x + PADDING_TABELLA_SEZIONE;
+    // + altezzaRiga*0.75: doc.text usa la baseline, non il top del blocco di testo.
+    let y = cella.y + (cella.height - altezzaBlocco) / 2 + altezzaRiga * 0.75;
+
+    if (righeTitolo.length) {
+      doc.setFont(undefined, 'bold');
+      doc.text(righeTitolo, x, y, { maxWidth: LARGHEZZA_DOMANDA_DISPONIBILE });
+      y += righeTitolo.length * altezzaRiga;
+    }
+    if (righeResto.length) {
+      doc.setFont(undefined, 'normal');
+      doc.text(righeResto, x, y, { maxWidth: LARGHEZZA_DOMANDA_DISPONIBILE });
+    }
     doc.setFont(undefined, 'normal');
   }
 
@@ -426,7 +478,7 @@ const pdf = (() => {
       headStyles: { fillColor: [225, 225, 225], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', fontSize: FONT_SIZE_TABELLA_SEZIONE },
       columnStyles: {
         0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 65, fontStyle: 'bold' },
+        1: { cellWidth: LARGHEZZA_COLONNA_DOMANDA },
         2: { cellWidth: 7, halign: 'center' },
         3: { cellWidth: 7, halign: 'center' },
         4: { cellWidth: 7, halign: 'center' },
@@ -440,6 +492,23 @@ const pdf = (() => {
             data.cell.styles.textColor = colore;
             data.cell.styles.fontStyle = 'bold';
           }
+          return;
+        }
+        if (data.section === 'body' && data.column.index === 1) {
+          // Stesso motivo del blocco per la colonna Note poco sotto: il font/stile lasciato attivo
+          // da una cella disegnata prima (es. "X" in grassetto) non è quello dichiarato per questa
+          // colonna, va impostato esplicitamente prima di misurare le righe di titolo/resto.
+          doc.setFontSize(FONT_SIZE_TABELLA_SEZIONE);
+          const { titolo, resto } = dividiTitoloDomanda(data.cell.raw);
+          doc.setFont(undefined, 'bold');
+          const righeTitolo = titolo ? avvolgiTesto(doc, titolo, LARGHEZZA_DOMANDA_DISPONIBILE) : [];
+          doc.setFont(undefined, 'normal');
+          const righeResto = resto ? avvolgiTesto(doc, resto, LARGHEZZA_DOMANDA_DISPONIBILE) : [];
+          const totaleRighe = righeTitolo.length + righeResto.length;
+          data.cell.styles.minCellHeight = totaleRighe * altezzaRigaMm(doc) + PADDING_TABELLA_SEZIONE * 2;
+          data.cell._righeTitoloDomanda = righeTitolo;
+          data.cell._righeRestoDomanda = righeResto;
+          data.cell.text = [];
           return;
         }
         if (data.section === 'body' && data.column.index === 6) {
@@ -464,6 +533,9 @@ const pdf = (() => {
         }
       },
       didDrawCell(data) {
+        if (data.section === 'body' && data.column.index === 1) {
+          disegnaDomandaMista(doc, data.cell);
+        }
         if (data.section === 'body' && data.column.index === 6) {
           disegnaNotaGiustificataCentrata(doc, data.cell);
         }
@@ -884,7 +956,8 @@ const pdf = (() => {
       suffissoVediFoto,
       filtraFotoEsistenti,
       formattaTecnici,
-      disegnaSezioniFinali
+      disegnaSezioniFinali,
+      dividiTitoloDomanda
     }
   };
 })();
