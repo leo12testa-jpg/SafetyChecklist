@@ -482,6 +482,16 @@ const nuovoSopralluogoScreen = (() => {
 })();
 
 /**
+ * Icone/testo dell'indicatore di upload su Supabase per singola foto (vedi js/foto-sync.js):
+ * condiviso fra compilazioneScreen e altriAspettiScreen, entrambi con foto proprie.
+ */
+const ETICHETTE_STATO_UPLOAD = {
+  'in-corso': { simbolo: '⏳', titolo: 'Caricamento in corso su Supabase…' },
+  completato: { simbolo: '✓', titolo: 'Foto sincronizzata su Supabase' },
+  fallito: { simbolo: '⚠', titolo: 'Caricamento non riuscito, verrà ritentato automaticamente' }
+};
+
+/**
  * Schermata di Compilazione: una domanda alla volta, con opzioni C/PC/NC/NA, note, sotto-form
  * Non Conformità e navigazione avanti/indietro (PROJECT.md §7.3, §7.4).
  */
@@ -516,6 +526,24 @@ const compilazioneScreen = (() => {
   /** Etichette visive delle risposte: un solo punto per cambiarle in futuro senza toccare il resto. */
   const ETICHETTE_RISPOSTA = { C: 'C', PC: 'PC', NC: 'NC', NA: 'N.P.' };
 
+  /**
+   * Piccolo indicatore (spinner/segno di spunta) dello stato di caricamento su Supabase di una
+   * foto: vuoto per foto non toccate in questa sessione (già sincronizzate in una sessione
+   * precedente, o sopralluogo riaperto), così da non dover interrogare la rete solo per
+   * disegnare l'interfaccia.
+   */
+  function creaIndicatoreUpload(fotoId) {
+    const span = document.createElement('span');
+    span.className = 'foto-stato-upload';
+    const stato = fotoSync.statoDi(fotoId);
+    if (stato && ETICHETTE_STATO_UPLOAD[stato]) {
+      span.classList.add(`is-${stato}`);
+      span.textContent = ETICHETTE_STATO_UPLOAD[stato].simbolo;
+      span.title = ETICHETTE_STATO_UPLOAD[stato].titolo;
+    }
+    return span;
+  }
+
   function applicaEtichetteRisposta() {
     opzioniRisposta.forEach((input) => {
       const etichetta = input.nextElementSibling;
@@ -540,6 +568,7 @@ const compilazioneScreen = (() => {
       const testo = document.createElement('span');
       testo.textContent = `Foto ${indice + 1}`;
       voce.appendChild(testo);
+      voce.appendChild(creaIndicatoreUpload(fotoId));
       [['↑', -1], ['↓', 1]].forEach(([etichetta, spostamento]) => {
         const bottone = document.createElement('button');
         bottone.type = 'button';
@@ -562,7 +591,8 @@ const compilazioneScreen = (() => {
         aggiornaContatoreFoto();
         const corrente = checklistEngine.domandaCorrente();
         await salvaRispostaCorrente(corrente.risposta ? corrente.risposta.risposta : null);
-        await db.eliminaFoto(fotoId);
+        const fotoEliminata = await db.eliminaFoto(fotoId);
+        fotoSync.eliminaFotoRemota(fotoEliminata);
       });
       voce.appendChild(elimina);
       fotoLista.appendChild(voce);
@@ -1083,6 +1113,13 @@ const compilazioneScreen = (() => {
     opzioniRisposta.forEach((input) => input.addEventListener('change', onCambioRisposta));
     btnNote.addEventListener('click', onToggleNote);
     btnFoto.addEventListener('click', onFoto);
+    // Ridisegna l'indicatore di upload quando lo stato di una foto della domanda corrente
+    // cambia in background (es. upload che si completa dopo il rendering iniziale).
+    fotoSync.onCambioStato((fotoId) => {
+      if (fotoDomandaCorrente.includes(fotoId)) {
+        aggiornaContatoreFoto();
+      }
+    });
     notaTesto.addEventListener('change', onNotaModificata);
     btnIndietro.addEventListener('click', onIndietro);
     btnAvanti.addEventListener('click', onAvanti);
@@ -1105,14 +1142,31 @@ const altriAspettiScreen = (() => {
   const textarea = document.getElementById('altri-aspetti-testo');
   const btnAvanti = document.getElementById('btn-altri-aspetti-avanti');
   const btnFoto = document.getElementById('btn-altri-aspetti-foto');
+  const statoUploadEl = document.getElementById('altri-aspetti-foto-stato');
   const erroreEl = document.getElementById('altri-aspetti-errore');
 
   // Foto collegate a questo campo speciale (non a una domanda): sopralluogo.altri_aspetti_foto,
   // stesso meccanismo di camera.js/db.salvaFoto già usato per le domande, con domanda_id null.
   let fotoAltriAspetti = [];
 
+  /**
+   * Nessun elenco per-foto qui (a differenza di Compilazione): un solo indicatore aggregato
+   * accanto al pulsante, in-corso se almeno una foto sta ancora caricando, altrimenti l'ultimo
+   * esito noto. Vuoto se nessuna foto è stata toccata in questa sessione.
+   */
+  function aggiornaStatoUpload() {
+    const stati = fotoAltriAspetti.map((id) => fotoSync.statoDi(id));
+    const stato = stati.includes('in-corso') ? 'in-corso'
+      : stati.includes('fallito') ? 'fallito'
+      : stati.length && stati.every((s) => s === 'completato') ? 'completato'
+      : null;
+    statoUploadEl.textContent = stato ? ETICHETTE_STATO_UPLOAD[stato].simbolo : '';
+    statoUploadEl.title = stato ? ETICHETTE_STATO_UPLOAD[stato].titolo : '';
+  }
+
   function aggiornaContatoreFoto() {
     btnFoto.textContent = fotoAltriAspetti.length ? `📷 Foto (${fotoAltriAspetti.length})` : '📷 Foto';
+    aggiornaStatoUpload();
   }
 
   function mostraErrore(messaggio) {
@@ -1151,6 +1205,11 @@ const altriAspettiScreen = (() => {
   function init() {
     btnAvanti.addEventListener('click', onAvanti);
     btnFoto.addEventListener('click', onFoto);
+    fotoSync.onCambioStato((fotoId) => {
+      if (fotoAltriAspetti.includes(fotoId)) {
+        aggiornaStatoUpload();
+      }
+    });
   }
 
   return { init, prepara };
@@ -1429,7 +1488,12 @@ const storicoScreen = (() => {
     }
   }
 
-  /** Conta quante foto referenziate dalle risposte (o da "Altri aspetti") di un sopralluogo non sono (più) presenti in locale. */
+  /**
+   * Conta quante foto referenziate dalle risposte (o da "Altri aspetti") di un sopralluogo non
+   * sono ottenibili né in locale né da Supabase Storage (vedi fotoSync.risolviFoto): con la
+   * sincronizzazione delle foto, questo dovrebbe restare raro (solo foto mai caricate, es.
+   * scattate offline e non ancora sincronizzate) invece che sistematico come prima.
+   */
   async function contaFotoMancanti(sopralluogo) {
     const idFoto = (sopralluogo.risposte || [])
       .flatMap((r) => r.foto || [])
@@ -1437,7 +1501,7 @@ const storicoScreen = (() => {
     if (!idFoto.length) {
       return 0;
     }
-    const trovate = await Promise.all(idFoto.map((id) => db.leggiFoto(id)));
+    const trovate = await Promise.all(idFoto.map((id) => fotoSync.risolviFoto(id, sopralluogo)));
     return trovate.filter((foto) => !foto).length;
   }
 
@@ -2127,6 +2191,9 @@ const cestinoScreen = (() => {
       bottone.textContent = 'Eliminazione…';
       try {
         await db.eliminaSopralluogo(sopralluogo.id);
+        // Best-effort, non attesa: la cancellazione locale (irreversibile per l'utente) non deve
+        // dipendere dalla rete o da Supabase, che al più lascerà qualche file orfano nel bucket.
+        fotoSync.eliminaFotoDiSopralluoghi([sopralluogo]);
         cestinoCache = cestinoCache.filter((s) => s.id !== sopralluogo.id);
         render();
       } catch (errore) {
@@ -2251,6 +2318,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   anagraficaDialog.init();
   cestinoScreen.init();
   impostazioniScreen.init();
+  fotoSync.init();
 
   const sincronizzazioneIniziale = await sync.init();
 
@@ -2264,7 +2332,9 @@ document.addEventListener('DOMContentLoaded', async () => {
    * urgente (i 30 giorni di margine assorbono un ciclo saltato) e riproverà al prossimo avvio.
    */
   if (sincronizzazioneIniziale) {
-    db.pulisciCestino().catch((errore) => console.error('Pulizia automatica del cestino fallita:', errore));
+    db.pulisciCestino()
+      .then((eliminati) => fotoSync.eliminaFotoDiSopralluoghi(eliminati))
+      .catch((errore) => console.error('Pulizia automatica del cestino fallita:', errore));
   } else {
     console.warn('Pulizia automatica del cestino saltata: sincronizzazione iniziale non riuscita o offline.');
   }

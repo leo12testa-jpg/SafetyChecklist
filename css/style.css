@@ -394,6 +394,29 @@ body {
 
 .foto-gestione-voce button { padding: 0.2rem 0.4rem; }
 
+/* Indicatore di caricamento su Supabase Storage (js/foto-sync.js): vuoto finché la foto non è
+   stata toccata in questa sessione, poi spinner/segno di spunta/avviso in base all'esito. */
+.foto-stato-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  font-size: 0.9rem;
+}
+
+.foto-stato-upload.is-in-corso {
+  animation: foto-stato-upload-rotazione 1s linear infinite;
+}
+
+.foto-stato-upload.is-completato { color: #1b7f3a; }
+
+.foto-stato-upload.is-fallito { color: #b3261e; }
+
+@keyframes foto-stato-upload-rotazione {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .errore-validazione {
   color: #b3261e;
   font-weight: 600;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'safety-checklist-shell-v59';
+const CACHE_NAME = 'safety-checklist-shell-v60';
 
 const APP_SHELL = [
   './',
@@ -11,12 +11,15 @@ const APP_SHELL = [
   './js/vendor/firebase-app-compat.js',
   './js/vendor/firebase-firestore-compat.js',
   './js/firebase-config.js',
+  './js/vendor/supabase.js',
+  './js/supabase-config.js',
   './js/vendor/pdf.min.js',
   './js/vendor/pdf.worker.min.js',
   './js/app.js',
   './js/db.js',
   './js/checklist.js',
   './js/question-navigator.js',
+  './js/foto-sync.js',
   './js/pdf.js',
   './js/pdf-import.js',
   './js/camera.js',

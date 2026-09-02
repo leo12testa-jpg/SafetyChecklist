@@ -127,6 +127,11 @@ const db = (() => {
       risposte: [],
       altri_aspetti: null,
       altri_aspetti_foto: [],
+      // Mappa fotoId -> {url, path} su Supabase Storage (vedi js/foto-sync.js), popolata via
+      // impostaUrlFotoSopralluogo mano a mano che le foto vengono caricate: viaggia con la
+      // sincronizzazione testuale (js/sync.js) così resta consultabile anche da un dispositivo
+      // che non ha mai avuto quella foto in locale.
+      foto_url: {},
       aggiornato_il: adesso
     };
     await richiesta(store.add(sopralluogo));
@@ -168,6 +173,7 @@ const db = (() => {
       risposte: (originale.risposte || []).map((risposta) => ({ ...risposta, foto: [] })),
       altri_aspetti: null,
       altri_aspetti_foto: [],
+      foto_url: {},
       aggiornato_il: adesso
     };
 
@@ -217,6 +223,26 @@ const db = (() => {
     return sopralluogo;
   }
 
+  /**
+   * Aggiorna la mappa fotoId -> {url, path} di un sopralluogo dopo l'upload riuscito di una foto
+   * su Supabase Storage (js/foto-sync.js): passando dall'usuale notificaCambiamento, l'url viaggia
+   * con la sincronizzazione testuale su Firestore (js/sync.js) e resta consultabile anche da un
+   * dispositivo che non ha mai avuto quella foto in locale (vedi js/pdf.js). No-op se il
+   * sopralluogo è stato nel frattempo eliminato in locale.
+   */
+  async function impostaUrlFotoSopralluogo(sopralluogoId, fotoId, { url, path }) {
+    const store = await transazione('sopralluoghi', 'readwrite');
+    const sopralluogo = await richiesta(store.get(sopralluogoId));
+    if (!sopralluogo) {
+      return;
+    }
+    sopralluogo.foto_url = { ...(sopralluogo.foto_url || {}), [fotoId]: { url, path } };
+    sopralluogo.aggiornato_il = new Date().toISOString();
+    await richiesta(store.put(sopralluogo));
+    notificaCambiamento({ tipo: 'upsert', sopralluogo });
+    return sopralluogo;
+  }
+
   /** Aggiorna campi di un sopralluogo esistente (es. stato: "completato", altri_aspetti). */
   async function aggiornaSopralluogo(sopralluogoId, cambiamenti) {
     const store = await transazione('sopralluoghi', 'readwrite');
@@ -246,10 +272,44 @@ const db = (() => {
     return richiesta(store.get(fotoId));
   }
 
-  /** Elimina una singola foto. Il chiamante aggiorna prima l'array che la referenzia. */
+  /**
+   * Elimina una singola foto. Il chiamante aggiorna prima l'array che la referenzia. Ritorna il
+   * record appena eliminato (contiene sopralluogo_id/domanda_id e, se già caricata, storage_path
+   * su Supabase), o undefined se non esisteva: usato da js/foto-sync.js per eliminare anche il
+   * file corrispondente da remoto.
+   */
   async function eliminaFoto(fotoId) {
     const store = await transazione('foto', 'readwrite');
+    const foto = await richiesta(store.get(fotoId));
     await richiesta(store.delete(fotoId));
+    return foto;
+  }
+
+  /**
+   * Salva su un record foto locale l'url pubblico e il percorso ottenuti dopo l'upload su
+   * Supabase Storage (js/foto-sync.js). No-op se la foto è stata nel frattempo eliminata in
+   * locale (es. utente che elimina la foto mentre l'upload in background è ancora in corso):
+   * niente da aggiornare, non è più referenziata da nessuna parte.
+   */
+  async function impostaUrlFoto(fotoId, { url, storage_path }) {
+    const store = await transazione('foto', 'readwrite');
+    const foto = await richiesta(store.get(fotoId));
+    if (!foto) {
+      return;
+    }
+    foto.url = url;
+    foto.storage_path = storage_path;
+    await richiesta(store.put(foto));
+  }
+
+  /**
+   * Foto salvate in locale ma non ancora caricate su Supabase (nessun campo "url"): usata da
+   * js/foto-sync.js per ritentare gli upload rimasti in sospeso al ritorno della connessione.
+   */
+  async function elencaFotoSenzaUrl() {
+    const store = await transazione('foto', 'readonly');
+    const tutte = await richiesta(store.getAll());
+    return tutte.filter((foto) => !foto.url);
   }
 
   /** Legge un sopralluogo completo, con l'elenco delle foto collegate (indice sopralluogo_id). */
@@ -346,6 +406,10 @@ const db = (() => {
    * esplicitamente quando elimina qualcosa (quanti, quali id, da quando erano nel cestino) — in
    * modo da avere una traccia diretta in console invece di dover ricostruire tutto a posteriori
    * dai soli timestamp Firestore, se in futuro succede ancora qualcosa di inatteso.
+   *
+   * Ritorna l'elenco dei sopralluoghi eliminati (non solo il conteggio): il chiamante (app.js) lo
+   * usa per eliminare anche le rispettive foto da Supabase Storage (js/foto-sync.js), che questo
+   * modulo non conosce.
    */
   async function pulisciCestino() {
     const cestino = await elencaCestino();
@@ -368,7 +432,7 @@ const db = (() => {
       await eliminaSopralluogo(sopralluogo.id);
     }
 
-    return daEliminare.length;
+    return daEliminare;
   }
 
   /** Cancella (via cursore, stessa transazione) tutte le foto collegate a un sopralluogo. */
@@ -478,6 +542,9 @@ const db = (() => {
     salvaFoto,
     leggiFoto,
     eliminaFoto,
+    impostaUrlFoto,
+    elencaFotoSenzaUrl,
+    impostaUrlFotoSopralluogo,
     leggiSopralluogo,
     elencaSopralluoghi,
     elencaCestino,

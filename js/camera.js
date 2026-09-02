@@ -61,6 +61,9 @@ const camera = (() => {
   /**
    * Apre fotocamera/galleria, comprime la foto scelta e la salva collegata a un sopralluogo
    * ed eventualmente a una domanda (usato sia per domande normali che per il sotto-form NC).
+   * Avvia anche (senza attendere: mai bloccare la UI né il ritorno di questa funzione) il
+   * caricamento su Supabase Storage via js/foto-sync.js: se fallisce o si è offline la foto
+   * resta comunque valida solo in locale, verrà ritentata al ritorno della connessione.
    * Ritorna l'id della foto salvata in db.js.
    */
   async function scattaFoto({ sopralluogo_id, domanda_id = null }) {
@@ -68,7 +71,9 @@ const camera = (() => {
     const { img, url } = await caricaImmagine(file);
     try {
       const blob = await comprimi(img);
-      return await db.salvaFoto({ sopralluogo_id, domanda_id, blob });
+      const fotoId = await db.salvaFoto({ sopralluogo_id, domanda_id, blob });
+      fotoSync.caricaFoto({ fotoId, sopralluogo_id, domanda_id, blob });
+      return fotoId;
     } finally {
       URL.revokeObjectURL(url);
     }

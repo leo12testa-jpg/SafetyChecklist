@@ -591,11 +591,17 @@ const pdf = (() => {
     return { fotoDomande, allegatiNote };
   }
 
-  /** Scarta riferimenti orfani storici prima di assegnare i numeri definitivi. */
-  async function filtraFotoEsistenti(elenco) {
+  /**
+   * Scarta riferimenti orfani storici prima di assegnare i numeri definitivi. Risolve ogni foto
+   * con fotoSync.risolviFoto: locale se presente su questo dispositivo, altrimenti scaricata da
+   * Supabase Storage se il sopralluogo ne ha un riferimento (foto scattata da un altro
+   * dispositivo, vedi js/foto-sync.js). "sopralluogo" è facoltativo: senza, resta il solo
+   * comportamento locale (usato dai test).
+   */
+  async function filtraFotoEsistenti(elenco, sopralluogo) {
     const risultato = [];
     for (const voce of elenco) {
-      const record = await db.leggiFoto(voce.fotoId);
+      const record = await fotoSync.risolviFoto(voce.fotoId, sopralluogo);
       if (record) risultato.push({ ...voce, record });
     }
     return risultato;
@@ -652,7 +658,7 @@ const pdf = (() => {
     let colonna = 0;
 
     for (const [indice, voce] of elencoFoto.entries()) {
-      const record = voce.record || await db.leggiFoto(voce.fotoId);
+      const record = voce.record || await fotoSync.risolviFoto(voce.fotoId);
       if (!record) {
         continue;
       }
@@ -793,8 +799,8 @@ const pdf = (() => {
     });
 
     const raccoltaFoto = raccogliFotoConDidascalia(checklist, sopralluogo);
-    const fotoDomande = await filtraFotoEsistenti(raccoltaFoto.fotoDomande);
-    const allegatiNote = await filtraFotoEsistenti(raccoltaFoto.allegatiNote);
+    const fotoDomande = await filtraFotoEsistenti(raccoltaFoto.fotoDomande, sopralluogo);
+    const allegatiNote = await filtraFotoEsistenti(raccoltaFoto.allegatiNote, sopralluogo);
     await disegnaSezioniFinali(doc, sopralluogo, fotoDomande, allegatiNote);
 
     return doc.output('blob');
@@ -817,8 +823,8 @@ const pdf = (() => {
     const logoClienteURL = await ottieniLogoCliente(checklist, sopralluogo.punto_vendita);
 
     const raccoltaFoto = raccogliFotoConDidascalia(checklist, sopralluogo);
-    const fotoDomande = await filtraFotoEsistenti(raccoltaFoto.fotoDomande);
-    const allegatiNote = await filtraFotoEsistenti(raccoltaFoto.allegatiNote);
+    const fotoDomande = await filtraFotoEsistenti(raccoltaFoto.fotoDomande, sopralluogo);
+    const allegatiNote = await filtraFotoEsistenti(raccoltaFoto.allegatiNote, sopralluogo);
     const mappaFotoPerDomanda = costruisciMappaFotoPerDomanda(fotoDomande);
     const tracciatoreLegenda = creaTracciatoreLegenda(doc);
 

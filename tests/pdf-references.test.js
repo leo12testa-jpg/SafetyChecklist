@@ -12,7 +12,7 @@ function caricaPdf(fotoPresenti = {}) {
   }
   const context = {
     console,
-    db: { leggiFoto: async (id) => fotoPresenti[id] },
+    fotoSync: { risolviFoto: async (id) => fotoPresenti[id] || null },
     window: {}, navigator: {}, URL: {}, File: function File() {}, Blob,
     fetch: async () => ({ ok: false }),
     FileReader: FileReaderFinto,
