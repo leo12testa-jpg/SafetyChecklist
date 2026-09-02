@@ -20,6 +20,12 @@ const pdf = (() => {
 
   const LEGENDA = 'C = Conforme;   P.C = Parzialmente conforme;   N.C = Non conforme;   N.P = Non pertinente';
 
+  // Segnaposto per il totale pagine (jsPDF.putTotalPages): il numero totale non è noto finché
+  // tutto il documento non è stato disegnato (le pagine di Allegati/Altri aspetti arrivano dopo
+  // le tabelle di sezione), quindi si scrive questo testo al momento e lo si sostituisce ovunque
+  // compaia in un'unica passata finale, vedi generaReport.
+  const SEGNAPOSTO_TOTALE_PAGINE = '{total_pages_count_string}';
+
   function blobADataURL(blob) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -189,6 +195,12 @@ const pdf = (() => {
       doc.setFontSize(7.5);
       doc.setFont(undefined, 'italic');
       doc.text(LEGENDA, MARGINE, ALTEZZA_PAGINA - 8);
+      doc.text(
+        `Pag. ${numeroPagina} di ${SEGNAPOSTO_TOTALE_PAGINE}`,
+        LARGHEZZA_PAGINA - MARGINE,
+        ALTEZZA_PAGINA - 8,
+        { align: 'right' }
+      );
       doc.setFont(undefined, 'normal');
       doc.setPage(paginaPrecedente);
     }
@@ -238,18 +250,45 @@ const pdf = (() => {
     return [sopralluogo.tecnico, sopralluogo.tecnico_2].filter(Boolean).join('\n');
   }
 
-  /** Bandiera blu a piena larghezza con il titolo del macro-gruppo (ANALISI DOCUMENTALE / SOPRALLUOGO AMBIENTI DI LAVORO). */
-  function disegnaIntestazioneGruppo(doc, titolo, y) {
+  /**
+   * Colore di sfondo (e, facoltativo, un accento) della bandiera dei macro-gruppi (ANALISI
+   * DOCUMENTALE / SOPRALLUOGO AMBIENTI DI LAVORO), per checklist_id: riprende i colori reali del
+   * logo di ciascun cliente. "accento" è una sottile riga sul bordo inferiore della bandiera,
+   * usata solo dove il colore secondario del logo non è adatto come sfondo pieno (contrasto
+   * insufficiente col testo bianco, es. il giallo Interparking) — mai come bordo laterale.
+   * Estendere questa mappa per ogni nuovo cliente; COLORE_BANNER_DEFAULT copre le checklist non
+   * elencate (blu originale, invariato).
+   */
+  const COLORE_BANNER_PER_CHECKLIST = {
+    restage_sopralluogo: { sfondo: [28, 66, 36] }, // #1c4224, verde Restage
+    coin_sopralluogo: { sfondo: [43, 43, 43] }, // #2b2b2b, grigio scuro Coin
+    interparking_sopralluogo: { sfondo: [0, 58, 114], accento: [255, 220, 69] } // #003a72 + #ffdc45
+  };
+  const COLORE_BANNER_DEFAULT = { sfondo: [74, 122, 181] }; // #4a7ab5, blu originale
+
+  function coloreBannerPer(checklistId) {
+    return COLORE_BANNER_PER_CHECKLIST[checklistId] || COLORE_BANNER_DEFAULT;
+  }
+
+  /** Bandiera a piena larghezza (colore per cliente, vedi coloreBannerPer) con il titolo del macro-gruppo. */
+  function disegnaIntestazioneGruppo(doc, titolo, y, checklistId) {
+    const ALTEZZA_BANNER = 9;
+    const colore = coloreBannerPer(checklistId);
     y = nuovaRigaSeNecessario(doc, y, 14);
-    doc.setFillColor(74, 122, 181);
-    doc.rect(MARGINE, y, LARGHEZZA_PAGINA - MARGINE * 2, 9, 'F');
+    doc.setFillColor(...colore.sfondo);
+    doc.rect(MARGINE, y, LARGHEZZA_PAGINA - MARGINE * 2, ALTEZZA_BANNER, 'F');
+    if (colore.accento) {
+      const ALTEZZA_ACCENTO = 1.2;
+      doc.setFillColor(...colore.accento);
+      doc.rect(MARGINE, y + ALTEZZA_BANNER - ALTEZZA_ACCENTO, LARGHEZZA_PAGINA - MARGINE * 2, ALTEZZA_ACCENTO, 'F');
+    }
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
     doc.text(titolo, MARGINE + 3, y + 6.2);
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'normal');
-    return y + 9 + 5;
+    return y + ALTEZZA_BANNER + 5;
   }
 
   function segnoRisposta(valoreRisposta, colonna) {
@@ -422,7 +461,16 @@ const pdf = (() => {
       ],
       body: corpo,
       theme: 'grid',
-      styles: { lineColor: [0, 0, 0], lineWidth: 0.2, fontSize: FONT_SIZE_TABELLA_SEZIONE, cellPadding: PADDING_TABELLA_SEZIONE, valign: 'middle', textColor: [0, 0, 0] },
+      // Griglia interna sottile e chiara ("morbida"): il bordo esterno netto attorno alla tabella
+      // resta separato via tableLineColor/tableLineWidth qui sotto (autoTable lo ridisegna
+      // correttamente per ogni pagina anche quando la tabella prosegue su più pagine).
+      styles: { lineColor: [210, 210, 210], lineWidth: 0.1, fontSize: FONT_SIZE_TABELLA_SEZIONE, cellPadding: PADDING_TABELLA_SEZIONE, valign: 'middle', textColor: [0, 0, 0] },
+      tableLineColor: [0, 0, 0],
+      tableLineWidth: 0.3,
+      // Zebra striping sulle sole righe dati: alternateRowStyles di autoTable si applica solo alle
+      // righe di "body" (mai a head/foot), quindi né il titolo di sezione né l'intestazione delle
+      // colonne (entrambi "head", vedi sotto) vengono coinvolti.
+      alternateRowStyles: { fillColor: [246, 246, 246] },
       headStyles: { fillColor: [225, 225, 225], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', fontSize: FONT_SIZE_TABELLA_SEZIONE },
       columnStyles: {
         0: { cellWidth: 10, halign: 'center' },
@@ -504,7 +552,7 @@ const pdf = (() => {
       if (!gruppo.sezioni.length) {
         return;
       }
-      y = disegnaIntestazioneGruppo(doc, gruppo.titolo, y);
+      y = disegnaIntestazioneGruppo(doc, gruppo.titolo, y, checklist.id);
       gruppo.sezioni.forEach((sezione) => {
         y = disegnaTabellaSezione(doc, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda);
       });
@@ -850,6 +898,13 @@ const pdf = (() => {
     // didDrawPage sopra copre già tutte le pagine toccate da DATI GENERALI o da una tabella di
     // sezione, questo completa solo quelle rimaste scoperte, senza mai ridisegnare le altre.
     tracciatoreLegenda.completaPagineRestanti();
+
+    // Sostituisce il segnaposto "Pag. X di {total_pages_count_string}" con il totale pagine reale,
+    // noto solo ora che l'intero documento (comprese le pagine finali di Allegati/Altri aspetti)
+    // è stato disegnato: unica passata su tutto il documento, gestita da jsPDF stesso.
+    if (typeof doc.putTotalPages === 'function') {
+      doc.putTotalPages(SEGNAPOSTO_TOTALE_PAGINE);
+    }
 
     return doc.output('blob');
   }
