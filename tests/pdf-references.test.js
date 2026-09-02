@@ -136,7 +136,8 @@ test('ordine fisico jsPDF: ultima domanda, fotografie complete, poi altri aspett
     'addPage',
     'text:ALTRI ASPETTI DA EVIDENZIARE',
     'text:Testo finale',
-    'addImage'
+    'addImage',
+    'text:Foto 1 — Altri aspetti da evidenziare'
   ]);
 });
 
@@ -171,7 +172,8 @@ test('sezioni finali omettono pagine vuote nei casi particolari', async () => {
   assert.deepEqual(soloFotoFinale, [
     'addPage',
     'text:ALTRI ASPETTI DA EVIDENZIARE',
-    'addImage'
+    'addImage',
+    'text:Foto 1 — Altri aspetti da evidenziare'
   ]);
 });
 
@@ -200,4 +202,52 @@ test('tutte le pagine fotografiche terminano prima della pagina altri aspetti', 
   assert.equal(immaginiDopoIlTitolo.length, 0);
   assert.equal(eventi[indiceTitoloFinale - 1], 'addPage');
   assert.ok(eventi.includes('text:ALLEGATI — FOTOGRAFIE (segue)'));
+});
+
+test('raccogliFotoConDidascalia porta la didascalia personalizzata delle foto di "Altri aspetti", null se assente', () => {
+  const api = caricaPdf();
+  const raccolta = api.raccogliFotoConDidascalia(checklist, {
+    altri_aspetti_foto: ['con-testo', 'senza-testo'],
+    altri_aspetti_foto_didascalie: { 'con-testo': 'Didascalia scritta dall\'utente' }
+  });
+  assert.deepEqual(Array.from(raccolta.allegatiNote, (f) => [f.fotoId, f.didascaliaPersonalizzata]), [
+    ['con-testo', 'Didascalia scritta dall\'utente'],
+    ['senza-testo', null]
+  ]);
+});
+
+test('pagina Allegati: didascalia personalizzata per una foto di "Altri aspetti", generica di fallback per l\'altra', async () => {
+  const api = caricaPdf();
+  const eventi = [];
+  const record = { blob: new Blob(['foto'], { type: 'image/jpeg' }) };
+
+  await api.disegnaSezioniFinali(
+    creaDocumentoTracciato(eventi),
+    {},
+    [],
+    [
+      { fotoId: 'con-testo', altriAspetti: true, didascaliaPersonalizzata: 'Estintore scaduto vicino alla cassa 3', record },
+      { fotoId: 'senza-testo', altriAspetti: true, didascaliaPersonalizzata: null, record }
+    ]
+  );
+
+  assert.deepEqual(eventi, [
+    'addPage',
+    'text:ALTRI ASPETTI DA EVIDENZIARE',
+    'addImage',
+    'text:Estintore scaduto vicino alla cassa 3',
+    'addImage',
+    'text:Foto 2 — Altri aspetti da evidenziare'
+  ]);
+});
+
+test('il testo della domanda nella colonna "Descrizione attività" è in grassetto (columnStyles)', () => {
+  // disegnaTabellaSezione usa jsPDF-autotable (non caricato in questo harness di test): verifica
+  // quindi direttamente, sul sorgente, che la colonna 1 (Descrizione attività) sia configurata
+  // fontStyle:'bold' in columnStyles — condiviso da tutte e 3 le checklist, che passano tutte da
+  // qui (nessun layout separato per cliente). Copertura visiva end-to-end fatta a parte
+  // (screenshot del PDF renderizzato), non riproducibile in questo harness senza autoTable vero.
+  const fs = require('node:fs');
+  const sorgente = fs.readFileSync('js/pdf.js', 'utf8');
+  assert.match(sorgente, /1:\s*{\s*cellWidth:\s*65,\s*fontStyle:\s*'bold'\s*}/);
 });

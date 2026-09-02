@@ -127,6 +127,10 @@ const db = (() => {
       risposte: [],
       altri_aspetti: null,
       altri_aspetti_foto: [],
+      // Didascalia personalizzata facoltativa per le foto di "Altri aspetti" (fotoId -> testo,
+      // vedi altriAspettiScreen in app.js): usata da pdf.js al posto della didascalia generica
+      // quando presente. Solo per queste foto, non per quelle delle domande della checklist.
+      altri_aspetti_foto_didascalie: {},
       // Mappa fotoId -> {url, path} su Supabase Storage (vedi js/foto-sync.js), popolata via
       // impostaUrlFotoSopralluogo mano a mano che le foto vengono caricate: viaggia con la
       // sincronizzazione testuale (js/sync.js) così resta consultabile anche da un dispositivo
@@ -173,6 +177,7 @@ const db = (() => {
       risposte: (originale.risposte || []).map((risposta) => ({ ...risposta, foto: [] })),
       altri_aspetti: null,
       altri_aspetti_foto: [],
+      altri_aspetti_foto_didascalie: {},
       foto_url: {},
       aggiornato_il: adesso
     };

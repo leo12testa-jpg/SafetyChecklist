@@ -394,6 +394,38 @@ body {
 
 .foto-gestione-voce button { padding: 0.2rem 0.4rem; }
 
+/* Elenco "Altri aspetti da evidenziare": un riquadro per foto (a tutta larghezza, non affiancati)
+   con didascalia personalizzata sotto, invece delle etichette in fila di Compilazione. */
+.foto-gestione-verticale {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.foto-gestione-voce-con-didascalia {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.foto-gestione-voce-intestazione {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.foto-gestione-voce-intestazione button { margin-left: auto; padding: 0.2rem 0.4rem; }
+
+.foto-didascalia-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 0.3rem;
+  font: inherit;
+}
+
 /* Indicatore di caricamento su Supabase Storage (js/foto-sync.js): vuoto finché la foto non è
    stata toccata in questa sessione, poi spinner/segno di spunta/avviso in base all'esito. */
 .foto-stato-upload {

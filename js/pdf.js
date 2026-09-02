@@ -426,7 +426,7 @@ const pdf = (() => {
       headStyles: { fillColor: [225, 225, 225], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', fontSize: FONT_SIZE_TABELLA_SEZIONE },
       columnStyles: {
         0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 65 },
+        1: { cellWidth: 65, fontStyle: 'bold' },
         2: { cellWidth: 7, halign: 'center' },
         3: { cellWidth: 7, halign: 'center' },
         4: { cellWidth: 7, halign: 'center' },
@@ -586,8 +586,9 @@ const pdf = (() => {
       });
     });
 
+    const didascalieAltriAspetti = sopralluogo.altri_aspetti_foto_didascalie || {};
     const allegatiNote = (sopralluogo.altri_aspetti_foto || [])
-      .map((fotoId) => ({ fotoId, altriAspetti: true }));
+      .map((fotoId) => ({ fotoId, altriAspetti: true, didascaliaPersonalizzata: didascalieAltriAspetti[fotoId] || null }));
     return { fotoDomande, allegatiNote };
   }
 
@@ -701,7 +702,18 @@ const pdf = (() => {
       doc.setFontSize(8);
       let didascalia;
       if (voce.altriAspetti) {
-        didascalia = [];
+        // Didascalia personalizzata scritta dall'utente (altriAspettiScreen in app.js) se
+        // presente, altrimenti la generica "Foto N — Altri aspetti da evidenziare" come fallback.
+        const testoDidascalia = voce.didascaliaPersonalizzata || `Foto ${indice + 1} — Altri aspetti da evidenziare`;
+        didascalia = avvolgiTesto(doc, testoDidascalia, LARGHEZZA_CELLA);
+        if (didascalia.length > MASSIMO_RIGHE_DIDASCALIA) {
+          let lunghezzaMassima = testoDidascalia.length;
+          do {
+            lunghezzaMassima -= 10;
+            const testoTroncato = troncaAConfineDiParola(testoDidascalia, lunghezzaMassima);
+            didascalia = avvolgiTesto(doc, testoTroncato, LARGHEZZA_CELLA);
+          } while (didascalia.length > MASSIMO_RIGHE_DIDASCALIA && lunghezzaMassima > 0);
+        }
       } else {
         const prefisso = `Foto ${indice + 1} — Domanda ${voce.domandaId}: `;
         didascalia = avvolgiTesto(doc, `${prefisso}${voce.domandaTesto}`, LARGHEZZA_CELLA);

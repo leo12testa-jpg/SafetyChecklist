@@ -492,6 +492,24 @@ const ETICHETTE_STATO_UPLOAD = {
 };
 
 /**
+ * Piccolo indicatore (spinner/segno di spunta) dello stato di caricamento su Supabase di una
+ * foto: vuoto per foto non toccate in questa sessione (già sincronizzate in una sessione
+ * precedente, o sopralluogo riaperto), così da non dover interrogare la rete solo per disegnare
+ * l'interfaccia. Condiviso fra compilazioneScreen e altriAspettiScreen.
+ */
+function creaIndicatoreUpload(fotoId) {
+  const span = document.createElement('span');
+  span.className = 'foto-stato-upload';
+  const stato = fotoSync.statoDi(fotoId);
+  if (stato && ETICHETTE_STATO_UPLOAD[stato]) {
+    span.classList.add(`is-${stato}`);
+    span.textContent = ETICHETTE_STATO_UPLOAD[stato].simbolo;
+    span.title = ETICHETTE_STATO_UPLOAD[stato].titolo;
+  }
+  return span;
+}
+
+/**
  * Schermata di Compilazione: una domanda alla volta, con opzioni C/PC/NC/NA, note, sotto-form
  * Non Conformità e navigazione avanti/indietro (PROJECT.md §7.3, §7.4).
  */
@@ -525,24 +543,6 @@ const compilazioneScreen = (() => {
 
   /** Etichette visive delle risposte: un solo punto per cambiarle in futuro senza toccare il resto. */
   const ETICHETTE_RISPOSTA = { C: 'C', PC: 'PC', NC: 'NC', NA: 'N.P.' };
-
-  /**
-   * Piccolo indicatore (spinner/segno di spunta) dello stato di caricamento su Supabase di una
-   * foto: vuoto per foto non toccate in questa sessione (già sincronizzate in una sessione
-   * precedente, o sopralluogo riaperto), così da non dover interrogare la rete solo per
-   * disegnare l'interfaccia.
-   */
-  function creaIndicatoreUpload(fotoId) {
-    const span = document.createElement('span');
-    span.className = 'foto-stato-upload';
-    const stato = fotoSync.statoDi(fotoId);
-    if (stato && ETICHETTE_STATO_UPLOAD[stato]) {
-      span.classList.add(`is-${stato}`);
-      span.textContent = ETICHETTE_STATO_UPLOAD[stato].simbolo;
-      span.title = ETICHETTE_STATO_UPLOAD[stato].titolo;
-    }
-    return span;
-  }
 
   function applicaEtichetteRisposta() {
     opzioniRisposta.forEach((input) => {
@@ -1142,36 +1142,93 @@ const altriAspettiScreen = (() => {
   const textarea = document.getElementById('altri-aspetti-testo');
   const btnAvanti = document.getElementById('btn-altri-aspetti-avanti');
   const btnFoto = document.getElementById('btn-altri-aspetti-foto');
-  const statoUploadEl = document.getElementById('altri-aspetti-foto-stato');
+  const fotoLista = document.getElementById('altri-aspetti-foto-lista');
   const erroreEl = document.getElementById('altri-aspetti-errore');
 
   // Foto collegate a questo campo speciale (non a una domanda): sopralluogo.altri_aspetti_foto,
   // stesso meccanismo di camera.js/db.salvaFoto già usato per le domande, con domanda_id null.
   let fotoAltriAspetti = [];
-
-  /**
-   * Nessun elenco per-foto qui (a differenza di Compilazione): un solo indicatore aggregato
-   * accanto al pulsante, in-corso se almeno una foto sta ancora caricando, altrimenti l'ultimo
-   * esito noto. Vuoto se nessuna foto è stata toccata in questa sessione.
-   */
-  function aggiornaStatoUpload() {
-    const stati = fotoAltriAspetti.map((id) => fotoSync.statoDi(id));
-    const stato = stati.includes('in-corso') ? 'in-corso'
-      : stati.includes('fallito') ? 'fallito'
-      : stati.length && stati.every((s) => s === 'completato') ? 'completato'
-      : null;
-    statoUploadEl.textContent = stato ? ETICHETTE_STATO_UPLOAD[stato].simbolo : '';
-    statoUploadEl.title = stato ? ETICHETTE_STATO_UPLOAD[stato].titolo : '';
-  }
-
-  function aggiornaContatoreFoto() {
-    btnFoto.textContent = fotoAltriAspetti.length ? `📷 Foto (${fotoAltriAspetti.length})` : '📷 Foto';
-    aggiornaStatoUpload();
-  }
+  // Didascalia personalizzata per foto (fotoId -> testo, facoltativa): sopralluogo.altri_aspetti_foto_didascalie,
+  // usata da pdf.js al posto della didascalia generica "Foto N — Altri aspetti da evidenziare"
+  // quando l'utente ne ha scritta una. Solo per queste foto: quelle delle domande della checklist
+  // restano con la didascalia automatica standard.
+  let didascalieAltriAspetti = {};
 
   function mostraErrore(messaggio) {
     erroreEl.textContent = messaggio;
     erroreEl.hidden = false;
+  }
+
+  /** Sostituisce sul posto solo il badge di stato upload di una foto, senza ridisegnare l'elenco:
+   *  una foto ancora in fase di digitazione della didascalia perderebbe altrimenti il testo non
+   *  ancora salvato se un'altra foto della lista cambia stato in background nel frattempo. */
+  function aggiornaBadgeUpload(fotoId) {
+    const voce = fotoLista.querySelector(`[data-foto-id="${fotoId}"]`);
+    if (!voce) return;
+    const vecchioBadge = voce.querySelector('.foto-stato-upload');
+    if (vecchioBadge) vecchioBadge.replaceWith(creaIndicatoreUpload(fotoId));
+  }
+
+  /**
+   * Un riquadro per foto, subito visibile dopo lo scatto (nessun menu da aprire): numero foto +
+   * stato upload + pulsante Elimina in testata, e sotto un campo di testo libero per la
+   * didascalia personalizzata (autosalvataggio al blur, come le Note di Compilazione).
+   */
+  function creaVoceFoto(fotoId, indice) {
+    const voce = document.createElement('div');
+    voce.className = 'foto-gestione-voce foto-gestione-voce-con-didascalia';
+    voce.dataset.fotoId = fotoId;
+
+    const intestazione = document.createElement('div');
+    intestazione.className = 'foto-gestione-voce-intestazione';
+    const testo = document.createElement('span');
+    testo.textContent = `Foto ${indice + 1}`;
+    intestazione.appendChild(testo);
+    intestazione.appendChild(creaIndicatoreUpload(fotoId));
+
+    const elimina = document.createElement('button');
+    elimina.type = 'button';
+    elimina.textContent = 'Elimina';
+    elimina.addEventListener('click', async () => {
+      const sopralluogo = checklistEngine.sopralluogoCorrente();
+      fotoAltriAspetti = fotoAltriAspetti.filter((id) => id !== fotoId);
+      delete didascalieAltriAspetti[fotoId];
+      aggiornaContatoreFoto();
+      await db.aggiornaSopralluogo(sopralluogo.id, {
+        altri_aspetti_foto: fotoAltriAspetti,
+        altri_aspetti_foto_didascalie: didascalieAltriAspetti
+      });
+      const fotoEliminata = await db.eliminaFoto(fotoId);
+      fotoSync.eliminaFotoRemota(fotoEliminata);
+    });
+    intestazione.appendChild(elimina);
+    voce.appendChild(intestazione);
+
+    const didascaliaInput = document.createElement('input');
+    didascaliaInput.type = 'text';
+    didascaliaInput.className = 'foto-didascalia-input';
+    didascaliaInput.placeholder = 'Descrizione foto (facoltativo)';
+    didascaliaInput.value = didascalieAltriAspetti[fotoId] || '';
+    didascaliaInput.addEventListener('change', async () => {
+      const sopralluogo = checklistEngine.sopralluogoCorrente();
+      const valore = didascaliaInput.value.trim();
+      if (valore) {
+        didascalieAltriAspetti[fotoId] = valore;
+      } else {
+        delete didascalieAltriAspetti[fotoId];
+      }
+      await db.aggiornaSopralluogo(sopralluogo.id, { altri_aspetti_foto_didascalie: didascalieAltriAspetti });
+    });
+    voce.appendChild(didascaliaInput);
+
+    return voce;
+  }
+
+  function aggiornaContatoreFoto() {
+    btnFoto.textContent = fotoAltriAspetti.length ? `📷 Foto (${fotoAltriAspetti.length})` : '📷 Foto';
+    fotoLista.hidden = fotoAltriAspetti.length === 0;
+    fotoLista.innerHTML = '';
+    fotoAltriAspetti.forEach((fotoId, indice) => fotoLista.appendChild(creaVoceFoto(fotoId, indice)));
   }
 
   /** Precompila il campo con quanto eventualmente già salvato (riapertura di un sopralluogo). */
@@ -1179,6 +1236,7 @@ const altriAspettiScreen = (() => {
     const sopralluogo = checklistEngine.sopralluogoCorrente();
     textarea.value = sopralluogo.altri_aspetti || '';
     fotoAltriAspetti = sopralluogo.altri_aspetti_foto || [];
+    didascalieAltriAspetti = { ...(sopralluogo.altri_aspetti_foto_didascalie || {}) };
     erroreEl.hidden = true;
     aggiornaContatoreFoto();
   }
@@ -1207,7 +1265,7 @@ const altriAspettiScreen = (() => {
     btnFoto.addEventListener('click', onFoto);
     fotoSync.onCambioStato((fotoId) => {
       if (fotoAltriAspetti.includes(fotoId)) {
-        aggiornaStatoUpload();
+        aggiornaBadgeUpload(fotoId);
       }
     });
   }
