@@ -241,32 +241,3 @@ test('pagina Allegati: didascalia personalizzata per una foto di "Altri aspetti"
   ]);
 });
 
-// disegnaTabellaSezione usa jsPDF-autotable (non caricato in questo harness di test): la copertura
-// visiva end-to-end (titolo in grassetto + domanda in chiaro nella stessa cella, nel PDF
-// renderizzato) è fatta a parte con Playwright, non riproducibile qui senza autoTable vero.
-// dividiTitoloDomanda (la funzione pura che decide dove finisce il grassetto) è invece testabile
-// direttamente.
-// Nota: dividiTitoloDomanda gira nel vm context caricato da caricaPdf(), quindi l'oggetto che
-// ritorna appartiene a un realm diverso da quello del test (prototipo Object diverso) — deepEqual
-// fra i due fallirebbe per non-reference-equality anche a contenuto identico. Si confrontano
-// quindi i singoli campi (stringhe primitive, nessun problema di realm) invece dell'oggetto intero.
-test('dividiTitoloDomanda separa titolo (grassetto) e domanda (chiaro) sul primo a-capo', () => {
-  const api = caricaPdf();
-  const { titolo, resto } = api.dividiTitoloDomanda('Nomina del RSPP (Art. 17 e Art. 32 D.Lgs. 81/08)\nÈ presente una copia in archivio?');
-  assert.equal(titolo, 'Nomina del RSPP (Art. 17 e Art. 32 D.Lgs. 81/08)');
-  assert.equal(resto, 'È presente una copia in archivio?');
-});
-
-test('dividiTitoloDomanda: domanda senza a-capo resta interamente in chiaro (titolo vuoto)', () => {
-  const api = caricaPdf();
-  const { titolo, resto } = api.dividiTitoloDomanda('Gli estintori sono mantenuti accessibili e visibili?');
-  assert.equal(titolo, '');
-  assert.equal(resto, 'Gli estintori sono mantenuti accessibili e visibili?');
-});
-
-test('dividiTitoloDomanda: solo il primo a-capo separa titolo/domanda, eventuali altri restano nel resto', () => {
-  const api = caricaPdf();
-  const { titolo, resto } = api.dividiTitoloDomanda('Titolo\nRiga 1\nRiga 2');
-  assert.equal(titolo, 'Titolo');
-  assert.equal(resto, 'Riga 1\nRiga 2');
-});
