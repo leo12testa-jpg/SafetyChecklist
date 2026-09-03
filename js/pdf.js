@@ -932,7 +932,7 @@ const pdf = (() => {
     URL.revokeObjectURL(url);
   }
 
-  return { generaReport, nomeFile, salvaOCondividi,
+  return { generaReport, nomeFile, salvaOCondividi, calcolaPuntoDivisioneGruppi,
     _test: {
       raccogliFotoConDidascalia,
       costruisciMappaFotoPerDomanda,

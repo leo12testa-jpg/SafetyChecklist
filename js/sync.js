@@ -8,8 +8,16 @@
  * dell'app: ogni errore (rete assente, permessi Firestore, progetto non raggiungibile) viene
  * intercettato e loggato in console, mai mostrato all'utente.
  *
- * Conflitti fra dispositivi risolti con last-write-wins sul campo "aggiornato_il" (timestamp
- * ISO impostato da db.js a ogni mutazione locale).
+ * Compilazione concorrente: "risposte" e "foto_url" NON sono mai sovrascritti come blocco unico.
+ * Su Firestore "risposte" è una mappa domanda_id -> risposta (mentre in locale, in IndexedDB,
+ * resta un array, per non toccare tutto il resto dell'app): ogni risposta viaggia da sola con un
+ * write a singola chiave ("risposte.<domanda_id>", vedi pushRisposta), e "foto_url" allo stesso
+ * modo per singolo fotoId (pushFotoUrl). Così due tecnici che rispondono a domande diverse dello
+ * stesso sopralluogo, anche in contemporanea, non si sovrascrivono a vicenda. Il caso limite di
+ * due risposte alla STESSA domanda è risolto last-write-wins sul "aggiornato_il" di quella
+ * singola risposta (non più su quello dell'intero documento). I campi anagrafici e "Altri
+ * aspetti" restano invece whole-value last-write-wins sul "aggiornato_il" dell'intero documento,
+ * come prima: sono singoli valori condivisi, il rischio di conflitto è basso.
  */
 const sync = (() => {
   const COLLECTION = 'sopralluoghi';
@@ -59,26 +67,180 @@ const sync = (() => {
     listenerDatiAggiornati.forEach((callback) => callback());
   }
 
-  /** Rimuove eventuali campi non previsti su Firestore (per sicurezza: le foto non ci finiscono mai qui). */
-  function pulisciPerFirestore(sopralluogo) {
-    const { foto, ...resto } = sopralluogo;
-    return resto;
-  }
-
   function timestampDi(sopralluogo) {
     return new Date(sopralluogo.aggiornato_il || sopralluogo.data || 0).getTime();
   }
 
-  /** Carica su Firestore un singolo sopralluogo (upsert per id). Silenzioso se offline o in errore. */
-  async function pushSopralluogo(sopralluogo) {
+  // --- Funzioni pure di conversione/merge (nessuna chiamata a IndexedDB/Firestore: testabili in isolamento) ---
+
+  function arrayRisposteInMappa(risposteArray) {
+    const mappa = {};
+    (risposteArray || []).forEach((risposta) => {
+      mappa[risposta.domanda_id] = risposta;
+    });
+    return mappa;
+  }
+
+  function mappaRisposteInArray(risposteMappa) {
+    return Object.values(risposteMappa || {});
+  }
+
+  function timestampRisposta(risposta, fallback) {
+    if (!risposta) {
+      return -Infinity;
+    }
+    const t = risposta.aggiornato_il ? Date.parse(risposta.aggiornato_il) : NaN;
+    return Number.isNaN(t) ? fallback : t;
+  }
+
+  /**
+   * Unisce le risposte locali (array, formato IndexedDB) con quelle remote (mappa domanda_id ->
+   * risposta, formato Firestore) domanda per domanda: le domande presenti da un solo lato si
+   * tengono comunque, quelle presenti da entrambi i lati sono decise dal "aggiornato_il" più
+   * recente della singola risposta ("fallbackLocale"/"fallbackRemoto" coprono le risposte
+   * pre-esistenti a questa modifica, senza ancora un aggiornato_il proprio: trattate come vecchie
+   * quanto il documento — locale o remoto — che le conteneva).
+   *
+   * Ritorna { array, daScrivereRemoto, cambiatoLocale }: "array" è l'elenco unito nel formato
+   * locale; "daScrivereRemoto" è la (sola) mappa delle voci dove ha vinto il lato locale con un
+   * valore diverso da quello remoto attuale (da scrivere su Firestore); "cambiatoLocale" indica
+   * se il locale ha bisogno di essere aggiornato con "array".
+   */
+  function unisciRisposte(risposteLocaliArray, risposteRemoteMappa, fallbackLocale, fallbackRemoto) {
+    const localiMappa = arrayRisposteInMappa(risposteLocaliArray);
+    const remoteMappa = risposteRemoteMappa || {};
+    const tuttiId = new Set([...Object.keys(localiMappa), ...Object.keys(remoteMappa)]);
+
+    const mappaUnita = {};
+    const daScrivereRemoto = {};
+    let cambiatoLocale = false;
+
+    tuttiId.forEach((id) => {
+      const loc = localiMappa[id];
+      const rem = remoteMappa[id];
+
+      if (loc && !rem) {
+        mappaUnita[id] = loc;
+        daScrivereRemoto[id] = loc;
+        return;
+      }
+      if (!loc && rem) {
+        mappaUnita[id] = rem;
+        cambiatoLocale = true;
+        return;
+      }
+
+      const tsLoc = timestampRisposta(loc, fallbackLocale);
+      const tsRem = timestampRisposta(rem, fallbackRemoto);
+      if (tsLoc >= tsRem) {
+        mappaUnita[id] = loc;
+        if (JSON.stringify(loc) !== JSON.stringify(rem)) {
+          daScrivereRemoto[id] = loc;
+        }
+      } else {
+        mappaUnita[id] = rem;
+        cambiatoLocale = true;
+      }
+    });
+
+    return { array: mappaRisposteInArray(mappaUnita), daScrivereRemoto, cambiatoLocale };
+  }
+
+  /**
+   * Unisce foto_url locale e remoto (mappa fotoId -> {url, path}) per semplice unione delle
+   * chiavi: a differenza delle risposte, non serve un confronto per timestamp perché ogni fotoId
+   * è generato localmente (crypto.randomUUID, vedi db.salvaFoto) e non può mai collidere fra due
+   * dispositivi diversi.
+   */
+  function unisciFotoUrl(fotoUrlLocale, fotoUrlRemoto) {
+    const locale = fotoUrlLocale || {};
+    const remoto = fotoUrlRemoto || {};
+    const mappa = { ...remoto, ...locale };
+
+    const daScrivereRemoto = {};
+    Object.keys(locale).forEach((id) => {
+      if (!(id in remoto)) {
+        daScrivereRemoto[id] = locale[id];
+      }
+    });
+
+    let cambiatoLocale = false;
+    Object.keys(remoto).forEach((id) => {
+      if (!(id in locale)) {
+        cambiatoLocale = true;
+      }
+    });
+
+    return { mappa, daScrivereRemoto, cambiatoLocale };
+  }
+
+  /** Campi "whole-value" di un sopralluogo (tutto tranne risposte/foto_url, gestiti a parte con un merge per chiave, e foto, mai presente su Firestore). */
+  function estraiMetadati(sopralluogo) {
+    const { foto, risposte, foto_url, ...resto } = sopralluogo;
+    return resto;
+  }
+
+  // --- Scritture su Firestore ---
+
+  /** Carica su Firestore l'intero sopralluogo (creazione, duplicazione, import PDF): merge:true così non cancella mai risposte/foto_url scritti nel frattempo da un altro dispositivo su un documento già esistente. */
+  async function pushSopralluogoCompleto(sopralluogo) {
     const fdb = inizializzaFirebase();
     if (!fdb || !online()) {
       return;
     }
     try {
-      await fdb.collection(COLLECTION).doc(sopralluogo.id).set(pulisciPerFirestore(sopralluogo));
+      await fdb.collection(COLLECTION).doc(sopralluogo.id).set({
+        ...estraiMetadati(sopralluogo),
+        risposte: arrayRisposteInMappa(sopralluogo.risposte),
+        foto_url: sopralluogo.foto_url || {}
+      }, { merge: true });
     } catch (errore) {
       console.warn('Sync: impossibile caricare su Firestore il sopralluogo', sopralluogo.id, errore);
+    }
+  }
+
+  /** Carica su Firestore solo i campi anagrafici/stato/altri_aspetti (mai risposte/foto_url). */
+  async function pushMetadati(sopralluogo) {
+    const fdb = inizializzaFirebase();
+    if (!fdb || !online()) {
+      return;
+    }
+    try {
+      await fdb.collection(COLLECTION).doc(sopralluogo.id).set(estraiMetadati(sopralluogo), { merge: true });
+    } catch (errore) {
+      console.warn('Sync: impossibile caricare su Firestore i metadati del sopralluogo', sopralluogo.id, errore);
+    }
+  }
+
+  /** Carica su Firestore SOLO la singola risposta appena salvata, senza toccare le altre. */
+  async function pushRisposta(sopralluogoId, risposta, aggiornatoIl) {
+    const fdb = inizializzaFirebase();
+    if (!fdb || !online()) {
+      return;
+    }
+    try {
+      await fdb.collection(COLLECTION).doc(sopralluogoId).set({
+        risposte: { [risposta.domanda_id]: risposta },
+        aggiornato_il: aggiornatoIl
+      }, { merge: true });
+    } catch (errore) {
+      console.warn('Sync: impossibile caricare su Firestore la risposta', sopralluogoId, risposta.domanda_id, errore);
+    }
+  }
+
+  /** Carica su Firestore SOLO il fotoId appena caricato su Supabase, senza toccare gli altri. */
+  async function pushFotoUrl(sopralluogoId, fotoId, valore, aggiornatoIl) {
+    const fdb = inizializzaFirebase();
+    if (!fdb || !online()) {
+      return;
+    }
+    try {
+      await fdb.collection(COLLECTION).doc(sopralluogoId).set({
+        foto_url: { [fotoId]: valore },
+        aggiornato_il: aggiornatoIl
+      }, { merge: true });
+    } catch (errore) {
+      console.warn('Sync: impossibile caricare su Firestore foto_url', sopralluogoId, fotoId, errore);
     }
   }
 
@@ -108,17 +270,81 @@ const sync = (() => {
   /** Reagisce a ogni mutazione locale notificata da db.js (vedi db.onCambiamento). */
   function alCambiamentoLocale(evento) {
     if (evento.tipo === 'upsert') {
-      pushSopralluogo(evento.sopralluogo);
+      pushSopralluogoCompleto(evento.sopralluogo);
+    } else if (evento.tipo === 'upsert-metadati') {
+      pushMetadati(evento.sopralluogo);
+    } else if (evento.tipo === 'upsert-risposta') {
+      pushRisposta(evento.sopralluogoId, evento.risposta, evento.aggiornato_il);
+    } else if (evento.tipo === 'upsert-fotourl') {
+      pushFotoUrl(evento.sopralluogoId, evento.fotoId, evento.valore, evento.aggiornato_il);
     } else if (evento.tipo === 'delete') {
       eliminaSuFirestore(evento.sopralluogoId, evento.aggiornato_il);
     }
   }
 
   /**
+   * Riconcilia un sopralluogo presente sia in locale che da remoto (non una tomba): unisce
+   * risposte e foto_url per chiave (mai un lato "vince" in blocco), poi decide la direzione dei
+   * soli metadati con il confronto whole-doc di sempre. Applica in locale solo il patch
+   * risultante (mai un put cieco dell'intero record remoto) e scrive su Firestore solo le chiavi
+   * effettivamente cambiate. Ritorna true se il locale è stato modificato (serve a chi chiama per
+   * sapere se notificare la UI).
+   */
+  async function unisciEPropaga(fdb, id, locale, remoto) {
+    const risultatoRisposte = unisciRisposte(locale.risposte, remoto.risposte, timestampDi(locale), timestampDi(remoto));
+    const risultatoFoto = unisciFotoUrl(locale.foto_url, remoto.foto_url);
+
+    const patchLocale = {};
+    const payloadRemoto = {};
+
+    if (risultatoRisposte.cambiatoLocale) {
+      patchLocale.risposte = risultatoRisposte.array;
+    }
+    if (Object.keys(risultatoRisposte.daScrivereRemoto).length > 0) {
+      payloadRemoto.risposte = risultatoRisposte.daScrivereRemoto;
+    }
+
+    if (risultatoFoto.cambiatoLocale) {
+      patchLocale.foto_url = risultatoFoto.mappa;
+    }
+    if (Object.keys(risultatoFoto.daScrivereRemoto).length > 0) {
+      payloadRemoto.foto_url = risultatoFoto.daScrivereRemoto;
+    }
+
+    if (timestampDi(locale) > timestampDi(remoto)) {
+      Object.assign(payloadRemoto, estraiMetadati(locale));
+    } else if (timestampDi(remoto) > timestampDi(locale)) {
+      Object.assign(patchLocale, estraiMetadati(remoto));
+    }
+
+    const attese = [];
+    if (Object.keys(payloadRemoto).length > 0) {
+      attese.push(
+        fdb.collection(COLLECTION).doc(id).set(payloadRemoto, { merge: true }).catch((errore) => {
+          console.warn('Sync: impossibile propagare il merge su Firestore per il sopralluogo', id, errore);
+        })
+      );
+    }
+
+    let localeCambiato = false;
+    if (Object.keys(patchLocale).length > 0) {
+      localeCambiato = true;
+      attese.push(db.applicaMergeSopralluogoRemoto(id, patchLocale));
+    }
+
+    await Promise.all(attese);
+    return localeCambiato;
+  }
+
+  /**
    * Sincronizzazione bidirezionale completa: confronta tutti i sopralluoghi locali con tutti
-   * quelli remoti e, per ogni id, propaga la versione più recente (o quella mancante) nella
-   * direzione opposta. Chiamata all'avvio dell'app e al ritorno della connessione. Ritorna
-   * true/false (riuscita o no): app.js usa questo esito per decidere se è sicuro far girare
+   * quelli remoti. Per i sopralluoghi mancanti da un lato (o con una tomba di eliminazione) si
+   * comporta come prima (copia/elimina l'intero record, non c'è alcun conflitto possibile). Per i
+   * sopralluoghi presenti su entrambi i lati, invece di scegliere un vincitore per l'intero
+   * documento, unisce risposte e foto_url per chiave (vedi unisciEPropaga) — così due dispositivi
+   * che hanno risposto a domande diverse nel frattempo non si cancellano più a vicenda. Chiamata
+   * all'avvio dell'app, al ritorno della connessione/visibilità della pagina. Ritorna true/false
+   * (riuscita o no): app.js usa questo esito per decidere se è sicuro far girare
    * db.pulisciCestino() nello stesso avvio (mai su dati locali potenzialmente incompleti).
    */
   async function sincronizzaTutto() {
@@ -143,6 +369,7 @@ const sync = (() => {
       const daCaricare = [];
       const daScaricare = [];
       const daEliminareLocalmente = [];
+      const daUnire = [];
 
       const tuttiId = new Set([...localiPerId.keys(), ...remotiPerId.keys()]);
       tuttiId.forEach((id) => {
@@ -152,28 +379,33 @@ const sync = (() => {
 
         if (locale && !remoto) {
           daCaricare.push(locale);
-        } else if (!locale && remoto) {
-          // Una tomba senza il corrispondente locale significa che entrambi i lati sono già
-          // d'accordo che il sopralluogo è stato eliminato: nulla da scaricare.
+          return;
+        }
+        if (!locale && remoto) {
           if (!remotoEUnaTomba) {
             daScaricare.push(remoto);
           }
-        } else if (timestampDi(locale) > timestampDi(remoto)) {
-          daCaricare.push(locale);
-        } else if (timestampDi(remoto) > timestampDi(locale)) {
-          if (remotoEUnaTomba) {
-            daEliminareLocalmente.push(id);
-          } else {
-            daScaricare.push(remoto);
-          }
+          return;
         }
+        // Da qui: sia locale che remoto esistono.
+        if (remotoEUnaTomba) {
+          if (timestampDi(locale) > timestampDi(remoto)) {
+            daCaricare.push(locale);
+          } else if (timestampDi(remoto) > timestampDi(locale)) {
+            daEliminareLocalmente.push(id);
+          }
+          return;
+        }
+        daUnire.push({ id, locale, remoto });
       });
 
-      await Promise.all(daCaricare.map((s) => pushSopralluogo(s)));
+      await Promise.all(daCaricare.map((s) => pushSopralluogoCompleto(s)));
       await Promise.all(daScaricare.map((s) => db.applicaSopralluogoRemoto(s)));
       await Promise.all(daEliminareLocalmente.map((id) => db.eliminaSopralluogoSenzaNotifica(id)));
+      const esitiUnione = await Promise.all(daUnire.map(({ id, locale, remoto }) => unisciEPropaga(fdb, id, locale, remoto)));
 
-      if (daScaricare.length > 0 || daEliminareLocalmente.length > 0) {
+      const localeCambiato = esitiUnione.some(Boolean);
+      if (daScaricare.length > 0 || daEliminareLocalmente.length > 0 || localeCambiato) {
         notificaDatiAggiornati();
       }
 
@@ -191,13 +423,23 @@ const sync = (() => {
    * (true = riuscita, false = offline o fallita): chi chiama init() può fare `await` per sapere
    * quando è sicuro far girare operazioni che presuppongono dati locali aggiornati (es.
    * db.pulisciCestino() in app.js), senza dover duplicare la logica online()/sincronizzaTutto().
-   * Le sincronizzazioni successive (al ritorno della connessione) restano fire-and-forget.
+   * Le sincronizzazioni successive (al ritorno della connessione, al tornare visibile/attiva la
+   * pagina) restano fire-and-forget: sono l'unico modo con cui questo dispositivo scopre le
+   * modifiche fatte nel frattempo da un altro (nessun listener Firestore in tempo reale, per non
+   * introdurre complessità sproporzionata rispetto al beneficio — vedi js/app.js,
+   * compilazioneScreen si iscrive a onDatiAggiornati per rinfrescare lo schermo se aperto).
    */
   function init() {
     db.onCambiamento(alCambiamentoLocale);
 
     window.addEventListener('online', sincronizzaTutto);
     window.addEventListener('offline', () => impostaStato('offline'));
+    window.addEventListener('focus', () => { if (online()) sincronizzaTutto(); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && online()) {
+        sincronizzaTutto();
+      }
+    });
 
     if (online()) {
       return sincronizzaTutto();
@@ -211,6 +453,14 @@ const sync = (() => {
     sincronizzaTutto,
     onCambioStato,
     onDatiAggiornati,
-    statoAttuale: () => statoAttuale
+    statoAttuale: () => statoAttuale,
+    _test: {
+      arrayRisposteInMappa,
+      mappaRisposteInArray,
+      unisciRisposte,
+      unisciFotoUrl,
+      estraiMetadati,
+      timestampDi
+    }
   };
 })();

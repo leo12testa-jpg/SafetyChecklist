@@ -205,7 +205,15 @@ const db = (() => {
     return sopralluogo;
   }
 
-  /** Salva o aggiorna (upsert su domanda_id) la risposta a una domanda di un sopralluogo. */
+  /**
+   * Salva o aggiorna (upsert su domanda_id) la risposta a una domanda di un sopralluogo.
+   * Ogni risposta porta il proprio "aggiornato_il" (oltre a quello, invariato, dell'intero
+   * sopralluogo): serve a js/sync.js per decidere, domanda per domanda, quale versione tenere
+   * quando due dispositivi rispondono in concorrenza (vedi notificaCambiamento "upsert-risposta"
+   * qui sotto, e il merge per-domanda in sync.js — mai più un upsert dell'intero documento per
+   * ogni singola risposta, altrimenti due tecnici che compilano domande diverse nello stesso
+   * sopralluogo si sovrascriverebbero a vicenda).
+   */
   async function salvaRisposta(sopralluogoId, risposta) {
     const store = await transazione('sopralluoghi', 'readwrite');
     const sopralluogo = await richiesta(store.get(sopralluogoId));
@@ -213,18 +221,21 @@ const db = (() => {
       throw new Error(`Sopralluogo non trovato: ${sopralluogoId}`);
     }
 
+    const adesso = new Date().toISOString();
+    const rispostaConTimestamp = { ...risposta, aggiornato_il: adesso };
+
     const risposte = sopralluogo.risposte || [];
     const idx = risposte.findIndex((r) => r.domanda_id === risposta.domanda_id);
     if (idx >= 0) {
-      risposte[idx] = { ...risposte[idx], ...risposta };
+      risposte[idx] = { ...risposte[idx], ...rispostaConTimestamp };
     } else {
-      risposte.push(risposta);
+      risposte.push(rispostaConTimestamp);
     }
     sopralluogo.risposte = risposte;
-    sopralluogo.aggiornato_il = new Date().toISOString();
+    sopralluogo.aggiornato_il = adesso;
 
     await richiesta(store.put(sopralluogo));
-    notificaCambiamento({ tipo: 'upsert', sopralluogo });
+    notificaCambiamento({ tipo: 'upsert-risposta', sopralluogoId, risposta: risposte[idx >= 0 ? idx : risposte.length - 1], aggiornato_il: adesso });
     return sopralluogo;
   }
 
@@ -241,14 +252,27 @@ const db = (() => {
     if (!sopralluogo) {
       return;
     }
-    sopralluogo.foto_url = { ...(sopralluogo.foto_url || {}), [fotoId]: { url, path } };
-    sopralluogo.aggiornato_il = new Date().toISOString();
+    const adesso = new Date().toISOString();
+    const valore = { url, path };
+    sopralluogo.foto_url = { ...(sopralluogo.foto_url || {}), [fotoId]: valore };
+    sopralluogo.aggiornato_il = adesso;
     await richiesta(store.put(sopralluogo));
-    notificaCambiamento({ tipo: 'upsert', sopralluogo });
+    // Evento dedicato (non "upsert" generico): come per le risposte, ogni fotoId è unico per
+    // dispositivo (generato da crypto.randomUUID in salvaFoto), quindi non può mai collidere fra
+    // due tecnici — js/sync.js scrive solo questa chiave, senza toccare foto_url caricati nel
+    // frattempo da un altro dispositivo.
+    notificaCambiamento({ tipo: 'upsert-fotourl', sopralluogoId, fotoId, valore, aggiornato_il: adesso });
     return sopralluogo;
   }
 
-  /** Aggiorna campi di un sopralluogo esistente (es. stato: "completato", altri_aspetti). */
+  /**
+   * Aggiorna campi di un sopralluogo esistente (es. stato: "completato", altri_aspetti).
+   * Notifica "upsert-metadati" (non "upsert"): js/sync.js spinge questi campi su Firestore senza
+   * toccare risposte/foto_url, che sono gestiti a parte con un merge per chiave — altrimenti
+   * salvare qui, ad es., un dato anagrafico rischierebbe di sovrascrivere con lo snapshot locale
+   * (potenzialmente non ancora aggiornato) risposte o foto caricate nel frattempo da un altro
+   * dispositivo.
+   */
   async function aggiornaSopralluogo(sopralluogoId, cambiamenti) {
     const store = await transazione('sopralluoghi', 'readwrite');
     const sopralluogo = await richiesta(store.get(sopralluogoId));
@@ -259,7 +283,7 @@ const db = (() => {
     Object.assign(sopralluogo, cambiamenti);
     sopralluogo.aggiornato_il = new Date().toISOString();
     await richiesta(store.put(sopralluogo));
-    notificaCambiamento({ tipo: 'upsert', sopralluogo });
+    notificaCambiamento({ tipo: 'upsert-metadati', sopralluogo });
     return sopralluogo;
   }
 
@@ -367,6 +391,27 @@ const db = (() => {
   }
 
   /**
+   * Applica in locale SOLO i campi indicati in "patchParziale" (es. risposte già unite per
+   * domanda_id, foto_url già unito, o metadati arrivati da remoto perché più recenti), lasciando
+   * intatto tutto il resto del record locale — a differenza di applicaSopralluogoRemoto, che
+   * sostituisce l'intero record. Usata da js/sync.js durante la sincronizzazione completa, dove
+   * il merge di risposte/foto_url e la direzione dei metadati sono decisi separatamente per non
+   * perdere risposte locali più recenti non ancora sincronizzate. No-op (ritorna null) se il
+   * sopralluogo non esiste più in locale nel frattempo. Non notifica js/sync.js: i dati arrivano
+   * già (in parte) da remoto, non vanno rimandati indietro.
+   */
+  async function applicaMergeSopralluogoRemoto(sopralluogoId, patchParziale) {
+    const store = await transazione('sopralluoghi', 'readwrite');
+    const locale = await richiesta(store.get(sopralluogoId));
+    if (!locale) {
+      return null;
+    }
+    Object.assign(locale, patchParziale);
+    await richiesta(store.put(locale));
+    return locale;
+  }
+
+  /**
    * Stato di chiusura amministrativa dello Storico ("Da completare"/"Chiusa"): del tutto
    * manuale, indipendente dal campo "stato" (in corso/completato, legato alla compilazione) e
    * dal conteggio di conformità/non conformità. I sopralluoghi esistenti non hanno questo campo:
@@ -398,7 +443,7 @@ const db = (() => {
     delete sopralluogo.eliminato_il;
     sopralluogo.aggiornato_il = new Date().toISOString();
     await richiesta(store.put(sopralluogo));
-    notificaCambiamento({ tipo: 'upsert', sopralluogo });
+    notificaCambiamento({ tipo: 'upsert-metadati', sopralluogo });
     return sopralluogo;
   }
 
@@ -555,6 +600,7 @@ const db = (() => {
     elencaCestino,
     elencaTuttiSopralluoghi,
     applicaSopralluogoRemoto,
+    applicaMergeSopralluogoRemoto,
     spostaNelCestino,
     ripristinaSopralluogo,
     pulisciCestino,

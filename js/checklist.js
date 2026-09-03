@@ -122,6 +122,25 @@ const checklistEngine = (() => {
     return sopralluogo;
   }
 
+  /**
+   * Ricarica da IndexedDB il sopralluogo in compilazione, mantenendo invariati indice/domanda
+   * corrente: usata da js/app.js quando arriva un aggiornamento via sync (js/sync.js,
+   * onDatiAggiornati) mentre la schermata di Compilazione è già aperta, per riflettere risposte
+   * date nel frattempo da un altro dispositivo. Non ridisegna la domanda a schermo: sta al
+   * chiamante decidere cosa aggiornare, per non rischiare di sovrascrivere un campo che l'utente
+   * sta compilando in quel momento.
+   */
+  async function ricaricaSopralluogoCorrente() {
+    if (!sopralluogo) {
+      return null;
+    }
+    const fresco = await db.leggiSopralluogo(sopralluogo.id);
+    if (fresco) {
+      sopralluogo = fresco;
+    }
+    return sopralluogo;
+  }
+
   /** Ritorna la checklist attualmente caricata (serve a pdf.js per generare il report). */
   function getChecklist() {
     return checklist;
@@ -177,6 +196,7 @@ const checklistEngine = (() => {
     indietro,
     vaiA,
     sopralluogoCorrente,
+    ricaricaSopralluogoCorrente,
     getChecklist,
     calcolaRiepilogo
   };

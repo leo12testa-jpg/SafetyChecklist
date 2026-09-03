@@ -515,6 +515,9 @@ function creaIndicatoreUpload(fotoId) {
  */
 const compilazioneScreen = (() => {
   const screen = document.getElementById('screen-compilazione');
+  const tabsGruppiEl = document.getElementById('macro-gruppi-tabs');
+  const tabGruppo1 = document.getElementById('tab-gruppo-1');
+  const tabGruppo2 = document.getElementById('tab-gruppo-2');
   const progressBar = document.getElementById('question-navigator');
   const progressFill = document.getElementById('progress-fill');
   const progressLabel = document.getElementById('progress-label');
@@ -670,6 +673,40 @@ const compilazioneScreen = (() => {
     progressFill.style.width = `${((corrente.indice + 1) / corrente.totale) * 100}%`;
     progressThumb.style.left = `${percentualeIndice(corrente.indice, corrente.totale)}%`;
     progressLabel.textContent = `Domanda ${corrente.indice + 1} di ${corrente.totale}`;
+  }
+
+  /**
+   * Indice (0-based, sull'elenco piatto di domande) in cui inizia il secondo macro-gruppo
+   * ("Ambienti di lavoro"), riusando lo stesso punto di divisione delle sezioni già calcolato
+   * per i banner colorati del PDF (js/pdf.js, calcolaPuntoDivisioneGruppi) così i due non
+   * possono mai andare fuori sincrono. Ritorna null se le tab non hanno senso per questa
+   * checklist (meno di 2 sezioni, o lo split produce un gruppo vuoto).
+   */
+  function calcolaConfineGruppi() {
+    const checklist = checklistEngine.getChecklist();
+    if (!checklist || !Array.isArray(checklist.sezioni) || checklist.sezioni.length < 2) {
+      return null;
+    }
+    const puntoDivisione = pdf.calcolaPuntoDivisioneGruppi(checklist);
+    const contaDomande = (sezioni) => sezioni.reduce((totale, sezione) => totale + (sezione.domande || []).length, 0);
+    const indiceInizioGruppo2 = contaDomande(checklist.sezioni.slice(0, puntoDivisione));
+    const totaleDomande = contaDomande(checklist.sezioni);
+    if (indiceInizioGruppo2 <= 0 || indiceInizioGruppo2 >= totaleDomande) {
+      return null;
+    }
+    return indiceInizioGruppo2;
+  }
+
+  /** Mostra/nasconde le tab dei macro-gruppi ed evidenzia quella corrispondente alla domanda corrente. */
+  function aggiornaTabGruppi(indiceCorrente) {
+    const confine = calcolaConfineGruppi();
+    tabsGruppiEl.hidden = confine === null;
+    if (confine === null) {
+      return;
+    }
+    const gruppoAttivo = indiceCorrente < confine ? 0 : 1;
+    tabGruppo1.classList.toggle('is-attivo', gruppoAttivo === 0);
+    tabGruppo2.classList.toggle('is-attivo', gruppoAttivo === 1);
   }
 
   function renderIndicatori(totale, indiceCorrente) {
@@ -902,6 +939,7 @@ const compilazioneScreen = (() => {
     progressBar.setAttribute('aria-valuenow', String(indice + 1));
     progressBar.setAttribute('aria-valuetext', `Domanda ${indice + 1} di ${totale}`);
     renderIndicatori(totale, indice);
+    aggiornaTabGruppi(indice);
     sezioneEl.textContent = sezione;
     domandaEl.textContent = domanda.testo;
 
@@ -1108,6 +1146,23 @@ const compilazioneScreen = (() => {
     anagraficaDialog.apri(checklistEngine.sopralluogoCorrente().id);
   }
 
+  /**
+   * Se un altro dispositivo aggiorna delle risposte via sync mentre siamo già in Compilazione,
+   * rinfresca solo i pallini/contatore di completamento (js/sync.js li unisce già a livello di
+   * singola domanda, mai perdendo risposte): non tocca i controlli della domanda a schermo, per
+   * non rischiare di cancellare un campo che l'utente sta scrivendo in quel momento.
+   */
+  async function alRicevimentoDatiSync() {
+    if (screen.hidden) {
+      return;
+    }
+    await checklistEngine.ricaricaSopralluogoCorrente();
+    const corrente = checklistEngine.domandaCorrente();
+    if (corrente) {
+      renderIndicatori(corrente.totale, corrente.indice);
+    }
+  }
+
   function init() {
     applicaEtichetteRisposta();
     opzioniRisposta.forEach((input) => input.addEventListener('change', onCambioRisposta));
@@ -1124,11 +1179,17 @@ const compilazioneScreen = (() => {
     btnIndietro.addEventListener('click', onIndietro);
     btnAvanti.addEventListener('click', onAvanti);
     btnModificaAnagrafica.addEventListener('click', onModificaAnagrafica);
+    tabGruppo1.addEventListener('click', () => vaiAllaDomanda(0));
+    tabGruppo2.addEventListener('click', () => {
+      const confine = calcolaConfineGruppi();
+      if (confine !== null) vaiAllaDomanda(confine);
+    });
     progressBar.addEventListener('pointerdown', onPointerDownBarra);
     progressBar.addEventListener('pointermove', onPointerMoveBarra);
     progressBar.addEventListener('pointerup', (evento) => terminaGestoBarra(evento, true));
     progressBar.addEventListener('pointercancel', (evento) => terminaGestoBarra(evento, false));
     progressBar.addEventListener('keydown', onKeyDownBarra);
+    sync.onDatiAggiornati(alRicevimentoDatiSync);
   }
 
   return { init, renderDomandaCorrente };
