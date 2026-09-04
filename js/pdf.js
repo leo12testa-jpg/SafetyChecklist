@@ -59,7 +59,8 @@ const pdf = (() => {
   const LOGO_CLIENTE_PER_CHECKLIST = [
     { corrispondenza: 'coin', file: 'assets/logo_coin.webp' },
     { corrispondenza: 'interparking', file: 'assets/logo_interparking.webp' },
-    { corrispondenza: 'restage', file: 'assets/logo_restage.png' }
+    { corrispondenza: 'restage', file: 'assets/logo_restage.png' },
+    { corrispondenza: 'melluso', file: 'assets/logo_melluso.png' }
   ];
 
   /**
@@ -262,7 +263,8 @@ const pdf = (() => {
   const COLORE_BANNER_PER_CHECKLIST = {
     restage_sopralluogo: { sfondo: [28, 66, 36] }, // #1c4224, verde Restage
     coin_sopralluogo: { sfondo: [43, 43, 43] }, // #2b2b2b, grigio scuro Coin
-    interparking_sopralluogo: { sfondo: [0, 58, 114], accento: [255, 220, 69] } // #003a72 + #ffdc45
+    interparking_sopralluogo: { sfondo: [0, 58, 114], accento: [255, 220, 69] }, // #003a72 + #ffdc45
+    melluso_sopralluogo: { sfondo: [200, 2, 52] } // #c80234, rosso Melluso
   };
   const COLORE_BANNER_DEFAULT = { sfondo: [74, 122, 181] }; // #4a7ab5, blu originale
 
@@ -578,8 +580,16 @@ const pdf = (() => {
     doc.setFont(undefined, 'normal');
     y += 10;
 
-    doc.setFontSize(10);
+    // Le note libere e le foto associate restano due blocchi chiaramente separati (mai un'unica
+    // massa indistinta di testo e immagini), ciascuno con la propria etichetta.
     if (sopralluogo.altri_aspetti) {
+      doc.setFontSize(11);
+      doc.setFont(undefined, 'bold');
+      doc.text('NOTE AGGIUNTIVE', MARGINE, y);
+      doc.setFont(undefined, 'normal');
+      y += 6;
+
+      doc.setFontSize(10);
       const righe = avvolgiTesto(doc, sopralluogo.altri_aspetti, LARGHEZZA_PAGINA - MARGINE * 2);
       doc.text(righe, MARGINE, y);
       y += righe.length * 4.5 + 8;
@@ -588,7 +598,7 @@ const pdf = (() => {
     await disegnaPaginaAllegati(doc, allegatiNote, {
       aggiungiPagina: false,
       yIniziale: y,
-      titolo: null
+      titolo: 'DOCUMENTAZIONE FOTOGRAFICA'
     });
   }
 

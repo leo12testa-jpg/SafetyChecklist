@@ -135,7 +135,9 @@ test('ordine fisico jsPDF: ultima domanda, fotografie complete, poi altri aspett
     'text:Foto 2 — Domanda 63: Domanda 63',
     'addPage',
     'text:ALTRI ASPETTI DA EVIDENZIARE',
+    'text:NOTE AGGIUNTIVE',
     'text:Testo finale',
+    'text:DOCUMENTAZIONE FOTOGRAFICA',
     'addImage',
     'text:Foto 1 — Altri aspetti da evidenziare'
   ]);
@@ -155,6 +157,7 @@ test('sezioni finali omettono pagine vuote nei casi particolari', async () => {
   assert.deepEqual(soloAltri, [
     'addPage',
     'text:ALTRI ASPETTI DA EVIDENZIARE',
+    'text:NOTE AGGIUNTIVE',
     'text:Solo testo finale'
   ]);
 
@@ -172,6 +175,7 @@ test('sezioni finali omettono pagine vuote nei casi particolari', async () => {
   assert.deepEqual(soloFotoFinale, [
     'addPage',
     'text:ALTRI ASPETTI DA EVIDENZIARE',
+    'text:DOCUMENTAZIONE FOTOGRAFICA',
     'addImage',
     'text:Foto 1 — Altri aspetti da evidenziare'
   ]);
@@ -234,6 +238,7 @@ test('pagina Allegati: didascalia personalizzata per una foto di "Altri aspetti"
   assert.deepEqual(eventi, [
     'addPage',
     'text:ALTRI ASPETTI DA EVIDENZIARE',
+    'text:DOCUMENTAZIONE FOTOGRAFICA',
     'addImage',
     'text:Estintore scaduto vicino alla cassa 3',
     'addImage',
