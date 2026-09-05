@@ -15,16 +15,14 @@ const pdf = (() => {
   const MARGINE = 15;
   const LARGHEZZA_PAGINA = 210; // A4, mm
   const ALTEZZA_PAGINA = 297;
+  // Il numero di pagina nel footer va volutamente più vicino al bordo fisico destro rispetto al
+  // margine generale MARGINE (15mm) usato per il resto del documento: un margine dedicato, più
+  // stretto, solo per questo testo.
+  const MARGINE_NUMERO_PAGINA = 7;
 
   const TITOLI_GRUPPI_SEZIONI = ['ANALISI DOCUMENTALE', 'SOPRALLUOGO AMBIENTI DI LAVORO'];
 
   const LEGENDA = 'C = Conforme;   P.C = Parzialmente conforme;   N.C = Non conforme;   N.P = Non pertinente';
-
-  // Segnaposto per il totale pagine (jsPDF.putTotalPages): il numero totale non è noto finché
-  // tutto il documento non è stato disegnato (le pagine di Allegati/Altri aspetti arrivano dopo
-  // le tabelle di sezione), quindi si scrive questo testo al momento e lo si sostituisce ovunque
-  // compaia in un'unica passata finale, vedi generaReport.
-  const SEGNAPOSTO_TOTALE_PAGINE = '{total_pages_count_string}';
 
   function blobADataURL(blob) {
     return new Promise((resolve, reject) => {
@@ -60,7 +58,12 @@ const pdf = (() => {
     { corrispondenza: 'coin', file: 'assets/logo_coin.webp' },
     { corrispondenza: 'interparking', file: 'assets/logo_interparking.webp' },
     { corrispondenza: 'restage', file: 'assets/logo_restage.png' },
-    { corrispondenza: 'melluso', file: 'assets/logo_melluso.png', larghezzaMax: 20, altezzaMax: 20 }
+    // assets/logo_melluso.png è stato ritagliato sul contenuto reale (la scritta "Melluso" è una
+    // striscia orizzontale molto più larga che alta, non un quadrato): larghezzaMax è il vincolo
+    // che determina la dimensione finale, altezzaMax è volutamente larga per non essere lei il
+    // fattore limitante (altrimenti il logo resterebbe piccolo come con il vecchio file quadrato
+    // pieno di spazio trasparente).
+    { corrispondenza: 'melluso', file: 'assets/logo_melluso.png', larghezzaMax: 35, altezzaMax: 10 }
   ];
 
   /** Riquadro massimo del logo cliente in intestazione: default condiviso, con override per
@@ -199,6 +202,10 @@ const pdf = (() => {
    * della successiva), e didDrawPage spara per ciascuna di esse — senza questo controllo la
    * legenda verrebbe disegnata più volte, sovrapposta, sulla stessa pagina. completaPagineRestanti
    * è una rete di sicurezza per le pagine senza alcuna tabella (Altri aspetti, Allegati).
+   *
+   * Il numero di pagina ("Pag. X di Y") NON viene disegnato qui, deliberatamente: vedi
+   * disegnaNumeriPagina più sotto per il motivo (un bug reale di allineamento, non solo una scelta
+   * di stile).
    */
   function creaTracciatoreLegenda(doc) {
     const pagineFatte = new Set();
@@ -212,12 +219,6 @@ const pdf = (() => {
       doc.setFontSize(7.5);
       doc.setFont(undefined, 'italic');
       doc.text(LEGENDA, MARGINE, ALTEZZA_PAGINA - 8);
-      doc.text(
-        `Pag. ${numeroPagina} di ${SEGNAPOSTO_TOTALE_PAGINE}`,
-        LARGHEZZA_PAGINA - MARGINE,
-        ALTEZZA_PAGINA - 8,
-        { align: 'right' }
-      );
       doc.setFont(undefined, 'normal');
       doc.setPage(paginaPrecedente);
     }
@@ -230,6 +231,39 @@ const pdf = (() => {
         }
       }
     };
+  }
+
+  /**
+   * Disegna "Pag. X di Y" in fondo a ogni pagina, allineato a destra vicino al bordo fisico
+   * (MARGINE_NUMERO_PAGINA, più stretto del margine generale MARGINE usato per il resto del
+   * documento). Chiamata in un'UNICA passata finale, quando il numero totale di pagine è già
+   * definitivo (dopo completaPagineRestanti in generaReport): jsPDF non ricalcola mai un
+   * allineamento 'right' già scritto quando il testo cambia lunghezza in seguito. Il vecchio
+   * approccio scriveva un segnaposto lungo ("Pag. X di {total_pages_count_string}"), calcolava
+   * l'allineamento a destra su QUELLA lunghezza, e solo alla fine sostituiva il segnaposto con il
+   * numero vero (doc.putTotalPages): la sostituzione è un rimpiazzo di testo grezzo nel content
+   * stream, non un nuovo disegno, quindi il testo restava ancorato alla posizione calcolata per il
+   * segnaposto (molto più largo del numero reale) e appariva visibilmente più a sinistra del
+   * previsto, indipendentemente da quanto si stringesse MARGINE_NUMERO_PAGINA. Disegnando qui,
+   * invece, il testo scritto è già quello reale e definitivo: l'allineamento a destra è sempre
+   * corretto al primo colpo.
+   */
+  function disegnaNumeriPagina(doc) {
+    const totale = doc.internal.getNumberOfPages();
+    const paginaPrecedente = doc.internal.getCurrentPageInfo().pageNumber;
+    for (let numeroPagina = 1; numeroPagina <= totale; numeroPagina += 1) {
+      doc.setPage(numeroPagina);
+      doc.setFontSize(7.5);
+      doc.setFont(undefined, 'italic');
+      doc.text(
+        `Pag. ${numeroPagina} di ${totale}`,
+        LARGHEZZA_PAGINA - MARGINE_NUMERO_PAGINA,
+        ALTEZZA_PAGINA - 8,
+        { align: 'right' }
+      );
+      doc.setFont(undefined, 'normal');
+    }
+    doc.setPage(paginaPrecedente);
   }
 
   /** Tabella "DATI GENERALI": titolo su sfondo arancione, righe con bordi neri. */
@@ -925,12 +959,9 @@ const pdf = (() => {
     // sezione, questo completa solo quelle rimaste scoperte, senza mai ridisegnare le altre.
     tracciatoreLegenda.completaPagineRestanti();
 
-    // Sostituisce il segnaposto "Pag. X di {total_pages_count_string}" con il totale pagine reale,
-    // noto solo ora che l'intero documento (comprese le pagine finali di Allegati/Altri aspetti)
-    // è stato disegnato: unica passata su tutto il documento, gestita da jsPDF stesso.
-    if (typeof doc.putTotalPages === 'function') {
-      doc.putTotalPages(SEGNAPOSTO_TOTALE_PAGINE);
-    }
+    // Numeri di pagina in un'unica passata finale, ora che il totale pagine reale è noto (vedi
+    // disegnaNumeriPagina per il perché non si può disegnarli incrementalmente con un segnaposto).
+    disegnaNumeriPagina(doc);
 
     return doc.output('blob');
   }
