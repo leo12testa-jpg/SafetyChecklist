@@ -60,8 +60,13 @@ const pdf = (() => {
     { corrispondenza: 'coin', file: 'assets/logo_coin.webp' },
     { corrispondenza: 'interparking', file: 'assets/logo_interparking.webp' },
     { corrispondenza: 'restage', file: 'assets/logo_restage.png' },
-    { corrispondenza: 'melluso', file: 'assets/logo_melluso.png' }
+    { corrispondenza: 'melluso', file: 'assets/logo_melluso.png', larghezzaMax: 20, altezzaMax: 20 }
   ];
+
+  /** Riquadro massimo del logo cliente in intestazione: default condiviso, con override per
+   *  checklist quando un logo va reso più grande (es. Melluso, vedi LOGO_CLIENTE_PER_CHECKLIST).
+   *  Il logo Colligo Ingegneria a sinistra non è mai influenzato da questo override. */
+  const DIMENSIONE_LOGO_CLIENTE_DEFAULT = { larghezzaMax: 40, altezzaMax: 15 };
 
   /**
    * Logo del cliente corrispondente alla checklist del sopralluogo (match case-insensitive su
@@ -79,8 +84,13 @@ const pdf = (() => {
       console.warn(`[pdf.js] Nessun logo cliente associato alla checklist "${checklist.id}" (titolo: "${checklist.titolo}", Punto vendita: "${puntoVendita || ''}"). Intestazione senza logo a destra.`);
       return null;
     }
+    const dimensione = {
+      larghezzaMax: voce.larghezzaMax || DIMENSIONE_LOGO_CLIENTE_DEFAULT.larghezzaMax,
+      altezzaMax: voce.altezzaMax || DIMENSIONE_LOGO_CLIENTE_DEFAULT.altezzaMax
+    };
     try {
-      return await caricaLogo(voce.file);
+      const url = await caricaLogo(voce.file);
+      return { url, ...dimensione };
     } catch (errore) {
       console.error(`[pdf.js] Logo cliente non caricato (${voce.file}) per checklist "${checklist.id}" (Punto vendita: "${puntoVendita || ''}"):`, errore);
       return null;
@@ -147,14 +157,20 @@ const pdf = (() => {
   }
 
   /** Intestazione con doppio logo affiancato (Colligo Ingegneria a sinistra, cliente a destra), proporzioni originali mantenute. Nessun titolo checklist: è un dato interno (usato solo per l'elenco a tendina), non va mostrato nel report. */
-  function disegnaIntestazione(doc, logoClienteURL, logoColligoURL) {
-    const LARGHEZZA_MAX_LOGO = 40;
-    const ALTEZZA_MAX_LOGO = 15;
+  function disegnaIntestazione(doc, logoCliente, logoColligoURL) {
+    const { larghezzaMax, altezzaMax } = DIMENSIONE_LOGO_CLIENTE_DEFAULT;
 
-    disegnaLogoProporzionato(doc, logoColligoURL, 'sinistra', LARGHEZZA_MAX_LOGO, ALTEZZA_MAX_LOGO);
-    disegnaLogoProporzionato(doc, logoClienteURL, 'destra', LARGHEZZA_MAX_LOGO, ALTEZZA_MAX_LOGO);
+    disegnaLogoProporzionato(doc, logoColligoURL, 'sinistra', larghezzaMax, altezzaMax);
+    disegnaLogoProporzionato(
+      doc,
+      logoCliente ? logoCliente.url : null,
+      'destra',
+      logoCliente ? logoCliente.larghezzaMax : larghezzaMax,
+      logoCliente ? logoCliente.altezzaMax : altezzaMax
+    );
 
-    return MARGINE + ALTEZZA_MAX_LOGO + 8;
+    const altezzaRiservata = Math.max(altezzaMax, logoCliente ? logoCliente.altezzaMax : altezzaMax);
+    return MARGINE + altezzaRiservata + 8;
   }
 
   /**
@@ -890,7 +906,7 @@ const pdf = (() => {
     }
 
     const logoColligoURL = await ottieniLogoColligo();
-    const logoClienteURL = await ottieniLogoCliente(checklist, sopralluogo.punto_vendita);
+    const logoCliente = await ottieniLogoCliente(checklist, sopralluogo.punto_vendita);
 
     const raccoltaFoto = raccogliFotoConDidascalia(checklist, sopralluogo);
     const fotoDomande = await filtraFotoEsistenti(raccoltaFoto.fotoDomande, sopralluogo);
@@ -898,7 +914,7 @@ const pdf = (() => {
     const mappaFotoPerDomanda = costruisciMappaFotoPerDomanda(fotoDomande);
     const tracciatoreLegenda = creaTracciatoreLegenda(doc);
 
-    let y = disegnaIntestazione(doc, logoClienteURL, logoColligoURL);
+    let y = disegnaIntestazione(doc, logoCliente, logoColligoURL);
     y = disegnaTabellaDatiGenerali(doc, checklist, sopralluogo, y, tracciatoreLegenda.hookDidDrawPage);
     disegnaGruppiSezioni(doc, checklist, sopralluogo, y, mappaFotoPerDomanda, tracciatoreLegenda.hookDidDrawPage);
 
