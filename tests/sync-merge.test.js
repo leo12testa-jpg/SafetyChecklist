@@ -117,6 +117,63 @@ test('scenario end-to-end: un terzo dispositivo che legge il risultato finale ve
   for (let i = 40; i <= 50; i++) assert.ok(idPresenti.has(`d${i}`));
 });
 
+test('arrayRisposteInMappa: formato Array (locale IndexedDB standard) viene convertito in mappa per domanda_id', () => {
+  const { arrayRisposteInMappa } = caricaSync();
+  const array = [risposta('d1', 'C', '2026-09-03T10:00:00.000Z'), risposta('d2', 'NC', '2026-09-03T10:01:00.000Z')];
+  const mappa = arrayRisposteInMappa(array);
+  assert.deepEqual(Object.keys(mappa).sort(), ['d1', 'd2']);
+  assert.equal(mappa.d1.risposta, 'C');
+  assert.equal(mappa.d2.risposta, 'NC');
+});
+
+test('arrayRisposteInMappa: formato Object/mappa legacy (es. record scaricato da Firestore senza conversione) viene accettato preservando le chiavi domanda_id', () => {
+  const { arrayRisposteInMappa } = caricaSync();
+  const oggettoLegacy = {
+    d1: risposta('d1', 'C', '2026-09-03T10:00:00.000Z'),
+    d2: risposta('d2', 'PC', '2026-09-03T10:01:00.000Z')
+  };
+  const mappa = arrayRisposteInMappa(oggettoLegacy);
+  assert.deepEqual(Object.keys(mappa).sort(), ['d1', 'd2']);
+  assert.equal(mappa.d1.risposta, 'C');
+  assert.equal(mappa.d2.risposta, 'PC');
+  assert.notEqual(mappa, oggettoLegacy, 'deve essere una copia, non lo stesso oggetto');
+});
+
+test('arrayRisposteInMappa: null produce una mappa vuota senza errore', () => {
+  const { arrayRisposteInMappa } = caricaSync();
+  assert.equal(Object.keys(arrayRisposteInMappa(null)).length, 0);
+});
+
+test('arrayRisposteInMappa: undefined produce una mappa vuota senza errore', () => {
+  const { arrayRisposteInMappa } = caricaSync();
+  assert.equal(Object.keys(arrayRisposteInMappa(undefined)).length, 0);
+});
+
+test('arrayRisposteInMappa: un tipo realmente inatteso (stringa/numero) non manda in crash, produce mappa vuota', () => {
+  const { arrayRisposteInMappa } = caricaSync();
+  assert.equal(Object.keys(arrayRisposteInMappa('formato-corrotto')).length, 0);
+  assert.equal(Object.keys(arrayRisposteInMappa(42)).length, 0);
+});
+
+test('unisciRisposte non va in eccezione quando il locale ha "risposte" in formato Object legacy (riproduce il crash reale: TypeError forEach is not a function)', () => {
+  const { unisciRisposte, arrayRisposteInMappa } = caricaSync();
+
+  // Simula un sopralluogo scaricato da Firestore e salvato in locale senza conversione
+  // (db.applicaSopralluogoRemoto): "locale.risposte" è già una mappa, non un Array.
+  const localeFormatoLegacy = arrayRisposteInMappa([
+    risposta('d1', 'C', '2026-09-03T10:00:00.000Z'),
+    risposta('d2', 'NC', '2026-09-03T10:01:00.000Z')
+  ]);
+
+  const remoteMappa = { d2: risposta('d2', 'NC', '2026-09-03T10:01:00.000Z'), d3: risposta('d3', 'C', '2026-09-03T10:02:00.000Z') };
+
+  assert.doesNotThrow(() => {
+    const risultato = unisciRisposte(localeFormatoLegacy, remoteMappa, 0, 0);
+    const idPresenti = new Set(risultato.array.map((r) => r.domanda_id));
+    assert.deepEqual([...idPresenti].sort(), ['d1', 'd2', 'd3']);
+  });
+});
+
 test('estraiMetadati non include mai risposte/foto_url/foto (restano gestiti a parte)', () => {
   const { estraiMetadati } = caricaSync();
   const sopralluogo = {

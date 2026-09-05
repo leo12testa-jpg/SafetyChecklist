@@ -73,12 +73,32 @@ const sync = (() => {
 
   // --- Funzioni pure di conversione/merge (nessuna chiamata a IndexedDB/Firestore: testabili in isolamento) ---
 
-  function arrayRisposteInMappa(risposteArray) {
-    const mappa = {};
-    (risposteArray || []).forEach((risposta) => {
-      mappa[risposta.domanda_id] = risposta;
-    });
-    return mappa;
+  /**
+   * Converte "risposte" nel formato mappa domanda_id -> risposta usato per il confronto/merge.
+   * Il formato locale atteso è un Array (IndexedDB, vedi db.js), ma alcuni sopralluoghi scaricati
+   * da Firestore per la prima volta (db.applicaSopralluogoRemoto, che salva il record così com'è)
+   * finiscono con "risposte" già in formato mappa: qui si accetta anche quel caso, riusando le
+   * chiavi (domanda_id) così come sono invece di ricostruirle con Object.values, per non perdere
+   * l'associazione domanda_id se una risposta ne fosse priva. null/undefined diventano mappa
+   * vuota; un tipo realmente inatteso viene segnalato (console.warn) e trattato come vuoto, senza
+   * interrompere la sincronizzazione.
+   */
+  function arrayRisposteInMappa(risposte) {
+    if (risposte == null) {
+      return {};
+    }
+    if (Array.isArray(risposte)) {
+      const mappa = {};
+      risposte.forEach((risposta) => {
+        mappa[risposta.domanda_id] = risposta;
+      });
+      return mappa;
+    }
+    if (typeof risposte === 'object') {
+      return { ...risposte };
+    }
+    console.warn('Sync: formato "risposte" inatteso, ignorato:', typeof risposte, risposte);
+    return {};
   }
 
   function mappaRisposteInArray(risposteMappa) {
