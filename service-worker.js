@@ -1,4 +1,8 @@
-const CACHE_NAME = 'safety-checklist-shell-v62';
+// BUILD_ID sostituito automaticamente da pubblica.sh a ogni release (mai un hash di commit: sarebbe
+// autoreferenziale, dato che modificare questo stesso file cambierebbe l'hash finale). Cambia sempre
+// a ogni pubblicazione, così il browser rileva sempre un service-worker.js diverso byte per byte e
+// installa una cache nuova; l'activate qui sotto elimina da sé quelle vecchie.
+const CACHE_NAME = 'safety-checklist-shell-20260905-180606';
 
 const APP_SHELL = [
   './',
@@ -24,6 +28,7 @@ const APP_SHELL = [
   './js/pdf-import.js',
   './js/camera.js',
   './js/sync.js',
+  './js/aggiornamento.js',
   './checklists/index.json',
   './checklists/clients.json',
   './checklists/tecnici.json',
@@ -114,6 +119,10 @@ self.addEventListener('fetch', (event) => {
   }
 
   const isChecklist = url.pathname.includes('/checklists/');
+  // version.json è la sonda di freschezza usata dallo script di pubblicazione e dal badge
+  // versione in Impostazioni: non va mai precacheata né servita da una cache-first, altrimenti
+  // mostrerebbe per sempre il BUILD_ID della prima installazione invece di quello reale.
+  const isVersione = url.pathname.endsWith('/version.json');
 
-  event.respondWith(isChecklist ? networkFirst(event.request) : cacheFirst(event.request));
+  event.respondWith(isChecklist || isVersione ? networkFirst(event.request) : cacheFirst(event.request));
 });

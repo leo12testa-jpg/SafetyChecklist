@@ -75,6 +75,38 @@ body {
   background: #f59e0b;
 }
 
+/* Banner "Nuova versione disponibile": mostrato solo quando un reload automatico sarebbe rischioso (compilazione in corso), vedi js/aggiornamento.js. */
+.banner-aggiornamento {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px var(--spacing);
+  background: #fef3c7;
+  color: #78350f;
+  font-size: 0.8rem;
+  border-bottom: 1px solid #fde68a;
+}
+
+.banner-aggiornamento-bottone {
+  flex: none;
+  border: none;
+  border-radius: var(--radius);
+  padding: 4px 12px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+/* Badge versione discreto in Impostazioni (vedi js/aggiornamento.js): stesso linguaggio visivo di .placeholder-text, più piccolo. */
+.versione-app {
+  margin-top: 24px;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
 /* Stato di chiusura amministrativa nello Storico ("Da completare"/"Chiusa"): stesso linguaggio visivo del pallino di stato-connessione qui sopra, solo leggermente più grande. */
 .storico-stato {
   display: inline-flex;

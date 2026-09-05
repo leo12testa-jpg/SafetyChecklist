@@ -20,6 +20,11 @@
       </span>
     </header>
 
+    <div class="banner-aggiornamento" id="banner-aggiornamento" hidden>
+      <span>Nuova versione disponibile</span>
+      <button type="button" class="banner-aggiornamento-bottone" id="banner-aggiornamento-bottone">Aggiorna</button>
+    </div>
+
     <main id="screens">
       <section id="screen-home" class="screen" data-screen="home">
         <div class="home-actions">
@@ -256,6 +261,8 @@
 
         <h3>Checklist disponibili</h3>
         <ul class="lista-checklist" id="lista-checklist-disponibili"></ul>
+
+        <p class="versione-app" id="versione-app"></p>
       </section>
     </main>
 
@@ -398,20 +405,6 @@
   <script src="js/pdf-import.js"></script>
   <script src="js/sync.js"></script>
   <script src="js/app.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        // updateViaCache: 'none' impedisce al browser di servire service-worker.js dalla cache
-        // HTTP quando ne verifica gli aggiornamenti: senza questo, su una piattaforma come
-        // GitHub Pages (niente controllo sugli header Cache-Control) il controllo di aggiornamento
-        // può vedere una copia non aggiornata del file per la durata della sua cache HTTP, anche
-        // se l'utente rimuove e "reinstalla" l'icona della PWA (operazione che su Android/iOS non
-        // cancella di per sé la Cache Storage/Service Worker del browser per quel sito).
-        navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' })
-          .then((registrazione) => registrazione.update())
-          .catch((errore) => console.error('[SW] Registrazione non riuscita:', errore));
-      });
-    }
-  </script>
+  <script src="js/aggiornamento.js"></script>
 </body>
 </html>
