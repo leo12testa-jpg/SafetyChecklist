@@ -246,3 +246,16 @@ test('pagina Allegati: didascalia personalizzata per una foto di "Altri aspetti"
   ]);
 });
 
+
+test('PDF da altro dispositivo: risposte Firestore in formato mappa sono accettate come array', () => {
+  const api = caricaPdf();
+  const raccolta = api.raccogliFotoConDidascalia(checklist, {
+    risposte: {
+      '51': { risposta: 'NC', note: 'Nota', foto: ['a'] },
+      '52': { domanda_id: 52, risposta: 'C', foto: [] }
+    }
+  });
+  assert.equal(raccolta.fotoDomande.length, 1);
+  assert.equal(raccolta.fotoDomande[0].domandaId, 51);
+  assert.equal(raccolta.fotoDomande[0].fotoId, 'a');
+});

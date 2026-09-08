@@ -79,6 +79,21 @@ const pdf = (() => {
 
   const LEGENDA = 'C = Conforme;   P.C = Parzialmente conforme;   N.C = Non conforme;   N.P = Non pertinente';
 
+  /** Accetta sia l'array locale sia la mappa Firestore domanda_id -> risposta. */
+  function risposteComeArray(risposte) {
+    if (Array.isArray(risposte)) return risposte;
+    if (risposte && typeof risposte === 'object') {
+      return Object.keys(risposte).map((chiave) => {
+        const risposta = risposte[chiave];
+        if (!risposta || typeof risposta !== 'object') return null;
+        return risposta.domanda_id == null
+          ? { ...risposta, domanda_id: Number.isNaN(Number(chiave)) ? chiave : Number(chiave) }
+          : risposta;
+      }).filter(Boolean);
+    }
+    return [];
+  }
+
   /**
    * Layout del documento: unica fonte di verità per margini, dimensioni pagina e spazi fra
    * blocchi. larghezzaPagina/altezzaPagina sono SEMPRE lette da doc.internal.pageSize (mai
@@ -508,7 +523,7 @@ const pdf = (() => {
   function disegnaTabellaSezione(doc, layout, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda, gruppo) {
     const coloreGruppo = gruppo && ((gruppo.configCliente && gruppo.configCliente.coloreBanner) || COLORE_BANNER_DEFAULT);
     const corpo = sezione.domande.map((domanda) => {
-      const risposta = (sopralluogo.risposte || []).find((r) => r.domanda_id === domanda.id);
+      const risposta = risposteComeArray(sopralluogo.risposte).find((r) => r.domanda_id === domanda.id);
       const valore = risposta ? risposta.risposta : '';
       const nota = (risposta && risposta.note) || '';
       const vediFoto = suffissoVediFoto(domanda.id, mappaFotoPerDomanda);
@@ -715,7 +730,7 @@ const pdf = (() => {
     });
 
     const fotoDomande = [];
-    (sopralluogo.risposte || []).forEach((risposta) => {
+    risposteComeArray(sopralluogo.risposte).forEach((risposta) => {
       if (!risposta.foto || !risposta.foto.length) {
         return;
       }
@@ -949,7 +964,7 @@ const pdf = (() => {
       y += 6;
 
       sezione.domande.forEach((domanda) => {
-        const risposta = (sopralluogo.risposte || []).find((r) => r.domanda_id === domanda.id);
+        const risposta = risposteComeArray(sopralluogo.risposte).find((r) => r.domanda_id === domanda.id);
         const valoreTesto = formattaValoreRaccoltaDati(risposta ? risposta.risposta : undefined);
         const notaTesto = risposta && risposta.note ? ` (Note: ${risposta.note})` : '';
 
@@ -1087,7 +1102,12 @@ const pdf = (() => {
     if (errore && errore.metodoPdf) return errore.message;
     const message = errore && errore.message ? errore.message : String(errore);
     const missing = message.match(/([^\s]+) is not a function/);
-    if (missing) return `Impossibile ${azione} il PDF su questo dispositivo. Metodo non disponibile: ${missing[1]}.`;
+    if (missing) {
+      const metodo = missing[1];
+      const apiBrowser = /^(navigator\.|URL\.|window\.|Blob\.|FileReader|HTMLAnchorElement)/.test(metodo);
+      if (apiBrowser) return `Impossibile ${azione} il PDF su questo dispositivo. Metodo non disponibile: ${metodo}.`;
+      return `Impossibile ${azione} il PDF: formato dati non compatibile (${metodo}). Riapri l'app e riprova dopo la sincronizzazione.`;
+    }
     return `Impossibile ${azione} il PDF: ${message}`;
   }
 

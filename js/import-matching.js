@@ -378,6 +378,37 @@ const importMatching = (() => {
     const domandaPerId = new Map(domande.map((voce) => [Number(voce.domanda.id), voce]));
     const righeValide = (righeAbbinate || []).filter((riga) => riga.domanda_id != null && riga.stato_riga !== 'conflitto');
 
+    // Nei PDF generati dall'app ogni domanda con foto riporta in tabella "Vedi Foto N". È il
+    // collegamento più affidabile possibile: permette di ricostruire la relazione foto -> domanda
+    // anche quando il testo della didascalia sotto l'immagine viene estratto male o su più righe.
+    const riferimentiFoto = new Map();
+    righeValide.forEach((riga) => {
+      const nota = String((riga.originale && riga.originale.nota_originale) || '');
+      const gruppo = nota.match(/\bVedi\s+((?:Foto\s+\d+\s*(?:,\s*)?)+)/i);
+      if (!gruppo) return;
+      const regexFoto = /Foto\s+(\d+)/gi;
+      let match;
+      while ((match = regexFoto.exec(gruppo[1])) !== null) {
+        const numeroFoto = Number(match[1]);
+        if (!riferimentiFoto.has(numeroFoto)) riferimentiFoto.set(numeroFoto, []);
+        riferimentiFoto.get(numeroFoto).push(Number(riga.domanda_id));
+      }
+    });
+
+    function domandaDaRiferimentoFoto(numeroFoto) {
+      const candidati = riferimentiFoto.get(Number(numeroFoto)) || [];
+      const unici = Array.from(new Set(candidati));
+      return unici.length === 1 ? unici[0] : null;
+    }
+
+    const numerazioneCompleta = (immagini || []).length > 0 &&
+      Array.from({ length: (immagini || []).length }, (_, indice) => indice + 1).every((numero) => domandaDaRiferimentoFoto(numero) != null);
+
+    function numeroFotoDaDidascalia(didascalia) {
+      const match = String(didascalia || '').match(/\bFoto\s+(\d+)\b/i);
+      return match ? Number(match[1]) : null;
+    }
+
     function numeroDaDidascalia(didascalia) {
       const match = String(didascalia || '').match(/\bDomanda\s+(?:n[.°]?\s*)?(\d+)\b/i);
       return match ? Number(match[1]) : null;
@@ -393,10 +424,20 @@ const importMatching = (() => {
       return domandaPerId.get(Number(domandaId)) || null;
     }
 
-    return (immagini || []).map((foto) => {
+    return (immagini || []).map((foto, indiceFoto) => {
       let domandaId = foto.domanda_id_collegata != null ? Number(foto.domanda_id_collegata) : null;
       let metodo = foto.associazione_domanda_metodo || null;
+      const numeroFotoLetto = numeroFotoDaDidascalia(foto.didascalia);
+      const numeroFoto = numeroFotoLetto != null ? numeroFotoLetto : (numerazioneCompleta ? indiceFoto + 1 : null);
       const numero = numeroDaDidascalia(foto.didascalia);
+
+      if (domandaId == null && numeroFoto != null) {
+        const daTabella = domandaDaRiferimentoFoto(numeroFoto);
+        if (daTabella != null && voceDaDomandaId(daTabella)) {
+          domandaId = daTabella;
+          metodo = numeroFotoLetto != null ? 'riferimento_tabella' : 'riferimento_tabella_ordine';
+        }
+      }
 
       if (domandaId == null && numero != null) {
         const perIdOriginale = righeValide.filter((riga) => Number(riga.originale && riga.originale.id_originale) === numero);

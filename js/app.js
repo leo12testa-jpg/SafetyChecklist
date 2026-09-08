@@ -71,6 +71,21 @@ let sopralluogoImportatoDaPdf = null;
  */
 let anteprimaImportazionePendente = null;
 
+/** Normalizza risposte locali/Firestore in array senza assumere il formato ricevuto. */
+function risposteComeArray(risposte) {
+  if (Array.isArray(risposte)) return risposte;
+  if (risposte && typeof risposte === 'object') {
+    return Object.keys(risposte).map((chiave) => {
+      const risposta = risposte[chiave];
+      if (!risposta || typeof risposta !== 'object') return null;
+      return risposta.domanda_id == null
+        ? { ...risposta, domanda_id: Number.isNaN(Number(chiave)) ? chiave : Number(chiave) }
+        : risposta;
+    }).filter(Boolean);
+  }
+  return [];
+}
+
 /**
  * Etichette di visualizzazione personalizzate per checklist_id: solo il testo mostrato cambia,
  * mai i nomi dei campi salvati nel sopralluogo (punto_vendita/responsabile_punto_vendita/
@@ -678,6 +693,9 @@ const importPreviewScreen = (() => {
     container.textContent = '';
     const immagini = anteprimaImportazionePendente.immagini || [];
     const domande = importMatching.appiattisciDomande(anteprimaImportazionePendente.checklist);
+    const rigaPerDomanda = new Map((anteprimaImportazionePendente.righe || [])
+      .filter((riga) => riga.domanda_id != null)
+      .map((riga) => [Number(riga.domanda_id), riga]));
     if (!immagini.length) container.textContent = 'Nessuna immagine selezionata.';
     immagini.forEach((foto, indice) => {
       const card = document.createElement('figure');
@@ -687,8 +705,10 @@ const importPreviewScreen = (() => {
 
       const caption = document.createElement('figcaption');
       const voceCollegata = domande.find((voce) => Number(voce.domanda.id) === Number(foto.domanda_id_collegata));
+      const rigaCollegata = voceCollegata ? rigaPerDomanda.get(Number(voceCollegata.domanda.id)) : null;
+      const statoCollegato = rigaCollegata && rigaCollegata.risposta ? ` [${rigaCollegata.risposta}]` : '';
       caption.textContent = voceCollegata
-        ? `Pagina ${foto.pagina} — Domanda ${voceCollegata.domanda.id}: ${voceCollegata.domanda.testo}`
+        ? `Pagina ${foto.pagina} — Domanda ${voceCollegata.domanda.id}${statoCollegato}: ${voceCollegata.domanda.testo}`
         : `Pagina ${foto.pagina} — ${foto.didascalia || 'Senza didascalia riconosciuta'} — da collegare/Altri aspetti`;
 
       const label = document.createElement('label');
@@ -702,7 +722,9 @@ const importPreviewScreen = (() => {
       domande.forEach((voce) => {
         const option = document.createElement('option');
         option.value = String(voce.domanda.id);
-        option.textContent = `Domanda ${voce.domanda.id}: ${voce.domanda.testo}`;
+        const riga = rigaPerDomanda.get(Number(voce.domanda.id));
+        const stato = riga && riga.risposta ? ` [${riga.risposta}]` : '';
+        option.textContent = `Domanda ${voce.domanda.id}${stato}: ${voce.domanda.testo}`;
         select.appendChild(option);
       });
       select.value = foto.domanda_id_collegata != null ? String(foto.domanda_id_collegata) : '';
@@ -1101,7 +1123,11 @@ const compilazioneScreen = (() => {
       return null;
     }
     const puntoDivisione = pdf.calcolaPuntoDivisioneGruppi(checklist);
-    const contaDomande = (sezioni) => sezioni.reduce((totale, sezione) => totale + (sezione.domande || []).length, 0);
+    const contaDomande = (sezioni) => {
+      let totale = 0;
+      (sezioni || []).forEach((sezione) => { totale += (sezione.domande || []).length; });
+      return totale;
+    };
     const indiceInizioGruppo2 = contaDomande(checklist.sezioni.slice(0, puntoDivisione));
     const totaleDomande = contaDomande(checklist.sezioni);
     if (indiceInizioGruppo2 <= 0 || indiceInizioGruppo2 >= totaleDomande) {
@@ -1123,11 +1149,14 @@ const compilazioneScreen = (() => {
   }
 
   function renderIndicatori(totale, indiceCorrente) {
-    const compilate = new Set((checklistEngine.sopralluogoCorrente().risposte || [])
+    const compilate = new Set(risposteComeArray(checklistEngine.sopralluogoCorrente().risposte)
       .filter((risposta) => risposta.risposta !== null && risposta.risposta !== undefined && risposta.risposta !== '')
       .map((risposta) => risposta.domanda_id));
     const checklist = checklistEngine.getChecklist();
-    const ids = (checklist.sezioni || []).reduce((tutti, sezione) => tutti.concat((sezione.domande || []).map((domanda) => domanda.id)), []);
+    const ids = [];
+    (checklist.sezioni || []).forEach((sezione) => {
+      (sezione.domande || []).forEach((domanda) => ids.push(domanda.id));
+    });
     progressMarkers.innerHTML = '';
     ids.forEach((id, indice) => {
       const marker = document.createElement('span');
@@ -2028,9 +2057,11 @@ const storicoScreen = (() => {
    * scattate offline e non ancora sincronizzate) invece che sistematico come prima.
    */
   async function contaFotoMancanti(sopralluogo) {
-    const idFoto = (sopralluogo.risposte || [])
-      .reduce((ids, r) => ids.concat(r.foto || []), [])
-      .concat(sopralluogo.altri_aspetti_foto || []);
+    const idFoto = [];
+    risposteComeArray(sopralluogo.risposte).forEach((risposta) => {
+      (risposta.foto || []).forEach((fotoId) => idFoto.push(fotoId));
+    });
+    (sopralluogo.altri_aspetti_foto || []).forEach((fotoId) => idFoto.push(fotoId));
     if (!idFoto.length) {
       return 0;
     }

@@ -157,9 +157,14 @@ const fotoSync = (() => {
 
   /** Percorsi Supabase di tutte le foto (domande + "Altri aspetti") referenziate da un sopralluogo, via la sua mappa foto_url. */
   function percorsiFotoDiSopralluogo(sopralluogo) {
-    const idFoto = (sopralluogo.risposte || [])
-      .reduce((ids, r) => ids.concat(r.foto || []), [])
-      .concat(sopralluogo.altri_aspetti_foto || []);
+    const risposte = Array.isArray(sopralluogo.risposte)
+      ? sopralluogo.risposte
+      : (sopralluogo.risposte && typeof sopralluogo.risposte === 'object'
+          ? Object.keys(sopralluogo.risposte).map((id) => sopralluogo.risposte[id]).filter(Boolean)
+          : []);
+    const idFoto = [];
+    risposte.forEach((risposta) => (risposta.foto || []).forEach((fotoId) => idFoto.push(fotoId)));
+    (sopralluogo.altri_aspetti_foto || []).forEach((fotoId) => idFoto.push(fotoId));
     const mappa = sopralluogo.foto_url || {};
     return idFoto
       .map((id) => mappa[id] && mappa[id].path)
@@ -181,7 +186,10 @@ const fotoSync = (() => {
     if (!supa || !online()) {
       return;
     }
-    const percorsi = sopralluoghi.reduce((tutti, sopralluogo) => tutti.concat(percorsiFotoDiSopralluogo(sopralluogo)), []);
+    const percorsi = [];
+    sopralluoghi.forEach((sopralluogo) => {
+      percorsiFotoDiSopralluogo(sopralluogo).forEach((percorso) => percorsi.push(percorso));
+    });
     if (!percorsi.length) {
       return;
     }

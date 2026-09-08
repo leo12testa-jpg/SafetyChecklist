@@ -78,6 +78,31 @@ const db = (() => {
     return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
+  /**
+   * IndexedDB usa un array di risposte, mentre Firestore le trasporta come mappa domanda_id ->
+   * risposta. Un sopralluogo appena scaricato da un altro dispositivo può quindi arrivare per un
+   * istante nel formato mappa. Tutto il resto dell'app deve vedere SEMPRE un array: normalizziamo
+   * qui, al confine del DB, invece di lasciare che `.find/.filter/.reduce` esplodano su mobile.
+   */
+  function normalizzaRisposte(risposte) {
+    if (Array.isArray(risposte)) {
+      return risposte;
+    }
+    if (risposte && typeof risposte === 'object') {
+      return Object.keys(risposte).map((chiave) => {
+        const valore = risposte[chiave];
+        if (!valore || typeof valore !== 'object') return null;
+        return valore.domanda_id == null ? { ...valore, domanda_id: Number.isNaN(Number(chiave)) ? chiave : Number(chiave) } : valore;
+      }).filter(Boolean);
+    }
+    return [];
+  }
+
+  function normalizzaSopralluogo(sopralluogo) {
+    if (!sopralluogo) return sopralluogo;
+    return { ...sopralluogo, risposte: normalizzaRisposte(sopralluogo.risposte) };
+  }
+
   async function transazione(storeName, mode) {
     const database = await open();
     return database.transaction(storeName, mode).objectStore(storeName);
@@ -174,7 +199,7 @@ const db = (() => {
       checklist_id: originale.checklist_id,
       data: adesso,
       stato: 'in corso',
-      risposte: (originale.risposte || []).map((risposta) => ({ ...risposta, foto: [] })),
+      risposte: normalizzaRisposte(originale.risposte).map((risposta) => ({ ...risposta, foto: [] })),
       altri_aspetti: null,
       altri_aspetti_foto: [],
       altri_aspetti_foto_didascalie: {},
@@ -198,7 +223,7 @@ const db = (() => {
       throw new Error(`Sopralluogo non trovato: ${sopralluogoId}`);
     }
 
-    sopralluogo.risposte = risposte;
+    sopralluogo.risposte = normalizzaRisposte(risposte);
     sopralluogo.aggiornato_il = new Date().toISOString();
     await richiesta(store.put(sopralluogo));
     notificaCambiamento({ tipo: 'upsert', sopralluogo });
@@ -224,7 +249,7 @@ const db = (() => {
     const adesso = new Date().toISOString();
     const rispostaConTimestamp = { ...risposta, aggiornato_il: adesso };
 
-    const risposte = sopralluogo.risposte || [];
+    const risposte = normalizzaRisposte(sopralluogo.risposte);
     const idx = risposte.findIndex((r) => r.domanda_id === risposta.domanda_id);
     if (idx >= 0) {
       risposte[idx] = { ...risposte[idx], ...rispostaConTimestamp };
@@ -352,7 +377,7 @@ const db = (() => {
     const storeFoto = await transazione('foto', 'readonly');
     const foto = await richiesta(storeFoto.index('sopralluogo_id').getAll(sopralluogoId));
 
-    return { ...sopralluogo, foto };
+    return { ...normalizzaSopralluogo(sopralluogo), foto };
   }
 
   /** Elenca i sopralluoghi non nel cestino, ordinati per data decrescente. */
@@ -360,6 +385,7 @@ const db = (() => {
     const store = await transazione('sopralluoghi', 'readonly');
     const tutti = await richiesta(store.getAll());
     return tutti
+      .map(normalizzaSopralluogo)
       .filter((s) => !s.eliminato_il)
       .sort((a, b) => new Date(b.data) - new Date(a.data));
   }
@@ -369,6 +395,7 @@ const db = (() => {
     const store = await transazione('sopralluoghi', 'readonly');
     const tutti = await richiesta(store.getAll());
     return tutti
+      .map(normalizzaSopralluogo)
       .filter((s) => s.eliminato_il)
       .sort((a, b) => new Date(b.eliminato_il) - new Date(a.eliminato_il));
   }
@@ -376,7 +403,8 @@ const db = (() => {
   /** Elenca TUTTI i sopralluoghi (attivi e nel cestino), senza filtri: per il confronto di sync.js. */
   async function elencaTuttiSopralluoghi() {
     const store = await transazione('sopralluoghi', 'readonly');
-    return richiesta(store.getAll());
+    const tutti = await richiesta(store.getAll());
+    return tutti.map(normalizzaSopralluogo);
   }
 
   /**
@@ -386,8 +414,9 @@ const db = (() => {
    */
   async function applicaSopralluogoRemoto(sopralluogo) {
     const store = await transazione('sopralluoghi', 'readwrite');
-    await richiesta(store.put(sopralluogo));
-    return sopralluogo;
+    const normalizzato = normalizzaSopralluogo(sopralluogo);
+    await richiesta(store.put(normalizzato));
+    return normalizzato;
   }
 
   /**
@@ -406,7 +435,10 @@ const db = (() => {
     if (!locale) {
       return null;
     }
-    Object.assign(locale, patchParziale);
+    const patch = { ...patchParziale };
+    if (Object.prototype.hasOwnProperty.call(patch, 'risposte')) patch.risposte = normalizzaRisposte(patch.risposte);
+    Object.assign(locale, patch);
+    locale.risposte = normalizzaRisposte(locale.risposte);
     await richiesta(store.put(locale));
     return locale;
   }
@@ -613,6 +645,7 @@ const db = (() => {
     leggiChecklistCache,
     elencaChecklistCache,
     salvaPdfReport,
-    leggiPdfReport
+    leggiPdfReport,
+    _normalizzaRisposte: normalizzaRisposte
   };
 })();

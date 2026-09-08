@@ -411,8 +411,56 @@
   </div>
 
   <script>
-    // Compatibilità con vecchi Safari/iOS/WebView: alcune versioni non espongono Array.prototype.flatMap.
-    // Il codice applicativo non dipende più da flatMap, ma questo polyfill protegge anche eventuali librerie vendorizzate.
+    // Compatibilità con Safari/iOS/WebView meno recenti. Questi polyfill vengono caricati PRIMA
+    // di tutte le librerie (PDF.js incluso), così un dispositivo legacy non può fermarsi con
+    // errori del tipo ".flatMap/.flat/.reduce is not a function". Sono non-enumerabili per non
+    // interferire con le librerie che iterano gli Array con for...in.
+    if (!Array.prototype.reduce) {
+      Object.defineProperty(Array.prototype, 'reduce', {
+        configurable: true,
+        writable: true,
+        value: function(callback) {
+          if (this == null) throw new TypeError('Array.prototype.reduce called on null or undefined');
+          if (typeof callback !== 'function') throw new TypeError('reduce callback must be a function');
+          var object = Object(this);
+          var length = object.length >>> 0;
+          var index = 0;
+          var accumulator;
+          if (arguments.length > 1) accumulator = arguments[1];
+          else {
+            while (index < length && !(index in object)) index += 1;
+            if (index >= length) throw new TypeError('Reduce of empty array with no initial value');
+            accumulator = object[index++];
+          }
+          while (index < length) {
+            if (index in object) accumulator = callback(accumulator, object[index], index, object);
+            index += 1;
+          }
+          return accumulator;
+        }
+      });
+    }
+    if (!Array.prototype.flat) {
+      Object.defineProperty(Array.prototype, 'flat', {
+        configurable: true,
+        writable: true,
+        value: function(depth) {
+          var source = Object(this);
+          var maxDepth = depth === undefined ? 1 : Number(depth) || 0;
+          var result = [];
+          function append(array, currentDepth) {
+            for (var i = 0; i < array.length; i += 1) {
+              if (!(i in array)) continue;
+              var value = array[i];
+              if (Array.isArray(value) && currentDepth > 0) append(value, currentDepth - 1);
+              else result.push(value);
+            }
+          }
+          append(source, maxDepth);
+          return result;
+        }
+      });
+    }
     if (!Array.prototype.flatMap) {
       Object.defineProperty(Array.prototype, 'flatMap', {
         configurable: true,
@@ -420,10 +468,15 @@
         value: function(callback, thisArg) {
           if (this == null) throw new TypeError('Array.prototype.flatMap called on null or undefined');
           if (typeof callback !== 'function') throw new TypeError('flatMap callback must be a function');
-          return Array.prototype.reduce.call(this, function(acc, value, index, array) {
-            var mapped = callback.call(thisArg, value, index, array);
-            return acc.concat(mapped);
-          }, []);
+          var source = Object(this);
+          var result = [];
+          for (var i = 0; i < source.length; i += 1) {
+            if (!(i in source)) continue;
+            var mapped = callback.call(thisArg, source[i], i, source);
+            if (Array.isArray(mapped)) result.push.apply(result, mapped);
+            else result.push(mapped);
+          }
+          return result;
         }
       });
     }

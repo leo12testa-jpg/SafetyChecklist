@@ -409,3 +409,34 @@ test('associazione foto scelta manualmente non viene sovrascritta dal riconoscim
   assert.equal(foto.domanda_id_collegata, 5);
   assert.equal(foto.associazione_domanda_metodo, 'manuale');
 });
+
+test('foto importata: il riferimento "Vedi Foto N" della riga NC prevale e collega la foto alla stessa domanda', () => {
+  const im = caricaImportMatching();
+  const checklist = clonaChecklist();
+  const righe = [rigaNostro({ id: 4, testo: 'Gli estintori sono mantenuti accessibili e visibili?', stato: 'NC', nota: 'Estintore ostruito. Vedi Foto 1' })];
+  const { righe: abbinate } = im.abbinaRighe(righe, checklist);
+  const [foto] = im.collegaImmaginiAlleDomande([
+    { pagina: 7, didascalia: 'Foto 1' }
+  ], abbinate, checklist);
+  assert.equal(abbinate[0].risposta, 'NC');
+  assert.equal(foto.domanda_id_collegata, 4);
+  assert.equal(foto.associazione_domanda_metodo, 'riferimento_tabella');
+});
+
+test('foto importate senza didascalia leggibile: se i riferimenti Vedi Foto 1..N sono completi usa l’ordine del PDF', () => {
+  const im = caricaImportMatching();
+  const checklist = clonaChecklist();
+  const righe = [
+    rigaNostro({ id: 4, testo: 'Gli estintori sono mantenuti accessibili e visibili?', stato: 'NC', nota: 'Vedi Foto 1' }),
+    rigaNostro({ id: 5, testo: CHECKLIST_BASE.sezioni[1].domande[1].testo, stato: 'PC', nota: 'Vedi Foto 2' })
+  ];
+  const { righe: abbinate } = im.abbinaRighe(righe, checklist);
+  const foto = im.collegaImmaginiAlleDomande([
+    { pagina: 7, didascalia: '' },
+    { pagina: 7, didascalia: '' }
+  ], abbinate, checklist);
+  assert.equal(foto[0].domanda_id_collegata, 4);
+  assert.equal(foto[0].associazione_domanda_metodo, 'riferimento_tabella_ordine');
+  assert.equal(foto[1].domanda_id_collegata, 5);
+  assert.equal(foto[1].associazione_domanda_metodo, 'riferimento_tabella_ordine');
+});
