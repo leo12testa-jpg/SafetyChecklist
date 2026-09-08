@@ -407,7 +407,7 @@ const nuovoSopralluogoScreen = (() => {
     esitoImportazione.hidden = true;
 
     try {
-      const { formatoRilevato, righe, anagrafica, conversioneStatoRilevata } = await pdfImport.estraiRighe(file);
+      const { formatoRilevato, righe, anagrafica, conversioneStatoRilevata, immagini } = await pdfImport.estraiRighe(file);
 
       // Rilevamento cliente/checklist DAL CONTENUTO del PDF: carica tutte le checklist
       // disponibili (non solo quella eventualmente già selezionata nel menu) e lascia che
@@ -425,6 +425,7 @@ const nuovoSopralluogoScreen = (() => {
       const { righe: righeAbbinate, riepilogo } = importMatching.abbinaRighe(righe, vociChecklist.checklist, { puntoDivisioneGruppi });
 
       anteprimaImportazionePendente = {
+        immagini,
         formatoRilevato,
         checklist: vociChecklist.checklist,
         righe: righeAbbinate,
@@ -543,6 +544,7 @@ const nuovoSopralluogoScreen = (() => {
  * lasciare traccia.
  */
 const importPreviewScreen = (() => {
+  let importazioneInCorso = false;
   const elRilevamento = document.getElementById('import-rilevamento');
   const elRiepilogo = document.getElementById('import-riepilogo');
   const elAvvisoConversione = document.getElementById('import-avviso-conversione');
@@ -671,6 +673,27 @@ const importPreviewScreen = (() => {
     elRighe.innerHTML = anteprimaImportazionePendente.righe.map(renderRiga).join('');
   }
 
+  function renderImmagini() {
+    const container = document.getElementById('import-immagini');
+    container.textContent = '';
+    const immagini = anteprimaImportazionePendente.immagini || [];
+    if (!immagini.length) container.textContent = 'Nessuna immagine selezionata.';
+    immagini.forEach((foto, indice) => {
+      const card = document.createElement('figure');
+      const img = document.createElement('img');
+      img.src = foto.anteprima;
+      img.alt = foto.didascalia || `Foto dalla pagina ${foto.pagina}`;
+      const caption = document.createElement('figcaption');
+      caption.textContent = `Pagina ${foto.pagina} — ${foto.didascalia || 'Senza didascalia'}`;
+      const remove = document.createElement('button');
+      remove.type = 'button'; remove.textContent = 'Rimuovi';
+      remove.setAttribute('aria-label', `Rimuovi immagine ${indice + 1}`);
+      remove.onclick = () => { if (!importazioneInCorso) { immagini.splice(indice, 1); renderImmagini(); } };
+      card.append(img, caption, remove);
+      container.appendChild(card);
+    });
+  }
+
   function aggiornaStatoBottoneConferma() {
     const checkbox = document.getElementById('import-conferma-rilevamento');
     const rilevamentoOk = anteprimaImportazionePendente.rilevamentoAutomatico || Boolean(checkbox && checkbox.checked);
@@ -686,6 +709,7 @@ const importPreviewScreen = (() => {
     renderRiepilogo();
     renderAvvisoConversione();
     renderRighe();
+    renderImmagini();
     aggiornaStatoBottoneConferma();
   }
 
@@ -737,7 +761,7 @@ const importPreviewScreen = (() => {
 
   async function onClickConferma() {
     const stato = anteprimaImportazionePendente;
-    if (!stato) {
+    if (!stato || importazioneInCorso) {
       return;
     }
     if (stato.riepilogo.conflitti > 0 || stato.riepilogo.daVerificare > 0 || stato.riepilogo.nonRiconosciute > 0) {
@@ -765,24 +789,50 @@ const importPreviewScreen = (() => {
       });
 
     const testoOriginaleBottone = btnConferma.textContent;
+    importazioneInCorso = true;
     btnConferma.disabled = true;
     btnConferma.textContent = 'Creazione sopralluogo…';
+    let sopralluogo;
+    let salvato = false;
     try {
-      const sopralluogo = await db.creaSopralluogo(stato.bozzaAnagrafica);
-      await db.impostaRisposte(sopralluogo.id, risposte);
+      sopralluogo = await db.creaSopralluogo(stato.bozzaAnagrafica);
+      // Imported photos use the existing editable "Altri aspetti" attachment format.
+      // Keep the recognized caption; never guess a question association in an old PDF.
+      const fotoIds = [];
+      const didascalie = {};
+      for (const foto of stato.immagini || []) {
+        const id = await db.salvaFoto({ sopralluogo_id: sopralluogo.id, blob: foto.blob });
+        fotoIds.push(id);
+        if (foto.didascalia) didascalie[id] = foto.didascalia;
+      }
+      if (fotoIds.length) {
+        const allegati = { altri_aspetti_foto: fotoIds, altri_aspetti_foto_didascalie: didascalie };
+        await db.aggiornaSopralluogo(sopralluogo.id, allegati);
+        Object.assign(sopralluogo, allegati);
+      }
+      sopralluogo = await db.impostaRisposte(sopralluogo.id, risposte);
+      salvato = true;
       sopralluogoImportatoDaPdf = sopralluogo.id;
 
       anteprimaImportazionePendente = null;
       checklistEngine.avvia(stato.checklist, sopralluogo);
       router.navigate('compilazione');
       compilazioneScreen.renderDomandaCorrente();
+    } catch (errore) {
+      if (sopralluogo && !salvato) {
+        try { await db.eliminaSopralluogo(sopralluogo.id); }
+        catch (pulizia) { console.error('Pulizia importazione incompleta:', pulizia); }
+      }
+      alert(`Importazione non completata: ${errore.message}`);
     } finally {
+      importazioneInCorso = false;
       btnConferma.disabled = false;
       btnConferma.textContent = testoOriginaleBottone;
     }
   }
 
   function onClickAnnulla() {
+    if (importazioneInCorso) return;
     anteprimaImportazionePendente = null;
     router.navigate('new-inspection');
   }
@@ -1762,7 +1812,7 @@ const riepilogoScreen = (() => {
       pdfEsito.hidden = false;
       bannerAnagrafica.hidden = true;
     } catch (errore) {
-      mostraErrore(`Generazione PDF non riuscita: ${errore.message}`);
+      mostraErrore(pdf.descriviErrore('generare', errore));
     } finally {
       btnGeneraPdf.disabled = false;
       btnGeneraPdf.textContent = 'Genera PDF';
@@ -1778,7 +1828,7 @@ const riepilogoScreen = (() => {
       nascondiErrore();
     } catch (errore) {
       if (errore.name !== 'AbortError') {
-        mostraErrore(`Salvataggio/condivisione non riuscita: ${errore.message}`);
+        mostraErrore(pdf.descriviErrore('salvare o condividere', errore));
       }
     }
   }
@@ -1984,23 +2034,18 @@ const storicoScreen = (() => {
    * asincrone viene spesso bloccato silenziosamente come popup.
    */
   async function apriPdf(sopralluogoId, bottone) {
-    const finestra = window.open('', '_blank');
+    const finestra = pdf.prenotaFinestra();
     await eseguiConBottone(bottone, async () => {
       bottone.textContent = 'Apertura…';
       try {
-        const { blob, rigenerato, fotoMancanti } = await ottieniOGeneraPdf(sopralluogoId);
-        const url = URL.createObjectURL(blob);
-        if (finestra) {
-          finestra.location.href = url;
-        } else {
-          window.open(url, '_blank');
-        }
+        const { blob, filename, rigenerato, fotoMancanti } = await ottieniOGeneraPdf(sopralluogoId);
+        await pdf.apri(blob, filename, finestra);
         avvisaSeFotoMancanti(rigenerato, fotoMancanti);
       } catch (errore) {
-        if (finestra) {
+        if (finestra && typeof finestra.close === 'function') {
           finestra.close();
         }
-        alert(`Impossibile aprire il PDF: ${errore.message}`);
+        alert(pdf.descriviErrore('aprire', errore));
       }
     });
   }
@@ -2014,7 +2059,7 @@ const storicoScreen = (() => {
         avvisaSeFotoMancanti(rigenerato, fotoMancanti);
       } catch (errore) {
         if (errore.name !== 'AbortError') {
-          alert(`Impossibile scaricare il PDF: ${errore.message}`);
+          alert(pdf.descriviErrore('scaricare', errore));
         }
       }
     });

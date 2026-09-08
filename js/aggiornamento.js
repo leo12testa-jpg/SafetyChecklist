@@ -25,6 +25,7 @@ const aggiornamentoApp = (() => {
   let ricaricamentoGiaFatto = false;
 
   function schermataARischioAttiva() {
+    if (typeof anteprimaImportazionePendente !== 'undefined' && anteprimaImportazionePendente) return true;
     const schermata = document.querySelector('.screen:not([hidden])');
     return !!(schermata && SCHERMATE_A_RISCHIO.has(schermata.dataset.screen));
   }
@@ -70,7 +71,13 @@ const aggiornamentoApp = (() => {
     });
 
     if (bannerBottone) {
-      bannerBottone.addEventListener('click', () => location.reload());
+      bannerBottone.addEventListener('click', () => {
+        if (typeof anteprimaImportazionePendente !== 'undefined' && anteprimaImportazionePendente) {
+          alert('Conferma o annulla l’importazione PDF prima di aggiornare: l’anteprima non è ancora salvata.');
+          return;
+        }
+        location.reload();
+      });
     }
   }
 

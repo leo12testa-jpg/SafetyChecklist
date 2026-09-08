@@ -108,7 +108,9 @@ const pdf = (() => {
 
   function blobADataURL(blob) {
     return new Promise((resolve, reject) => {
+      if (typeof FileReader !== 'function') return reject(metodoNonDisponibile('FileReader'));
       const reader = new FileReader();
+      if (typeof reader.readAsDataURL !== 'function') return reject(metodoNonDisponibile('FileReader.readAsDataURL'));
       reader.onload = () => resolve(reader.result);
       reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(blob);
@@ -330,7 +332,7 @@ const pdf = (() => {
       doc.setPage(paginaPrecedente);
     }
     return {
-      hookDidDrawPage: (data) => disegnaSeNonGiaFatta(data.pageNumber),
+      hookDidDrawPage: () => disegnaSeNonGiaFatta(doc.internal.getCurrentPageInfo().pageNumber),
       completaPagineRestanti() {
         const totale = doc.internal.getNumberOfPages();
         for (let i = 1; i <= totale; i += 1) {
@@ -456,68 +458,8 @@ const pdf = (() => {
   const FONT_SIZE_TABELLA_SEZIONE = 7.5;
   const PADDING_TABELLA_SEZIONE = 2.5;
   const LARGHEZZA_COLONNA_NOTE = 77;
-  const LARGHEZZA_NOTA_DISPONIBILE = LARGHEZZA_COLONNA_NOTE - PADDING_TABELLA_SEZIONE * 2;
-
-  /**
-   * Padding verticale (sopra/sotto) della sola colonna Note, più ampio del cellPadding generico
-   * PADDING_TABELLA_SEZIONE (che resta invariato per il padding orizzontale della stessa colonna
-   * e per tutte le altre colonne): dà più respiro alle note lunghe su più righe, così l'ultima
-   * riga di testo non risulti mai a ridosso del bordo inferiore della cella (e quindi della
-   * domanda successiva). Usato sia per calcolare l'altezza minima della riga (minCellHeight in
-   * didParseCell) sia per centrare verticalmente il testo (disegnaNotaGiustificataCentrata): le
-   * due cose devono restare in sincrono, altrimenti il centraggio non userebbe davvero lo spazio
-   * extra appena riservato.
-   */
+  // Native AutoTable text owns wrapping and continuation of exceptionally tall rows.
   const PADDING_VERTICALE_NOTA = 3.5;
-
-  /**
-   * Testo della colonna Note giustificato (allineato sia a sinistra che a destra, come un
-   * paragrafo) e centrato verticalmente nell'altezza della riga — su tutte le righe, non solo
-   * N.C./P.C., per coerenza visiva. jsPDF-autotable non supporta halign:'justify' nativamente
-   * (solo left/center/right): il core jsPDF sì, via doc.text(righe, x, y, {maxWidth,
-   * align:'justify'}), quindi qui si disabilita il disegno automatico della cella
-   * (data.cell.text = []) e si disegna a mano in didDrawCell. L'ultima riga di ciascuna nota
-   * non viene forzata a riempire tutta la larghezza (comportamento nativo di jsPDF per
-   * align:'justify': solo standard tipografico, mai una riga isolata "allargata" in modo innaturale).
-   *
-   * IMPORTANTE: in didParseCell, data.cell.width vale ancora 0 (il layout delle colonne non è
-   * stato calcolato) — usarlo per il wrapping produce una larghezza negativa e centinaia di
-   * "righe" di una lettera ciascuna, gonfiando a dismisura l'altezza della riga (bug osservato
-   * e corretto durante lo sviluppo). Si usa quindi sempre LARGHEZZA_NOTA_DISPONIBILE, nota a
-   * priori dalla configurazione della colonna, mai la geometria della cella per la larghezza.
-   */
-  function calcolaRigheNota(doc, testoGrezzo) {
-    return avvolgiTesto(doc, testoGrezzo, LARGHEZZA_NOTA_DISPONIBILE);
-  }
-
-  /**
-   * doc.getLineHeight() ritorna il valore in PUNTI TIPOGRAFICI, non nell'unità del documento
-   * (qui 'mm'): usarlo direttamente come distanza tra righe in mm lo sovrastima di un fattore
-   * ~2.83 (72/25.4), facendo "sembrare" il testo molto più corto del reale e quindi non
-   * centrato verticalmente (bug osservato e corretto durante lo sviluppo, confermato misurando
-   * la posizione reale delle righe nel PDF generato). doc.internal.scaleFactor è lo stesso
-   * fattore punti-per-unità che jsPDF usa internamente: dividerlo per quello dà la vera altezza
-   * riga nell'unità del documento.
-   */
-  function altezzaRigaMm(doc) {
-    return doc.getLineHeight() / doc.internal.scaleFactor;
-  }
-
-  function disegnaNotaGiustificataCentrata(doc, cella) {
-    const righe = cella._righeGiustificate;
-    if (!righe || !righe.length) {
-      return;
-    }
-    doc.setFont(undefined, 'italic');
-    doc.setFontSize(FONT_SIZE_TABELLA_SEZIONE);
-    const altezzaRiga = altezzaRigaMm(doc);
-    const altezzaBlocco = righe.length * altezzaRiga;
-    const x = cella.x + PADDING_TABELLA_SEZIONE;
-    // + altezzaRiga*0.75: doc.text usa la baseline, non il top del blocco di testo.
-    const yIniziale = cella.y + (cella.height - altezzaBlocco) / 2 + altezzaRiga * 0.75;
-    doc.text(righe, x, yIniziale, { maxWidth: LARGHEZZA_NOTA_DISPONIBILE, align: 'justify' });
-    doc.setFont(undefined, 'normal');
-  }
 
   /**
    * Compatta un elenco di numeri (già ordinato crescente) in intervalli tipografici: run
@@ -560,10 +502,11 @@ const pdf = (() => {
    * Il titolo della sezione è la PRIMA riga dell'head (colSpan su tutte le colonne), non un
    * paragrafo separato prima della tabella: con un head a due righe, autoTable ripete
    * automaticamente entrambe su ogni pagina in cui la tabella prosegue (showHead:'everyPage',
-   * il default), eliminando sia il titolo "orfano" a fine pagina sia lo spreco di spazio. Nessun
-   * page-break manuale prima della tabella: la paginazione naturale di autoTable basta.
+   * il default), mantenendo il contesto nelle pagine di continuazione.
+   * Il guard willDrawPage riserva titolo, header e prima riga completa prima del disegno.
    */
-  function disegnaTabellaSezione(doc, layout, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda) {
+  function disegnaTabellaSezione(doc, layout, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda, gruppo) {
+    const coloreGruppo = gruppo && ((gruppo.configCliente && gruppo.configCliente.coloreBanner) || COLORE_BANNER_DEFAULT);
     const corpo = sezione.domande.map((domanda) => {
       const risposta = (sopralluogo.risposte || []).find((r) => r.domanda_id === domanda.id);
       const valore = risposta ? risposta.risposta : '';
@@ -582,17 +525,17 @@ const pdf = (() => {
 
     doc.autoTable({
       startY: y,
-      margin: { left: layout.margine, right: layout.margine },
-      // Una riga non viene mai spezzata a metà fra due pagine: il testo della nota è disegnato a
-      // mano in didDrawCell (vedi disegnaNotaGiustificataCentrata) partendo sempre dall'inizio
-      // della nota, quindi non sa "riprendere da dove interrotto" come farebbe autoTable con le
-      // celle che disegna nativamente — con lo split di default (rowPageBreak: 'auto') una riga
-      // con una nota lunga che cade a cavallo di un'interruzione di pagina veniva tagliata a metà
-      // sulla prima pagina E ridisegnata per intero (duplicata) in un frammento di riga orfano in
-      // cima alla pagina successiva. 'avoid' sposta l'intera riga sulla pagina successiva se non
-      // ci sta, invece di spezzarla.
+      margin: { top: layout.margine, bottom: layout.margine, left: layout.margine, right: layout.margine },
+      // Keep ordinary rows together; only rows taller than a page may continue.
       rowPageBreak: 'avoid',
       head: [
+        // A group banner belongs to the measured/repeated head. A nearly page-high
+        // first row cannot be pushed away from it by a second, independent layout.
+        ...(gruppo ? [[{ content: gruppo.titolo, colSpan: 7, styles: {
+          halign: 'left', fontStyle: 'bold', fontSize: 11,
+          fillColor: coloreGruppo.sfondo, textColor: [255, 255, 255],
+          minCellHeight: layout.bannerGruppo.altezza, cellPadding: 3
+        } }]] : []),
         [{ content: sezione.titolo, colSpan: 7, styles: { halign: 'left', fontStyle: 'bold', fontSize: 10, fillColor: [255, 255, 255], textColor: [0, 0, 0] } }],
         [
           'n.',
@@ -629,7 +572,14 @@ const pdf = (() => {
         3: { cellWidth: 7, halign: 'center' },
         4: { cellWidth: 7, halign: 'center' },
         5: { cellWidth: 7, halign: 'center' },
-        6: { cellWidth: LARGHEZZA_COLONNA_NOTE, fontStyle: 'italic' }
+        6: { cellWidth: LARGHEZZA_COLONNA_NOTE, fontStyle: 'italic', cellPadding: { top: PADDING_VERTICALE_NOTA, bottom: PADDING_VERTICALE_NOTA, left: PADDING_TABELLA_SEZIONE, right: PADDING_TABELLA_SEZIONE } }
+      },
+      didDrawCell(data) {
+        if (gruppo && coloreGruppo.accento && data.section === 'head' && data.row.index === 0) {
+          doc.setFillColor(...coloreGruppo.accento);
+          doc.rect(data.cell.x, data.cell.y + data.cell.height - layout.bannerGruppo.altezzaAccento,
+            data.cell.width, layout.bannerGruppo.altezzaAccento, 'F');
+        }
       },
       didParseCell(data) {
         if (data.section === 'body' && data.cell.raw === 'X') {
@@ -640,31 +590,17 @@ const pdf = (() => {
           }
           return;
         }
-        if (data.section === 'body' && data.column.index === 6) {
-          // jsPDF-autotable chiama questo hook (in fase di calcolo larghezze/altezze) SENZA aver
-          // applicato lo stile della cella al `doc`: il font/stile attivo in questo momento è
-          // quello lasciato da qualunque cosa sia stata disegnata prima (es. "X" in grassetto di
-          // un'altra colonna), non l'italic dichiarato in columnStyles per questa colonna. Se qui
-          // si calcolano le righe con un font diverso da quello usato davvero al disegno (vedi
-          // disegnaNotaGiustificataCentrata, che imposta italic/FONT_SIZE_TABELLA_SEZIONE), il
-          // conteggio delle righe non corrisponde al wrapping reale: osservato concretamente con
-          // lo stile "bold" (più largo) che restava impostato dopo una cella di stato "X" nella
-          // colonna N.P, causando un a-capo più aggressivo del necessario nella nota della riga
-          // subito successiva. Impostare esplicitamente lo stesso font del disegno PRIMA di
-          // calcolare le righe elimina la discrepanza indipendentemente da cosa sia stato
-          // disegnato prima.
-          doc.setFont(undefined, 'italic');
-          doc.setFontSize(FONT_SIZE_TABELLA_SEZIONE);
-          const righe = calcolaRigheNota(doc, data.cell.raw);
-          data.cell.styles.minCellHeight = righe.length * altezzaRigaMm(doc) + PADDING_VERTICALE_NOTA * 2;
-          data.cell._righeGiustificate = righe;
-          data.cell.text = [];
-        }
       },
-      didDrawCell(data) {
-        if (data.section === 'body' && data.column.index === 6) {
-          disegnaNotaGiustificataCentrata(doc, data.cell);
-        }
+      // AutoTable has now measured every wrapped cell, including the complete note.
+      // Move BEFORE drawing either head row; reserve the group banner as well.
+      willDrawPage(data) {
+        if (data.pageNumber !== 1) return;
+        const head = data.table.head.reduce((sum, row) => sum + row.height, 0);
+        const first = data.table.body[0];
+        const available = layout.altezzaPagina - 2 * layout.margine - head;
+        const required = head + (first ? Math.min(first.height, available) : 0);
+        const nextY = assicuraSpazio(doc, layout, data.cursor.y, required);
+        data.cursor.y = nextY;
       },
       didDrawPage: hookLegenda
     });
@@ -702,9 +638,8 @@ const pdf = (() => {
       if (!gruppo.sezioni.length) {
         return;
       }
-      y = disegnaIntestazioneGruppo(doc, layout, gruppo.titolo, y, configCliente);
-      gruppo.sezioni.forEach((sezione) => {
-        y = disegnaTabellaSezione(doc, layout, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda);
+      gruppo.sezioni.forEach((sezione, indice) => {
+        y = disegnaTabellaSezione(doc, layout, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda, indice === 0 ? { titolo: gruppo.titolo, configCliente } : null);
       });
     });
 
@@ -1036,7 +971,7 @@ const pdf = (() => {
     const allegatiNote = await filtraFotoEsistenti(raccoltaFoto.allegatiNote, sopralluogo);
     await disegnaSezioniFinali(doc, sopralluogo, fotoDomande, allegatiNote);
 
-    return doc.output('blob');
+    return esportaBlob(doc);
   }
 
   /**
@@ -1045,8 +980,10 @@ const pdf = (() => {
    * Ritorna un Blob "application/pdf".
    */
   async function generaReport(checklist, sopralluogo) {
-    const { jsPDF } = window.jspdf;
+    const jsPDF = window.jspdf && window.jspdf.jsPDF;
+    if (typeof jsPDF !== 'function') throw new Error('Motore PDF non disponibile. Riaprire l’app dopo il caricamento completo.');
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    if (typeof doc.autoTable !== 'function') throw new Error('Modulo tabelle PDF non disponibile. Ricaricare l’app.');
     const layout = creaLayout(doc);
 
     if (checklist.stile === 'raccolta-dati') {
@@ -1078,7 +1015,160 @@ const pdf = (() => {
     // disegnaNumeriPagina per il perché non si può disegnarli incrementalmente con un segnaposto).
     disegnaNumeriPagina(doc, layout);
 
-    return doc.output('blob');
+    return esportaBlob(doc);
+  }
+
+  function esportaBlob(doc) {
+    if (typeof doc.output !== 'function') throw metodoNonDisponibile('doc.output');
+    if (typeof Blob !== 'function') throw metodoNonDisponibile('Blob');
+    const buffer = doc.output('arraybuffer');
+    if (!buffer || buffer.byteLength < 5 || new Uint8Array(buffer, 0, 5).join(',') !== '37,80,68,70,45') {
+      throw new Error('Il motore non ha prodotto un PDF valido.');
+    }
+    return new Blob([buffer], { type: 'application/pdf' });
+  }
+
+  function leggiArrayBuffer(blob) {
+    if (blob && typeof blob.arrayBuffer === 'function') return blob.arrayBuffer();
+    return new Promise((resolve, reject) => {
+      diagnostica('Blob.arrayBuffer');
+      if (typeof FileReader !== 'function') return reject(metodoNonDisponibile('FileReader'));
+      const reader = new FileReader();
+      if (typeof reader.readAsArrayBuffer !== 'function') return reject(metodoNonDisponibile('FileReader.readAsArrayBuffer'));
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error || new Error('Lettura PDF fallita.'));
+      reader.readAsArrayBuffer(blob);
+    });
+  }
+
+  async function urlPdf(blob) {
+    if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+      try { return URL.createObjectURL(blob); } catch (error) { diagnostica('URL.createObjectURL', error); }
+    } else diagnostica('URL.createObjectURL');
+    if (typeof FileReader === 'function') return blobADataURL(blob);
+    throw metodoNonDisponibile('URL.createObjectURL / FileReader');
+  }
+
+  function rilasciaUrl(url) {
+    if (url.startsWith('blob:') && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+      // Revoking in the click handler races the browser download/navigation.
+      setTimeout(() => {
+        if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url);
+      }, 60000);
+    }
+  }
+
+  function prenotaFinestra() {
+    try {
+      if (typeof window.open !== 'function') { diagnostica('window.open'); return null; }
+      const result = window.open('', '_blank');
+      if (!result) diagnostica('window.open', new Error('Popup bloccato: uso anteprima locale'));
+      return result;
+    } catch (error) { diagnostica('window.open', error); return null; }
+  }
+
+  function diagnostica(metodo, errore) {
+    console.warn('[SafetyChecklist PDF]', {
+      metodo,
+      esito: errore ? 'chiamata fallita, provo il fallback' : 'metodo non disponibile, provo il fallback',
+      errore: errore ? `${errore.name || 'Error'}: ${errore.message || ''}` : null
+    });
+  }
+
+  function metodoNonDisponibile(metodo) {
+    const error = new Error(`Impossibile aprire il PDF su questo dispositivo. Metodo non disponibile: ${metodo}.`);
+    error.metodoPdf = metodo;
+    console.error('[SafetyChecklist PDF]', { metodo, esito: 'nessun fallback disponibile' });
+    return error;
+  }
+
+  function descriviErrore(azione, errore) {
+    console.error(`[SafetyChecklist PDF] ${azione}`, errore);
+    if (errore && errore.metodoPdf) return errore.message;
+    const message = errore && errore.message ? errore.message : String(errore);
+    const missing = message.match(/([^\s]+) is not a function/);
+    if (missing) return `Impossibile ${azione} il PDF su questo dispositivo. Metodo non disponibile: ${missing[1]}.`;
+    return `Impossibile ${azione} il PDF: ${message}`;
+  }
+
+  async function scarica(blob, filename) {
+    const url = await urlPdf(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    if (!('download' in link)) {
+      diagnostica('HTMLAnchorElement.download');
+      link.target = '_blank';
+      link.rel = 'noopener';
+    }
+    link.download = filename;
+    link.textContent = `Scarica ${filename}`;
+    document.body.appendChild(link);
+    try {
+      if (typeof link.click === 'function') link.click();
+      else {
+        diagnostica('HTMLAnchorElement.click');
+        // Keep a real, keyboard-accessible link for manual activation.
+        return;
+      }
+    } finally {
+      if (typeof link.click === 'function') {
+        setTimeout(() => { if (link.parentNode) link.parentNode.removeChild(link); }, 60000);
+        rilasciaUrl(url);
+      }
+    }
+  }
+
+  async function apri(blob, filename, finestra) {
+    if (finestra && navigator.pdfViewerEnabled === false) {
+      diagnostica('navigator.pdfViewerEnabled', new Error('Lettore PDF nativo assente: uso anteprima locale'));
+      try { if (typeof finestra.close === 'function') finestra.close(); } catch (error) { diagnostica('window.close', error); }
+      finestra = null;
+    }
+    if (finestra && !finestra.closed) {
+      let url;
+      try {
+        url = await urlPdf(blob);
+        finestra.location.href = url;
+        return;
+      } catch (error) { diagnostica('window.location.href', error); }
+      finally { if (url) rilasciaUrl(url); }
+    }
+    // Blocked popup / installed PWA: a visible local preview remains usable.
+    if (typeof pdfjsLib !== 'undefined' && typeof pdfjsLib.getDocument === 'function') {
+      const panel = document.createElement('div');
+      panel.className = 'pdf-preview-overlay';
+      panel.setAttribute('role', 'dialog');
+      panel.setAttribute('aria-label', 'Anteprima PDF');
+      const close = document.createElement('button');
+      close.textContent = 'Chiudi anteprima PDF';
+      const download = document.createElement('button');
+      download.textContent = 'Scarica PDF';
+      download.onclick = () => scarica(blob, filename).catch(e => alert(descriviErrore('scaricare', e)));
+      panel.append(close, download);
+      document.body.appendChild(panel);
+      let documento;
+      let chiuso = false;
+      let distruzione;
+      const distruggi = () => documento ? (distruzione || (distruzione = documento.destroy())) : Promise.resolve();
+      close.onclick = () => { chiuso = true; panel.remove(); distruggi().catch(e => diagnostica('PDF.js.destroy', e)); };
+      try {
+        documento = await pdfjsLib.getDocument({ data: new Uint8Array(await leggiArrayBuffer(blob)) }).promise;
+        for (let n = 1; n <= documento.numPages && !chiuso; n++) {
+          const page = await documento.getPage(n);
+          const viewport = page.getViewport({ scale: 1 });
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
+          panel.appendChild(canvas);
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+          page.cleanup();
+        }
+      } catch (error) {
+        panel.remove();
+        if (!chiuso) throw error;
+      } finally { await distruggi(); }
+      return;
+    }
+    await scarica(blob, filename);
   }
 
   /** Nome file suggerito per il PDF (sanificato per download/condivisione). */
@@ -1089,22 +1179,23 @@ const pdf = (() => {
 
   /** Salva/condivide il PDF: Web Share API con file se disponibile, altrimenti download diretto. */
   async function salvaOCondividi(blob, filename) {
-    const file = new File([blob], filename, { type: 'application/pdf' });
-
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: filename });
-      return;
-    }
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
+    if (typeof File === 'function' && typeof navigator.canShare === 'function' && typeof navigator.share === 'function') {
+      try {
+        const file = new File([blob], filename, { type: 'application/pdf' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: filename });
+          return;
+        }
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+        diagnostica('navigator.share / navigator.canShare', error);
+        // Unsupported sharing / expired user activation: keep the download usable.
+      }
+    } else diagnostica(typeof File !== 'function' ? 'File' : typeof navigator.share !== 'function' ? 'navigator.share' : 'navigator.canShare');
+    await scarica(blob, filename);
   }
 
-  return { generaReport, nomeFile, salvaOCondividi, calcolaPuntoDivisioneGruppi,
+  return { generaReport, nomeFile, salvaOCondividi, apri, scarica, prenotaFinestra, leggiArrayBuffer, descriviErrore, calcolaPuntoDivisioneGruppi,
     _test: {
       raccogliFotoConDidascalia,
       costruisciMappaFotoPerDomanda,
@@ -1117,7 +1208,8 @@ const pdf = (() => {
       configClienti: CONFIG_CLIENTI,
       coloreBannerDefault: COLORE_BANNER_DEFAULT,
       disegnaNumeriPagina,
-      disegnaFooter
+      disegnaFooter,
+      disegnaTabellaSezione
     }
   };
 })();

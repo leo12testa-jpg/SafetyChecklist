@@ -28,8 +28,8 @@
  * Limiti noti (documentati anche per l'utente nell'interfaccia):
  * - Solo checklist con lo stesso layout "a stato" C/PC/NC/NA (non le checklist "stile":
  *   "raccolta-dati", che hanno un report diverso senza queste colonne, in nessuno dei due formati).
- * - Le foto non vengono mai importate (impossibile recuperarle in modo affidabile da un PDF
- *   già appiattito): il chiamante deve avvisare l'utente.
+ * - Le immagini vengono estratte in memoria come XObject decodificati o crop della regione.
+ *   La scelta e il salvataggio definitivo spettano all'anteprima di importazione.
  * - Una riga è riconosciuta solo se ha ESATTAMENTE un segno "X" in una delle 4 colonne di
  *   stato: 0 o più di 1 marcatura trovata per la stessa riga => stato_originale resta null
  *   invece di essere indovinato.
@@ -741,61 +741,163 @@ const pdfImport = (() => {
   // Punto di ingresso comune
   // ======================================================================================
 
+  /** Estrae solo le regioni fotografiche e le didascalie della pagina, senza persistenza. */
+  async function estraiImmaginiPagina(pagina, items, numeroPagina, opzioni = {}) {
+    const ops = await pagina.getOperatorList();
+    const OPS = pdfjsLib.OPS;
+    const stack = [];
+    let matrix = [1, 0, 0, 1, 0, 0];
+    const regioni = [];
+    for (let i = 0; i < ops.fnArray.length; i++) {
+      const fn = ops.fnArray[i], args = ops.argsArray[i];
+      if (fn === OPS.save) stack.push(matrix.slice());
+      else if (fn === OPS.restore) matrix = stack.pop() || [1, 0, 0, 1, 0, 0];
+      else if (fn === OPS.transform) matrix = pdfjsLib.Util.transform(matrix, args);
+      else if (fn === OPS.paintFormXObjectBegin) {
+        stack.push(matrix.slice());
+        if (args[0]) matrix = pdfjsLib.Util.transform(matrix, args[0]);
+      } else if (fn === OPS.paintFormXObjectEnd) matrix = stack.pop() || [1, 0, 0, 1, 0, 0];
+      else if (fn === OPS.paintImageXObject || fn === OPS.paintInlineImageXObject) {
+        const corners = [[0, 0], [1, 0], [0, 1], [1, 1]].map(p => pdfjsLib.Util.applyTransform(p, matrix));
+        const x = Math.min(...corners.map(p => p[0])), y = Math.min(...corners.map(p => p[1]));
+        const right = Math.max(...corners.map(p => p[0])), top = Math.max(...corners.map(p => p[1]));
+        // Known letterheads sit entirely in the top 115pt and are wider than tall.
+        // Old Coin repeats them on every page; a portrait photo starting near the
+        // top (e.g. Restage page 7) must still be imported.
+        if (right - x < 20 || top - y < 20 || (y > pagina.view[3] - 115 && (numeroPagina === 1 || (right - x) / (top - y) > 1.5))) continue;
+        regioni.push({ x, y, right, top, matrix: matrix.slice(), ref: args[0], inline: fn === OPS.paintInlineImageXObject });
+      }
+    }
+    const immagini = [];
+    for (const region of regioni) {
+      // Limit caption search to this column and stop at the next image below it.
+      const below = regioni.filter(r => r !== region && r.top <= region.y && r.right > region.x && r.x < region.right);
+      const minY = Math.max(region.y - 120, ...below.map(r => r.top));
+      const center = (region.x + region.right) / 2;
+      const neighbors = regioni.filter(r => r !== region && r.y < region.top && r.top > region.y);
+      const leftCenters = neighbors.map(r => (r.x + r.right) / 2).filter(x => x < center);
+      const rightCenters = neighbors.map(r => (r.x + r.right) / 2).filter(x => x > center);
+      const left = leftCenters.length ? (Math.max(...leftCenters) + center) / 2 : region.x - 35;
+      const right = rightCenters.length ? (Math.min(...rightCenters) + center) / 2 : region.right + 35;
+      // Assign each text fragment to one column using its center, never overlap.
+      const nearby = items.filter(it => it.y < region.y + 2 && it.y > minY && it.x + it.w / 2 >= left && it.x + it.w / 2 < right && !/^(Pag\.|C = Conforme)/i.test(it.testo));
+      nearby.sort((a, b) => Math.abs(a.y - b.y) > 3 ? b.y - a.y : a.x - b.x);
+      const didascalia = nearby.map(it => it.testo).join(' ').trim();
+      const canvas = document.createElement('canvas');
+      let metodo = 'originale';
+      try {
+        if (opzioni.forzaCrop || region.matrix[1] || region.matrix[2] || region.matrix[0] < 0 || region.matrix[3] < 0) throw new Error('Trasformazione: usa crop');
+        let img = region.inline ? region.ref : null;
+        if (!img) {
+          const store = String(region.ref).startsWith('g_') ? pagina.commonObjs : pagina.objs;
+          img = await new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('Immagine non disponibile')), 2000);
+            store.get(region.ref, value => { clearTimeout(timer); resolve(value); });
+          });
+        }
+        if (!img || !img.width || !img.height || img.width * img.height > 24000000) throw new Error('Immagine troppo grande');
+        canvas.width = img.width; canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (img.bitmap) ctx.drawImage(img.bitmap, 0, 0);
+        else {
+          const pixels = ctx.createImageData(img.width, img.height);
+          const source = img.data;
+          if (!source) throw new Error('Pixel non disponibili');
+          if (img.kind === pdfjsLib.ImageKind.RGBA_32BPP) pixels.data.set(source);
+          else if (img.kind === pdfjsLib.ImageKind.RGB_24BPP) {
+            for (let p = 0, q = 0; p < source.length; p += 3, q += 4) {
+              pixels.data[q] = source[p]; pixels.data[q + 1] = source[p + 1]; pixels.data[q + 2] = source[p + 2]; pixels.data[q + 3] = 255;
+            }
+          } else if (img.kind === pdfjsLib.ImageKind.GRAYSCALE_1BPP) {
+            const stride = Math.ceil(img.width / 8);
+            for (let y = 0; y < img.height; y++) for (let x = 0; x < img.width; x++) {
+              const p = (y * img.width + x) * 4;
+              const v = source[y * stride + (x >> 3)] & (128 >> (x & 7)) ? 255 : 0;
+              pixels.data[p] = pixels.data[p + 1] = pixels.data[p + 2] = v; pixels.data[p + 3] = 255;
+            }
+          } else throw new Error('Formato pixel non supportato');
+          ctx.putImageData(pixels, 0, 0);
+        }
+      } catch (_) {
+        metodo = 'crop';
+        const scale = Math.min(2, 1600 / Math.max(region.right - region.x, region.top - region.y));
+        const viewport = pagina.getViewport({ scale });
+        const rect = viewport.convertToViewportRectangle([region.x, region.y, region.right, region.top]);
+        const x = Math.min(rect[0], rect[2]), y = Math.min(rect[1], rect[3]);
+        canvas.width = Math.max(1, Math.ceil(Math.abs(rect[2] - rect[0])));
+        canvas.height = Math.max(1, Math.ceil(Math.abs(rect[3] - rect[1])));
+        await pagina.render({ canvasContext: canvas.getContext('2d'), viewport, transform: [1, 0, 0, 1, -x, -y] }).promise;
+      }
+      const anteprima = canvas.toDataURL('image/png');
+      const bytes = Uint8Array.from(atob(anteprima.split(',')[1]), c => c.charCodeAt(0));
+      immagini.push({ pagina: numeroPagina, didascalia, anteprima, blob: new Blob([bytes], { type: 'image/png' }), metodo, larghezza: canvas.width, altezza: canvas.height });
+      canvas.width = canvas.height = 0;
+    }
+    return immagini;
+  }
+
   /**
    * Estrae le righe grezze da un PDF, provando prima il formato "nostro" e poi (se la struttura
    * non viene riconosciuta) quello "storico". NON prende in input nessuna checklist: l'abbinamento
    * a domande specifiche è compito di js/import-matching.js, a valle del rilevamento cliente.
-   * Ritorna { formatoRilevato, righe, anagrafica, conversioneStatoRilevata }. Lancia un errore
+   * Ritorna { formatoRilevato, righe, anagrafica, conversioneStatoRilevata, immagini }. Lancia un errore
    * solo se NESSUNA struttura nota (né nostro né storico) viene trovata in nessuna pagina: in
    * quel caso non è affatto un PDF di sopralluogo riconoscibile, non ha senso proseguire.
    */
-  async function estraiRighe(file) {
-    if (typeof pdfjsLib === 'undefined') {
+  async function estraiRighe(file, opzioni = {}) {
+    if (typeof pdfjsLib === 'undefined' || typeof pdfjsLib.getDocument !== 'function') {
       throw new Error('Libreria di lettura PDF non disponibile.');
     }
 
-    const buffer = await file.arrayBuffer();
+    const buffer = await pdf.leggiArrayBuffer(file);
     const documento = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+    try {
+      const pagine = [];
+      const immagini = [];
+      for (let numeroPagina = 1; numeroPagina <= documento.numPages; numeroPagina += 1) {
+        const pagina = await documento.getPage(numeroPagina);
+        const contenuto = await pagina.getTextContent();
+        const items = contenuto.items
+          .map((it) => ({ testo: it.str, x: it.transform[4], y: it.transform[5], w: it.width }))
+          .filter((it) => it.testo.trim() !== '');
+        pagine.push(items);
+        immagini.push(...await estraiImmaginiPagina(pagina, items, numeroPagina, opzioni));
+        pagina.cleanup();
+      }
 
-    const pagine = [];
-    for (let numeroPagina = 1; numeroPagina <= documento.numPages; numeroPagina += 1) {
-      const pagina = await documento.getPage(numeroPagina);
-      const contenuto = await pagina.getTextContent();
-      const items = contenuto.items
-        .map((it) => ({ testo: it.str, x: it.transform[4], y: it.transform[5], w: it.width }))
-        .filter((it) => it.testo.trim() !== '');
-      pagine.push(items);
-    }
+      const risultatoNostro = provaFormatoNostro(pagine);
+      if (risultatoNostro.strutturaRiconosciuta && risultatoNostro.righe.length) {
+        return {
+          formatoRilevato: 'nostro',
+          immagini,
+          righe: risultatoNostro.righe,
+          anagrafica: risultatoNostro.anagrafica,
+          conversioneStatoRilevata: null
+        };
+      }
 
-    const risultatoNostro = provaFormatoNostro(pagine);
-    if (risultatoNostro.strutturaRiconosciuta && risultatoNostro.righe.length) {
-      return {
-        formatoRilevato: 'nostro',
-        righe: risultatoNostro.righe,
-        anagrafica: risultatoNostro.anagrafica,
-        conversioneStatoRilevata: null
-      };
-    }
+      const risultatoStorico = provaFormatoStorico(pagine);
+      if (risultatoStorico.strutturaRiconosciuta && risultatoStorico.righe.length) {
+        return {
+          formatoRilevato: 'storico',
+          immagini,
+          righe: risultatoStorico.righe,
+          anagrafica: risultatoStorico.anagrafica,
+          conversioneStatoRilevata: risultatoStorico.conversioneStatoRilevata
+        };
+      }
 
-    const risultatoStorico = provaFormatoStorico(pagine);
-    if (risultatoStorico.strutturaRiconosciuta && risultatoStorico.righe.length) {
-      return {
-        formatoRilevato: 'storico',
-        righe: risultatoStorico.righe,
-        anagrafica: risultatoStorico.anagrafica,
-        conversioneStatoRilevata: risultatoStorico.conversioneStatoRilevata
-      };
-    }
-
-    throw new Error(
-      'Formato PDF non riconosciuto: non sembra né il formato generato da questa app né il formato ' +
-      'storico Coin supportato (nessuna tabella con colonne C/P.C/N.C/N.P riconosciuta in nessuna pagina). ' +
-      'Verifica di aver selezionato il file giusto.'
-    );
+      throw new Error(
+        'Formato PDF non riconosciuto: non sembra né il formato generato da questa app né il formato ' +
+        'storico Coin supportato (nessuna tabella con colonne C/P.C/N.C/N.P riconosciuta in nessuna pagina). ' +
+        'Verifica di aver selezionato il file giusto.'
+      );
+    } finally { await documento.destroy(); }
   }
 
   return {
     estraiRighe,
+    estraiImmaginiPagina,
     _test: {
       provaFormatoNostro,
       provaFormatoStorico,
