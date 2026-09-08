@@ -771,3 +771,147 @@ h3 {
   color: #664d03;
   font-weight: 600;
 }
+
+/* Anteprima importazione PDF (js/pdf-import.js + js/import-matching.js): riconoscimento cliente/checklist, riepilogo, righe colorate per confidenza. */
+.import-rilevamento {
+  margin-bottom: var(--spacing);
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.import-rilevamento p {
+  margin: 0 0 6px;
+}
+
+.import-rilevamento p:last-child {
+  margin-bottom: 0;
+}
+
+.import-rilevamento-incerto {
+  color: #8a4b00;
+  font-weight: 600;
+}
+
+.import-rilevamento label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.import-riepilogo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: var(--spacing);
+}
+
+.import-badge {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.import-badge-sicure { background: #d1f5df; border-color: #9de3b4; color: #14532d; }
+.import-badge-verificare { background: #fff3cd; border-color: #ffe69c; color: #664d03; }
+.import-badge-non-riconosciute { background: #f1f2f4; border-color: var(--color-border); color: var(--color-text-muted); }
+.import-badge-conflitti { background: #fde0df; border-color: #f5b3b0; color: #7a1712; }
+
+.import-righe {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: var(--spacing);
+}
+
+.import-riga {
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  border-left: 5px solid var(--color-border);
+  border-top: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.import-riga-sicuro { border-left-color: #2f9e58; }
+.import-riga-da_verificare { border-left-color: #e0a800; }
+.import-riga-conflitto,
+.import-riga-non_riconosciuta { border-left-color: #d64541; }
+
+.import-riga-originale {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.import-riga-originale strong {
+  color: var(--color-text);
+}
+
+.import-riga-meta {
+  display: block;
+  margin-top: 2px;
+}
+
+.import-riga-campo {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-top: 8px;
+}
+
+.import-riga-campo select,
+.import-riga-campo textarea {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.import-riga-campo textarea {
+  min-height: 44px;
+  resize: vertical;
+}
+
+.import-riga-info {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.import-riga-avviso {
+  display: block;
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.import-riga-sicuro .import-riga-avviso { color: #14532d; }
+.import-riga-da_verificare .import-riga-avviso { color: #8a4b00; }
+.import-riga-conflitto .import-riga-avviso,
+.import-riga-non_riconosciuta .import-riga-avviso { color: #7a1712; }
+
+.import-preview-azioni {
+  display: flex;
+  gap: 8px;
+  margin-top: var(--spacing);
+}
+
+.import-preview-azioni .btn-secondario,
+.import-preview-azioni .btn-primary {
+  flex: 1;
+  min-height: 44px;
+}

@@ -118,6 +118,25 @@
         </form>
       </section>
 
+      <section id="screen-import-preview" class="screen" data-screen="import-preview" hidden>
+        <button type="button" class="btn-back" id="btn-annulla-import-preview">← Annulla importazione</button>
+        <h2>Anteprima importazione PDF</h2>
+        <p class="placeholder-text">Nessun sopralluogo è ancora stato creato: rivedi e correggi liberamente ogni riga, poi premi "Conferma importazione" in fondo. Se annulli qui, nulla viene salvato.</p>
+
+        <div class="import-rilevamento" id="import-rilevamento"></div>
+
+        <div class="import-riepilogo" id="import-riepilogo"></div>
+
+        <p class="banner-avviso" id="import-avviso-conversione" hidden></p>
+
+        <div class="import-righe" id="import-righe"></div>
+
+        <div class="import-preview-azioni">
+          <button type="button" class="btn-secondario" id="btn-annulla-import-preview-footer">Annulla</button>
+          <button type="button" class="btn btn-primary" id="btn-conferma-import">✅ Conferma importazione</button>
+        </div>
+      </section>
+
       <section id="screen-compilazione" class="screen" data-screen="compilazione" hidden>
         <button type="button" class="btn-back" data-nav="home">← Home</button>
         <button type="button" class="btn-secondario" id="btn-modifica-anagrafica-compilazione">✏️ Modifica dati sopralluogo</button>
@@ -403,6 +422,7 @@
   <script src="js/camera.js"></script>
   <script src="js/pdf.js"></script>
   <script src="js/pdf-import.js"></script>
+  <script src="js/import-matching.js"></script>
   <script src="js/sync.js"></script>
   <script src="js/app.js"></script>
   <script src="js/aggiornamento.js"></script>

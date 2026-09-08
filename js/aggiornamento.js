@@ -12,7 +12,11 @@
  * in quel caso si mostra un banner "Nuova versione disponibile" e si ricarica solo al click.
  */
 const aggiornamentoApp = (() => {
-  const SCHERMATE_A_RISCHIO = new Set(['new-inspection', 'compilazione', 'altri-aspetti']);
+  // "import-preview" (anteprima importazione PDF, vedi js/pdf-import.js + js/import-matching.js
+  // in app.js) esiste SOLO in memoria finché non si preme "Conferma importazione": un reload lì
+  // perderebbe silenziosamente l'intera revisione dell'utente, esattamente come per le altre
+  // schermate con dati non ancora salvati elencate qui.
+  const SCHERMATE_A_RISCHIO = new Set(['new-inspection', 'compilazione', 'altri-aspetti', 'import-preview']);
 
   const banner = document.getElementById('banner-aggiornamento');
   const bannerBottone = document.getElementById('banner-aggiornamento-bottone');

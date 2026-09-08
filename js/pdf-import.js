@@ -1,19 +1,29 @@
 /**
- * Importazione di un sopralluogo a partire da un PDF già esistente. Supporta due formati,
- * provati in quest'ordine:
+ * Estrazione (SOLO estrazione: nessun abbinamento a una checklist qui, vedi js/import-matching.js)
+ * di righe da un PDF di sopralluogo già compilato. Supporta due formati, provati in quest'ordine:
  *
  * 1. "nostro" — il PDF generato da questa stessa app (js/pdf.js): tabella "DATI GENERALI" +
  *    tabelle sezione con colonne n./Descrizione attività/C/P.C/N.C/N.P/Note (vedi
- *    disegnaTabellaDatiGenerali e disegnaTabellaSezione).
+ *    disegnaTabellaDatiGenerali e disegnaTabellaSezione). La colonna "n." è l'id VERO della
+ *    domanda (non un numero di riga), quindi ogni riga porta con sé un identificatore stabile.
  * 2. "storico" — un vecchio formato Coin (non generato da questa app): intestazione a tabella
  *    Negozio/Data del sopralluogo/Area Manager/Tecnico (2 righe x 2 coppie etichetta-valore),
  *    macro-sezioni "AUDIT DOCUMENTALE"/"SOPRALLUOGO AMBIENTI DI LAVORO" con numerazione delle
- *    domande "N)" che RIPARTE DA 1 a ogni macro-sezione, colonne C/PC/NC/NA/NOTE.
+ *    domande "N)" che RIPARTE DA 1 a ogni macro-sezione, colonne C/PC/NC/NA (o NP)/NOTE. Nessun
+ *    id: solo un numero locale + il testo della domanda, entrambi preservati per il matching.
  *
  * In entrambi i casi usa pdf.js (Mozilla, vendorizzato in js/vendor/pdf.min.js) per estrarre il
  * testo di ogni pagina CON le coordinate x/y di ogni elemento (getTextContent), non il testo
  * grezzo: è dalla posizione che si ricostruisce a quale domanda/colonna appartiene ogni "X" o
  * nota, dato che il testo grezzo da solo non lo dice.
+ *
+ * IMPORTANTE — separazione dei compiti: questo modulo NON sa nulla della checklist scelta
+ * dall'utente né decide a quale domanda appartenga una riga. Produce esclusivamente righe grezze
+ * con i dati COSÌ COME LETTI dal PDF (numero_originale, sezione_originale, testo_originale,
+ * stato_originale, nota_originale, id_originale se disponibile): è js/import-matching.js che,
+ * dato un elenco di checklist candidate, rileva quale sia la più probabile e abbina ogni riga
+ * alle sue domande. Questo permette di riconoscere cliente/checklist DAL CONTENUTO del PDF invece
+ * di doverli assumere a priori da un menu selezionato prima di importare.
  *
  * Limiti noti (documentati anche per l'utente nell'interfaccia):
  * - Solo checklist con lo stesso layout "a stato" C/PC/NC/NA (non le checklist "stile":
@@ -21,36 +31,19 @@
  * - Le foto non vengono mai importate (impossibile recuperarle in modo affidabile da un PDF
  *   già appiattito): il chiamante deve avvisare l'utente.
  * - Una riga è riconosciuta solo se ha ESATTAMENTE un segno "X" in una delle 4 colonne di
- *   stato: 0 o più di 1 marcatura trovata per la stessa riga => quella domanda resta senza
- *   risposta invece di essere indovinata.
- * - Formato storico: la mappatura numero-di-riga -> domanda della checklist presuppone che le
- *   sezioni della checklist selezionata corrispondano (per nome, non case-sensitive) alle due
- *   macro-sezioni note (vedi SEZIONI_GRUPPO_1/2); se non corrispondono affatto, la numerazione
- *   viene interpretata come un'unica sequenza continua (fallback), meno affidabile.
+ *   stato: 0 o più di 1 marcatura trovata per la stessa riga => stato_originale resta null
+ *   invece di essere indovinato.
  * - Formato storico: le note molto lunghe possono avere la prima riga posizionata in modo
  *   irregolare rispetto alle righe successive (bullet list con indentazioni diverse): il testo
  *   viene comunque raccolto per intero, ma l'ordine esatto delle parole sulla stessa riga può
  *   in rari casi risultare leggermente diverso dall'originale.
- * - In generale, se il numero di domande riconosciute con certezza risulta troppo basso rispetto
- *   al totale (meno del 50%) per ENTRAMBI i formati, l'importazione viene rifiutata con un
- *   messaggio chiaro invece di restituire dati parziali senza dirlo.
+ * - Se nessuna struttura di colonne nota viene trovata in NESSUna pagina per NESSUno dei due
+ *   formati, il file viene rifiutato subito con un errore chiaro: non è un PDF di sopralluogo
+ *   riconoscibile (né "nostro" né "storico"), non ha senso proseguire con un rilevamento cliente.
  */
 const pdfImport = (() => {
   if (typeof pdfjsLib !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'js/vendor/pdf.worker.min.js';
-  }
-
-  const SOGLIA_RICONOSCIMENTO = 0.5;
-
-  /** Stessa logica di appiattimento di checklist.js (non esportata da lì): [{ sezione, domanda }] nell'ordine del JSON. */
-  function appiattisciDomande(checklist) {
-    const risultato = [];
-    (checklist.sezioni || []).forEach((sezione) => {
-      (sezione.domande || []).forEach((domanda) => {
-        risultato.push({ sezione: sezione.titolo, domanda });
-      });
-    });
-    return risultato;
   }
 
   // ======================================================================================
@@ -61,6 +54,7 @@ const pdfImport = (() => {
   const TOLLERANZA_COLONNA_ID_PT = 10;
   const TOLLERANZA_RIGA_NOTA_PT = 40;
   const TOLLERANZA_RIGA_MULTILINEA_PT = 12;
+  const TOLLERANZA_TITOLO_SEZIONE_PT = 14;
 
   /**
    * Gap (in pt) oltre il quale due righe consecutive di testo (colonna Note o Descrizione
@@ -84,6 +78,8 @@ const pdfImport = (() => {
     'presenza_responsabile',
     'presenza_rls'
   ];
+
+  const TESTI_HEAD_TABELLA_NOSTRO = ['n.', 'C', 'P.C', 'N.C', 'N.P', 'Note', 'Descrizione attività'];
 
   /**
    * Trova sulla pagina le intestazioni di colonna della tabella sezione ('n.', 'C', 'P.C',
@@ -117,6 +113,35 @@ const pdfImport = (() => {
       // dopo la x della colonna N.P individua correttamente l'inizio della colonna Note.
       sogliaNota: npH.x + 20
     };
+  }
+
+  /** Tutte le occorrenze dell'intestazione 'n.' sulla pagina: una per ogni tabella di sezione presente. */
+  function trovaTutteIntestazioniN(items, colonne) {
+    return items
+      .filter((it) => it.testo.trim() === 'n.' && Math.abs(it.x - colonne.idX) < TOLLERANZA_COLONNA_ID_PT)
+      .map((it) => ({ y: it.y }))
+      .sort((a, b) => b.y - a.y);
+  }
+
+  /**
+   * Titolo della tabella di sezione appena sopra una data intestazione "n." (best-effort, solo
+   * dato informativo preservato in sezione_originale: il matching per il formato "nostro" non
+   * dipende mai da questo, si affida all'id — vedi js/import-matching.js). Ritorna null se non
+   * trovato, senza far fallire nulla: sezione_originale resta semplicemente vuoto per quella riga.
+   */
+  function trovaTitoloSezione(items, headerN, colonne) {
+    const candidati = items.filter(
+      (it) =>
+        it.y > headerN.y &&
+        it.y <= headerN.y + TOLLERANZA_TITOLO_SEZIONE_PT &&
+        it.x >= colonne.idX - 5 &&
+        it.x < colonne.C - TOLLERANZA_COLONNA_ID_PT &&
+        !TESTI_HEAD_TABELLA_NOSTRO.includes(it.testo.trim())
+    );
+    if (!candidati.length) {
+      return null;
+    }
+    return ricomponiTesto(raggruppaInLinee(candidati, TOLLERANZA_RIGA_PT)) || null;
   }
 
   /** Colonna di stato più vicina in x a una "X" trovata (le colonne sono spaziate a sufficienza da non creare ambiguità). */
@@ -222,46 +247,51 @@ const pdfImport = (() => {
   }
 
   /**
-   * Estrae risposte/note dalle righe della tabella sezione presenti in questa pagina. Aggiorna
-   * `risultatiPerId` e, per ogni riga trovata, registra anche il testo della colonna "Descrizione
-   * attività" in `testoDomandaPerId` (chiave: id di riga) — non per compilare nulla, ma perché è
-   * il modo per accertarsi che il PDF appartenga davvero alla checklist selezionata (vedi
-   * verificaCorrispondenzaChecklist: da quando non c'è più un titolo unico in cima al documento,
-   * ogni tabella/sezione porta solo la propria intestazione, quindi il confronto va fatto domanda
-   * per domanda, non su un singolo "titolo").
+   * Estrae le righe grezze della tabella sezione presenti in questa pagina, con TUTTI i dati
+   * originali preservati (id/numero/testo/stato/nota) — nessun filtro su quali id siano "validi"
+   * per una checklist: questo modulo non conosce ancora la checklist target. `sezioneCorrente` è
+   * lo stato mutabile (oggetto con proprietà `titolo`) tracciato dal chiamante fra una pagina e
+   * l'altra: se una tabella prosegue su più pagine senza un nuovo titolo, le righe ereditano
+   * l'ultimo titolo di sezione visto.
    */
-  function estraiRisposteDiPaginaNostro(items, colonne, idValidi, risultatiPerId, testoDomandaPerId) {
+  function estraiRighePaginaNostro(items, colonne, sezioneCorrente) {
+    const intestazioniN = trovaTutteIntestazioniN(items, colonne);
+    intestazioniN.forEach((headerN) => {
+      const titolo = trovaTitoloSezione(items, headerN, colonne);
+      if (titolo) {
+        sezioneCorrente.titolo = titolo;
+      }
+    });
+
     const righe = items
       .filter((it) => /^\d+$/.test(it.testo.trim()) && Math.abs(it.x - colonne.idX) < TOLLERANZA_COLONNA_ID_PT)
-      .map((it) => ({ id: parseInt(it.testo.trim(), 10), y: it.y }))
-      .filter((riga) => idValidi.has(riga.id));
+      .map((it) => ({ id: parseInt(it.testo.trim(), 10), y: it.y }));
 
     if (!righe.length) {
-      return;
+      return [];
     }
 
-    righe.forEach((riga) => {
-      if (!risultatiPerId.has(riga.id)) {
-        risultatiPerId.set(riga.id, { risposta: null, note: null });
-      }
-      const voce = risultatiPerId.get(riga.id);
+    // Titolo di sezione per riga: quello dell'ultima intestazione "n." incontrata SOPRA (y
+    // maggiore) la riga stessa, o quello ereditato dalla pagina precedente se la riga precede
+    // ogni intestazione trovata su questa pagina (tabella proseguita senza titolo ripetuto).
+    const titoloPerRiga = (rigaY) => {
+      const precedente = [...intestazioniN].reverse().find((h) => h.y >= rigaY);
+      return precedente ? (trovaTitoloSezione(items, precedente, colonne) || sezioneCorrente.titolo) : sezioneCorrente.titolo;
+    };
 
+    const marcaturePerRiga = new Map();
+    righe.forEach((riga) => {
       const marcature = items.filter(
         (it) => it.testo.trim() === 'X' && Math.abs(it.y - riga.y) <= TOLLERANZA_RIGA_PT
       );
       if (marcature.length === 1) {
-        voce.risposta = colonnaStatoPiuVicina(marcature[0].x, colonne);
+        marcaturePerRiga.set(riga.id, colonnaStatoPiuVicina(marcature[0].x, colonne));
       }
-      // 0 marcature o più di una: risposta lasciata null, non si indovina (vedi limiti noti).
+      // 0 marcature o più di una: stato_originale resta null, non si indovina.
     });
 
     const candidatiNota = items.filter((it) => it.x > colonne.sogliaNota && it.testo.trim() !== 'Note');
-    assegnaTestoAllaRigaPiuVicina(candidatiNota, righe, TOLLERANZA_RIGA_NOTA_PT).forEach((testo, id) => {
-      const voce = risultatiPerId.get(id);
-      if (voce) {
-        voce.note = testo;
-      }
-    });
+    const notePerRiga = assegnaTestoAllaRigaPiuVicina(candidatiNota, righe, TOLLERANZA_RIGA_NOTA_PT);
 
     // Colonna "Descrizione attività": subito dopo l'id (con margine, per non riassorbire la
     // cifra stessa) e prima della colonna "C" (con margine, per restare fuori dalle "X" di stato).
@@ -271,11 +301,17 @@ const pdfImport = (() => {
         it.x < colonne.C - TOLLERANZA_COLONNA_ID_PT &&
         it.testo.trim() !== 'Descrizione attività'
     );
-    assegnaTestoAllaRigaPiuVicina(candidatiDomanda, righe, TOLLERANZA_RIGA_NOTA_PT).forEach((testo, id) => {
-      if (!testoDomandaPerId.has(id)) {
-        testoDomandaPerId.set(id, testo);
-      }
-    });
+    const testoPerRiga = assegnaTestoAllaRigaPiuVicina(candidatiDomanda, righe, TOLLERANZA_RIGA_NOTA_PT);
+
+    return righe.map((riga) => ({
+      formato: 'nostro',
+      id_originale: riga.id,
+      numero_originale: riga.id,
+      sezione_originale: titoloPerRiga(riga.y),
+      testo_originale: testoPerRiga.get(riga.id) || '',
+      stato_originale: marcaturePerRiga.get(riga.id) || null,
+      nota_originale: notePerRiga.get(riga.id) || null
+    }));
   }
 
   /**
@@ -344,55 +380,16 @@ const pdfImport = (() => {
   // priori da qualunque lettura strutturale — non è mai un titolo, una domanda o una nota.
   const REGEX_LEGENDA_PIE_PAGINA = /^C\s*=\s*Conforme/i;
 
-  /** Confronto testi tollerante a differenze di spaziatura/a-capo (l'a-capo nel PDF dipende dal wrap di autoTable, diverso da quello nel JSON della checklist). */
-  function normalizzaTestoConfronto(testo) {
-    return String(testo || '')
-      .toLowerCase()
-      .replace(/\s+/g, '')
-      .trim();
-  }
-
-  /**
-   * Da quando il documento non ha più un titolo unico in cima (ogni sezione porta solo la propria
-   * intestazione di tabella), l'unico modo affidabile per accertarsi che il PDF appartenga alla
-   * checklist selezionata è confrontare, domanda per domanda, il testo estratto dalla colonna
-   * "Descrizione attività" con quello della checklist (stesso id di riga). I numeri di riga da
-   * soli non bastano: coincidono comunque fra checklist diverse (sono una sequenza 1..N), quindi
-   * con la checklist sbagliata selezionata le risposte finirebbero comunque su "qualche" domanda,
-   * solo sbagliata. Ritorna null se il campione è troppo piccolo per pronunciarsi.
-   */
-  function verificaCorrispondenzaChecklist(testoDomandaPerId, domande) {
-    let confrontate = 0;
-    let corrispondenti = 0;
-    domande.forEach(({ domanda }) => {
-      const estratto = testoDomandaPerId.get(domanda.id);
-      if (!estratto) {
-        return;
-      }
-      confrontate += 1;
-      if (normalizzaTestoConfronto(estratto) === normalizzaTestoConfronto(domanda.testo)) {
-        corrispondenti += 1;
-      }
-    });
-    if (confrontate === 0) {
-      return null;
-    }
-    return { confrontate, corrispondenti };
-  }
-
   /**
    * Prova il formato "nostro" sull'intero documento (pagine già estratte). Ritorna
-   * { risposte, anagrafica, totaleDomande, domandeRiconosciute, strutturaRiconosciuta }.
-   * Lancia un errore SOLO se le intestazioni di colonna nostre sono state trovate (quindi il
-   * PDF sembra davvero generato da questa app) ma il testo delle domande non corrisponde alla
-   * checklist scelta (vedi verificaCorrispondenzaChecklist).
+   * { righe, anagrafica, strutturaRiconosciuta } — righe grezze, nessun abbinamento a domande.
    */
-  function provaFormatoNostro(pagine, checklist, domande, idValidi) {
-    const risultatiPerId = new Map();
-    const testoDomandaPerId = new Map();
+  function provaFormatoNostro(pagine) {
+    const righe = [];
     let anagrafica = {};
     let colonneCorrenti = null;
     let strutturaRiconosciuta = false;
+    const sezioneCorrente = { titolo: null };
 
     pagine.forEach((itemsGrezzi, indice) => {
       const numeroPagina = indice + 1;
@@ -408,40 +405,11 @@ const pdfImport = (() => {
       }
 
       if (colonneCorrenti) {
-        estraiRisposteDiPaginaNostro(items, colonneCorrenti, idValidi, risultatiPerId, testoDomandaPerId);
+        righe.push(...estraiRighePaginaNostro(items, colonneCorrenti, sezioneCorrente));
       }
     });
 
-    const corrispondenza = verificaCorrispondenzaChecklist(testoDomandaPerId, domande);
-    if (strutturaRiconosciuta && corrispondenza && corrispondenza.corrispondenti / corrispondenza.confrontate < SOGLIA_RICONOSCIMENTO) {
-      throw new Error(
-        `Il contenuto di questo PDF non corrisponde alla checklist "${checklist.titolo}" selezionata ` +
-        `(solo ${corrispondenza.corrispondenti} domande su ${corrispondenza.confrontate} confrontate combaciano). ` +
-        'Seleziona la checklist corretta e riprova: con quella sbagliata i numeri di riga combaciano comunque, ma le risposte finirebbero sulle domande sbagliate.'
-      );
-    }
-
-    const risposte = [];
-    domande.forEach(({ sezione, domanda }) => {
-      const trovata = risultatiPerId.get(domanda.id);
-      if (trovata && trovata.risposta) {
-        risposte.push({
-          domanda_id: domanda.id,
-          sezione,
-          risposta: trovata.risposta,
-          note: trovata.note || null,
-          foto: []
-        });
-      }
-    });
-
-    return {
-      risposte,
-      anagrafica,
-      totaleDomande: domande.length,
-      domandeRiconosciute: risposte.length,
-      strutturaRiconosciuta
-    };
+    return { righe, anagrafica, strutturaRiconosciuta };
   }
 
   // ======================================================================================
@@ -451,8 +419,29 @@ const pdfImport = (() => {
   const TOLLERANZA_FRAMMENTO_ADIACENTE_PT = 1.2;
   const CENTRO_COLONNA_ID_STORICO = 32;
   const TOLLERANZA_COLONNA_ID_STORICO_PT = 20;
+  /**
+   * Margine (più stretto di TOLLERANZA_COLONNA_ID_STORICO_PT) fra il marcatore "N)" e l'inizio
+   * del testo della domanda: su un PDF storico reale il testo inizia subito dopo il marcatore
+   * (~17pt di distanza dal suo centro, es. "1)" a x=31 e il testo a x=49), non con lo stesso
+   * margine usato per riconoscere il marcatore stesso — un margine troppo largo qui tagliava
+   * silenziosamente le prime righe di ogni domanda multi-riga (bug osservato importando un PDF
+   * storico reale: solo l'ultima riga di testo, quella più a destra del rientro, superava la
+   * soglia, tutte le precedenti venivano scartate).
+   */
+  const MARGINE_TESTO_DOMANDA_STORICO_PT = 10;
   const REGEX_RIGA_STORICO = /^(\d+)[.)]?$/;
-  const INTESTAZIONI_STORICO = ['C', 'PC', 'NC', 'NA', 'NOTE'];
+  const INTESTAZIONI_STORICO = ['C', 'PC', 'NC', 'NA', 'NP', 'NOTE'];
+  /**
+   * Etichette alternative accettate per la 4a colonna di stato: l'app usa internamente sempre il
+   * codice "NA" (vedi js/pdf.js, segnoRisposta/COLORE_COLONNA_STATO — anche se l'etichetta
+   * stampata è "N.P"/"Non pertinente"), ma un vecchio PDF non generato da questa app potrebbe
+   * intestare quella colonna letteralmente "NP" invece di "NA". Si riconoscono entrambe le forme
+   * e si registra QUALE delle due è stata trovata (vedi provaFormatoStorico ->
+   * conversioneStatoRilevata), così l'anteprima può segnalare esplicitamente l'eventuale
+   * conversione invece di applicarla alla cieca senza dirlo (nessun'altra conversione di
+   * vocabolario è necessaria: l'app non usa altri codici oltre a C/PC/NC/NA).
+   */
+  const ALIAS_QUARTA_COLONNA_STORICO = ['NA', 'NP'];
 
   const ETICHETTE_STORICO = [
     { chiave: 'punto_vendita', etichetta: 'Negozio' },
@@ -463,60 +452,6 @@ const pdfImport = (() => {
 
   const BANNER_GRUPPO_1_STORICO = ['AUDIT DOCUMENTALE', 'ANALISI DOCUMENTALE'];
   const BANNER_GRUPPO_2_STORICO = ['SOPRALLUOGO AMBIENTI DI LAVORO'];
-
-  // Stessa mappatura concettuale di GRUPPI_SEZIONI in js/pdf.js: nel formato storico la
-  // numerazione delle domande RIPARTE DA 1 a ogni cambio di queste due macro-sezioni.
-  const SEZIONI_GRUPPO_1_STORICO = [
-    'Adempimenti Formali',
-    'Documento di Valutazione del Rischio',
-    "Gestione dell'Emergenza",
-    'Attività di Formazione',
-    'Documentazione Procedurale'
-  ];
-  const SEZIONI_GRUPPO_2_STORICO = [
-    'Antincendio / Mezzi di Emergenza e Cartellonistica',
-    'Vie di Esodo',
-    'Locali di Lavoro / Struttura',
-    'Macchine / Attrezzature'
-  ];
-
-  /**
-   * Normalizza il titolo di una sezione per confronti case/punteggiatura/spazi-insensitive.
-   * Riduce anche le vocali accentate alla forma base (à->a ecc.): il JSON delle checklist scrive
-   * i titoli in MAIUSCOLO senza accenti, sostituendo l'accento con un apostrofo dopo la vocale
-   * (es. "ATTIVITA' DI FORMAZIONE"), mentre l'elenco di riferimento qui sotto usa l'accento vero
-   * ("Attività di Formazione"): senza questo passo i due non risulterebbero mai uguali.
-   */
-  function normalizzaTitoloSezione(testo) {
-    return String(testo || '')
-      .toLowerCase()
-      .replace(/[àáâã]/g, 'a')
-      .replace(/[èéêë]/g, 'e')
-      .replace(/[ìíîï]/g, 'i')
-      .replace(/[òóôõ]/g, 'o')
-      .replace(/[ùúûü]/g, 'u')
-      .replace(/[^a-z0-9]+/g, '');
-  }
-
-  /** Divide le domande (già appiattite) nei due gruppi noti in base al nome della sezione. Eventuali sezioni non mappate finiscono nel gruppo più vicino nell'ordine del JSON. */
-  function suddividiPerGruppoStorico(domande) {
-    const norm1 = SEZIONI_GRUPPO_1_STORICO.map(normalizzaTitoloSezione);
-    const norm2 = SEZIONI_GRUPPO_2_STORICO.map(normalizzaTitoloSezione);
-    const gruppo1 = [];
-    const gruppo2 = [];
-    const resto = [];
-    domande.forEach((d) => {
-      const norm = normalizzaTitoloSezione(d.sezione);
-      if (norm1.includes(norm)) {
-        gruppo1.push(d);
-      } else if (norm2.includes(norm)) {
-        gruppo2.push(d);
-      } else {
-        resto.push(d);
-      }
-    });
-    return { gruppo1, gruppo2, resto };
-  }
 
   /**
    * Vero per un elemento che è (o potrebbe essere scambiato per) un marcatore di riga numerata
@@ -573,25 +508,30 @@ const pdfImport = (() => {
     return pag ? pag.y + 5 : -Infinity;
   }
 
-  /** Trova sulla pagina le intestazioni di colonna C/PC/NC/NA/NOTE (dopo l'unione dei frammenti adiacenti, "N"+"A" è già diventato "NA"). */
+  /**
+   * Trova sulla pagina le intestazioni di colonna C/PC/NC/(NA o NP)/NOTE (dopo l'unione dei
+   * frammenti adiacenti, "N"+"A" è già diventato "NA"). Ritorna anche `etichettaQuartaColonna`
+   * (letteralmente 'NA' o 'NP', quale sia stata trovata) per il confronto col vocabolario interno.
+   */
   function trovaIntestazioniColonneStorico(items) {
     const trova = (testo) => items.find((it) => it.testo.trim() === testo);
     const cH = trova('C');
     const pcH = trova('PC');
     const ncH = trova('NC');
-    const naH = trova('NA');
+    const quartaTrovata = ALIAS_QUARTA_COLONNA_STORICO.map((etichetta) => ({ etichetta, item: trova(etichetta) })).find((x) => x.item);
     const noteH = trova('NOTE');
-    if (!cH || !pcH || !ncH || !naH || !noteH) {
+    if (!cH || !pcH || !ncH || !quartaTrovata || !noteH) {
       return null;
     }
     return {
       C: cH.x,
       PC: pcH.x,
       NC: ncH.x,
-      NA: naH.x,
+      NA: quartaTrovata.item.x,
+      etichettaQuartaColonna: quartaTrovata.etichetta,
       // Come nel formato nostro: "NOTE" è centrata nella sua colonna (molto più a destra),
-      // mentre il testo delle note è allineato a sinistra subito dopo la colonna NA.
-      sogliaNota: naH.x + 20
+      // mentre il testo delle note è allineato a sinistra subito dopo la colonna NA/NP.
+      sogliaNota: quartaTrovata.item.x + 20
     };
   }
 
@@ -670,9 +610,9 @@ const pdfImport = (() => {
     items.forEach((it) => {
       const testo = it.testo.trim();
       if (BANNER_GRUPPO_1_STORICO.includes(testo)) {
-        eventi.push({ tipo: 'banner', gruppo: 1, y: it.y });
+        eventi.push({ tipo: 'banner', gruppo: 1, etichetta: testo, y: it.y });
       } else if (BANNER_GRUPPO_2_STORICO.includes(testo)) {
-        eventi.push({ tipo: 'banner', gruppo: 2, y: it.y });
+        eventi.push({ tipo: 'banner', gruppo: 2, etichetta: testo, y: it.y });
       } else if (Math.abs(it.x - CENTRO_COLONNA_ID_STORICO) < TOLLERANZA_COLONNA_ID_STORICO_PT) {
         const m = testo.match(REGEX_RIGA_STORICO);
         if (m) {
@@ -686,94 +626,88 @@ const pdfImport = (() => {
 
   /**
    * Elabora gli eventi (banner + righe numerate) di una pagina, nell'ordine in cui compaiono
-   * dall'alto in basso: per ogni riga, cerca la "X" di stato e il testo di nota nell'intervallo
-   * y fra questo evento e il successivo (non un punto fisso: in questo formato "X" e note non
-   * sono allineate alla stessa y della riga, ma cadono comunque nel suo intervallo verticale).
-   * Gestisce anche il caso in cui una nota prosegua oltre l'interruzione di pagina: il testo
-   * "orfano" trovato prima del primo evento di una pagina viene aggiunto alla nota dell'ultima
-   * domanda elaborata nella pagina precedente.
+   * dall'alto in basso: per ogni riga, cerca la "X" di stato, il testo della domanda e la nota
+   * nell'intervallo y fra questo evento e il successivo (non un punto fisso: in questo formato
+   * "X", testo e note non sono allineati alla stessa y della riga, ma cadono comunque nel suo
+   * intervallo verticale). Gestisce anche il caso in cui una nota prosegua oltre l'interruzione
+   * di pagina: il testo "orfano" trovato prima del primo evento di una pagina viene aggiunto alla
+   * nota dell'ultima riga elaborata nella pagina precedente. Ritorna { righe, contesto } — righe
+   * grezze prodotte su questa pagina + il contesto aggiornato da passare alla pagina successiva.
    */
-  function elaboraEventiPaginaStorico(items, colonne, contesto, gruppo1, gruppo2, risultatiPerId, usaGruppi) {
+  function elaboraEventiPaginaStorico(items, colonne, contesto) {
     const eventi = trovaEventiPaginaStorico(items);
+    const righeProdotte = [];
     if (!eventi.length) {
-      return contesto;
+      return { righe: righeProdotte, contesto };
     }
 
-    if (contesto.idInCorso !== null) {
+    if (contesto.ultimaRiga) {
       const primoEvento = eventi[0];
       const orfani = items.filter(
         (it) => it.y > primoEvento.y && it.x > colonne.sogliaNota && !INTESTAZIONI_STORICO.includes(it.testo.trim())
       );
       if (orfani.length) {
-        const voce = risultatiPerId.get(contesto.idInCorso);
-        if (voce) {
-          const testoOrfano = ricomponiTesto(raggruppaInLinee(orfani, TOLLERANZA_RIGA_PT));
-          if (testoOrfano) {
-            voce.note = voce.note ? `${voce.note} ${testoOrfano}` : testoOrfano;
-          }
+        const testoOrfano = ricomponiTesto(raggruppaInLinee(orfani, TOLLERANZA_RIGA_PT));
+        if (testoOrfano) {
+          contesto.ultimaRiga.nota_originale = contesto.ultimaRiga.nota_originale
+            ? `${contesto.ultimaRiga.nota_originale} ${testoOrfano}`
+            : testoOrfano;
         }
       }
     }
 
-    let elencoAttivo = contesto.elencoAttivo;
-    let idInCorso = contesto.idInCorso;
+    let sezioneAttiva = contesto.sezioneAttiva;
+    let ultimaRiga = contesto.ultimaRiga;
 
     eventi.forEach((evento, indice) => {
       if (evento.tipo === 'banner') {
-        if (usaGruppi) {
-          elencoAttivo = evento.gruppo === 1 ? gruppo1 : gruppo2;
-        }
-        idInCorso = null; // un cambio di macro-sezione non porta con sé una nota in sospeso
+        sezioneAttiva = evento.etichetta;
+        ultimaRiga = null; // un cambio di macro-sezione non porta con sé una nota in sospeso
         return;
       }
 
       const yFine = eventi[indice + 1] ? eventi[indice + 1].y : -Infinity;
-      const domandaCorrispondente = elencoAttivo[evento.numeroLocale - 1];
-      if (!domandaCorrispondente) {
-        return; // numero fuori range per il gruppo attivo: non si indovina
-      }
-      const idReale = domandaCorrispondente.domanda.id;
-      idInCorso = idReale;
-
-      if (!risultatiPerId.has(idReale)) {
-        risultatiPerId.set(idReale, { risposta: null, note: null });
-      }
-      const voce = risultatiPerId.get(idReale);
-
       const nellaRiga = (it) => it.y > yFine && it.y <= evento.y + 2;
 
       const marcature = items.filter((it) => it.testo.trim() === 'X' && nellaRiga(it));
-      if (marcature.length === 1) {
-        voce.risposta = colonnaStatoPiuVicina(marcature[0].x, colonne);
-      }
+      const stato = marcature.length === 1 ? colonnaStatoPiuVicina(marcature[0].x, colonne) : null;
+
+      const candidatiTesto = items.filter(
+        (it) => it.x > CENTRO_COLONNA_ID_STORICO + MARGINE_TESTO_DOMANDA_STORICO_PT && it.x < colonne.C - TOLLERANZA_COLONNA_ID_STORICO_PT && nellaRiga(it)
+      );
+      const testoDomanda = ricomponiTesto(raggruppaInLinee(candidatiTesto, TOLLERANZA_RIGA_PT));
 
       const candidatiNota = items.filter(
         (it) => it.x > colonne.sogliaNota && nellaRiga(it) && !INTESTAZIONI_STORICO.includes(it.testo.trim())
       );
-      if (candidatiNota.length) {
-        const testoNota = ricomponiTesto(raggruppaInLinee(candidatiNota, TOLLERANZA_RIGA_PT));
-        if (testoNota) {
-          voce.note = voce.note ? `${voce.note} ${testoNota}` : testoNota;
-        }
-      }
+      const testoNota = ricomponiTesto(raggruppaInLinee(candidatiNota, TOLLERANZA_RIGA_PT)) || null;
+
+      const riga = {
+        formato: 'storico',
+        id_originale: null,
+        numero_originale: evento.numeroLocale,
+        sezione_originale: sezioneAttiva,
+        testo_originale: testoDomanda,
+        stato_originale: stato,
+        nota_originale: testoNota
+      };
+      righeProdotte.push(riga);
+      ultimaRiga = riga;
     });
 
-    return { elencoAttivo, idInCorso };
+    return { righe: righeProdotte, contesto: { sezioneAttiva, ultimaRiga } };
   }
 
   /**
    * Prova il formato "storico" sull'intero documento (pagine già estratte). Ritorna
-   * { risposte, anagrafica, totaleDomande, domandeRiconosciute, strutturaRiconosciuta }.
+   * { righe, anagrafica, strutturaRiconosciuta, conversioneStatoRilevata }.
    */
-  function provaFormatoStorico(pagine, checklist, domande) {
-    const { gruppo1, gruppo2, resto } = suddividiPerGruppoStorico(domande);
-    const usaGruppi = gruppo1.length > 0 || gruppo2.length > 0;
-    const elencoIniziale = usaGruppi ? gruppo1 : [...gruppo1, ...gruppo2, ...resto];
-
-    const risultatiPerId = new Map();
+  function provaFormatoStorico(pagine) {
+    const righe = [];
     let anagrafica = {};
     let strutturaRiconosciuta = false;
-    let contesto = { elencoAttivo: elencoIniziale, idInCorso: null };
+    let conversioneStatoRilevata = null;
+    let contesto = { sezioneAttiva: null, ultimaRiga: null };
 
     pagine.forEach((itemsGrezzi, indice) => {
       const numeroPagina = indice + 1;
@@ -784,6 +718,9 @@ const pdfImport = (() => {
       const colonne = trovaIntestazioniColonneStorico(items);
       if (colonne) {
         strutturaRiconosciuta = true;
+        if (colonne.etichettaQuartaColonna !== 'NA' && !conversioneStatoRilevata) {
+          conversioneStatoRilevata = { letta: colonne.etichettaQuartaColonna, applicata: 'NA' };
+        }
       }
 
       if (numeroPagina === 1) {
@@ -791,60 +728,31 @@ const pdfImport = (() => {
       }
 
       if (colonne) {
-        contesto = elaboraEventiPaginaStorico(items, colonne, contesto, gruppo1, gruppo2, risultatiPerId, usaGruppi);
+        const esito = elaboraEventiPaginaStorico(items, colonne, contesto);
+        righe.push(...esito.righe);
+        contesto = esito.contesto;
       }
     });
 
-    const risposte = [];
-    domande.forEach(({ sezione, domanda }) => {
-      const trovata = risultatiPerId.get(domanda.id);
-      if (trovata && trovata.risposta) {
-        risposte.push({
-          domanda_id: domanda.id,
-          sezione,
-          risposta: trovata.risposta,
-          note: trovata.note || null,
-          foto: []
-        });
-      }
-    });
-
-    return {
-      risposte,
-      anagrafica,
-      totaleDomande: domande.length,
-      domandeRiconosciute: risposte.length,
-      strutturaRiconosciuta
-    };
+    return { righe, anagrafica, strutturaRiconosciuta, conversioneStatoRilevata };
   }
 
   // ======================================================================================
   // Punto di ingresso comune
   // ======================================================================================
 
-  function riconoscimentoSufficiente(risultato) {
-    return Boolean(
-      risultato &&
-      risultato.strutturaRiconosciuta &&
-      risultato.totaleDomande > 0 &&
-      risultato.domandeRiconosciute / risultato.totaleDomande >= SOGLIA_RICONOSCIMENTO
-    );
-  }
-
   /**
-   * Analizza il file PDF selezionato e ricostruisce le risposte alla checklist indicata,
-   * provando prima il formato "nostro" e poi, se insufficiente, quello "storico". Ritorna
-   * { risposte, anagrafica, totaleDomande, domandeRiconosciute, formatoRilevato }. Le risposte
-   * non riconosciute con certezza sono semplicemente assenti dall'array (nessuna voce = nessuna
-   * risposta, come una domanda mai compilata).
+   * Estrae le righe grezze da un PDF, provando prima il formato "nostro" e poi (se la struttura
+   * non viene riconosciuta) quello "storico". NON prende in input nessuna checklist: l'abbinamento
+   * a domande specifiche è compito di js/import-matching.js, a valle del rilevamento cliente.
+   * Ritorna { formatoRilevato, righe, anagrafica, conversioneStatoRilevata }. Lancia un errore
+   * solo se NESSUNA struttura nota (né nostro né storico) viene trovata in nessuna pagina: in
+   * quel caso non è affatto un PDF di sopralluogo riconoscibile, non ha senso proseguire.
    */
-  async function importaDaFile(file, checklist) {
+  async function estraiRighe(file) {
     if (typeof pdfjsLib === 'undefined') {
       throw new Error('Libreria di lettura PDF non disponibile.');
     }
-
-    const domande = appiattisciDomande(checklist);
-    const idValidi = new Set(domande.map((d) => d.domanda.id));
 
     const buffer = await file.arrayBuffer();
     const documento = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
@@ -859,47 +767,39 @@ const pdfImport = (() => {
       pagine.push(items);
     }
 
-    let risultatoNostro = null;
-    let erroreNostro = null;
-    try {
-      risultatoNostro = provaFormatoNostro(pagine, checklist, domande, idValidi);
-    } catch (errore) {
-      erroreNostro = errore;
+    const risultatoNostro = provaFormatoNostro(pagine);
+    if (risultatoNostro.strutturaRiconosciuta && risultatoNostro.righe.length) {
+      return {
+        formatoRilevato: 'nostro',
+        righe: risultatoNostro.righe,
+        anagrafica: risultatoNostro.anagrafica,
+        conversioneStatoRilevata: null
+      };
     }
 
-    if (riconoscimentoSufficiente(risultatoNostro)) {
-      return { ...risultatoNostro, formatoRilevato: 'nostro' };
-    }
-
-    const risultatoStorico = provaFormatoStorico(pagine, checklist, domande);
-    if (riconoscimentoSufficiente(risultatoStorico)) {
-      return { ...risultatoStorico, formatoRilevato: 'storico' };
-    }
-
-    // Nessuno dei due formati ha riconosciuto una percentuale sufficiente di domande: meglio
-    // segnalarlo chiaramente che importare dati parziali senza dirlo (vedi limiti noti).
-    if (erroreNostro) {
-      throw erroreNostro;
-    }
-
-    const migliore = [risultatoNostro, risultatoStorico]
-      .filter((r) => r && r.strutturaRiconosciuta)
-      .sort((a, b) => b.domandeRiconosciute - a.domandeRiconosciute)[0];
-
-    if (migliore) {
-      const percentuale = Math.round((migliore.domandeRiconosciute / migliore.totaleDomande) * 100);
-      throw new Error(
-        `Solo ${migliore.domandeRiconosciute} domande su ${migliore.totaleDomande} (${percentuale}%) sono state ` +
-        'riconosciute con certezza in questo PDF: percentuale troppo bassa per fidarsi dell\'importazione. ' +
-        'Verifica di aver selezionato la checklist corretta.'
-      );
+    const risultatoStorico = provaFormatoStorico(pagine);
+    if (risultatoStorico.strutturaRiconosciuta && risultatoStorico.righe.length) {
+      return {
+        formatoRilevato: 'storico',
+        righe: risultatoStorico.righe,
+        anagrafica: risultatoStorico.anagrafica,
+        conversioneStatoRilevata: risultatoStorico.conversioneStatoRilevata
+      };
     }
 
     throw new Error(
-      `Formato PDF non riconosciuto per la checklist "${checklist.titolo}": non sembra né il formato generato ` +
-      'da questa app né il formato storico Coin supportato. Verifica il file o la checklist selezionata.'
+      'Formato PDF non riconosciuto: non sembra né il formato generato da questa app né il formato ' +
+      'storico Coin supportato (nessuna tabella con colonne C/P.C/N.C/N.P riconosciuta in nessuna pagina). ' +
+      'Verifica di aver selezionato il file giusto.'
     );
   }
 
-  return { importaDaFile };
+  return {
+    estraiRighe,
+    _test: {
+      provaFormatoNostro,
+      provaFormatoStorico,
+      raggruppaFrammentiAdiacenti
+    }
+  };
 })();

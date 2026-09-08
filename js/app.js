@@ -62,6 +62,16 @@ const router = (() => {
 let sopralluogoImportatoDaPdf = null;
 
 /**
+ * Anteprima di importazione PDF in attesa di conferma (nuovoSopralluogoScreen -> importPreviewScreen,
+ * vedi js/pdf-import.js + js/import-matching.js). `null` quando non c'è nessuna importazione in
+ * corso: finché non si preme "Conferma importazione" nello screen di anteprima, NESSUN sopralluogo
+ * viene creato/salvato — questo oggetto è l'UNICO stato temporaneo dell'importazione.
+ * Forma: { checklist, righe, riepilogo, clienteRilevato, rilevamentoAutomatico,
+ *          conversioneStatoRilevata, bozzaAnagrafica }.
+ */
+let anteprimaImportazionePendente = null;
+
+/**
  * Etichette di visualizzazione personalizzate per checklist_id: solo il testo mostrato cambia,
  * mai i nomi dei campi salvati nel sopralluogo (punto_vendita/responsabile_punto_vendita/
  * presenza_responsabile restano gli stessi ovunque). Per checklist non elencate qui, o campi non
@@ -269,8 +279,6 @@ const nuovoSopralluogoScreen = (() => {
 
   let checklistDisponibili = [];
   let associazioniClienti = [];
-  let risposteImportate = null;
-  let checklistIdImportato = null;
 
   async function popolaSuggerimenti() {
     await Promise.all([
@@ -337,10 +345,9 @@ const nuovoSopralluogoScreen = (() => {
     filtraChecklistPerCliente();
   }
 
-  /** Azzera lo stato di un'eventuale importazione PDF precedente (entrando di nuovo nella schermata, o cambiando checklist dopo un'importazione: le risposte importate valgono solo per la checklist con cui sono state lette). */
+  /** Azzera lo stato di un'eventuale importazione PDF precedente (entrando di nuovo nella schermata, o cambiando checklist dopo un'importazione: l'anteprima in attesa vale solo per la checklist rilevata al momento della lettura). */
   function annullaImportazione(messaggio) {
-    risposteImportate = null;
-    checklistIdImportato = null;
+    anteprimaImportazionePendente = null;
     if (messaggio) {
       esitoImportazione.hidden = false;
       esitoImportazione.textContent = messaggio;
@@ -357,17 +364,22 @@ const nuovoSopralluogoScreen = (() => {
     }
   }
 
+  /** Nome del cliente associato a un checklist_id secondo checklists/clients.json, o null se nessuno lo referenzia. */
+  function clienteDiChecklist(checklistId) {
+    const associazione = associazioniClienti.find((c) => c.checklist_ids.includes(checklistId));
+    return associazione ? associazione.nome : null;
+  }
+
   /**
    * Il menu "Checklist" ha sempre un valore (nessuna opzione vuota): prima di aprire il
-   * selettore file chiediamo esplicita conferma di quale checklist useremo per interpretare le
-   * colonne del PDF, così l'utente nota subito se il menu è rimasto sul valore sbagliato.
+   * selettore file avvisiamo che il PDF verrà comunque analizzato per riconoscere cliente e
+   * checklist da solo (vedi js/import-matching.js#rilevaChecklist) — il valore qui selezionato è
+   * solo un punto di partenza, non decide automaticamente come verrà interpretato il file.
    */
   async function onClickImportaPdf() {
-    const opzioneSelezionata = selectChecklist.options[selectChecklist.selectedIndex];
-    const titoloChecklist = opzioneSelezionata ? opzioneSelezionata.textContent : '(nessuna)';
     const confermato = confirm(
-      `Il PDF da importare corrisponde alla checklist "${titoloChecklist}"?\n\n` +
-      'Serve a interpretare correttamente le colonne del report. Se non è quella giusta, annulla e selezionala prima qui sopra nel menu "Checklist".'
+      'Stai per importare un PDF già compilato: il cliente e la checklist verranno riconosciuti automaticamente dal contenuto del file. ' +
+      'Potrai rivedere ogni riga (e correggerla) in un\'anteprima prima che venga creato qualunque sopralluogo. Continuare?'
     );
     if (!confermato) {
       return;
@@ -375,6 +387,13 @@ const nuovoSopralluogoScreen = (() => {
     inputImportaPdf.click();
   }
 
+  /**
+   * Legge il PDF, rileva cliente/checklist dal contenuto (non da quanto eventualmente già
+   * selezionato nel menu) e abbina ogni riga con js/import-matching.js. NON crea ancora nessun
+   * sopralluogo: prepara solo `anteprimaImportazionePendente`, che l'utente rivede nello screen
+   * di anteprima (vedi importPreviewScreen) e conferma esplicitamente prima che qualcosa venga
+   * salvato.
+   */
   async function onFileImportaPdfSelezionato(event) {
     const file = event.target.files[0];
     event.target.value = ''; // permette di riselezionare lo stesso file in un secondo tentativo
@@ -382,20 +401,49 @@ const nuovoSopralluogoScreen = (() => {
       return;
     }
 
-    const checklistId = selectChecklist.value;
     const testoOriginale = btnImportaPdf.textContent;
     btnImportaPdf.disabled = true;
-    btnImportaPdf.textContent = 'Importazione in corso…';
+    btnImportaPdf.textContent = 'Analisi del PDF in corso…';
     esitoImportazione.hidden = true;
 
     try {
-      const checklist = await checklistEngine.carica(checklistId);
-      const risultato = await pdfImport.importaDaFile(file, checklist);
+      const { formatoRilevato, righe, anagrafica, conversioneStatoRilevata } = await pdfImport.estraiRighe(file);
 
-      risposteImportate = risultato.risposte;
-      checklistIdImportato = checklistId;
+      // Rilevamento cliente/checklist DAL CONTENUTO del PDF: carica tutte le checklist
+      // disponibili (non solo quella eventualmente già selezionata nel menu) e lascia che
+      // rilevaChecklist scelga la più probabile, con relativa confidenza.
+      const elencoChecklistConDati = await Promise.all(
+        checklistDisponibili.map(async ({ id, titolo }) => ({ id, titolo, checklist: await checklistEngine.carica(id) }))
+      );
+      const rilevamento = importMatching.rilevaChecklist(righe, elencoChecklistConDati);
+      if (!rilevamento.checklistId) {
+        throw new Error('Nessuna checklist disponibile corrisponde a questo PDF: verifica di essere nella versione più recente dell\'app.');
+      }
 
-      const anagrafica = risultato.anagrafica || {};
+      const vociChecklist = elencoChecklistConDati.find((v) => v.id === rilevamento.checklistId);
+      const puntoDivisioneGruppi = pdf.calcolaPuntoDivisioneGruppi(vociChecklist.checklist);
+      const { righe: righeAbbinate, riepilogo } = importMatching.abbinaRighe(righe, vociChecklist.checklist, { puntoDivisioneGruppi });
+
+      anteprimaImportazionePendente = {
+        formatoRilevato,
+        checklist: vociChecklist.checklist,
+        righe: righeAbbinate,
+        riepilogo,
+        clienteRilevato: clienteDiChecklist(rilevamento.checklistId),
+        checklistTitolo: vociChecklist.titolo,
+        rilevamentoAutomatico: rilevamento.automatico,
+        rilevamentoConfidenza: rilevamento.confidenza,
+        conversioneStatoRilevata,
+        anagrafica: anagrafica || {}
+      };
+
+      // Il menu "Checklist" segue il rilevamento (non quanto l'utente aveva eventualmente
+      // selezionato prima): è questa la checklist che verrà davvero usata per il sopralluogo.
+      if (Array.from(selectChecklist.options).some((opzione) => opzione.value === rilevamento.checklistId)) {
+        selectChecklist.value = rilevamento.checklistId;
+        aggiornaEtichetteAnagrafica();
+      }
+
       if (anagrafica.punto_vendita) inputPuntoVendita.value = anagrafica.punto_vendita;
       if (anagrafica.indirizzo_punto_vendita) inputIndirizzo.value = anagrafica.indirizzo_punto_vendita;
       if (anagrafica.numero_dipendenti) inputNumeroDipendenti.value = anagrafica.numero_dipendenti;
@@ -407,14 +455,11 @@ const nuovoSopralluogoScreen = (() => {
       // La Data del sopralluogo NON viene sovrascritta con quella letta dal PDF: il nuovo
       // sopralluogo importato riparte da oggi (di default, comunque modificabile qui sopra).
 
-      const percentuale = risultato.totaleDomande
-        ? Math.round((risultato.domandeRiconosciute / risultato.totaleDomande) * 100)
-        : 0;
       esitoImportazione.hidden = false;
       esitoImportazione.textContent =
-        `PDF importato: ${risultato.domandeRiconosciute}/${risultato.totaleDomande} domande riconosciute (${percentuale}%). ` +
-        'Le foto non vengono importate, andranno ricaricate se necessario. ' +
-        'Verifica/correggi i campi qui sopra, poi premi INIZIA: potrai rivedere ogni risposta domanda per domanda prima di generare il nuovo report.';
+        `PDF analizzato (formato ${formatoRilevato === 'nostro' ? 'app' : 'storico'}): ${riepilogo.totaleRighe} righe trovate, ` +
+        `checklist riconosciuta "${vociChecklist.titolo}"${rilevamento.automatico ? '' : ' (da confermare)'}. ` +
+        'Premi INIZIA per passare all\'anteprima completa, dove potrai rivedere e correggere ogni riga prima di creare il sopralluogo.';
     } catch (errore) {
       annullaImportazione(`Importazione non riuscita: ${errore.message}`);
     } finally {
@@ -432,10 +477,9 @@ const nuovoSopralluogoScreen = (() => {
     await Promise.all([popolaSuggerimenti(), caricaChecklistECliente()]);
   }
 
-  async function onSubmit(event) {
-    event.preventDefault();
-
-    let sopralluogo = await db.creaSopralluogo({
+  /** Valori anagrafici correnti del form, nella forma richiesta da db.creaSopralluogo. */
+  function leggiAnagraficaForm() {
+    return {
       punto_vendita: inputPuntoVendita.value.trim(),
       indirizzo_punto_vendita: inputIndirizzo.value.trim(),
       numero_dipendenti: inputNumeroDipendenti.value,
@@ -447,13 +491,22 @@ const nuovoSopralluogoScreen = (() => {
       presenza_responsabile: selectPresenzaResponsabile.value,
       presenza_rls: selectPresenzaRls.value,
       checklist_id: selectChecklist.value
-    });
+    };
+  }
 
-    if (risposteImportate && checklistIdImportato === sopralluogo.checklist_id) {
-      sopralluogo = await db.impostaRisposte(sopralluogo.id, risposteImportate);
-      sopralluogoImportatoDaPdf = sopralluogo.id;
+  async function onSubmit(event) {
+    event.preventDefault();
+
+    // Importazione da PDF in corso: NESSUN sopralluogo viene creato qui. Si passa allo screen di
+    // anteprima (vedi importPreviewScreen), che crea il sopralluogo solo alla conferma esplicita
+    // dell'utente — "INIZIA" qui serve solo a fissare i dati anagrafici del form come bozza.
+    if (anteprimaImportazionePendente) {
+      anteprimaImportazionePendente.bozzaAnagrafica = leggiAnagraficaForm();
+      router.navigate('import-preview');
+      return;
     }
-    annullaImportazione(null);
+
+    const sopralluogo = await db.creaSopralluogo(leggiAnagraficaForm());
 
     const checklist = await checklistEngine.carica(sopralluogo.checklist_id);
     checklistEngine.avvia(checklist, sopralluogo);
@@ -470,12 +523,277 @@ const nuovoSopralluogoScreen = (() => {
     btnImportaPdf.addEventListener('click', onClickImportaPdf);
     inputImportaPdf.addEventListener('change', onFileImportaPdfSelezionato);
     selectChecklist.addEventListener('change', () => {
-      if (risposteImportate && checklistIdImportato !== selectChecklist.value) {
-        annullaImportazione('Importazione annullata: la checklist selezionata è cambiata rispetto a quella usata per leggere il PDF.');
+      if (anteprimaImportazionePendente && anteprimaImportazionePendente.checklist.id !== selectChecklist.value) {
+        annullaImportazione('Importazione annullata: la checklist selezionata è cambiata rispetto a quella riconosciuta nel PDF.');
       }
       aggiornaEtichetteAnagrafica();
     });
     router.onEnter('new-inspection', onEnterScreen);
+  }
+
+  return { init };
+})();
+
+/**
+ * Schermata di anteprima importazione PDF (vedi js/pdf-import.js per l'estrazione e
+ * js/import-matching.js per l'abbinamento). Revisione riga per riga PRIMA che qualunque
+ * sopralluogo venga creato: legge/corregge esclusivamente `anteprimaImportazionePendente`
+ * (popolata da nuovoSopralluogoScreen), nessuno stato proprio persistente. Finché non si preme
+ * "Conferma importazione" nessuna scrittura su IndexedDB avviene — "Annulla" scarta tutto senza
+ * lasciare traccia.
+ */
+const importPreviewScreen = (() => {
+  const elRilevamento = document.getElementById('import-rilevamento');
+  const elRiepilogo = document.getElementById('import-riepilogo');
+  const elAvvisoConversione = document.getElementById('import-avviso-conversione');
+  const elRighe = document.getElementById('import-righe');
+  const btnAnnullaHeader = document.getElementById('btn-annulla-import-preview');
+  const btnAnnullaFooter = document.getElementById('btn-annulla-import-preview-footer');
+  const btnConferma = document.getElementById('btn-conferma-import');
+
+  const ETICHETTE_STATO_RIGA = {
+    sicuro: 'Sicuro',
+    da_verificare: 'Da verificare',
+    conflitto: 'Conflitto',
+    non_riconosciuta: 'Non riconosciuta/esclusa'
+  };
+  const ETICHETTE_METODO = {
+    id: 'id',
+    sezione_numero: 'sezione + numero',
+    testo: 'testo',
+    fuzzy: 'testo (fuzzy)',
+    manuale: 'scelta manuale'
+  };
+  const ETICHETTE_RISPOSTA = { C: 'C', PC: 'P.C', NC: 'N.C', NA: 'N.P' };
+
+  function escapeHtml(testo) {
+    const div = document.createElement('div');
+    div.textContent = testo == null ? '' : String(testo);
+    return div.innerHTML;
+  }
+
+  function renderRilevamento() {
+    const stato = anteprimaImportazionePendente;
+    const confidenzaPct = Math.round((stato.rilevamentoConfidenza || 0) * 100);
+    let html =
+      `<p><strong>PDF riconosciuto come:</strong><br>` +
+      `Cliente: ${escapeHtml(stato.clienteRilevato || '(non determinato)')}<br>` +
+      `Checklist target: ${escapeHtml(stato.checklistTitolo)} (confidenza ${confidenzaPct}%, formato ${stato.formatoRilevato === 'nostro' ? 'app' : 'storico'})</p>`;
+    if (!stato.rilevamentoAutomatico) {
+      html +=
+        '<p class="import-rilevamento-incerto">⚠️ Rilevamento non sufficientemente sicuro: verifica che cliente e checklist siano quelli giusti (puoi cambiare checklist tornando indietro) prima di confermare.</p>' +
+        '<label><input type="checkbox" id="import-conferma-rilevamento"> Confermo che cliente e checklist sono corretti</label>';
+    }
+    elRilevamento.innerHTML = html;
+    const checkbox = document.getElementById('import-conferma-rilevamento');
+    if (checkbox) {
+      checkbox.addEventListener('change', aggiornaStatoBottoneConferma);
+    }
+  }
+
+  function renderRiepilogo() {
+    const r = anteprimaImportazionePendente.riepilogo;
+    const confidenzaPct = Math.round((r.confidenzaComplessiva || 0) * 100);
+    elRiepilogo.innerHTML =
+      `<span class="import-badge">${r.totaleRighe} righe trovate</span>` +
+      `<span class="import-badge import-badge-sicure">${r.sicure} riconosciute automaticamente</span>` +
+      `<span class="import-badge import-badge-verificare">${r.daVerificare} da verificare</span>` +
+      `<span class="import-badge import-badge-non-riconosciute">${r.nonRiconosciute} non riconosciute</span>` +
+      `<span class="import-badge import-badge-conflitti">${r.conflitti} conflitti</span>` +
+      `<span class="import-badge">Confidenza complessiva: ${confidenzaPct}%</span>`;
+  }
+
+  function renderAvvisoConversione() {
+    const conv = anteprimaImportazionePendente.conversioneStatoRilevata;
+    if (!conv) {
+      elAvvisoConversione.hidden = true;
+      return;
+    }
+    elAvvisoConversione.hidden = false;
+    elAvvisoConversione.textContent =
+      `Nel PDF la quarta colonna di stato è etichettata "${conv.letta}": interpretata come "${conv.applicata}" ` +
+      '(N.P/Non pertinente), il codice usato internamente da questa app — nessun\'altra conversione applicata.';
+  }
+
+  function opzioniDomande(checklist, domandaIdSelezionata) {
+    let html = '<option value="">— nessuna (non importare questa riga) —</option>';
+    checklist.sezioni.forEach((sezione) => {
+      html += `<optgroup label="${escapeHtml(sezione.titolo)}">`;
+      sezione.domande.forEach((domanda) => {
+        const selezionata = domanda.id === domandaIdSelezionata ? ' selected' : '';
+        html += `<option value="${domanda.id}"${selezionata}>${domanda.id}) ${escapeHtml(domanda.testo.split('\n')[0])}</option>`;
+      });
+      html += '</optgroup>';
+    });
+    return html;
+  }
+
+  function opzioniRisposta(rispostaSelezionata) {
+    let html = `<option value=""${!rispostaSelezionata ? ' selected' : ''}>(nessuna)</option>`;
+    Object.entries(ETICHETTE_RISPOSTA).forEach(([valore, etichetta]) => {
+      html += `<option value="${valore}"${valore === rispostaSelezionata ? ' selected' : ''}>${etichetta}</option>`;
+    });
+    return html;
+  }
+
+  function renderRiga(riga) {
+    const confidenzaPct = riga.confidenza != null ? `${Math.round(riga.confidenza * 100)}%` : '—';
+    const metodo = riga.metodo ? (ETICHETTE_METODO[riga.metodo] || riga.metodo) : '—';
+    const originaleMeta = [
+      riga.originale.id_originale != null ? `id ${riga.originale.id_originale}` : (riga.originale.numero_originale != null ? `n. ${riga.originale.numero_originale}` : null),
+      riga.originale.sezione_originale
+    ].filter(Boolean).join(' · ');
+
+    return `
+      <div class="import-riga import-riga-${riga.stato_riga}" data-indice="${riga.indice}">
+        <div class="import-riga-originale">
+          <strong>PDF:</strong> "${escapeHtml(riga.originale.testo_originale || '(testo non letto)')}"
+          <span class="import-riga-meta">${escapeHtml(originaleMeta)}${riga.originale.stato_originale ? ` · stato letto: ${escapeHtml(riga.originale.stato_originale)}` : ''}</span>
+        </div>
+        <label class="import-riga-campo">→ associata a
+          <select class="import-riga-domanda">${opzioniDomande(anteprimaImportazionePendente.checklist, riga.domanda_id)}</select>
+        </label>
+        <label class="import-riga-campo">Risposta
+          <select class="import-riga-risposta">${opzioniRisposta(riga.risposta)}</select>
+        </label>
+        <label class="import-riga-campo">Nota
+          <textarea class="import-riga-nota">${escapeHtml(riga.note || '')}</textarea>
+        </label>
+        <div class="import-riga-info">
+          Stato: ${ETICHETTE_STATO_RIGA[riga.stato_riga] || riga.stato_riga} · Confidenza: ${confidenzaPct} · Metodo: ${metodo}
+          ${riga.avviso ? `<span class="import-riga-avviso">${escapeHtml(riga.avviso)}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderRighe() {
+    elRighe.innerHTML = anteprimaImportazionePendente.righe.map(renderRiga).join('');
+  }
+
+  function aggiornaStatoBottoneConferma() {
+    const checkbox = document.getElementById('import-conferma-rilevamento');
+    const rilevamentoOk = anteprimaImportazionePendente.rilevamentoAutomatico || Boolean(checkbox && checkbox.checked);
+    btnConferma.disabled = !rilevamentoOk;
+  }
+
+  function render() {
+    if (!anteprimaImportazionePendente) {
+      router.navigate('new-inspection');
+      return;
+    }
+    renderRilevamento();
+    renderRiepilogo();
+    renderAvvisoConversione();
+    renderRighe();
+    aggiornaStatoBottoneConferma();
+  }
+
+  /** Rilegge dal DOM lo stato corrente di una riga (dopo un edit dell'utente) e lo scrive nella riga corrispondente. Una correzione manuale della domanda associata NON è mai automaticamente "sicura": resta sempre da verificare, anche se l'utente l'ha appena scelta lui stesso. */
+  function sincronizzaRigaDaDom(cardEl) {
+    const indice = Number(cardEl.dataset.indice);
+    const riga = anteprimaImportazionePendente.righe.find((r) => r.indice === indice);
+    if (!riga) {
+      return;
+    }
+    const selectDomanda = cardEl.querySelector('.import-riga-domanda');
+    const selectRisposta = cardEl.querySelector('.import-riga-risposta');
+    const textareaNota = cardEl.querySelector('.import-riga-nota');
+
+    const nuovoDomandaId = selectDomanda.value ? Number(selectDomanda.value) : null;
+    if (nuovoDomandaId !== riga.domanda_id) {
+      riga.domanda_id = nuovoDomandaId;
+      riga.metodo = nuovoDomandaId != null ? 'manuale' : null;
+      riga.confidenza = nuovoDomandaId != null ? 1 : null;
+      riga.automatico = false;
+      riga.avviso = null;
+    }
+    riga.risposta = selectRisposta.value || null;
+    riga.note = textareaNota.value.trim() || null;
+  }
+
+  function onCambioRiga(event) {
+    const cardEl = event.target.closest('.import-riga');
+    if (!cardEl) {
+      return;
+    }
+    sincronizzaRigaDaDom(cardEl);
+    importMatching.applicaVincoloUnoAUno(anteprimaImportazionePendente.righe);
+    anteprimaImportazionePendente.riepilogo = importMatching.calcolaRiepilogo(anteprimaImportazionePendente.righe);
+    renderRiepilogo();
+    renderRighe();
+  }
+
+  /** Aggiornamento silenzioso mentre si digita in una nota, senza rifare il rendering (perderebbe il focus a ogni tasto): il ricalcolo completo avviene comunque al 'change' (blur) gestito da onCambioRiga. */
+  function onInputNota(event) {
+    if (!event.target.classList.contains('import-riga-nota')) {
+      return;
+    }
+    const cardEl = event.target.closest('.import-riga');
+    if (cardEl) {
+      sincronizzaRigaDaDom(cardEl);
+    }
+  }
+
+  async function onClickConferma() {
+    const stato = anteprimaImportazionePendente;
+    if (!stato) {
+      return;
+    }
+    if (stato.riepilogo.conflitti > 0 || stato.riepilogo.daVerificare > 0 || stato.riepilogo.nonRiconosciute > 0) {
+      const proseguire = confirm(
+        `Ci sono ancora ${stato.riepilogo.conflitti} conflitti, ${stato.riepilogo.daVerificare} righe da verificare e ` +
+        `${stato.riepilogo.nonRiconosciute} non riconosciute/escluse. Le righe non associate a nessuna domanda non verranno importate. Procedere comunque?`
+      );
+      if (!proseguire) {
+        return;
+      }
+    }
+
+    const domande = importMatching.appiattisciDomande(stato.checklist);
+    const risposte = stato.righe
+      .filter((r) => r.domanda_id != null && r.stato_riga !== 'conflitto' && (r.risposta || r.note))
+      .map((r) => {
+        const voce = domande.find((d) => d.domanda.id === r.domanda_id);
+        return {
+          domanda_id: r.domanda_id,
+          sezione: voce ? voce.sezione : null,
+          risposta: r.risposta || null,
+          note: r.note || null,
+          foto: []
+        };
+      });
+
+    const testoOriginaleBottone = btnConferma.textContent;
+    btnConferma.disabled = true;
+    btnConferma.textContent = 'Creazione sopralluogo…';
+    try {
+      const sopralluogo = await db.creaSopralluogo(stato.bozzaAnagrafica);
+      await db.impostaRisposte(sopralluogo.id, risposte);
+      sopralluogoImportatoDaPdf = sopralluogo.id;
+
+      anteprimaImportazionePendente = null;
+      checklistEngine.avvia(stato.checklist, sopralluogo);
+      router.navigate('compilazione');
+      compilazioneScreen.renderDomandaCorrente();
+    } finally {
+      btnConferma.disabled = false;
+      btnConferma.textContent = testoOriginaleBottone;
+    }
+  }
+
+  function onClickAnnulla() {
+    anteprimaImportazionePendente = null;
+    router.navigate('new-inspection');
+  }
+
+  function init() {
+    elRighe.addEventListener('change', onCambioRiga);
+    elRighe.addEventListener('input', onInputNota);
+    btnConferma.addEventListener('click', onClickConferma);
+    btnAnnullaHeader.addEventListener('click', onClickAnnulla);
+    btnAnnullaFooter.addEventListener('click', onClickAnnulla);
+    router.onEnter('import-preview', render);
   }
 
   return { init };
@@ -2429,6 +2747,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   router.init();
   connessioneIndicatore.init();
   nuovoSopralluogoScreen.init();
+  importPreviewScreen.init();
   compilazioneScreen.init();
   altriAspettiScreen.init();
   riepilogoScreen.init();
