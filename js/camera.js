@@ -72,7 +72,11 @@ const camera = (() => {
     try {
       const blob = await comprimi(img);
       const fotoId = await db.salvaFoto({ sopralluogo_id, domanda_id, blob });
-      fotoSync.caricaFoto({ fotoId, sopralluogo_id, domanda_id, blob });
+      // Quando siamo online aspettiamo il tentativo di upload prima di restituire il controllo:
+      // così il riferimento Supabase viene creato prima che l'utente possa chiudere subito la
+      // checklist/generare il PDF. Offline o in errore caricaFoto resta best-effort e ritorna
+      // senza perdere il blob locale, che verrà ritentato automaticamente in seguito.
+      await fotoSync.caricaFoto({ fotoId, sopralluogo_id, domanda_id, blob });
       return fotoId;
     } finally {
       URL.revokeObjectURL(url);

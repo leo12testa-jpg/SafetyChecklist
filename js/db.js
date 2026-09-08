@@ -602,9 +602,15 @@ const db = (() => {
    * sopralluogo (es. dopo una modifica ai soli dati anagrafici) per capire se il PDF salvato è
    * ancora aggiornato o andrebbe rigenerato (vedi riepilogoScreen in app.js).
    */
-  async function salvaPdfReport({ sopralluogo_id, blob, filename }) {
+  async function salvaPdfReport({ sopralluogo_id, blob, filename, firma_foto = '' }) {
     const store = await transazione('pdf_report', 'readwrite');
-    await richiesta(store.put({ sopralluogo_id, blob, filename, generato_il: new Date().toISOString() }));
+    await richiesta(store.put({
+      sopralluogo_id,
+      blob,
+      filename,
+      firma_foto,
+      generato_il: new Date().toISOString()
+    }));
   }
 
   /** Legge il PDF salvato di un sopralluogo. Ritorna undefined se non è mai stato generato/salvato. */

@@ -947,3 +947,43 @@ h3 {
   width: 100%;
   min-height: 42px;
 }
+
+/* Miniature foto cross-device: blob locale o immagine scaricata da Supabase. */
+.foto-gestione-voce-con-miniatura {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: min(180px, 100%);
+  gap: 0.4rem;
+}
+
+.foto-miniatura-slot {
+  min-height: 82px;
+  width: 100%;
+  border-radius: 0.35rem;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.foto-miniatura {
+  display: block;
+  width: 100%;
+  max-height: 150px;
+  object-fit: contain;
+}
+
+.foto-miniatura-messaggio {
+  display: block;
+  padding: 0.5rem;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.foto-miniatura-messaggio.is-warning {
+  color: #9b3c00;
+}

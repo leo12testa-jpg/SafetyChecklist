@@ -855,10 +855,19 @@ const importPreviewScreen = (() => {
       const rispostaPerDomanda = new Map(risposte.map((risposta) => [Number(risposta.domanda_id), risposta]));
       const fotoAltriAspetti = [];
       const didascalieAltriAspetti = {};
+      const caricamentiFotoImportate = [];
       for (const foto of stato.immagini || []) {
         const domandaId = foto.domanda_id_collegata != null ? Number(foto.domanda_id_collegata) : null;
         const voceDomanda = domandaId != null ? domande.find((voce) => Number(voce.domanda.id) === domandaId) : null;
-        const id = await db.salvaFoto({ sopralluogo_id: sopralluogo.id, domanda_id: voceDomanda ? domandaId : null, blob: foto.blob });
+        const domandaFoto = voceDomanda ? domandaId : null;
+        const id = await db.salvaFoto({ sopralluogo_id: sopralluogo.id, domanda_id: domandaFoto, blob: foto.blob });
+        // Una foto importata deve comportarsi esattamente come una foto scattata dall'app:
+        // oltre al salvataggio IndexedDB locale, avvia subito l'upload Supabase. In questo modo
+        // il riferimento foto_url viene sincronizzato via Firestore e la stessa foto è visibile
+        // anche aprendo il sopralluogo da un altro dispositivo (telefono/tablet/PC).
+        caricamentiFotoImportate.push(
+          fotoSync.caricaFoto({ fotoId: id, sopralluogo_id: sopralluogo.id, domanda_id: domandaFoto, blob: foto.blob })
+        );
         if (voceDomanda) {
           let risposta = rispostaPerDomanda.get(domandaId);
           if (!risposta) {
@@ -878,6 +887,13 @@ const importPreviewScreen = (() => {
         Object.assign(sopralluogo, allegati);
       }
       sopralluogo = await db.impostaRisposte(sopralluogo.id, risposte);
+      if (caricamentiFotoImportate.length) {
+        btnConferma.textContent = 'Sincronizzazione foto…';
+        // caricaFoto intercetta già gli errori di rete: attendiamo qui gli upload avviati per
+        // dare al cross-device la massima affidabilità senza rendere fallita l'importazione se
+        // il dispositivo è offline. Eventuali upload falliti saranno ritentati da fotoSync.init().
+        await Promise.all(caricamentiFotoImportate);
+      }
       salvato = true;
       sopralluogoImportatoDaPdf = sopralluogo.id;
 
@@ -945,6 +961,79 @@ function creaIndicatoreUpload(fotoId) {
 }
 
 /**
+ * Crea una miniatura vera della foto, indipendentemente dal dispositivo che l'ha scattata.
+ * fotoSync.risolviFoto prova prima IndexedDB e, se la foto non esiste sul dispositivo corrente,
+ * la scarica dal bucket Supabase usando foto_url sincronizzato con il sopralluogo. È quindi un
+ * comportamento comune a TUTTE le checklist, non dipende dal cliente/checklist_id.
+ */
+function aggiungiMiniaturaFoto(contenitore, fotoId, sopralluogo) {
+  const slot = document.createElement('div');
+  slot.className = 'foto-miniatura-slot';
+  slot.dataset.fotoId = String(fotoId);
+  const caricamento = document.createElement('span');
+  caricamento.className = 'foto-miniatura-messaggio';
+  caricamento.textContent = 'Caricamento foto…';
+  slot.appendChild(caricamento);
+  contenitore.appendChild(slot);
+
+  Promise.resolve().then(async () => {
+    const record = await fotoSync.risolviFoto(fotoId, sopralluogo);
+    // Nel frattempo l'utente può aver cambiato domanda e il vecchio nodo può essere stato
+    // rimosso: non disegniamo una foto nel riquadro sbagliato.
+    if (!slot.isConnected || slot.dataset.fotoId !== String(fotoId)) return;
+
+    slot.innerHTML = '';
+    if (!record || !record.blob) {
+      const nonDisponibile = document.createElement('span');
+      nonDisponibile.className = 'foto-miniatura-messaggio is-warning';
+      nonDisponibile.textContent = navigator.onLine
+        ? 'Foto non ancora sincronizzata su questo dispositivo'
+        : 'Foto disponibile quando torni online';
+      slot.appendChild(nonDisponibile);
+      return;
+    }
+
+    const img = document.createElement('img');
+    img.className = 'foto-miniatura';
+    img.alt = 'Anteprima foto allegata';
+    slot.appendChild(img);
+
+    // FileReader è supportato anche dai browser mobili più vecchi; createObjectURL resta un
+    // fallback. Evitiamo di assumere che una API browser esista, come già fatto per i PDF.
+    if (typeof FileReader === 'function') {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (slot.isConnected && reader.result) img.src = reader.result;
+      };
+      reader.onerror = () => {
+        slot.innerHTML = '<span class="foto-miniatura-messaggio is-warning">Impossibile mostrare l\'anteprima</span>';
+      };
+      reader.readAsDataURL(record.blob);
+      return;
+    }
+
+    if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+      const url = URL.createObjectURL(record.blob);
+      img.onload = () => {
+        if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url);
+      };
+      img.onerror = () => {
+        if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url);
+      };
+      img.src = url;
+      return;
+    }
+
+    slot.innerHTML = '<span class="foto-miniatura-messaggio is-warning">Anteprima non supportata su questo dispositivo</span>';
+  }).catch((errore) => {
+    console.warn('Impossibile mostrare anteprima foto', fotoId, errore);
+    if (slot.isConnected) {
+      slot.innerHTML = '<span class="foto-miniatura-messaggio is-warning">Foto non disponibile</span>';
+    }
+  });
+}
+
+/**
  * Schermata di Compilazione: una domanda alla volta, con opzioni C/PC/NC/NA, note, sotto-form
  * Non Conformità e navigazione avanti/indietro (PROJECT.md §7.3, §7.4).
  */
@@ -1002,11 +1091,14 @@ const compilazioneScreen = (() => {
     fotoLista.innerHTML = '';
     fotoDomandaCorrente.forEach((fotoId, indice) => {
       const voce = document.createElement('div');
-      voce.className = 'foto-gestione-voce';
+      voce.className = 'foto-gestione-voce foto-gestione-voce-con-miniatura';
+      voce.dataset.fotoId = fotoId;
+      const comandi = document.createElement('div');
+      comandi.className = 'foto-gestione-voce-intestazione';
       const testo = document.createElement('span');
       testo.textContent = `Foto ${indice + 1}`;
-      voce.appendChild(testo);
-      voce.appendChild(creaIndicatoreUpload(fotoId));
+      comandi.appendChild(testo);
+      comandi.appendChild(creaIndicatoreUpload(fotoId));
       [['↑', -1], ['↓', 1]].forEach(([etichetta, spostamento]) => {
         const bottone = document.createElement('button');
         bottone.type = 'button';
@@ -1019,7 +1111,7 @@ const compilazioneScreen = (() => {
           const corrente = checklistEngine.domandaCorrente();
           await salvaRispostaCorrente(corrente.risposta ? corrente.risposta.risposta : null);
         });
-        voce.appendChild(bottone);
+        comandi.appendChild(bottone);
       });
       const elimina = document.createElement('button');
       elimina.type = 'button';
@@ -1032,7 +1124,9 @@ const compilazioneScreen = (() => {
         const fotoEliminata = await db.eliminaFoto(fotoId);
         fotoSync.eliminaFotoRemota(fotoEliminata);
       });
-      voce.appendChild(elimina);
+      comandi.appendChild(elimina);
+      voce.appendChild(comandi);
+      aggiungiMiniaturaFoto(voce, fotoId, checklistEngine.sopralluogoCorrente());
       fotoLista.appendChild(voce);
     });
   }
@@ -1603,6 +1697,11 @@ const compilazioneScreen = (() => {
     const corrente = checklistEngine.domandaCorrente();
     if (corrente) {
       renderIndicatori(corrente.totale, corrente.indice);
+      // Le foto possono essere arrivate da un altro dispositivo insieme a foto_url: aggiorniamo
+      // solo l'elenco foto della domanda corrente, senza toccare radio/note eventualmente in
+      // modifica. Vale per tutte le checklist perché passa dal motore comune.
+      fotoDomandaCorrente = corrente.risposta ? (corrente.risposta.foto || []) : [];
+      aggiornaContatoreFoto();
     }
   }
 
@@ -1707,6 +1806,7 @@ const altriAspettiScreen = (() => {
     });
     intestazione.appendChild(elimina);
     voce.appendChild(intestazione);
+    aggiungiMiniaturaFoto(voce, fotoId, checklistEngine.sopralluogoCorrente());
 
     const didascaliaInput = document.createElement('input');
     didascaliaInput.type = 'text';
@@ -1876,13 +1976,24 @@ const riepilogoScreen = (() => {
     try {
       const checklist = checklistEngine.getChecklist();
       const sopralluogoId = checklistEngine.sopralluogoCorrente().id;
+
+      // Prima di chiudere/generare il report assicura, quando online, che le foto locali siano
+      // caricate su Supabase e che i relativi riferimenti siano arrivati su Firestore. In questo
+      // modo il PDF aperto successivamente da un telefono può ricostruire gli stessi allegati.
+      await preparaDatiPdfCrossDevice();
       const sopralluogo = await db.leggiSopralluogo(sopralluogoId);
 
       pdfBlob = await pdf.generaReport(checklist, sopralluogo);
       pdfFilename = pdf.nomeFile(sopralluogo);
 
       await db.aggiornaSopralluogo(sopralluogoId, { stato: 'completato' });
-      await db.salvaPdfReport({ sopralluogo_id: sopralluogoId, blob: pdfBlob, filename: pdfFilename });
+      const sopralluogoAggiornato = await db.leggiSopralluogo(sopralluogoId);
+      await db.salvaPdfReport({
+        sopralluogo_id: sopralluogoId,
+        blob: pdfBlob,
+        filename: pdfFilename,
+        firma_foto: firmaFotoSopralluogo(sopralluogoAggiornato || sopralluogo)
+      });
 
       pdfEsito.hidden = false;
       bannerAnagrafica.hidden = true;
@@ -2056,12 +2167,21 @@ const storicoScreen = (() => {
    * sincronizzazione delle foto, questo dovrebbe restare raro (solo foto mai caricate, es.
    * scattate offline e non ancora sincronizzate) invece che sistematico come prima.
    */
-  async function contaFotoMancanti(sopralluogo) {
+  function idFotoSopralluogo(sopralluogo) {
     const idFoto = [];
-    risposteComeArray(sopralluogo.risposte).forEach((risposta) => {
-      (risposta.foto || []).forEach((fotoId) => idFoto.push(fotoId));
+    risposteComeArray(sopralluogo && sopralluogo.risposte).forEach((risposta) => {
+      (risposta.foto || []).forEach((fotoId) => idFoto.push(String(fotoId)));
     });
-    (sopralluogo.altri_aspetti_foto || []).forEach((fotoId) => idFoto.push(fotoId));
+    ((sopralluogo && sopralluogo.altri_aspetti_foto) || []).forEach((fotoId) => idFoto.push(String(fotoId)));
+    return Array.from(new Set(idFoto)).sort();
+  }
+
+  function firmaFotoSopralluogo(sopralluogo) {
+    return idFotoSopralluogo(sopralluogo).join('|');
+  }
+
+  async function contaFotoMancanti(sopralluogo) {
+    const idFoto = idFotoSopralluogo(sopralluogo);
     if (!idFoto.length) {
       return 0;
     }
@@ -2070,29 +2190,84 @@ const storicoScreen = (() => {
   }
 
   /**
-   * Ritorna sempre un PDF utilizzabile per il sopralluogo indicato: quello già salvato se esiste,
-   * altrimenti lo rigenera al volo dai dati del sopralluogo (stessa funzione di generazione usata
-   * a fine Compilazione). `rigenerato`/`fotoMancanti` servono solo per avvisare l'utente quando è
-   * stato necessario rigenerare senza tutte le foto originali.
+   * Prima di aprire/generare un PDF, quando siamo online, forza un giro di sincronizzazione.
+   * È importante soprattutto su telefono: il PDF salvato in IndexedDB è locale al dispositivo
+   * e può essere precedente alle foto caricate dal PC. Il giro di sync porta sul telefono sia
+   * i fotoId nelle risposte sia la mappa foto_url necessaria per scaricare i blob da Supabase.
+   */
+  async function preparaDatiPdfCrossDevice() {
+    if (typeof navigator === 'undefined' || !navigator.onLine) return;
+    try {
+      if (typeof fotoSync !== 'undefined' && typeof fotoSync.riprovaInSospeso === 'function') {
+        await fotoSync.riprovaInSospeso();
+      }
+      if (typeof sync !== 'undefined' && typeof sync.sincronizzaTutto === 'function') {
+        await sync.sincronizzaTutto();
+      }
+    } catch (errore) {
+      console.warn('Preparazione dati PDF cross-device non completata, uso i dati locali disponibili', errore);
+    }
+  }
+
+  function pdfSalvatoAncoraValido(salvato, sopralluogo) {
+    if (!salvato || !salvato.blob || !sopralluogo) return false;
+    if (salvato.generato_il && sopralluogo.aggiornato_il && salvato.generato_il < sopralluogo.aggiornato_il) {
+      return false;
+    }
+    const firmaAttuale = firmaFotoSopralluogo(sopralluogo);
+    if (!firmaAttuale) return true;
+    // I PDF salvati prima di questo fix non avevano firma_foto: se il sopralluogo contiene foto
+    // li rigeneriamo una volta, evitando di riaprire sul telefono un PDF vecchio senza allegati.
+    return salvato.firma_foto === firmaAttuale;
+  }
+
+  /**
+   * Ritorna sempre un PDF coerente con i dati correnti. Un PDF locale già salvato viene riusato
+   * solo se è ancora aggiornato e contiene esattamente lo stesso insieme di foto; altrimenti
+   * viene rigenerato dopo aver sincronizzato dati/foto con il cloud. Questo vale per TUTTE le
+   * checklist perché lavora sul modello comune sopralluogo.risposte/foto_url.
    */
   async function ottieniOGeneraPdf(sopralluogoId) {
-    const salvato = await db.leggiPdfReport(sopralluogoId);
-    if (salvato) {
-      return { blob: salvato.blob, filename: salvato.filename, rigenerato: false, fotoMancanti: 0 };
-    }
+    await preparaDatiPdfCrossDevice();
 
-    const sopralluogo = await db.leggiSopralluogo(sopralluogoId);
+    const [salvato, sopralluogo] = await Promise.all([
+      db.leggiPdfReport(sopralluogoId),
+      db.leggiSopralluogo(sopralluogoId)
+    ]);
     if (!sopralluogo) {
       throw new Error('Sopralluogo non trovato.');
+    }
+
+    if (pdfSalvatoAncoraValido(salvato, sopralluogo)) {
+      return { blob: salvato.blob, filename: salvato.filename, rigenerato: false, fotoMancanti: 0 };
     }
 
     const [checklist, fotoMancanti] = await Promise.all([
       checklistEngine.carica(sopralluogo.checklist_id),
       contaFotoMancanti(sopralluogo)
     ]);
-    const blob = await pdf.generaReport(checklist, sopralluogo);
 
-    return { blob, filename: pdf.nomeFile(sopralluogo), rigenerato: true, fotoMancanti };
+    // Se siamo online ma una foto referenziata non è ancora recuperabile, non mostriamo come
+    // definitivo un PDF apparentemente valido ma privo di allegati. Il messaggio indica cosa
+    // fare invece di lasciare l'utente con un report incompleto senza spiegazione.
+    if (fotoMancanti > 0 && typeof navigator !== 'undefined' && navigator.onLine) {
+      throw new Error(
+        `${fotoMancanti} foto non sono ancora sincronizzate su questo dispositivo. ` +
+        'Apri per qualche secondo la stessa checklist sul dispositivo dove sono state scattate, ' +
+        'attendi la connessione e poi riprova ad aprire il PDF.'
+      );
+    }
+
+    const blob = await pdf.generaReport(checklist, sopralluogo);
+    const filename = pdf.nomeFile(sopralluogo);
+    await db.salvaPdfReport({
+      sopralluogo_id: sopralluogoId,
+      blob,
+      filename,
+      firma_foto: firmaFotoSopralluogo(sopralluogo)
+    });
+
+    return { blob, filename, rigenerato: true, fotoMancanti };
   }
 
   function avvisaSeFotoMancanti(rigenerato, fotoMancanti) {
