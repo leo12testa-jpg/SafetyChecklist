@@ -26,7 +26,7 @@ function caricaPdf(fotoPresenti = {}) {
 
 function creaDocumentoTracciato(eventi) {
   return {
-    internal: { pageSize: { getHeight: () => 297 } },
+    internal: { pageSize: { getWidth: () => 210, getHeight: () => 297 } },
     addPage() { eventi.push('addPage'); },
     text(testo) {
       const valore = Array.isArray(testo) ? testo.join(' ') : testo;

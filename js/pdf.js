@@ -10,19 +10,101 @@
  * con domande di tipo eterogeneo (testo, numero, si-no, scelta-singola, checkbox-multi con
  * sotto-campi, gruppo-testo), usano invece un report più semplice (vedi disegnaReportRaccoltaDati)
  * con valori formattati in modo leggibile e la stessa pagina Allegati.
+ *
+ * ARCHITETTURA (motore unico per tutti i clienti, introdotta per eliminare i fix sparsi per
+ * singolo cliente che si erano accumulati su loghi/footer/salti pagina):
+ * - CONFIG_CLIENTI: unica fonte di verità per logo/colore banner/eventuali proprietà PDF future
+ *   di ciascun cliente. Aggiungere un cliente = aggiungere UNA voce qui, mai un if/else nel
+ *   resto del file.
+ * - LAYOUT (vedi creaLayout): unica fonte di verità per margini/dimensioni pagina/spazi fra
+ *   blocchi, sempre derivata da doc.internal.pageSize, mai coordinate magiche sparse.
+ * - assicuraSpazio: unico guard per i salti pagina, usato con l'altezza REALE del blocco che
+ *   deve restare unito (titolo+prima riga, foto+didascalia, ecc.), non con altezze arbitrarie.
+ * - disegnaHeader / disegnaFooter / disegnaNumeriPagina: unico punto per ciascuna delle tre
+ *   responsabilità, nessuna duplicazione di logica.
  */
 const pdf = (() => {
-  const MARGINE = 15;
-  const LARGHEZZA_PAGINA = 210; // A4, mm
-  const ALTEZZA_PAGINA = 297;
-  // Il numero di pagina nel footer va volutamente più vicino al bordo fisico destro rispetto al
-  // margine generale MARGINE (15mm) usato per il resto del documento: un margine dedicato, più
-  // stretto, solo per questo testo.
-  const MARGINE_NUMERO_PAGINA = 7;
+  /**
+   * Configurazione di un cliente: logo di intestazione, colore della bandiera dei macro-gruppi,
+   * ed eventuali proprietà PDF specifiche future (oggi vuoto per tutti: nessun override esiste
+   * ancora, ma la struttura è pronta ad accoglierne senza richiedere nuovi if/else altrove — un
+   * consumatore futuro leggerebbe semplicemente configCliente.pdf.qualcosa con un fallback,
+   * esattamente come già avviene per logo.larghezzaMax/altezzaMax).
+   *
+   * "match" è la sotto-stringa (case-insensitive) cercata in `${checklist.id} ${checklist.titolo}`
+   * per risolvere quale configurazione si applica a una checklist — vedi risolviConfigCliente.
+   * Per i loghi già ritagliati sul contenuto reale (es. Melluso: scritta orizzontale molto più
+   * larga che alta, non un quadrato) larghezzaMax/altezzaMax vanno specificati esplicitamente;
+   * altrimenti si applica il default condiviso (vedi LAYOUT.logoClienteDefault in creaLayout).
+   */
+  const CONFIG_CLIENTI = {
+    coin: {
+      match: 'coin',
+      logo: { file: 'assets/logo_coin.webp' },
+      coloreBanner: { sfondo: [43, 43, 43] }, // #2b2b2b, grigio scuro Coin
+      pdf: {}
+    },
+    interparking: {
+      match: 'interparking',
+      logo: { file: 'assets/logo_interparking.webp' },
+      // accento: sottile riga sul bordo inferiore della bandiera, usata solo dove il colore
+      // secondario del logo non è adatto come sfondo pieno (contrasto insufficiente col testo
+      // bianco, qui il giallo Interparking) — mai come bordo laterale.
+      coloreBanner: { sfondo: [0, 58, 114], accento: [255, 220, 69] }, // #003a72 + #ffdc45
+      pdf: {}
+    },
+    restage: {
+      match: 'restage',
+      logo: { file: 'assets/logo_restage.png' },
+      coloreBanner: { sfondo: [28, 66, 36] }, // #1c4224, verde Restage
+      pdf: {}
+    },
+    melluso: {
+      match: 'melluso',
+      // Logo già ritagliato sul contenuto reale (la scritta "Melluso" è una striscia
+      // orizzontale molto più larga che alta, non un quadrato): larghezzaMax è il vincolo che
+      // determina la dimensione finale, altezzaMax è volutamente larga per non essere lei il
+      // fattore limitante (altrimenti il logo resterebbe piccolo come con un vecchio file
+      // quadrato pieno di spazio trasparente).
+      logo: { file: 'assets/logo_melluso.png', larghezzaMax: 35, altezzaMax: 10 },
+      coloreBanner: { sfondo: [200, 2, 52] }, // #c80234, rosso Melluso
+      pdf: {}
+    }
+  };
+
+  /** Colore di sfondo della bandiera per checklist non associate a nessun cliente in CONFIG_CLIENTI. */
+  const COLORE_BANNER_DEFAULT = { sfondo: [74, 122, 181] }; // #4a7ab5, blu originale
 
   const TITOLI_GRUPPI_SEZIONI = ['ANALISI DOCUMENTALE', 'SOPRALLUOGO AMBIENTI DI LAVORO'];
 
   const LEGENDA = 'C = Conforme;   P.C = Parzialmente conforme;   N.C = Non conforme;   N.P = Non pertinente';
+
+  /**
+   * Layout del documento: unica fonte di verità per margini, dimensioni pagina e spazi fra
+   * blocchi. larghezzaPagina/altezzaPagina sono SEMPRE lette da doc.internal.pageSize (mai
+   * hardcoded a 210×297): se in futuro cambiasse il formato pagina, tutto il file si adatta da
+   * solo, senza coordinate magiche sparse da correggere una per una.
+   */
+  function creaLayout(doc) {
+    const altezzaPagina = doc.internal.pageSize.getHeight();
+    return {
+      larghezzaPagina: doc.internal.pageSize.getWidth(),
+      altezzaPagina,
+      margine: 15,
+      // Il numero di pagina nel footer va volutamente più vicino al bordo fisico destro rispetto
+      // al margine generale usato per il resto del documento: un margine dedicato, più stretto,
+      // solo per questo testo.
+      margineNumeroPagina: 7,
+      // Riga unica di testo del footer (legenda a sinistra, numero pagina a destra): stessa y per
+      // entrambi, così restano sempre allineati sulla stessa riga in fondo alla pagina.
+      yFooter: altezzaPagina - 8,
+      logoClienteDefault: { larghezzaMax: 40, altezzaMax: 15 },
+      gapDopoHeader: 8,
+      gapDopoTabellaDatiGenerali: 8,
+      gapDopoTabellaSezione: 4,
+      bannerGruppo: { altezza: 9, altezzaAccento: 1.2, gapDopo: 5 }
+    };
+  }
 
   function blobADataURL(blob) {
     return new Promise((resolve, reject) => {
@@ -49,53 +131,41 @@ const pdf = (() => {
   }
 
   /**
-   * Associazione checklist -> file del logo cliente fisso in assets/. Il match è sull'id della
-   * checklist (identificatore stabile, sempre presente e univocamente legato a un cliente in
-   * checklists/clients.json), non sul testo libero "Punto vendita": quel campo è digitato
-   * liberamente dall'utente e può non contenere affatto il nome del cliente.
+   * Risolve la configurazione cliente (CONFIG_CLIENTI) applicabile a una checklist, cercando
+   * "match" come sotto-stringa case-insensitive in `id + titolo`: identificatori stabili, sempre
+   * presenti e univocamente legati a un cliente in checklists/clients.json — non il testo libero
+   * "Punto vendita", che l'utente digita liberamente e può non contenere affatto il nome del
+   * cliente. Ritorna null se nessuna configurazione corrisponde (checklist non ancora associata a
+   * un cliente noto): loghi e colore bandiera useranno i rispettivi default.
    */
-  const LOGO_CLIENTE_PER_CHECKLIST = [
-    { corrispondenza: 'coin', file: 'assets/logo_coin.webp' },
-    { corrispondenza: 'interparking', file: 'assets/logo_interparking.webp' },
-    { corrispondenza: 'restage', file: 'assets/logo_restage.png' },
-    // assets/logo_melluso.png è stato ritagliato sul contenuto reale (la scritta "Melluso" è una
-    // striscia orizzontale molto più larga che alta, non un quadrato): larghezzaMax è il vincolo
-    // che determina la dimensione finale, altezzaMax è volutamente larga per non essere lei il
-    // fattore limitante (altrimenti il logo resterebbe piccolo come con il vecchio file quadrato
-    // pieno di spazio trasparente).
-    { corrispondenza: 'melluso', file: 'assets/logo_melluso.png', larghezzaMax: 35, altezzaMax: 10 }
-  ];
-
-  /** Riquadro massimo del logo cliente in intestazione: default condiviso, con override per
-   *  checklist quando un logo va reso più grande (es. Melluso, vedi LOGO_CLIENTE_PER_CHECKLIST).
-   *  Il logo Colligo Ingegneria a sinistra non è mai influenzato da questo override. */
-  const DIMENSIONE_LOGO_CLIENTE_DEFAULT = { larghezzaMax: 40, altezzaMax: 15 };
+  function risolviConfigCliente(checklist) {
+    const riferimento = `${checklist.id || ''} ${checklist.titolo || ''}`.toLowerCase();
+    const chiave = Object.keys(CONFIG_CLIENTI).find((k) => riferimento.includes(CONFIG_CLIENTI[k].match));
+    return chiave ? CONFIG_CLIENTI[chiave] : null;
+  }
 
   /**
-   * Logo del cliente corrispondente alla checklist del sopralluogo (match case-insensitive su
-   * "coin"/"interparking"/"restage" nell'id o nel titolo della checklist). Loghi fissi, bundled nell'app.
-   * Se la checklist non corrisponde a nessun cliente conosciuto, ritorna null (l'intestazione
-   * non mostra nulla a destra, nessun placeholder rotto) e lo segnala con un console.warn per
-   * poterlo individuare in futuro. Se il file è previsto ma non si riesce a caricare, l'errore
-   * viene registrato esplicitamente in console (non fallisce silenziosamente) e il logo viene
-   * comunque omesso, senza far fallire l'intera generazione del PDF per un asset mancante.
+   * Logo del cliente corrispondente alla checklist del sopralluogo, secondo CONFIG_CLIENTI. Se la
+   * checklist non corrisponde a nessun cliente configurato, ritorna null (l'intestazione non
+   * mostra nulla a destra, nessun placeholder rotto) e lo segnala con un console.warn per poterlo
+   * individuare in futuro. Se il file è previsto ma non si riesce a caricare, l'errore viene
+   * registrato esplicitamente in console (non fallisce silenziosamente) e il logo viene comunque
+   * omesso, senza far fallire l'intera generazione del PDF per un asset mancante.
    */
-  async function ottieniLogoCliente(checklist, puntoVendita) {
-    const riferimento = `${checklist.id || ''} ${checklist.titolo || ''}`.toLowerCase();
-    const voce = LOGO_CLIENTE_PER_CHECKLIST.find((c) => riferimento.includes(c.corrispondenza));
-    if (!voce) {
+  async function ottieniLogoCliente(configCliente, checklist, puntoVendita, layout) {
+    if (!configCliente) {
       console.warn(`[pdf.js] Nessun logo cliente associato alla checklist "${checklist.id}" (titolo: "${checklist.titolo}", Punto vendita: "${puntoVendita || ''}"). Intestazione senza logo a destra.`);
       return null;
     }
     const dimensione = {
-      larghezzaMax: voce.larghezzaMax || DIMENSIONE_LOGO_CLIENTE_DEFAULT.larghezzaMax,
-      altezzaMax: voce.altezzaMax || DIMENSIONE_LOGO_CLIENTE_DEFAULT.altezzaMax
+      larghezzaMax: configCliente.logo.larghezzaMax || layout.logoClienteDefault.larghezzaMax,
+      altezzaMax: configCliente.logo.altezzaMax || layout.logoClienteDefault.altezzaMax
     };
     try {
-      const url = await caricaLogo(voce.file);
+      const url = await caricaLogo(configCliente.logo.file);
       return { url, ...dimensione };
     } catch (errore) {
-      console.error(`[pdf.js] Logo cliente non caricato (${voce.file}) per checklist "${checklist.id}" (Punto vendita: "${puntoVendita || ''}"):`, errore);
+      console.error(`[pdf.js] Logo cliente non caricato (${configCliente.logo.file}) per checklist "${checklist.id}" (Punto vendita: "${puntoVendita || ''}"):`, errore);
       return null;
     }
   }
@@ -133,12 +203,38 @@ const pdf = (() => {
     return String(testo || '').split('\n').flatMap((riga) => doc.splitTextToSize(riga, larghezza));
   }
 
-  /** Va a pagina nuova se non c'è più spazio verticale per il prossimo blocco. Ritorna la y aggiornata. */
-  function nuovaRigaSeNecessario(doc, y, spazioRichiesto = 10) {
-    if (y + spazioRichiesto > ALTEZZA_PAGINA - MARGINE) {
+  /**
+   * Unico guard anti-salto-pagina: va a pagina nuova se il BLOCCO che deve restare unito (non una
+   * singola riga) non ci sta più nello spazio verticale residuo. `altezzaBlocco` deve essere
+   * l'altezza reale dell'intero blocco che non va spezzato — es. titolo di un gruppo di sezioni +
+   * lo spazio minimo della prima riga di tabella che segue, oppure una foto + la sua didascalia —
+   * non un valore arbitrario indipendente dal contenuto: usarla con un'altezza sottostimata
+   * vanifica la garanzia "mai un titolo/blocco orfano in fondo pagina". Ritorna la y aggiornata.
+   */
+  function assicuraSpazio(doc, layout, y, altezzaBlocco = 10) {
+    if (y + altezzaBlocco > layout.altezzaPagina - layout.margine) {
       doc.addPage();
-      return MARGINE;
+      return layout.margine;
     }
+    return y;
+  }
+
+  /**
+   * Disegna un blocco di testo già suddiviso in righe (vedi avvolgiTesto), andando a capo pagina
+   * automaticamente quando serve — riga per riga, mai spezzando un a-capo pagina a metà di una
+   * riga né sovrapponendo testo al footer: ogni riga passa da assicuraSpazio prima di essere
+   * disegnata. Usata per note libere potenzialmente molto lunghe (es. "Altri aspetti da
+   * evidenziare"), che a differenza delle tabelle di sezione non hanno un meccanismo nativo di
+   * autoTable per continuare pulite sulla pagina successiva.
+   */
+  function disegnaTestoImpaginato(doc, layout, righe, x, yIniziale) {
+    const ALTEZZA_RIGA = 4.5;
+    let y = yIniziale;
+    righe.forEach((riga) => {
+      y = assicuraSpazio(doc, layout, y, ALTEZZA_RIGA);
+      doc.text(riga, x, y);
+      y += ALTEZZA_RIGA;
+    });
     return y;
   }
 
@@ -147,7 +243,7 @@ const pdf = (() => {
    * riquadro massimo larghezzaMax×altezzaMax (mai deformato): usa il fattore di scala più
    * restrittivo tra i due assi, e non ingrandisce mai oltre la dimensione naturale del file.
    */
-  function disegnaLogoProporzionato(doc, dataURL, allineamento, larghezzaMax, altezzaMax) {
+  function disegnaLogoProporzionato(doc, layout, dataURL, allineamento, larghezzaMax, altezzaMax) {
     if (!dataURL) {
       return;
     }
@@ -155,17 +251,18 @@ const pdf = (() => {
     const scala = Math.min(larghezzaMax / proprieta.width, altezzaMax / proprieta.height, 1);
     const larghezza = proprieta.width * scala;
     const altezza = proprieta.height * scala;
-    const x = allineamento === 'destra' ? LARGHEZZA_PAGINA - MARGINE - larghezza : MARGINE;
-    doc.addImage(dataURL, proprieta.fileType, x, MARGINE, larghezza, altezza);
+    const x = allineamento === 'destra' ? layout.larghezzaPagina - layout.margine - larghezza : layout.margine;
+    doc.addImage(dataURL, proprieta.fileType, x, layout.margine, larghezza, altezza);
   }
 
   /** Intestazione con doppio logo affiancato (Colligo Ingegneria a sinistra, cliente a destra), proporzioni originali mantenute. Nessun titolo checklist: è un dato interno (usato solo per l'elenco a tendina), non va mostrato nel report. */
-  function disegnaIntestazione(doc, logoCliente, logoColligoURL) {
-    const { larghezzaMax, altezzaMax } = DIMENSIONE_LOGO_CLIENTE_DEFAULT;
+  function disegnaHeader(doc, layout, logoCliente, logoColligoURL) {
+    const { larghezzaMax, altezzaMax } = layout.logoClienteDefault;
 
-    disegnaLogoProporzionato(doc, logoColligoURL, 'sinistra', larghezzaMax, altezzaMax);
+    disegnaLogoProporzionato(doc, layout, logoColligoURL, 'sinistra', larghezzaMax, altezzaMax);
     disegnaLogoProporzionato(
       doc,
+      layout,
       logoCliente ? logoCliente.url : null,
       'destra',
       logoCliente ? logoCliente.larghezzaMax : larghezzaMax,
@@ -173,7 +270,7 @@ const pdf = (() => {
     );
 
     const altezzaRiservata = Math.max(altezzaMax, logoCliente ? logoCliente.altezzaMax : altezzaMax);
-    return MARGINE + altezzaRiservata + 8;
+    return layout.margine + altezzaRiservata + layout.gapDopoHeader;
   }
 
   /**
@@ -194,20 +291,33 @@ const pdf = (() => {
   }
 
   /**
-   * Tracciatore della legenda a piè di pagina: disegnata via l'hook didDrawPage di autoTable,
-   * così ogni tabella la ridisegna in automatico su ogni pagina che tocca (compresa la
-   * continuazione su pagine successive), senza doverla ripetere sotto ogni singola tabella né
-   * fare un secondo giro a fine documento. Il Set tiene traccia delle pagine già servite: più
-   * tabelle diverse possono condividere la stessa pagina (es. la coda di una sezione e l'inizio
-   * della successiva), e didDrawPage spara per ciascuna di esse — senza questo controllo la
-   * legenda verrebbe disegnata più volte, sovrapposta, sulla stessa pagina. completaPagineRestanti
-   * è una rete di sicurezza per le pagine senza alcuna tabella (Altri aspetti, Allegati).
+   * Disegna la riga di footer (legenda) su UNA pagina, così com'è ora, senza logica di
+   * "già disegnata su questa pagina": quella logica vive in creaTracciatoreFooter, che avvolge
+   * questa funzione con un Set di pagine già servite. Un solo punto disegna, un solo punto
+   * decide quando disegnarlo — nessuna duplicazione della logica di disegno.
    *
    * Il numero di pagina ("Pag. X di Y") NON viene disegnato qui, deliberatamente: vedi
    * disegnaNumeriPagina più sotto per il motivo (un bug reale di allineamento, non solo una scelta
    * di stile).
    */
-  function creaTracciatoreLegenda(doc) {
+  function disegnaFooter(doc, layout) {
+    doc.setFontSize(7.5);
+    doc.setFont(undefined, 'italic');
+    doc.text(LEGENDA, layout.margine, layout.yFooter);
+    doc.setFont(undefined, 'normal');
+  }
+
+  /**
+   * Tracciatore del footer: disegnato via l'hook didDrawPage di autoTable, così ogni tabella lo
+   * ridisegna in automatico su ogni pagina che tocca (compresa la continuazione su pagine
+   * successive), senza doverlo ripetere sotto ogni singola tabella né fare un secondo giro a fine
+   * documento. Il Set tiene traccia delle pagine già servite: più tabelle diverse possono
+   * condividere la stessa pagina (es. la coda di una sezione e l'inizio della successiva), e
+   * didDrawPage spara per ciascuna di esse — senza questo controllo il footer verrebbe disegnato
+   * più volte, sovrapposto, sulla stessa pagina. completaPagineRestanti è una rete di sicurezza
+   * per le pagine senza alcuna tabella (Altri aspetti, Allegati).
+   */
+  function creaTracciatoreFooter(doc, layout) {
     const pagineFatte = new Set();
     function disegnaSeNonGiaFatta(numeroPagina) {
       if (pagineFatte.has(numeroPagina)) {
@@ -216,10 +326,7 @@ const pdf = (() => {
       pagineFatte.add(numeroPagina);
       const paginaPrecedente = doc.internal.getCurrentPageInfo().pageNumber;
       doc.setPage(numeroPagina);
-      doc.setFontSize(7.5);
-      doc.setFont(undefined, 'italic');
-      doc.text(LEGENDA, MARGINE, ALTEZZA_PAGINA - 8);
-      doc.setFont(undefined, 'normal');
+      disegnaFooter(doc, layout);
       doc.setPage(paginaPrecedente);
     }
     return {
@@ -235,7 +342,7 @@ const pdf = (() => {
 
   /**
    * Disegna "Pag. X di Y" in fondo a ogni pagina, allineato a destra vicino al bordo fisico
-   * (MARGINE_NUMERO_PAGINA, più stretto del margine generale MARGINE usato per il resto del
+   * (layout.margineNumeroPagina, più stretto del margine generale usato per il resto del
    * documento). Chiamata in un'UNICA passata finale, quando il numero totale di pagine è già
    * definitivo (dopo completaPagineRestanti in generaReport): jsPDF non ricalcola mai un
    * allineamento 'right' già scritto quando il testo cambia lunghezza in seguito. Il vecchio
@@ -244,11 +351,11 @@ const pdf = (() => {
    * numero vero (doc.putTotalPages): la sostituzione è un rimpiazzo di testo grezzo nel content
    * stream, non un nuovo disegno, quindi il testo restava ancorato alla posizione calcolata per il
    * segnaposto (molto più largo del numero reale) e appariva visibilmente più a sinistra del
-   * previsto, indipendentemente da quanto si stringesse MARGINE_NUMERO_PAGINA. Disegnando qui,
-   * invece, il testo scritto è già quello reale e definitivo: l'allineamento a destra è sempre
-   * corretto al primo colpo.
+   * previsto, indipendentemente da quanto si stringesse il margine. Disegnando qui, invece, il
+   * testo scritto è già quello reale e definitivo: l'allineamento a destra è sempre corretto al
+   * primo colpo.
    */
-  function disegnaNumeriPagina(doc) {
+  function disegnaNumeriPagina(doc, layout) {
     const totale = doc.internal.getNumberOfPages();
     const paginaPrecedente = doc.internal.getCurrentPageInfo().pageNumber;
     for (let numeroPagina = 1; numeroPagina <= totale; numeroPagina += 1) {
@@ -257,8 +364,8 @@ const pdf = (() => {
       doc.setFont(undefined, 'italic');
       doc.text(
         `Pag. ${numeroPagina} di ${totale}`,
-        LARGHEZZA_PAGINA - MARGINE_NUMERO_PAGINA,
-        ALTEZZA_PAGINA - 8,
+        layout.larghezzaPagina - layout.margineNumeroPagina,
+        layout.yFooter,
         { align: 'right' }
       );
       doc.setFont(undefined, 'normal');
@@ -267,7 +374,7 @@ const pdf = (() => {
   }
 
   /** Tabella "DATI GENERALI": titolo su sfondo arancione, righe con bordi neri. */
-  function disegnaTabellaDatiGenerali(doc, checklist, sopralluogo, y, hookLegenda) {
+  function disegnaTabellaDatiGenerali(doc, layout, checklist, sopralluogo, y, hookLegenda) {
     const etichette = etichetteDatiGenerali(checklist.id);
     const puntoVendita = `${sopralluogo.punto_vendita || ''}\n${sopralluogo.indirizzo_punto_vendita || ''}`;
 
@@ -284,7 +391,7 @@ const pdf = (() => {
 
     doc.autoTable({
       startY: y,
-      margin: { left: MARGINE, right: MARGINE },
+      margin: { left: layout.margine, right: layout.margine },
       head: [[{ content: 'DATI GENERALI', colSpan: 2 }]],
       body: corpo,
       theme: 'grid',
@@ -294,7 +401,7 @@ const pdf = (() => {
       didDrawPage: hookLegenda
     });
 
-    return doc.lastAutoTable.finalY + 8;
+    return doc.lastAutoTable.finalY + layout.gapDopoTabellaDatiGenerali;
   }
 
   function formattaTecnici(sopralluogo) {
@@ -302,45 +409,36 @@ const pdf = (() => {
   }
 
   /**
-   * Colore di sfondo (e, facoltativo, un accento) della bandiera dei macro-gruppi (ANALISI
-   * DOCUMENTALE / SOPRALLUOGO AMBIENTI DI LAVORO), per checklist_id: riprende i colori reali del
-   * logo di ciascun cliente. "accento" è una sottile riga sul bordo inferiore della bandiera,
-   * usata solo dove il colore secondario del logo non è adatto come sfondo pieno (contrasto
-   * insufficiente col testo bianco, es. il giallo Interparking) — mai come bordo laterale.
-   * Estendere questa mappa per ogni nuovo cliente; COLORE_BANNER_DEFAULT copre le checklist non
-   * elencate (blu originale, invariato).
+   * Altezza minima riservata, oltre alla bandiera stessa, per la prima riga della tabella di
+   * sezione che segue il titolo di gruppo: senza questa riserva la bandiera può restare da sola
+   * in fondo pagina con l'intera tabella spinta sulla pagina successiva (titolo "orfano" — bug
+   * reale osservato prima di questa riserva esplicita). Copre le due righe di head della tabella
+   * (titolo sezione + intestazione colonne) più una riga di dati tipica.
    */
-  const COLORE_BANNER_PER_CHECKLIST = {
-    restage_sopralluogo: { sfondo: [28, 66, 36] }, // #1c4224, verde Restage
-    coin_sopralluogo: { sfondo: [43, 43, 43] }, // #2b2b2b, grigio scuro Coin
-    interparking_sopralluogo: { sfondo: [0, 58, 114], accento: [255, 220, 69] }, // #003a72 + #ffdc45
-    melluso_sopralluogo: { sfondo: [200, 2, 52] } // #c80234, rosso Melluso
-  };
-  const COLORE_BANNER_DEFAULT = { sfondo: [74, 122, 181] }; // #4a7ab5, blu originale
+  const ALTEZZA_MINIMA_PRIMA_RIGA_TABELLA = 20;
 
-  function coloreBannerPer(checklistId) {
-    return COLORE_BANNER_PER_CHECKLIST[checklistId] || COLORE_BANNER_DEFAULT;
-  }
+  /** Bandiera a piena larghezza (colore per cliente, vedi CONFIG_CLIENTI) con il titolo del macro-gruppo. */
+  function disegnaIntestazioneGruppo(doc, layout, titolo, y, configCliente) {
+    const { altezza, altezzaAccento, gapDopo } = layout.bannerGruppo;
+    const colore = (configCliente && configCliente.coloreBanner) || COLORE_BANNER_DEFAULT;
 
-  /** Bandiera a piena larghezza (colore per cliente, vedi coloreBannerPer) con il titolo del macro-gruppo. */
-  function disegnaIntestazioneGruppo(doc, titolo, y, checklistId) {
-    const ALTEZZA_BANNER = 9;
-    const colore = coloreBannerPer(checklistId);
-    y = nuovaRigaSeNecessario(doc, y, 14);
+    // Blocco "bandiera + inizio della tabella che segue" trattato come unità unica (vedi
+    // ALTEZZA_MINIMA_PRIMA_RIGA_TABELLA): mai la sola bandiera in fondo pagina.
+    y = assicuraSpazio(doc, layout, y, altezza + gapDopo + ALTEZZA_MINIMA_PRIMA_RIGA_TABELLA);
+
     doc.setFillColor(...colore.sfondo);
-    doc.rect(MARGINE, y, LARGHEZZA_PAGINA - MARGINE * 2, ALTEZZA_BANNER, 'F');
+    doc.rect(layout.margine, y, layout.larghezzaPagina - layout.margine * 2, altezza, 'F');
     if (colore.accento) {
-      const ALTEZZA_ACCENTO = 1.2;
       doc.setFillColor(...colore.accento);
-      doc.rect(MARGINE, y + ALTEZZA_BANNER - ALTEZZA_ACCENTO, LARGHEZZA_PAGINA - MARGINE * 2, ALTEZZA_ACCENTO, 'F');
+      doc.rect(layout.margine, y + altezza - altezzaAccento, layout.larghezzaPagina - layout.margine * 2, altezzaAccento, 'F');
     }
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
-    doc.text(titolo, MARGINE + 3, y + 6.2);
+    doc.text(titolo, layout.margine + 3, y + 6.2);
     doc.setTextColor(0, 0, 0);
     doc.setFont(undefined, 'normal');
-    return y + ALTEZZA_BANNER + 5;
+    return y + altezza + gapDopo;
   }
 
   function segnoRisposta(valoreRisposta, colonna) {
@@ -465,7 +563,7 @@ const pdf = (() => {
    * il default), eliminando sia il titolo "orfano" a fine pagina sia lo spreco di spazio. Nessun
    * page-break manuale prima della tabella: la paginazione naturale di autoTable basta.
    */
-  function disegnaTabellaSezione(doc, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda) {
+  function disegnaTabellaSezione(doc, layout, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda) {
     const corpo = sezione.domande.map((domanda) => {
       const risposta = (sopralluogo.risposte || []).find((r) => r.domanda_id === domanda.id);
       const valore = risposta ? risposta.risposta : '';
@@ -484,7 +582,7 @@ const pdf = (() => {
 
     doc.autoTable({
       startY: y,
-      margin: { left: MARGINE, right: MARGINE },
+      margin: { left: layout.margine, right: layout.margine },
       // Una riga non viene mai spezzata a metà fra due pagine: il testo della nota è disegnato a
       // mano in didDrawCell (vedi disegnaNotaGiustificataCentrata) partendo sempre dall'inizio
       // della nota, quindi non sa "riprendere da dove interrotto" come farebbe autoTable con le
@@ -571,7 +669,7 @@ const pdf = (() => {
       didDrawPage: hookLegenda
     });
 
-    return doc.lastAutoTable.finalY + 4;
+    return doc.lastAutoTable.finalY + layout.gapDopoTabellaSezione;
   }
 
   /**
@@ -593,7 +691,7 @@ const pdf = (() => {
   }
 
   /** Disegna tutti i macro-gruppi di sezioni (con relative tabelle), coprendo sempre tutte le sezioni della checklist. */
-  function disegnaGruppiSezioni(doc, checklist, sopralluogo, y, mappaFotoPerDomanda, hookLegenda) {
+  function disegnaGruppiSezioni(doc, layout, checklist, sopralluogo, y, mappaFotoPerDomanda, hookLegenda, configCliente) {
     const puntoDivisione = calcolaPuntoDivisioneGruppi(checklist);
     const gruppi = [
       { titolo: TITOLI_GRUPPI_SEZIONI[0], sezioni: checklist.sezioni.slice(0, puntoDivisione) },
@@ -604,9 +702,9 @@ const pdf = (() => {
       if (!gruppo.sezioni.length) {
         return;
       }
-      y = disegnaIntestazioneGruppo(doc, gruppo.titolo, y, checklist.id);
+      y = disegnaIntestazioneGruppo(doc, layout, gruppo.titolo, y, configCliente);
       gruppo.sezioni.forEach((sezione) => {
-        y = disegnaTabellaSezione(doc, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda);
+        y = disegnaTabellaSezione(doc, layout, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda);
       });
     });
 
@@ -617,16 +715,16 @@ const pdf = (() => {
    * Pagina finale "ALTRI ASPETTI DA EVIDENZIARE": testo e relative immagini restano nello
    * stesso blocco, dopo la sezione delle fotografie numerate associate alle domande.
    */
-  async function disegnaAltriAspetti(doc, sopralluogo, allegatiNote) {
+  async function disegnaAltriAspetti(doc, layout, sopralluogo, allegatiNote) {
     if (!sopralluogo.altri_aspetti && !allegatiNote.length) {
       return;
     }
 
     doc.addPage();
-    let y = MARGINE;
+    let y = layout.margine;
     doc.setFontSize(14);
     doc.setFont(undefined, 'bold');
-    doc.text('ALTRI ASPETTI DA EVIDENZIARE', MARGINE, y);
+    doc.text('ALTRI ASPETTI DA EVIDENZIARE', layout.margine, y);
     doc.setFont(undefined, 'normal');
     y += 10;
 
@@ -635,17 +733,19 @@ const pdf = (() => {
     if (sopralluogo.altri_aspetti) {
       doc.setFontSize(11);
       doc.setFont(undefined, 'bold');
-      doc.text('NOTE AGGIUNTIVE', MARGINE, y);
+      doc.text('NOTE AGGIUNTIVE', layout.margine, y);
       doc.setFont(undefined, 'normal');
       y += 6;
 
       doc.setFontSize(10);
-      const righe = avvolgiTesto(doc, sopralluogo.altri_aspetti, LARGHEZZA_PAGINA - MARGINE * 2);
-      doc.text(righe, MARGINE, y);
-      y += righe.length * 4.5 + 8;
+      const righe = avvolgiTesto(doc, sopralluogo.altri_aspetti, layout.larghezzaPagina - layout.margine * 2);
+      // Nota potenzialmente molto lunga: disegnaTestoImpaginato va a capo pagina da sola, riga per
+      // riga, senza mai sovrapporsi al footer né spezzare una riga a metà (vedi la sua doc).
+      y = disegnaTestoImpaginato(doc, layout, righe, layout.margine, y);
+      y += 8;
     }
 
-    await disegnaPaginaAllegati(doc, allegatiNote, {
+    await disegnaPaginaAllegati(doc, layout, allegatiNote, {
       aggiungiPagina: false,
       yIniziale: y,
       titolo: 'DOCUMENTAZIONE FOTOGRAFICA'
@@ -732,26 +832,26 @@ const pdf = (() => {
   }
 
   /** Pagina "ALLEGATI": tutte le foto scattate durante il sopralluogo, in griglia con didascalia. */
-  async function disegnaPaginaAllegati(doc, elencoFoto, opzioni = {}) {
+  async function disegnaPaginaAllegati(doc, layout, elencoFoto, opzioni = {}) {
     if (!elencoFoto.length) {
       return;
     }
 
     const aggiungiPagina = opzioni.aggiungiPagina !== false;
     if (aggiungiPagina) doc.addPage();
-    let y = opzioni.yIniziale ?? MARGINE;
+    let y = opzioni.yIniziale ?? layout.margine;
     const titoloPagina = opzioni.titolo === undefined ? 'ALLEGATI — FOTOGRAFIE' : opzioni.titolo;
     if (titoloPagina) {
       doc.setFontSize(14);
       doc.setFont(undefined, 'bold');
-      doc.text(titoloPagina, MARGINE, y);
+      doc.text(titoloPagina, layout.margine, y);
       doc.setFont(undefined, 'normal');
       y += 10;
     }
 
     const COLONNE = 2;
     const GAP = 6;
-    const LARGHEZZA_CELLA = (LARGHEZZA_PAGINA - MARGINE * 2 - GAP * (COLONNE - 1)) / COLONNE;
+    const LARGHEZZA_CELLA = (layout.larghezzaPagina - layout.margine * 2 - GAP * (COLONNE - 1)) / COLONNE;
     /**
      * La foto non occupa mai l'intera cella: un riquadro max (78% larghezza cella × 65mm
      * d'altezza) evita che le foto orizzontali risultino sproporzionatamente estese in una
@@ -762,6 +862,9 @@ const pdf = (() => {
     const ALTEZZA_MASSIMA_IMMAGINE = 65;
     const MASSIMO_RIGHE_DIDASCALIA = 4;
     const ALTEZZA_DIDASCALIA = 4 + MASSIMO_RIGHE_DIDASCALIA * 3.5;
+    // Foto + didascalia sono trattate come UN unico blocco: l'altezza di riga riservata da
+    // assicuraSpazio include già lo spazio della didascalia, mai solo quello dell'immagine — la
+    // didascalia non può quindi mai restare separata dalla propria foto su un'altra pagina.
     const ALTEZZA_CELLA = ALTEZZA_MASSIMA_IMMAGINE + ALTEZZA_DIDASCALIA;
 
     let colonna = 0;
@@ -774,19 +877,19 @@ const pdf = (() => {
 
       if (colonna === 0) {
         const yPrima = y;
-        y = nuovaRigaSeNecessario(doc, y, ALTEZZA_CELLA + GAP);
+        y = assicuraSpazio(doc, layout, y, ALTEZZA_CELLA + GAP);
         if (y !== yPrima) {
           if (titoloPagina) {
             doc.setFontSize(14);
             doc.setFont(undefined, 'bold');
-            doc.text(`${titoloPagina} (segue)`, MARGINE, y);
+            doc.text(`${titoloPagina} (segue)`, layout.margine, y);
             doc.setFont(undefined, 'normal');
             y += 10;
           }
         }
       }
 
-      const x = MARGINE + colonna * (LARGHEZZA_CELLA + GAP);
+      const x = layout.margine + colonna * (LARGHEZZA_CELLA + GAP);
       const dataURL = await blobADataURL(record.blob);
       const proprietaImmagine = doc.getImageProperties(dataURL);
       const scalaImmagine = Math.min(
@@ -848,11 +951,14 @@ const pdf = (() => {
 
   /**
    * Unico punto che governa l'ordine fisico delle sezioni finali del PDF. Ogni funzione
-   * sottostante esegue il proprio addPage soltanto se la relativa sezione esiste.
+   * sottostante esegue il proprio addPage soltanto se la relativa sezione esiste. Il layout è
+   * derivato qui da `doc` (invece di essere passato dal chiamante) così questa funzione resta
+   * utilizzabile anche isolatamente (es. nei test) con la sola dipendenza sul documento.
    */
   async function disegnaSezioniFinali(doc, sopralluogo, fotoDomande, allegatiNote) {
-    await disegnaPaginaAllegati(doc, fotoDomande);
-    await disegnaAltriAspetti(doc, sopralluogo, allegatiNote);
+    const layout = creaLayout(doc);
+    await disegnaPaginaAllegati(doc, layout, fotoDomande);
+    await disegnaAltriAspetti(doc, layout, sopralluogo, allegatiNote);
   }
 
   /**
@@ -860,6 +966,13 @@ const pdf = (() => {
    * ancora supportati dal motore di compilazione né da un layout dedicato). Elenca id/testo
    * domanda e valore salvato in forma leggibile, qualunque sia il tipo (testo, numero, si-no,
    * scelta-singola, checkbox-multi con eventuali sotto-campi, gruppo-testo).
+   *
+   * TODO: questo percorso NON usa ancora il motore centralizzato header/footer/logo/banner
+   * (CONFIG_CLIENTI, disegnaHeader/disegnaFooter/disegnaNumeriPagina) — nessuna pagina di
+   * intestazione, nessuna legenda, nessun numero di pagina. Lasciato volutamente fuori scope
+   * dalla rifattorizzazione PDF (nessuna checklist attuale in checklists/index.json usa questo
+   * stile): se in futuro un cliente lo richiede, va portato sullo stesso motore invece di
+   * duplicare margini/footer a mano qui.
    */
   function formattaValoreRaccoltaDati(valore) {
     if (valore === null || valore === undefined || valore === '') {
@@ -882,21 +995,21 @@ const pdf = (() => {
     return String(valore);
   }
 
-  async function disegnaReportRaccoltaDati(doc, checklist, sopralluogo) {
+  async function disegnaReportRaccoltaDati(doc, checklist, sopralluogo, layout) {
     doc.setFontSize(10);
-    let y = MARGINE + 5;
+    let y = layout.margine + 5;
     doc.text(
       'Layout dedicato non ancora disponibile per questo tipo di checklist (dati grezzi qui sotto).',
-      MARGINE,
+      layout.margine,
       y
     );
     y += 10;
 
     checklist.sezioni.forEach((sezione) => {
-      y = nuovaRigaSeNecessario(doc, y, 12);
+      y = assicuraSpazio(doc, layout, y, 12);
       doc.setFontSize(11);
       doc.setFont(undefined, 'bold');
-      doc.text(sezione.titolo, MARGINE, y);
+      doc.text(sezione.titolo, layout.margine, y);
       doc.setFont(undefined, 'normal');
       y += 6;
 
@@ -909,10 +1022,10 @@ const pdf = (() => {
         const riga = avvolgiTesto(
           doc,
           `${domanda.testo}: ${valoreTesto}${notaTesto}`,
-          LARGHEZZA_PAGINA - MARGINE * 2
+          layout.larghezzaPagina - layout.margine * 2
         );
-        y = nuovaRigaSeNecessario(doc, y, riga.length * 4.5 + 2);
-        doc.text(riga, MARGINE, y);
+        y = assicuraSpazio(doc, layout, y, riga.length * 4.5 + 2);
+        doc.text(riga, layout.margine, y);
         y += riga.length * 4.5;
       });
       y += 4;
@@ -934,34 +1047,36 @@ const pdf = (() => {
   async function generaReport(checklist, sopralluogo) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const layout = creaLayout(doc);
 
     if (checklist.stile === 'raccolta-dati') {
-      return disegnaReportRaccoltaDati(doc, checklist, sopralluogo);
+      return disegnaReportRaccoltaDati(doc, checklist, sopralluogo, layout);
     }
 
+    const configCliente = risolviConfigCliente(checklist);
     const logoColligoURL = await ottieniLogoColligo();
-    const logoCliente = await ottieniLogoCliente(checklist, sopralluogo.punto_vendita);
+    const logoCliente = await ottieniLogoCliente(configCliente, checklist, sopralluogo.punto_vendita, layout);
 
     const raccoltaFoto = raccogliFotoConDidascalia(checklist, sopralluogo);
     const fotoDomande = await filtraFotoEsistenti(raccoltaFoto.fotoDomande, sopralluogo);
     const allegatiNote = await filtraFotoEsistenti(raccoltaFoto.allegatiNote, sopralluogo);
     const mappaFotoPerDomanda = costruisciMappaFotoPerDomanda(fotoDomande);
-    const tracciatoreLegenda = creaTracciatoreLegenda(doc);
+    const tracciatoreFooter = creaTracciatoreFooter(doc, layout);
 
-    let y = disegnaIntestazione(doc, logoCliente, logoColligoURL);
-    y = disegnaTabellaDatiGenerali(doc, checklist, sopralluogo, y, tracciatoreLegenda.hookDidDrawPage);
-    disegnaGruppiSezioni(doc, checklist, sopralluogo, y, mappaFotoPerDomanda, tracciatoreLegenda.hookDidDrawPage);
+    let y = disegnaHeader(doc, layout, logoCliente, logoColligoURL);
+    y = disegnaTabellaDatiGenerali(doc, layout, checklist, sopralluogo, y, tracciatoreFooter.hookDidDrawPage);
+    disegnaGruppiSezioni(doc, layout, checklist, sopralluogo, y, mappaFotoPerDomanda, tracciatoreFooter.hookDidDrawPage, configCliente);
 
     await disegnaSezioniFinali(doc, sopralluogo, fotoDomande, allegatiNote);
 
     // Rete di sicurezza per le pagine senza alcuna tabella (Altri aspetti, Allegati): l'hook
     // didDrawPage sopra copre già tutte le pagine toccate da DATI GENERALI o da una tabella di
     // sezione, questo completa solo quelle rimaste scoperte, senza mai ridisegnare le altre.
-    tracciatoreLegenda.completaPagineRestanti();
+    tracciatoreFooter.completaPagineRestanti();
 
     // Numeri di pagina in un'unica passata finale, ora che il totale pagine reale è noto (vedi
     // disegnaNumeriPagina per il perché non si può disegnarli incrementalmente con un segnaposto).
-    disegnaNumeriPagina(doc);
+    disegnaNumeriPagina(doc, layout);
 
     return doc.output('blob');
   }
@@ -996,7 +1111,13 @@ const pdf = (() => {
       suffissoVediFoto,
       filtraFotoEsistenti,
       formattaTecnici,
-      disegnaSezioniFinali
+      disegnaSezioniFinali,
+      creaLayout,
+      risolviConfigCliente,
+      configClienti: CONFIG_CLIENTI,
+      coloreBannerDefault: COLORE_BANNER_DEFAULT,
+      disegnaNumeriPagina,
+      disegnaFooter
     }
   };
 })();
