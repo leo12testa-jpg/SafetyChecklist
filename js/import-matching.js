@@ -363,6 +363,90 @@ const importMatching = (() => {
     };
   }
 
+
+  /**
+   * Collega in modo conservativo le immagini estratte dal PDF alle domande della checklist.
+   * I PDF generati dall'app usano didascalie del tipo "Foto 2 — Domanda 17: testo...": in quel
+   * caso l'id letto dalla didascalia viene prima ricondotto alla riga PDF già abbinata e solo in
+   * seconda battuta all'id corrente della checklist. Nei PDF storici il numero può ripartire da
+   * 1 in più macro-sezioni: se lo stesso numero compare su più righe NON viene indovinato nulla.
+   * Come fallback usa il testo della domanda presente dopo i due punti, ma solo con similarità alta
+   * e senza ambiguità. Il risultato resta modificabile dall'utente nell'anteprima immagini.
+   */
+  function collegaImmaginiAlleDomande(immagini, righeAbbinate, checklist) {
+    const domande = appiattisciDomande(checklist);
+    const domandaPerId = new Map(domande.map((voce) => [Number(voce.domanda.id), voce]));
+    const righeValide = (righeAbbinate || []).filter((riga) => riga.domanda_id != null && riga.stato_riga !== 'conflitto');
+
+    function numeroDaDidascalia(didascalia) {
+      const match = String(didascalia || '').match(/\bDomanda\s+(?:n[.°]?\s*)?(\d+)\b/i);
+      return match ? Number(match[1]) : null;
+    }
+
+    function testoDaDidascalia(didascalia) {
+      const testo = String(didascalia || '');
+      const match = testo.match(/\bDomanda\s+(?:n[.°]?\s*)?\d+\s*[:\-–—]\s*(.+)$/i);
+      return match ? match[1].trim() : '';
+    }
+
+    function voceDaDomandaId(domandaId) {
+      return domandaPerId.get(Number(domandaId)) || null;
+    }
+
+    return (immagini || []).map((foto) => {
+      let domandaId = foto.domanda_id_collegata != null ? Number(foto.domanda_id_collegata) : null;
+      let metodo = foto.associazione_domanda_metodo || null;
+      const numero = numeroDaDidascalia(foto.didascalia);
+
+      if (domandaId == null && numero != null) {
+        const perIdOriginale = righeValide.filter((riga) => Number(riga.originale && riga.originale.id_originale) === numero);
+        if (perIdOriginale.length === 1) {
+          domandaId = Number(perIdOriginale[0].domanda_id);
+          metodo = 'didascalia_id';
+        } else {
+          const perNumeroLocale = righeValide.filter((riga) => Number(riga.originale && riga.originale.numero_originale) === numero);
+          if (perNumeroLocale.length === 1) {
+            domandaId = Number(perNumeroLocale[0].domanda_id);
+            metodo = 'didascalia_numero';
+          } else if (perNumeroLocale.length === 0 && voceDaDomandaId(numero)) {
+            // PDF dell'app con id stabile ma riga non estratta (caso raro): l'id della didascalia
+            // resta comunque un segnale esplicito e verificabile nell'anteprima.
+            domandaId = numero;
+            metodo = 'didascalia_id';
+          }
+        }
+      }
+
+      if (domandaId == null) {
+        const testoDomanda = testoDaDidascalia(foto.didascalia);
+        if (testoDomanda) {
+          const candidati = domande
+            .map((voce) => ({ voce, punteggio: similarita(testoDomanda, voce.domanda.testo) }))
+            .sort((a, b) => b.punteggio - a.punteggio);
+          const migliore = candidati[0];
+          const secondo = candidati[1];
+          const nonAmbiguo = !secondo || (migliore.punteggio - secondo.punteggio) >= MARGINE_AMBIGUITA;
+          if (migliore && migliore.punteggio >= SOGLIA_ALTA && nonAmbiguo) {
+            domandaId = Number(migliore.voce.domanda.id);
+            metodo = 'didascalia_testo';
+          }
+        }
+      }
+
+      const voce = domandaId != null ? voceDaDomandaId(domandaId) : null;
+      if (!voce) {
+        domandaId = null;
+        metodo = null;
+      }
+      return {
+        ...foto,
+        domanda_id_collegata: domandaId,
+        domanda_testo_collegata: voce ? voce.domanda.testo : null,
+        associazione_domanda_metodo: metodo
+      };
+    });
+  }
+
   return {
     normalizzaTesto,
     similarita,
@@ -372,6 +456,7 @@ const importMatching = (() => {
     creaRisolutoreGruppoStorico,
     applicaVincoloUnoAUno,
     calcolaRiepilogo,
+    collegaImmaginiAlleDomande,
     SOGLIE: { ALTA: SOGLIA_ALTA, MINIMA: SOGLIA_MINIMA, SANITA: SOGLIA_SANITA, AMBIGUITA: MARGINE_AMBIGUITA }
   };
 })();

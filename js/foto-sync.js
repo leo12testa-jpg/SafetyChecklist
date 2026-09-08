@@ -158,7 +158,7 @@ const fotoSync = (() => {
   /** Percorsi Supabase di tutte le foto (domande + "Altri aspetti") referenziate da un sopralluogo, via la sua mappa foto_url. */
   function percorsiFotoDiSopralluogo(sopralluogo) {
     const idFoto = (sopralluogo.risposte || [])
-      .flatMap((r) => r.foto || [])
+      .reduce((ids, r) => ids.concat(r.foto || []), [])
       .concat(sopralluogo.altri_aspetti_foto || []);
     const mappa = sopralluogo.foto_url || {};
     return idFoto
@@ -181,7 +181,7 @@ const fotoSync = (() => {
     if (!supa || !online()) {
       return;
     }
-    const percorsi = sopralluoghi.flatMap(percorsiFotoDiSopralluogo);
+    const percorsi = sopralluoghi.reduce((tutti, sopralluogo) => tutti.concat(percorsiFotoDiSopralluogo(sopralluogo)), []);
     if (!percorsi.length) {
       return;
     }

@@ -284,11 +284,21 @@ body {
 
 .progress-marker.is-completed { background: #fff; }
 
-.progress-marker.is-current {
+/* Le domande ancora senza risposta devono saltare all'occhio durante lo scorrimento. */
+.progress-marker.is-incomplete {
   width: 6px;
   height: 6px;
-  background: #fff;
+  background: #d90429;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
 }
+
+.progress-marker.is-current {
+  width: 8px;
+  height: 8px;
+}
+
+.progress-marker.is-current.is-completed { background: #fff; }
+.progress-marker.is-current.is-incomplete { background: #d90429; }
 
 .progress-thumb {
   position: absolute;
@@ -923,3 +933,17 @@ h3 {
 .pdf-preview-overlay { position: fixed; inset: 0; z-index: 10000; overflow: auto; background: #ddd; padding: 16px; }
 .pdf-preview-overlay button { min-height: 44px; margin: 0 8px 12px 0; }
 .pdf-preview-overlay canvas { display: block; max-width: 100%; height: auto; margin: 0 auto 16px; background: white; }
+
+.import-immagine-collegamento {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  margin: 8px 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.import-immagine-collegamento select {
+  width: 100%;
+  min-height: 42px;
+}

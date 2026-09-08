@@ -132,7 +132,7 @@
         <div class="import-righe" id="import-righe"></div>
 
         <h3>IMMAGINI TROVATE NEL PDF</h3>
-        <p>Rimuovi le immagini che non vuoi importare. Le foto saranno salvate solo alla conferma, negli allegati di Altri aspetti, con la didascalia riconosciuta.</p>
+        <p>Rimuovi le immagini che non vuoi importare. Quando la didascalia indica una domanda, la foto viene collegata automaticamente a quella domanda; puoi correggere il collegamento prima di confermare. Le foto non riconosciute restano negli allegati di Altri aspetti.</p>
         <div class="import-immagini" id="import-immagini"></div>
 
         <div class="import-preview-azioni">
@@ -410,6 +410,24 @@
     </dialog>
   </div>
 
+  <script>
+    // Compatibilità con vecchi Safari/iOS/WebView: alcune versioni non espongono Array.prototype.flatMap.
+    // Il codice applicativo non dipende più da flatMap, ma questo polyfill protegge anche eventuali librerie vendorizzate.
+    if (!Array.prototype.flatMap) {
+      Object.defineProperty(Array.prototype, 'flatMap', {
+        configurable: true,
+        writable: true,
+        value: function(callback, thisArg) {
+          if (this == null) throw new TypeError('Array.prototype.flatMap called on null or undefined');
+          if (typeof callback !== 'function') throw new TypeError('flatMap callback must be a function');
+          return Array.prototype.reduce.call(this, function(acc, value, index, array) {
+            var mapped = callback.call(thisArg, value, index, array);
+            return acc.concat(mapped);
+          }, []);
+        }
+      });
+    }
+  </script>
   <script src="js/vendor/jspdf.umd.min.js"></script>
   <script src="js/vendor/jspdf.plugin.autotable.min.js"></script>
   <script src="js/vendor/jszip.min.js"></script>

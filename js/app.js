@@ -425,7 +425,7 @@ const nuovoSopralluogoScreen = (() => {
       const { righe: righeAbbinate, riepilogo } = importMatching.abbinaRighe(righe, vociChecklist.checklist, { puntoDivisioneGruppi });
 
       anteprimaImportazionePendente = {
-        immagini,
+        immagini: importMatching.collegaImmaginiAlleDomande(immagini, righeAbbinate, vociChecklist.checklist),
         formatoRilevato,
         checklist: vociChecklist.checklist,
         righe: righeAbbinate,
@@ -677,19 +677,50 @@ const importPreviewScreen = (() => {
     const container = document.getElementById('import-immagini');
     container.textContent = '';
     const immagini = anteprimaImportazionePendente.immagini || [];
+    const domande = importMatching.appiattisciDomande(anteprimaImportazionePendente.checklist);
     if (!immagini.length) container.textContent = 'Nessuna immagine selezionata.';
     immagini.forEach((foto, indice) => {
       const card = document.createElement('figure');
       const img = document.createElement('img');
       img.src = foto.anteprima;
       img.alt = foto.didascalia || `Foto dalla pagina ${foto.pagina}`;
+
       const caption = document.createElement('figcaption');
-      caption.textContent = `Pagina ${foto.pagina} — ${foto.didascalia || 'Senza didascalia'}`;
+      const voceCollegata = domande.find((voce) => Number(voce.domanda.id) === Number(foto.domanda_id_collegata));
+      caption.textContent = voceCollegata
+        ? `Pagina ${foto.pagina} — Domanda ${voceCollegata.domanda.id}: ${voceCollegata.domanda.testo}`
+        : `Pagina ${foto.pagina} — ${foto.didascalia || 'Senza didascalia riconosciuta'} — da collegare/Altri aspetti`;
+
+      const label = document.createElement('label');
+      label.className = 'import-immagine-collegamento';
+      label.appendChild(document.createTextNode('Collega foto a '));
+      const select = document.createElement('select');
+      const opzioneAltri = document.createElement('option');
+      opzioneAltri.value = '';
+      opzioneAltri.textContent = 'Altri aspetti / nessuna domanda';
+      select.appendChild(opzioneAltri);
+      domande.forEach((voce) => {
+        const option = document.createElement('option');
+        option.value = String(voce.domanda.id);
+        option.textContent = `Domanda ${voce.domanda.id}: ${voce.domanda.testo}`;
+        select.appendChild(option);
+      });
+      select.value = foto.domanda_id_collegata != null ? String(foto.domanda_id_collegata) : '';
+      select.addEventListener('change', () => {
+        const domandaId = select.value ? Number(select.value) : null;
+        const voce = domande.find((item) => Number(item.domanda.id) === domandaId);
+        foto.domanda_id_collegata = domandaId;
+        foto.domanda_testo_collegata = voce ? voce.domanda.testo : null;
+        foto.associazione_domanda_metodo = domandaId != null ? 'manuale' : null;
+        renderImmagini();
+      });
+      label.appendChild(select);
+
       const remove = document.createElement('button');
       remove.type = 'button'; remove.textContent = 'Rimuovi';
       remove.setAttribute('aria-label', `Rimuovi immagine ${indice + 1}`);
       remove.onclick = () => { if (!importazioneInCorso) { immagini.splice(indice, 1); renderImmagini(); } };
-      card.append(img, caption, remove);
+      card.append(img, caption, label, remove);
       container.appendChild(card);
     });
   }
@@ -796,17 +827,31 @@ const importPreviewScreen = (() => {
     let salvato = false;
     try {
       sopralluogo = await db.creaSopralluogo(stato.bozzaAnagrafica);
-      // Imported photos use the existing editable "Altri aspetti" attachment format.
-      // Keep the recognized caption; never guess a question association in an old PDF.
-      const fotoIds = [];
-      const didascalie = {};
+      // Le immagini importate usano ESATTAMENTE lo stesso modello delle foto normali: quando
+      // l'anteprima le collega a una domanda, l'id foto viene inserito in risposta.foto e il
+      // record foto porta domanda_id. Solo quelle non collegate restano in "Altri aspetti".
+      const rispostaPerDomanda = new Map(risposte.map((risposta) => [Number(risposta.domanda_id), risposta]));
+      const fotoAltriAspetti = [];
+      const didascalieAltriAspetti = {};
       for (const foto of stato.immagini || []) {
-        const id = await db.salvaFoto({ sopralluogo_id: sopralluogo.id, blob: foto.blob });
-        fotoIds.push(id);
-        if (foto.didascalia) didascalie[id] = foto.didascalia;
+        const domandaId = foto.domanda_id_collegata != null ? Number(foto.domanda_id_collegata) : null;
+        const voceDomanda = domandaId != null ? domande.find((voce) => Number(voce.domanda.id) === domandaId) : null;
+        const id = await db.salvaFoto({ sopralluogo_id: sopralluogo.id, domanda_id: voceDomanda ? domandaId : null, blob: foto.blob });
+        if (voceDomanda) {
+          let risposta = rispostaPerDomanda.get(domandaId);
+          if (!risposta) {
+            risposta = { domanda_id: domandaId, sezione: voceDomanda.sezione, risposta: null, note: null, foto: [] };
+            risposte.push(risposta);
+            rispostaPerDomanda.set(domandaId, risposta);
+          }
+          risposta.foto = [...(risposta.foto || []), id];
+        } else {
+          fotoAltriAspetti.push(id);
+          if (foto.didascalia) didascalieAltriAspetti[id] = foto.didascalia;
+        }
       }
-      if (fotoIds.length) {
-        const allegati = { altri_aspetti_foto: fotoIds, altri_aspetti_foto_didascalie: didascalie };
+      if (fotoAltriAspetti.length) {
+        const allegati = { altri_aspetti_foto: fotoAltriAspetti, altri_aspetti_foto_didascalie: didascalieAltriAspetti };
         await db.aggiornaSopralluogo(sopralluogo.id, allegati);
         Object.assign(sopralluogo, allegati);
       }
@@ -1082,11 +1127,12 @@ const compilazioneScreen = (() => {
       .filter((risposta) => risposta.risposta !== null && risposta.risposta !== undefined && risposta.risposta !== '')
       .map((risposta) => risposta.domanda_id));
     const checklist = checklistEngine.getChecklist();
-    const ids = (checklist.sezioni || []).flatMap((sezione) => (sezione.domande || []).map((domanda) => domanda.id));
+    const ids = (checklist.sezioni || []).reduce((tutti, sezione) => tutti.concat((sezione.domande || []).map((domanda) => domanda.id)), []);
     progressMarkers.innerHTML = '';
     ids.forEach((id, indice) => {
       const marker = document.createElement('span');
-      marker.className = `progress-marker${compilate.has(id) ? ' is-completed' : ''}${indice === indiceCorrente ? ' is-current' : ''}`;
+      marker.className = `progress-marker${compilate.has(id) ? ' is-completed' : ' is-incomplete'}${indice === indiceCorrente ? ' is-current' : ''}`;
+      marker.dataset.stato = compilate.has(id) ? 'completa' : 'da-completare';
       progressMarkers.appendChild(marker);
     });
     progressBar.title = `${compilate.size} domande compilate su ${totale}`;
@@ -1983,7 +2029,7 @@ const storicoScreen = (() => {
    */
   async function contaFotoMancanti(sopralluogo) {
     const idFoto = (sopralluogo.risposte || [])
-      .flatMap((r) => r.foto || [])
+      .reduce((ids, r) => ids.concat(r.foto || []), [])
       .concat(sopralluogo.altri_aspetti_foto || []);
     if (!idFoto.length) {
       return 0;
@@ -2235,7 +2281,7 @@ const storicoScreen = (() => {
     const bottoneModifica = document.createElement('button');
     bottoneModifica.type = 'button';
     bottoneModifica.className = 'btn-secondario';
-    bottoneModifica.textContent = '✏️ Modifica';
+    bottoneModifica.textContent = '✏️ Modifica checklist';
     bottoneModifica.setAttribute('aria-label', `Modifica ${sopralluogo.punto_vendita}`);
     bottoneModifica.addEventListener('click', () => apriModifica(sopralluogo));
 
@@ -2265,9 +2311,11 @@ const storicoScreen = (() => {
     bottoneElimina.title = 'Sposta nel cestino';
     bottoneElimina.addEventListener('click', () => spostaNelCestino(sopralluogo, bottoneElimina));
 
+    // Su mobile la modifica della checklist deve essere l'azione più evidente: il PDF è un
+    // report finale, mentre le correzioni si fanno sempre riaprendo il sopralluogo nell'app.
+    azioni.appendChild(bottoneModifica);
     azioni.appendChild(bottoneApri);
     azioni.appendChild(bottoneScarica);
-    azioni.appendChild(bottoneModifica);
     azioni.appendChild(bottoneDuplica);
     azioni.appendChild(bottoneChiusura);
     azioni.appendChild(bottoneElimina);

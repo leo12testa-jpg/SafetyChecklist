@@ -354,3 +354,58 @@ test('similarita: stringhe vuote non generano NaN/eccezioni', () => {
   assert.equal(im.similarita('qualcosa', ''), 0);
   assert.equal(im.similarita('', 'qualcosa'), 0);
 });
+
+// ---------------------------------------------------------------------------------------------
+// Collegamento fotografie importate -> domande
+// ---------------------------------------------------------------------------------------------
+
+test('foto PDF app: "Domanda N" in didascalia collega la foto alla domanda abbinata', () => {
+  const im = caricaImportMatching();
+  const checklist = clonaChecklist();
+  const righe = [rigaNostro({ id: 4, testo: 'Gli estintori sono mantenuti accessibili e visibili?', stato: 'NC' })];
+  const { righe: abbinate } = im.abbinaRighe(righe, checklist);
+  const [foto] = im.collegaImmaginiAlleDomande([
+    { pagina: 7, didascalia: 'Foto 2 — Domanda 4: Gli estintori sono mantenuti accessibili e visibili?' }
+  ], abbinate, checklist);
+  assert.equal(foto.domanda_id_collegata, 4);
+  assert.equal(foto.domanda_testo_collegata, 'Gli estintori sono mantenuti accessibili e visibili?');
+  assert.equal(foto.associazione_domanda_metodo, 'didascalia_id');
+});
+
+test('foto storico: numero locale ambiguo non viene collegato alla cieca', () => {
+  const im = caricaImportMatching();
+  const checklist = clonaChecklist();
+  const righeAbbinate = [
+    { domanda_id: 1, stato_riga: 'sicuro', originale: { id_originale: null, numero_originale: 1, testo_originale: CHECKLIST_BASE.sezioni[0].domande[0].testo } },
+    { domanda_id: 4, stato_riga: 'sicuro', originale: { id_originale: null, numero_originale: 1, testo_originale: CHECKLIST_BASE.sezioni[1].domande[0].testo } }
+  ];
+  const [foto] = im.collegaImmaginiAlleDomande([
+    { pagina: 9, didascalia: 'Foto — Domanda 1' }
+  ], righeAbbinate, checklist);
+  assert.equal(foto.domanda_id_collegata, null);
+  assert.equal(foto.associazione_domanda_metodo, null);
+});
+
+test('foto con testo domanda riconoscibile viene collegata anche se il numero non basta', () => {
+  const im = caricaImportMatching();
+  const checklist = clonaChecklist();
+  const righeAbbinate = [
+    { domanda_id: 1, stato_riga: 'sicuro', originale: { id_originale: null, numero_originale: 1, testo_originale: CHECKLIST_BASE.sezioni[0].domande[0].testo } },
+    { domanda_id: 4, stato_riga: 'sicuro', originale: { id_originale: null, numero_originale: 1, testo_originale: CHECKLIST_BASE.sezioni[1].domande[0].testo } }
+  ];
+  const [foto] = im.collegaImmaginiAlleDomande([
+    { pagina: 9, didascalia: 'Foto 1 — Domanda 1: Gli estintori sono mantenuti accessibili e visibili?' }
+  ], righeAbbinate, checklist);
+  assert.equal(foto.domanda_id_collegata, 4);
+  assert.equal(foto.associazione_domanda_metodo, 'didascalia_testo');
+});
+
+test('associazione foto scelta manualmente non viene sovrascritta dal riconoscimento automatico', () => {
+  const im = caricaImportMatching();
+  const checklist = clonaChecklist();
+  const [foto] = im.collegaImmaginiAlleDomande([
+    { pagina: 2, didascalia: 'Foto 1 — Domanda 1: testo vecchio', domanda_id_collegata: 5, associazione_domanda_metodo: 'manuale' }
+  ], [], checklist);
+  assert.equal(foto.domanda_id_collegata, 5);
+  assert.equal(foto.associazione_domanda_metodo, 'manuale');
+});

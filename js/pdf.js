@@ -202,7 +202,7 @@ const pdf = (() => {
 
   /** Divide un testo su più righe rispettando gli a-capo espliciti (\n) oltre al wrap automatico. */
   function avvolgiTesto(doc, testo, larghezza) {
-    return String(testo || '').split('\n').flatMap((riga) => doc.splitTextToSize(riga, larghezza));
+    return String(testo || '').split('\n').reduce((righe, riga) => righe.concat(doc.splitTextToSize(riga, larghezza)), []);
   }
 
   /**
