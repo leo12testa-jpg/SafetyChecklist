@@ -347,13 +347,13 @@ for (const cliente of CLIENTI) {
   });
 }
 
-test('Melluso: usa il logo ritagliato dedicato (non il default quadrato) e il colore rosso corretto', () => {
+test('Melluso: usa il nuovo logo completo e il colore rosso corretto', () => {
   const motore = creaMotorePdf(FOTO_FIXTURE);
   const config = motore._test.configClienti.melluso;
 
   assert.equal(config.logo.file, 'assets/logo_melluso.png');
-  assert.equal(config.logo.larghezzaMax, 35);
-  assert.equal(config.logo.altezzaMax, 10);
+  assert.equal(config.logo.larghezzaMax, 40);
+  assert.equal(config.logo.altezzaMax, 28);
   assert.deepEqual(comeArrayLocale(config.coloreBanner.sfondo), [200, 2, 52]);
 
   const checklistMelluso = caricaChecklist('melluso_sopralluogo.json');

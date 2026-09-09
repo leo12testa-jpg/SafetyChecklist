@@ -33,8 +33,7 @@ const pdf = (() => {
    *
    * "match" è la sotto-stringa (case-insensitive) cercata in `${checklist.id} ${checklist.titolo}`
    * per risolvere quale configurazione si applica a una checklist — vedi risolviConfigCliente.
-   * Per i loghi già ritagliati sul contenuto reale (es. Melluso: scritta orizzontale molto più
-   * larga che alta, non un quadrato) larghezzaMax/altezzaMax vanno specificati esplicitamente;
+   * Per i loghi con esigenze di spazio dedicate, larghezzaMax/altezzaMax si specificano qui;
    * altrimenti si applica il default condiviso (vedi LAYOUT.logoClienteDefault in creaLayout).
    */
   const CONFIG_CLIENTI = {
@@ -61,12 +60,9 @@ const pdf = (() => {
     },
     melluso: {
       match: 'melluso',
-      // Logo già ritagliato sul contenuto reale (la scritta "Melluso" è una striscia
-      // orizzontale molto più larga che alta, non un quadrato): larghezzaMax è il vincolo che
-      // determina la dimensione finale, altezzaMax è volutamente larga per non essere lei il
-      // fattore limitante (altrimenti il logo resterebbe piccolo come con un vecchio file
-      // quadrato pieno di spazio trasparente).
-      logo: { file: 'assets/logo_melluso.png', larghezzaMax: 35, altezzaMax: 10 },
+      // Nuovo logo completo di monogramma e margini originali (715 × 490 px).
+      // Il riquadro dedicato mantiene leggibile il marchio senza deformarlo.
+      logo: { file: 'assets/logo_melluso.png', larghezzaMax: 40, altezzaMax: 28 },
       coloreBanner: { sfondo: [200, 2, 52] }, // #c80234, rosso Melluso
       pdf: {}
     }
