@@ -298,6 +298,10 @@ for (const cliente of CLIENTI) {
   test(`PDF reale ${cliente.chiave}: nessuna eccezione, pagine/contenuti/foto coerenti, nessuna risposta persa`, async () => {
     const checklist = caricaChecklist(cliente.file);
     const { sopralluogo, domandeFlat } = costruisciSopralluogoDiProva(checklist, cliente.nome);
+    if (cliente.chiave === 'melluso') {
+      assert.deepEqual(domandeFlat.map(d => d.id), Array.from({ length: 58 }, (_, i) => i + 1).filter(id => id !== 40));
+      sopralluogo.risposte.push({ domanda_id: 40, risposta: 'NC', note: 'VECCHIA-DOMANDA-40', foto: [] });
+    }
     const motore = creaMotorePdf(FOTO_FIXTURE);
 
     const buf = await motore.generaPdfBuffer(checklist, sopralluogo);
@@ -308,6 +312,11 @@ for (const cliente of CLIENTI) {
     assert.ok(pagine >= 5, `atteso almeno 5 pagine con questo volume di dati di prova, trovate ${pagine}`);
 
     const testoCompleto = testoNormalizzato(buf);
+    assert.equal(testoCompleto.includes(normalizza('Numero di dipendenti in forza al momento del sopralluogo')), cliente.chiave !== 'melluso');
+    if (cliente.chiave === 'melluso') {
+      assert.ok(!testoCompleto.includes('VECCHIA-DOMANDA-40'));
+      assert.equal(sopralluogo.numero_dipendenti, 42);
+    }
     assert.ok(testoCompleto.includes('Pag. 1 di'), 'numero pagina 1 non trovato');
     assert.ok(testoCompleto.includes(`Pag. ${pagine} di ${pagine}`), 'numero dell\'ultima pagina non trovato');
     assert.ok(testoCompleto.includes(normalizza(cliente.nome)), 'nome/punto vendita cliente non trovato nel PDF');

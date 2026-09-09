@@ -438,7 +438,10 @@ const pdfImport = (() => {
     );
 
     const risultato = {};
-    ETICHETTE_DATI_GENERALI.forEach((chiave, indice) => {
+    // I nuovi PDF Melluso omettono la riga dipendenti: non spostare i campi successivi.
+    const contieneDipendenti = zonaTabella.some(it => /numero.*dipendenti/i.test(it.testo));
+    const etichette = contieneDipendenti ? ETICHETTE_DATI_GENERALI : ETICHETTE_DATI_GENERALI.filter(chiave => chiave !== 'numero_dipendenti');
+    etichette.forEach((chiave, indice) => {
       const riga = righeValore[indice];
       if (!riga) {
         return;

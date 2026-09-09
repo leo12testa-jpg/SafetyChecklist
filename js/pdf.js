@@ -393,7 +393,9 @@ const pdf = (() => {
 
     const corpo = [
       [etichette.puntoVendita, puntoVendita],
-      ['Numero di dipendenti in forza al momento del sopralluogo', String(sopralluogo.numero_dipendenti || '')],
+      ...(checklist.id === 'melluso_sopralluogo' ? [] : [
+        ['Numero di dipendenti in forza al momento del sopralluogo', String(sopralluogo.numero_dipendenti || '')]
+      ]),
       [sopralluogo.tecnico_2 ? 'Tecnici che hanno eseguito il sopralluogo' : 'Tecnico che ha eseguito il sopralluogo',
         formattaTecnici(sopralluogo)],
       ['Data del sopralluogo', formattaDataSemplice(sopralluogo.data_sopralluogo)],

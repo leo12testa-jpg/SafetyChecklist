@@ -74,8 +74,7 @@
       "domande": [
         { "id": 37, "testo": "Le vie di fuga sono mantenute fruibili e ben visibili?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
         { "id": 38, "testo": "Le uscite di emergenza (U.E.) sono mantenute fruibili e ben visibili (internamente che esternamente)?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 39, "testo": "Le U.E. e le relative vie di fuga sono indicate correttamente da cartellonistica ed illuminazione d'emergenza?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 40, "testo": "Planimetrie Antincendio: sono aggiornate le planimetrie esposte?", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
+        { "id": 39, "testo": "Le U.E. e le relative vie di fuga sono indicate correttamente da cartellonistica ed illuminazione d'emergenza?", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
       ]
     },
     {

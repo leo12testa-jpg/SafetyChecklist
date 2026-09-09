@@ -98,6 +98,8 @@ function idFotoSopralluogo(sopralluogo) {
 
 function firmaFotoSopralluogo(sopralluogo) {
   const ids = idFotoSopralluogo(sopralluogo);
+  // Rigenera anche i PDF Melluso senza foto salvati prima della rimozione di domanda 40 e dipendenti.
+  if (sopralluogo && sopralluogo.checklist_id === 'melluso_sopralluogo') return 'melluso-layout-2:' + ids.join('|');
   // Older signatures could also describe PDFs that silently skipped missing photos.
   return ids.length ? 'complete-v2:' + ids.join('|') : '';
 }
@@ -358,6 +360,8 @@ const nuovoSopralluogoScreen = (() => {
 
   /** Etichette anagrafiche (Punto vendita/Responsabile/presenza responsabile) coerenti con la checklist attualmente selezionata. */
   function aggiornaEtichetteAnagrafica() {
+    inputNumeroDipendenti.disabled = selectChecklist.value === 'melluso_sopralluogo';
+    inputNumeroDipendenti.closest('label').hidden = inputNumeroDipendenti.disabled;
     applicaEtichettePersonalizzate(selectChecklist.value, {
       puntoVendita: labelPuntoVenditaTesto,
       responsabile: labelResponsabileTesto,
@@ -544,7 +548,7 @@ const nuovoSopralluogoScreen = (() => {
     return {
       punto_vendita: inputPuntoVendita.value.trim(),
       indirizzo_punto_vendita: inputIndirizzo.value.trim(),
-      numero_dipendenti: inputNumeroDipendenti.value,
+      ...(selectChecklist.value === 'melluso_sopralluogo' ? {} : { numero_dipendenti: inputNumeroDipendenti.value }),
       tecnico: leggiValoreTecnico(inputTecnico, inputTecnicoAltro),
       tecnico_2: leggiValoreTecnico(inputTecnico2, inputTecnico2Altro) || null,
       data_sopralluogo: inputDataSopralluogo.value,
@@ -2833,6 +2837,8 @@ const anagraficaDialog = (() => {
     inputPuntoVendita.value = sopralluogo.punto_vendita || '';
     inputIndirizzo.value = sopralluogo.indirizzo_punto_vendita || '';
     inputNumeroDipendenti.value = sopralluogo.numero_dipendenti || '';
+    inputNumeroDipendenti.disabled = sopralluogo.checklist_id === 'melluso_sopralluogo';
+    inputNumeroDipendenti.closest('label').hidden = inputNumeroDipendenti.disabled;
     inputData.value = sopralluogo.data_sopralluogo || '';
     inputResponsabile.value = sopralluogo.responsabile_punto_vendita || '';
     inputAreaManager.value = sopralluogo.area_manager || '';
@@ -2860,7 +2866,7 @@ const anagraficaDialog = (() => {
     const aggiornato = await db.aggiornaSopralluogo(sopralluogoId, {
       punto_vendita: inputPuntoVendita.value.trim(),
       indirizzo_punto_vendita: inputIndirizzo.value.trim(),
-      numero_dipendenti: inputNumeroDipendenti.value,
+      ...(inputNumeroDipendenti.disabled ? {} : { numero_dipendenti: inputNumeroDipendenti.value }),
       tecnico: leggiValoreTecnico(inputTecnico, inputTecnicoAltro),
       tecnico_2: leggiValoreTecnico(inputTecnico2, inputTecnico2Altro) || null,
       data_sopralluogo: inputData.value,
