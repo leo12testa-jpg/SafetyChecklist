@@ -409,3 +409,30 @@ test('creaLayout: margini e dimensioni derivano SEMPRE dalla pagina reale del do
   assert.equal(layout.altezzaPagina, 150);
   assert.equal(layout.yFooter, 150 - 8);
 });
+
+test('intestazione Melluso: centri visivi allineati, proporzioni e quota tabella invariati anche su altra pagina', () => {
+  const api = creaMotorePdf({})._test;
+  for (const width of [210, 180]) {
+    const images = [];
+    const doc = { internal: { pageSize: { getWidth: () => width, getHeight: () => 297 } },
+      getImageProperties: url => url === 'colligo' ? { width:383, height:130, fileType:'PNG' } : { width:715, height:490, fileType:'PNG' },
+      addImage: (url, type, x, y, w, h) => images.push({url,x,y,w,h}) };
+    const layout = api.creaLayout(doc);
+    const logo = {url:'melluso',larghezzaMax:40,altezzaMax:28};
+    const tableY = api.disegnaHeader(doc,layout,logo,'colligo','melluso_sopralluogo');
+    const [left,right] = images;
+    const centerLeft = left.y + left.h * (3 + 125/2) / 130;
+    const centerRight = right.y + right.h * (129 + 233/2) / 490;
+    assert.ok(Math.abs(centerLeft-centerRight) < 1e-9);
+    assert.ok(Math.abs(right.w/right.h-715/490) < 1e-9);
+    assert.ok(Math.abs(left.w/left.h-383/130) < 1e-9);
+    assert.equal(left.w,40, 'Dimensioni Colligo invariate');
+    assert.equal(right.w,44, 'Melluso ingrandito del 10%');
+    assert.ok(right.y+right.h*129/490 >= layout.margine);
+    assert.ok(Math.abs(right.x+right.w*645/715-(width-layout.margine)) < 1e-9);
+    images.length=0;
+    assert.equal(api.disegnaHeader(doc,layout,logo,'colligo','altro'),tableY);
+    assert.equal(images[0].y,layout.margine);
+    assert.equal(images[1].y,layout.margine, 'Altri clienti mantengono il posizionamento precedente');
+  }
+});

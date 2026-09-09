@@ -256,7 +256,7 @@ const pdf = (() => {
    * riquadro massimo larghezzaMax×altezzaMax (mai deformato): usa il fattore di scala più
    * restrittivo tra i due assi, e non ingrandisce mai oltre la dimensione naturale del file.
    */
-  function disegnaLogoProporzionato(doc, layout, dataURL, allineamento, larghezzaMax, altezzaMax) {
+  function disegnaLogoProporzionato(doc, layout, dataURL, allineamento, larghezzaMax, altezzaMax, fasciaVisiva) {
     if (!dataURL) {
       return;
     }
@@ -264,13 +264,38 @@ const pdf = (() => {
     const scala = Math.min(larghezzaMax / proprieta.width, altezzaMax / proprieta.height, 1);
     const larghezza = proprieta.width * scala;
     const altezza = proprieta.height * scala;
-    const x = allineamento === 'destra' ? layout.larghezzaPagina - layout.margine - larghezza : layout.margine;
-    doc.addImage(dataURL, proprieta.fileType, x, layout.margine, larghezza, altezza);
+    let x = allineamento === 'destra' ? layout.larghezzaPagina - layout.margine - larghezza : layout.margine;
+    let y = layout.margine;
+    if (fasciaVisiva) {
+      const { area, centroY } = fasciaVisiva;
+      x = allineamento === 'destra'
+        ? layout.larghezzaPagina - layout.margine - larghezza * (area.x + area.larghezza)
+        : layout.margine - larghezza * area.x;
+      y = centroY - altezza * (area.y + area.altezza / 2);
+    }
+    doc.addImage(dataURL, proprieta.fileType, x, y, larghezza, altezza);
   }
 
   /** Intestazione con doppio logo affiancato (Colligo Ingegneria a sinistra, cliente a destra), proporzioni originali mantenute. Nessun titolo checklist: è un dato interno (usato solo per l'elenco a tendina), non va mostrato nel report. */
-  function disegnaHeader(doc, layout, logoCliente, logoColligoURL) {
+  function disegnaHeader(doc, layout, logoCliente, logoColligoURL, checklistId) {
     const { larghezzaMax, altezzaMax } = layout.logoClienteDefault;
+    const altezzaRiservata = Math.max(altezzaMax, logoCliente ? logoCliente.altezzaMax : altezzaMax);
+
+    if (checklistId === 'melluso_sopralluogo' && logoCliente) {
+      const centroY = layout.margine + altezzaRiservata / 2;
+      // Limiti del contenuto visibile misurati sugli asset originali, normalizzati sui pixel
+      // reali (Colligo 383×130, Melluso 715×490). Nessun ritaglio o deformazione dell'immagine.
+      const areaColligo = { x: 2 / 383, y: 3 / 130, larghezza: 377 / 383, altezza: 125 / 130 };
+      const areaMelluso = { x: 70 / 715, y: 129 / 490, larghezza: 575 / 715, altezza: 233 / 490 };
+      const ingrandimentoMelluso = 1.1;
+      disegnaLogoProporzionato(doc, layout, logoColligoURL, 'sinistra', larghezzaMax, altezzaMax,
+        { centroY, area: areaColligo });
+      disegnaLogoProporzionato(doc, layout, logoCliente.url, 'destra',
+        logoCliente.larghezzaMax * ingrandimentoMelluso, logoCliente.altezzaMax * ingrandimentoMelluso,
+        { centroY, area: areaMelluso });
+      // La tabella DATI GENERALI deve restare esattamente alla quota precedente.
+      return layout.margine + altezzaRiservata + layout.gapDopoHeader;
+    }
 
     disegnaLogoProporzionato(doc, layout, logoColligoURL, 'sinistra', larghezzaMax, altezzaMax);
     disegnaLogoProporzionato(
@@ -282,7 +307,6 @@ const pdf = (() => {
       logoCliente ? logoCliente.altezzaMax : altezzaMax
     );
 
-    const altezzaRiservata = Math.max(altezzaMax, logoCliente ? logoCliente.altezzaMax : altezzaMax);
     return layout.margine + altezzaRiservata + layout.gapDopoHeader;
   }
 
@@ -1012,7 +1036,7 @@ const pdf = (() => {
     const mappaFotoPerDomanda = costruisciMappaFotoPerDomanda(fotoDomande);
     const tracciatoreFooter = creaTracciatoreFooter(doc, layout);
 
-    let y = disegnaHeader(doc, layout, logoCliente, logoColligoURL);
+    let y = disegnaHeader(doc, layout, logoCliente, logoColligoURL, checklist.id);
     y = disegnaTabellaDatiGenerali(doc, layout, checklist, sopralluogo, y, tracciatoreFooter.hookDidDrawPage);
     disegnaGruppiSezioni(doc, layout, checklist, sopralluogo, y, mappaFotoPerDomanda, tracciatoreFooter.hookDidDrawPage, configCliente);
 
@@ -1225,6 +1249,7 @@ const pdf = (() => {
       configClienti: CONFIG_CLIENTI,
       coloreBannerDefault: COLORE_BANNER_DEFAULT,
       disegnaNumeriPagina,
+      disegnaHeader,
       disegnaFooter,
       disegnaTabellaSezione
     }

@@ -98,8 +98,8 @@ function idFotoSopralluogo(sopralluogo) {
 
 function firmaFotoSopralluogo(sopralluogo) {
   const ids = idFotoSopralluogo(sopralluogo);
-  // Rigenera anche i PDF Melluso senza foto salvati prima della rimozione di domanda 40 e dipendenti.
-  if (sopralluogo && sopralluogo.checklist_id === 'melluso_sopralluogo') return 'melluso-layout-2:' + ids.join('|');
+  // Rigenera anche i PDF Melluso senza foto salvati prima dell'allineamento dei loghi.
+  if (sopralluogo && sopralluogo.checklist_id === 'melluso_sopralluogo') return 'melluso-layout-3:' + ids.join('|');
   // Older signatures could also describe PDFs that silently skipped missing photos.
   return ids.length ? 'complete-v2:' + ids.join('|') : '';
 }

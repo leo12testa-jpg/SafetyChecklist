@@ -61,7 +61,8 @@ test('cache: firma precedente non certifica un PDF completo, firma nuova consent
   const end = source.indexOf('\n  /**', start);
   vm.runInContext(source.slice(start, end), context);
   assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: '' }, { checklist_id: 'melluso_sopralluogo', risposte: [] })", context), false);
-  assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'melluso-layout-2:' }, { checklist_id: 'melluso_sopralluogo', risposte: [] })", context), true);
+  assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'melluso-layout-2:' }, { checklist_id: 'melluso_sopralluogo', risposte: [] })", context), false);
+  assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'melluso-layout-3:' }, { checklist_id: 'melluso_sopralluogo', risposte: [] })", context), true);
   assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'a|b' }, { risposte: [{ foto: ['a','b'] }] })", context), false);
   assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'complete-v2:a|b' }, { risposte: [{ foto: ['a','b'] }] })", context), true);
 });
