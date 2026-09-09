@@ -2,7 +2,7 @@
 // autoreferenziale, dato che modificare questo stesso file cambierebbe l'hash finale). Cambia sempre
 // a ogni pubblicazione, così il browser rileva sempre un service-worker.js diverso byte per byte e
 // installa una cache nuova; l'activate qui sotto elimina da sé quelle vecchie.
-const CACHE_NAME = 'safety-checklist-shell-20260908-171838';
+const CACHE_NAME = 'safety-checklist-shell-20260909-161218';
 
 const APP_SHELL = [
   './',

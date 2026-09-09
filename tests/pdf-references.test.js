@@ -86,10 +86,10 @@ test('foto su domande differenti hanno riferimenti e didascalie corrispondenti',
     ['Foto 1 — Domanda 51', 'Foto 2 — Domanda 52']);
 });
 
-test('eliminazione e riordino rinumerano solo le foto esistenti', async () => {
-  const api = caricaPdf({ b: { id: 'b', blob: new Blob() }, c: { id: 'c', blob: new Blob() } });
+test('foto mancante blocca il PDF; eliminazione esplicita consente la rinumerazione', async () => {
+  const api = caricaPdf({ b: { id: 'b', blob: new Blob(['b']) }, c: { id: 'c', blob: new Blob(['c']) } });
+  await assert.rejects(api.filtraFotoEsistenti([{ fotoId: 'mancante' }, { fotoId: 'b' }]), /1 foto mancanti/);
   const valide = await api.filtraFotoEsistenti([
-    { fotoId: 'mancante', domandaId: 51 },
     { fotoId: 'c', domandaId: 52 },
     { fotoId: 'b', domandaId: 51 }
   ]);

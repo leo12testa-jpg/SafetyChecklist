@@ -86,6 +86,52 @@ function risposteComeArray(risposte) {
   return [];
 }
 
+/** Helper PDF condivisi da riepilogo e storico. */
+function idFotoSopralluogo(sopralluogo) {
+  const idFoto = [];
+  risposteComeArray(sopralluogo && sopralluogo.risposte).forEach((risposta) => {
+    (risposta.foto || []).forEach((fotoId) => idFoto.push(String(fotoId)));
+  });
+  ((sopralluogo && sopralluogo.altri_aspetti_foto) || []).forEach((fotoId) => idFoto.push(String(fotoId)));
+  return Array.from(new Set(idFoto)).sort();
+}
+
+function firmaFotoSopralluogo(sopralluogo) {
+  const ids = idFotoSopralluogo(sopralluogo);
+  // Older signatures could also describe PDFs that silently skipped missing photos.
+  return ids.length ? 'complete-v2:' + ids.join('|') : '';
+}
+
+async function contaFotoMancanti(sopralluogo) {
+  const idFoto = idFotoSopralluogo(sopralluogo);
+  if (!idFoto.length) {
+    return 0;
+  }
+  const trovate = await Promise.all(idFoto.map((id) => fotoSync.risolviFoto(id, sopralluogo)));
+  return trovate.filter((foto) => !foto).length;
+}
+
+/**
+ * Prima di aprire/generare un PDF, quando siamo online, forza un giro di sincronizzazione.
+ * È importante soprattutto su telefono: il PDF salvato in IndexedDB è locale al dispositivo
+ * e può essere precedente alle foto caricate dal PC. Il giro di sync porta sul telefono sia
+ * i fotoId nelle risposte sia la mappa foto_url necessaria per scaricare i blob da Supabase.
+ */
+async function preparaDatiPdfCrossDevice() {
+  if (typeof navigator === 'undefined' || !navigator.onLine) return;
+  try {
+    if (typeof fotoSync !== 'undefined' && typeof fotoSync.riprovaInSospeso === 'function') {
+      await fotoSync.riprovaInSospeso();
+    }
+    if (typeof sync !== 'undefined' && typeof sync.sincronizzaTutto === 'function') {
+      const sincronizzato = await sync.sincronizzaTutto();
+      if (sincronizzato === false) throw new Error('Sincronizzazione non riuscita. Riprova con una connessione attiva prima di generare il PDF.');
+    }
+  } catch (errore) {
+    throw new Error('Preparazione dati PDF non completata: ' + (errore.message || errore));
+  }
+}
+
 /**
  * Etichette di visualizzazione personalizzate per checklist_id: solo il testo mostrato cambia,
  * mai i nomi dei campi salvati nel sopralluogo (punto_vendita/responsabile_punto_vendita/
@@ -664,9 +710,10 @@ const importPreviewScreen = (() => {
     return `
       <div class="import-riga import-riga-${riga.stato_riga}" data-indice="${riga.indice}">
         <div class="import-riga-originale">
-          <strong>PDF:</strong> "${escapeHtml(riga.originale.testo_originale || '(testo non letto)')}"
+          <strong>Domanda vecchia:</strong> "${escapeHtml(riga.originale.testo_originale || '(testo non letto)')}"
           <span class="import-riga-meta">${escapeHtml(originaleMeta)}${riga.originale.stato_originale ? ` · stato letto: ${escapeHtml(riga.originale.stato_originale)}` : ''}</span>
         </div>
+        <div class="import-riga-originale">Nota originale: ${escapeHtml(riga.originale.nota_originale || "(nessuna)")}</div>
         <label class="import-riga-campo">→ associata a
           <select class="import-riga-domanda">${opzioniDomande(anteprimaImportazionePendente.checklist, riga.domanda_id)}</select>
         </label>
@@ -731,6 +778,8 @@ const importPreviewScreen = (() => {
       select.addEventListener('change', () => {
         const domandaId = select.value ? Number(select.value) : null;
         const voce = domande.find((item) => Number(item.domanda.id) === domandaId);
+        const sorgente = anteprimaImportazionePendente.righe.find(r => Number(r.domanda_id) === domandaId);
+        foto.riga_sorgente_indice = sorgente ? sorgente.indice : null;
         foto.domanda_id_collegata = domandaId;
         foto.domanda_testo_collegata = voce ? voce.domanda.testo : null;
         foto.associazione_domanda_metodo = domandaId != null ? 'manuale' : null;
@@ -779,7 +828,7 @@ const importPreviewScreen = (() => {
 
     const nuovoDomandaId = selectDomanda.value ? Number(selectDomanda.value) : null;
     if (nuovoDomandaId !== riga.domanda_id) {
-      riga.domanda_id = nuovoDomandaId;
+      importMatching.cambiaDomandaRiga(riga, nuovoDomandaId, anteprimaImportazionePendente.immagini);
       riga.metodo = nuovoDomandaId != null ? 'manuale' : null;
       riga.confidenza = nuovoDomandaId != null ? 1 : null;
       riga.automatico = false;
@@ -795,10 +844,15 @@ const importPreviewScreen = (() => {
       return;
     }
     sincronizzaRigaDaDom(cardEl);
+    if (event.target.classList.contains('import-riga-domanda')) {
+      const riga = anteprimaImportazionePendente.righe.find(r => r.indice === Number(cardEl.dataset.indice));
+      importMatching.cambiaDomandaRiga(riga, riga.domanda_id, anteprimaImportazionePendente.immagini);
+    }
     importMatching.applicaVincoloUnoAUno(anteprimaImportazionePendente.righe);
     anteprimaImportazionePendente.riepilogo = importMatching.calcolaRiepilogo(anteprimaImportazionePendente.righe);
     renderRiepilogo();
     renderRighe();
+    renderImmagini();
   }
 
   /** Aggiornamento silenzioso mentre si digita in una nota, senza rifare il rendering (perderebbe il focus a ogni tasto): il ricalcolo completo avviene comunque al 'change' (blur) gestito da onCambioRiga. */
@@ -827,9 +881,13 @@ const importPreviewScreen = (() => {
       }
     }
 
+    if (stato.righe.some(r => r.domanda_id != null && !importMatching.rigaImportabile(r))) {
+      alert('DA VERIFICARE: scegli esplicitamente la domanda corretta per ogni riga incerta, oppure escludila. Stato, nota e foto rimangono insieme.');
+      return;
+    }
     const domande = importMatching.appiattisciDomande(stato.checklist);
     const risposte = stato.righe
-      .filter((r) => r.domanda_id != null && r.stato_riga !== 'conflitto' && (r.risposta || r.note))
+      .filter((r) => r.domanda_id != null && importMatching.rigaImportabile(r) && (r.risposta || r.note))
       .map((r) => {
         const voce = domande.find((d) => d.domanda.id === r.domanda_id);
         return {
@@ -2167,48 +2225,6 @@ const storicoScreen = (() => {
    * sincronizzazione delle foto, questo dovrebbe restare raro (solo foto mai caricate, es.
    * scattate offline e non ancora sincronizzate) invece che sistematico come prima.
    */
-  function idFotoSopralluogo(sopralluogo) {
-    const idFoto = [];
-    risposteComeArray(sopralluogo && sopralluogo.risposte).forEach((risposta) => {
-      (risposta.foto || []).forEach((fotoId) => idFoto.push(String(fotoId)));
-    });
-    ((sopralluogo && sopralluogo.altri_aspetti_foto) || []).forEach((fotoId) => idFoto.push(String(fotoId)));
-    return Array.from(new Set(idFoto)).sort();
-  }
-
-  function firmaFotoSopralluogo(sopralluogo) {
-    return idFotoSopralluogo(sopralluogo).join('|');
-  }
-
-  async function contaFotoMancanti(sopralluogo) {
-    const idFoto = idFotoSopralluogo(sopralluogo);
-    if (!idFoto.length) {
-      return 0;
-    }
-    const trovate = await Promise.all(idFoto.map((id) => fotoSync.risolviFoto(id, sopralluogo)));
-    return trovate.filter((foto) => !foto).length;
-  }
-
-  /**
-   * Prima di aprire/generare un PDF, quando siamo online, forza un giro di sincronizzazione.
-   * È importante soprattutto su telefono: il PDF salvato in IndexedDB è locale al dispositivo
-   * e può essere precedente alle foto caricate dal PC. Il giro di sync porta sul telefono sia
-   * i fotoId nelle risposte sia la mappa foto_url necessaria per scaricare i blob da Supabase.
-   */
-  async function preparaDatiPdfCrossDevice() {
-    if (typeof navigator === 'undefined' || !navigator.onLine) return;
-    try {
-      if (typeof fotoSync !== 'undefined' && typeof fotoSync.riprovaInSospeso === 'function') {
-        await fotoSync.riprovaInSospeso();
-      }
-      if (typeof sync !== 'undefined' && typeof sync.sincronizzaTutto === 'function') {
-        await sync.sincronizzaTutto();
-      }
-    } catch (errore) {
-      console.warn('Preparazione dati PDF cross-device non completata, uso i dati locali disponibili', errore);
-    }
-  }
-
   function pdfSalvatoAncoraValido(salvato, sopralluogo) {
     if (!salvato || !salvato.blob || !sopralluogo) return false;
     if (salvato.generato_il && sopralluogo.aggiornato_il && salvato.generato_il < sopralluogo.aggiornato_il) {
@@ -2250,7 +2266,7 @@ const storicoScreen = (() => {
     // Se siamo online ma una foto referenziata non è ancora recuperabile, non mostriamo come
     // definitivo un PDF apparentemente valido ma privo di allegati. Il messaggio indica cosa
     // fare invece di lasciare l'utente con un report incompleto senza spiegazione.
-    if (fotoMancanti > 0 && typeof navigator !== 'undefined' && navigator.onLine) {
+    if (fotoMancanti > 0) {
       throw new Error(
         `${fotoMancanti} foto non sono ancora sincronizzate su questo dispositivo. ` +
         'Apri per qualche secondo la stessa checklist sul dispositivo dove sono state scattate, ' +

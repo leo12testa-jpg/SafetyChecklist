@@ -739,6 +739,7 @@ const pdf = (() => {
         fotoDomande.push({
           fotoId,
           domandaId: risposta.domanda_id,
+          stato: risposta.risposta || null,
           domandaTesto: info ? info.domanda.testo : ''
         });
       });
@@ -750,20 +751,24 @@ const pdf = (() => {
     return { fotoDomande, allegatiNote };
   }
 
-  /**
-   * Scarta riferimenti orfani storici prima di assegnare i numeri definitivi. Risolve ogni foto
-   * con fotoSync.risolviFoto: locale se presente su questo dispositivo, altrimenti scaricata da
-   * Supabase Storage se il sopralluogo ne ha un riferimento (foto scattata da un altro
-   * dispositivo, vedi js/foto-sync.js). "sopralluogo" è facoltativo: senza, resta il solo
-   * comportamento locale (usato dai test).
-   */
+  /** Risolve tutti i riferimenti prima della numerazione: un PDF incompleto non ? valido. */
   async function filtraFotoEsistenti(elenco, sopralluogo) {
     const risultato = [];
+    const mancanti = new Set();
     for (const voce of elenco) {
-      const record = await fotoSync.risolviFoto(voce.fotoId, sopralluogo);
-      if (record) risultato.push({ ...voce, record });
+      let record;
+      try { record = await fotoSync.risolviFoto(voce.fotoId, sopralluogo); } catch (_) {}
+      if (record && record.blob && record.blob.size > 0) risultato.push({ ...voce, record });
+      else mancanti.add(voce.fotoId);
     }
+    if (mancanti.size) throw new Error(`${mancanti.size} foto mancanti: impossibile recuperarle dal dispositivo o da Supabase. Attendi la sincronizzazione dal dispositivo originale e riprova. PDF non generato.`);
     return risultato;
+  }
+
+  async function preparaFotoReport(checklist, sopralluogo) {
+    const raccolta = raccogliFotoConDidascalia(checklist, sopralluogo);
+    const tutte = await filtraFotoEsistenti(raccolta.fotoDomande.concat(raccolta.allegatiNote), sopralluogo);
+    return { fotoDomande: tutte.filter(f => !f.altriAspetti), allegatiNote: tutte.filter(f => f.altriAspetti) };
   }
 
   /**
@@ -821,9 +826,7 @@ const pdf = (() => {
 
     for (const [indice, voce] of elencoFoto.entries()) {
       const record = voce.record || await fotoSync.risolviFoto(voce.fotoId);
-      if (!record) {
-        continue;
-      }
+      if (!record || !record.blob) throw new Error('1 foto mancante: PDF non generato.');
 
       if (colonna === 0) {
         const yPrima = y;
@@ -876,7 +879,7 @@ const pdf = (() => {
           } while (didascalia.length > MASSIMO_RIGHE_DIDASCALIA && lunghezzaMassima > 0);
         }
       } else {
-        const prefisso = `Foto ${indice + 1} — Domanda ${voce.domandaId}: `;
+        const prefisso = `Foto ${indice + 1} — Domanda ${voce.domandaId}${voce.stato ? ` [${voce.stato}]` : ''}: `;
         didascalia = avvolgiTesto(doc, `${prefisso}${voce.domandaTesto}`, LARGHEZZA_CELLA);
         if (didascalia.length > MASSIMO_RIGHE_DIDASCALIA) {
           let lunghezzaMassima = String(voce.domandaTesto || '').length;
@@ -981,9 +984,7 @@ const pdf = (() => {
       y += 4;
     });
 
-    const raccoltaFoto = raccogliFotoConDidascalia(checklist, sopralluogo);
-    const fotoDomande = await filtraFotoEsistenti(raccoltaFoto.fotoDomande, sopralluogo);
-    const allegatiNote = await filtraFotoEsistenti(raccoltaFoto.allegatiNote, sopralluogo);
+    const { fotoDomande, allegatiNote } = await preparaFotoReport(checklist, sopralluogo);
     await disegnaSezioniFinali(doc, sopralluogo, fotoDomande, allegatiNote);
 
     return esportaBlob(doc);
@@ -1009,9 +1010,7 @@ const pdf = (() => {
     const logoColligoURL = await ottieniLogoColligo();
     const logoCliente = await ottieniLogoCliente(configCliente, checklist, sopralluogo.punto_vendita, layout);
 
-    const raccoltaFoto = raccogliFotoConDidascalia(checklist, sopralluogo);
-    const fotoDomande = await filtraFotoEsistenti(raccoltaFoto.fotoDomande, sopralluogo);
-    const allegatiNote = await filtraFotoEsistenti(raccoltaFoto.allegatiNote, sopralluogo);
+    const { fotoDomande, allegatiNote } = await preparaFotoReport(checklist, sopralluogo);
     const mappaFotoPerDomanda = costruisciMappaFotoPerDomanda(fotoDomande);
     const tracciatoreFooter = creaTracciatoreFooter(doc, layout);
 

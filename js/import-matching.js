@@ -177,7 +177,7 @@ const importMatching = (() => {
         const candidatiGlobali = candidatiTesto(riga.testo_originale, domande);
         const miglioreGlobale = candidatiGlobali[0];
         const confermataDalTesto = Boolean(miglioreGlobale) && miglioreGlobale.voce.domanda.id === perPosizione.domandaId;
-        if (sim >= SOGLIA_SANITA && (confermataDalTesto || sim >= SOGLIA_ALTA)) {
+        if (sim >= SOGLIA_ALTA && confermataDalTesto && abbinaPerTesto(riga.testo_originale, domande).automatico) {
           return { domandaId: perPosizione.domandaId, metodo: 'sezione_numero', confidenza: CONFIDENZA_SEZIONE_NUMERO, automatico: true, avviso: null };
         }
         // La posizione non è confermata dal testo della domanda che indica: se esiste altrove un
@@ -239,8 +239,8 @@ const importMatching = (() => {
         domanda_id: esito ? esito.domandaId : null,
         metodo: esito ? esito.metodo : null,
         confidenza: esito ? esito.confidenza : null,
-        automatico: esito ? Boolean(esito.automatico) : false,
-        avviso: esito && esito.avviso ? esito.avviso : null,
+        automatico: esito ? Boolean(esito.automatico) && !rigaGrezza.da_verificare : false,
+        avviso: rigaGrezza.avviso || (esito && esito.avviso ? esito.avviso : null),
         // Valori proposti per il sopralluogo, modificabili liberamente in anteprima: partono
         // sempre dal dato originale così com'è, mai alterati dal matching.
         risposta: rigaGrezza.stato_originale ?? null,
@@ -382,6 +382,15 @@ const importMatching = (() => {
     // collegamento più affidabile possibile: permette di ricostruire la relazione foto -> domanda
     // anche quando il testo della didascalia sotto l'immagine viene estratto male o su più righe.
     const riferimentiFoto = new Map();
+    const sorgentiFoto = new Map();
+    (righeAbbinate || []).forEach(riga => {
+      const nota = String(riga.originale && riga.originale.nota_originale || '');
+      for (const match of nota.matchAll(/\bFoto\s+(\d+)/gi)) {
+        const numero = Number(match[1]);
+        if (!sorgentiFoto.has(numero)) sorgentiFoto.set(numero, new Set());
+        sorgentiFoto.get(numero).add(riga);
+      }
+    });
     righeValide.forEach((riga) => {
       const nota = String((riga.originale && riga.originale.nota_originale) || '');
       const gruppo = nota.match(/\bVedi\s+((?:Foto\s+\d+\s*(?:,\s*)?)+)/i);
@@ -431,6 +440,22 @@ const importMatching = (() => {
       const numeroFoto = numeroFotoLetto != null ? numeroFotoLetto : (numerazioneCompleta ? indiceFoto + 1 : null);
       const numero = numeroDaDidascalia(foto.didascalia);
 
+      // Preserve source ownership even when no destination can yet be trusted.
+      const proprietarie = sorgentiFoto.get(numeroFoto);
+      if (metodo !== 'manuale' && proprietarie && proprietarie.size === 1) {
+        const sorgente = Array.from(proprietarie)[0];
+        const destinazione = rigaImportabile(sorgente) ? sorgente.domanda_id : null;
+        const voce = voceDaDomandaId(destinazione);
+        return { ...foto, riga_sorgente_indice: sorgente.indice,
+          domanda_id_collegata: destinazione,
+          domanda_testo_collegata: voce ? voce.domanda.testo : null,
+          associazione_domanda_metodo: destinazione != null ? (numeroFotoLetto != null ? 'riferimento_tabella' : 'riferimento_tabella_ordine') : null };
+      }
+      if (metodo !== 'manuale' && proprietarie && proprietarie.size > 1) {
+        return { ...foto, riga_sorgente_indice: null, domanda_id_collegata: null,
+          domanda_testo_collegata: null, associazione_domanda_metodo: null };
+      }
+
       if (domandaId == null && numeroFoto != null) {
         const daTabella = domandaDaRiferimentoFoto(numeroFoto);
         if (daTabella != null && voceDaDomandaId(daTabella)) {
@@ -479,8 +504,11 @@ const importMatching = (() => {
         domandaId = null;
         metodo = null;
       }
+      const sorgenti = righeValide.filter(r => Number(r.domanda_id) === domandaId);
+      const sorgente = sorgenti.length === 1 ? sorgenti[0] : null;
       return {
         ...foto,
+        riga_sorgente_indice: sorgente ? sorgente.indice : null,
         domanda_id_collegata: domandaId,
         domanda_testo_collegata: voce ? voce.domanda.testo : null,
         associazione_domanda_metodo: metodo
@@ -488,7 +516,28 @@ const importMatching = (() => {
     });
   }
 
+  function rigaImportabile(riga) {
+    return riga.domanda_id != null && riga.stato_riga !== 'conflitto' &&
+      (riga.automatico || riga.metodo === 'manuale');
+  }
+
+  /** Cambia soltanto la destinazione del pacchetto sorgente; stato e nota non si rimatchano. */
+  function cambiaDomandaRiga(riga, domandaId, immagini = []) {
+    riga.domanda_id = domandaId;
+    riga.metodo = domandaId != null ? 'manuale' : null;
+    riga.automatico = false;
+    immagini.forEach(foto => {
+      if (foto.riga_sorgente_indice != null && foto.riga_sorgente_indice === riga.indice) {
+        foto.domanda_id_collegata = domandaId;
+        foto.domanda_testo_collegata = null;
+      }
+    });
+    return riga;
+  }
+
   return {
+    rigaImportabile,
+    cambiaDomandaRiga,
     normalizzaTesto,
     similarita,
     appiattisciDomande,

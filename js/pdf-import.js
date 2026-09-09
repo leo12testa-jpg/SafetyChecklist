@@ -54,7 +54,7 @@ const pdfImport = (() => {
   const TOLLERANZA_COLONNA_ID_PT = 10;
   const TOLLERANZA_RIGA_NOTA_PT = 40;
   const TOLLERANZA_RIGA_MULTILINEA_PT = 12;
-  const TOLLERANZA_TITOLO_SEZIONE_PT = 14;
+  const TOLLERANZA_TITOLO_SEZIONE_PT = 18;
 
   /**
    * Gap (in pt) oltre il quale due righe consecutive di testo (colonna Note o Descrizione
@@ -246,6 +246,88 @@ const pdfImport = (() => {
     return testoPerId;
   }
 
+  /** Bordi orizzontali reali delle celle, in coordinate PDF (prima del viewport). */
+  async function estraiBordiTabella(pagina) {
+    const ops = await pagina.getOperatorList(), O = pdfjsLib.OPS;
+    let matrix = [1, 0, 0, 1, 0, 0];
+    const stack = [], bordi = [];
+    const punto = (x, y) => pdfjsLib.Util.applyTransform([x, y], matrix);
+    const segmento = (a, b) => {
+      if (Math.abs(a[1] - b[1]) < 0.5 && Math.abs(a[0] - b[0]) > 5)
+        bordi.push({ x1: Math.min(a[0], b[0]), x2: Math.max(a[0], b[0]), y: (a[1] + b[1]) / 2 });
+    };
+    for (let i = 0; i < ops.fnArray.length; i++) {
+      const fn = ops.fnArray[i], args = ops.argsArray[i];
+      if (fn === O.save || fn === O.paintFormXObjectBegin) {
+        stack.push(matrix.slice());
+        if (fn === O.paintFormXObjectBegin && args[0]) matrix = pdfjsLib.Util.transform(matrix, args[0]);
+      } else if (fn === O.restore || fn === O.paintFormXObjectEnd) matrix = stack.pop() || [1,0,0,1,0,0];
+      else if (fn === O.transform) matrix = pdfjsLib.Util.transform(matrix, args);
+      else if (fn === O.constructPath) {
+        const codes = args[0], values = args[1]; let k = 0, last = null, start = null;
+        for (const code of codes) {
+          if (code === O.rectangle) {
+            const x=values[k++], y=values[k++], w=values[k++], h=values[k++];
+            segmento(punto(x,y), punto(x+w,y)); segmento(punto(x,y+h), punto(x+w,y+h));
+          } else if (code === O.moveTo) { last=punto(values[k++],values[k++]); start=last; }
+          else if (code === O.lineTo) { const next=punto(values[k++],values[k++]); if(last) segmento(last,next); last=next; }
+          else if (code === O.closePath) { if(last && start) segmento(last,start); last=start; }
+          else if (code === O.curveTo) { k+=6; last=null; }
+          else if (code === O.curveTo2 || code === O.curveTo3) { k+=4; last=null; }
+        }
+      }
+    }
+    return bordi;
+  }
+
+  /** Una cella/riga sorgente contiene insieme domanda, stato e nota, anche tra pagine. */
+  function righeDaCelle(items, colonne, bordi, contesto, formato) {
+    if (!bordi || !bordi.length) return null;
+    const storico = formato === 'storico';
+    const idX = storico ? CENTRO_COLONNA_ID_STORICO : colonne.idX;
+    const limiti = Array.from(new Set(bordi.filter(b => b.x1 <= idX + 3 && b.x2 >= idX).map(b => Math.round(b.y * 10) / 10))).sort((a,b) => b-a);
+    if (limiti.length < 2) return null;
+    const risultato = [];
+    let sezione = contesto.titolo || null;
+    for (let i=0; i<limiti.length-1; i++) {
+      const top=limiti[i], bottom=limiti[i+1];
+      const cella=items.filter(it => it.y < top && it.y > bottom);
+      if (!cella.length) continue;
+      const header=cella.some(it => storico ? INTESTAZIONI_STORICO.includes(it.testo.trim()) : it.testo.trim()==='n.');
+      const banner=cella.find(it => /^(AUDIT DOCUMENTALE|ANALISI DOCUMENTALE|SOPRALLUOGO AMBIENTI DI LAVORO)$/.test(it.testo.trim()));
+      if (banner) { sezione=banner.testo; contesto.ultimaRiga=null; continue; }
+      if (header) {
+        if (!storico) {
+          const h=cella.find(it => it.testo.trim()==='n.');
+          const titolo=h && trovaTitoloSezione(items,h,colonne);
+          if (titolo && titolo!==sezione) { sezione=titolo; contesto.ultimaRiga=null; }
+        }
+        continue;
+      }
+      const ancore=cella.filter(it => Math.abs(it.x-idX)<(storico ? 20 : 10) && (storico ? /^\d+\)$/.test(it.testo.trim()) : /^\d+$/.test(it.testo.trim())));
+      const testo=ricomponiTesto(raggruppaInLinee(cella.filter(it => it.x>idX+(storico ? MARGINE_TESTO_DOMANDA_STORICO_PT : 10) && it.x<colonne.C-10),3));
+      const nota=ricomponiTesto(raggruppaInLinee(cella.filter(it => it.x>colonne.sogliaNota),3));
+      const marks=cella.filter(it => it.testo.trim()==='X' && it.x>=colonne.C-10 && it.x<colonne.sogliaNota);
+      if (ancore.length===1) {
+        const numero=parseInt(ancore[0].testo,10);
+        const riga={ formato, numero_originale:numero, id_originale:storico ? null : numero,
+          sezione_originale:sezione, testo_originale:testo, stato_originale:marks.length===1 ? colonnaStatoPiuVicina(marks[0].x,colonne) : null, nota_originale:nota || null };
+        // AutoTable may repeat the identifier on a split row on the next page.
+        const precedente=contesto.ultimaRiga;
+        if (!risultato.length && precedente && precedente.numero_originale===numero && precedente.sezione_originale===sezione) {
+          precedente.testo_originale=[precedente.testo_originale,testo].filter(Boolean).join(' ');
+          precedente.nota_originale=[precedente.nota_originale,nota].filter(Boolean).join(' ') || null;
+        } else { risultato.push(riga); contesto.ultimaRiga=riga; }
+      } else if (!ancore.length && (nota || testo) && contesto.ultimaRiga && !risultato.length) {
+        const precedente=contesto.ultimaRiga;
+        precedente.testo_originale=[precedente.testo_originale,testo].filter(Boolean).join(' ');
+        precedente.nota_originale=[precedente.nota_originale,nota].filter(Boolean).join(' ') || null;
+      }
+    }
+    contesto.titolo=sezione;
+    return risultato;
+  }
+
   /**
    * Estrae le righe grezze della tabella sezione presenti in questa pagina, con TUTTI i dati
    * originali preservati (id/numero/testo/stato/nota) — nessun filtro su quali id siano "validi"
@@ -405,7 +487,8 @@ const pdfImport = (() => {
       }
 
       if (colonneCorrenti) {
-        righe.push(...estraiRighePaginaNostro(items, colonneCorrenti, sezioneCorrente));
+        const daCelle = righeDaCelle(items, colonneCorrenti, itemsGrezzi.bordi, sezioneCorrente, 'nostro');
+        righe.push(...(daCelle === null ? estraiRighePaginaNostro(items, colonneCorrenti, sezioneCorrente) : daCelle));
       }
     });
 
@@ -637,12 +720,8 @@ const pdfImport = (() => {
   function elaboraEventiPaginaStorico(items, colonne, contesto) {
     const eventi = trovaEventiPaginaStorico(items);
     const righeProdotte = [];
-    if (!eventi.length) {
-      return { righe: righeProdotte, contesto };
-    }
-
     if (contesto.ultimaRiga) {
-      const primoEvento = eventi[0];
+      const primoEvento = eventi[0] || { y: -Infinity };
       const orfani = items.filter(
         (it) => it.y > primoEvento.y && it.x > colonne.sogliaNota && !INTESTAZIONI_STORICO.includes(it.testo.trim())
       );
@@ -667,7 +746,7 @@ const pdfImport = (() => {
       }
 
       const yFine = eventi[indice + 1] ? eventi[indice + 1].y : -Infinity;
-      const nellaRiga = (it) => it.y > yFine && it.y <= evento.y + 2;
+      const nellaRiga = (it) => it.y > yFine + 2 && it.y <= evento.y + 2;
 
       const marcature = items.filter((it) => it.testo.trim() === 'X' && nellaRiga(it));
       const stato = marcature.length === 1 ? colonnaStatoPiuVicina(marcature[0].x, colonne) : null;
@@ -708,6 +787,8 @@ const pdfImport = (() => {
     let strutturaRiconosciuta = false;
     let conversioneStatoRilevata = null;
     let contesto = { sezioneAttiva: null, ultimaRiga: null };
+    let colonnePrecedenti = null;
+    const celleContesto = { titolo: null, ultimaRiga: null };
 
     pagine.forEach((itemsGrezzi, indice) => {
       const numeroPagina = indice + 1;
@@ -715,7 +796,8 @@ const pdfImport = (() => {
       const itemsFiltrati = itemsGrezzi.filter((it) => it.y > limiteFooter);
       const items = raggruppaFrammentiAdiacenti(itemsFiltrati);
 
-      const colonne = trovaIntestazioniColonneStorico(items);
+      const colonne = trovaIntestazioniColonneStorico(items) || colonnePrecedenti;
+      colonnePrecedenti = colonne;
       if (colonne) {
         strutturaRiconosciuta = true;
         if (colonne.etichettaQuartaColonna !== 'NA' && !conversioneStatoRilevata) {
@@ -728,6 +810,8 @@ const pdfImport = (() => {
       }
 
       if (colonne) {
+        const daCelle = righeDaCelle(items, colonne, itemsGrezzi.bordi, celleContesto, 'storico');
+        if (daCelle !== null) { righe.push(...daCelle); return; }
         const esito = elaboraEventiPaginaStorico(items, colonne, contesto);
         righe.push(...esito.righe);
         contesto = esito.contesto;
@@ -860,6 +944,7 @@ const pdfImport = (() => {
         const items = contenuto.items
           .map((it) => ({ testo: it.str, x: it.transform[4], y: it.transform[5], w: it.width }))
           .filter((it) => it.testo.trim() !== '');
+        items.bordi = await estraiBordiTabella(pagina);
         pagine.push(items);
         immagini.push(...await estraiImmaginiPagina(pagina, items, numeroPagina, opzioni));
         pagina.cleanup();
