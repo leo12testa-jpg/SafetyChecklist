@@ -124,6 +124,69 @@ test('formato nostro: titolo di sezione ereditato dalla pagina precedente se la 
 });
 
 // ---------------------------------------------------------------------------------------------
+// Tabella "DATI GENERALI" (pagina 1, formato "nostro"): riga "Tecnico" con fino a 4 righe
+// (Interparking, vedi js/pdf.js#formattaTecnici) invece delle 1-2 di tutti gli altri clienti —
+// verifica che estraiDatiGeneraliNostro non disallinei i campi successivi (Data del sopralluogo/
+// Responsabile/presenza) quando quella riga si allunga.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Colonna etichette a x=20, colonna valori a x=120 (varco ampio per una soglia netta). Ogni campo
+ * è un gruppo di righe-valore separato dal successivo da un gap ampio (24pt, ben oltre i 12pt di
+ * TOLLERANZA_RIGA_MULTILINEA_PT); righeTecnico permette di variare quante righe occupa il valore
+ * "Tecnico" (1 per un solo tecnico, fino a 4 per Interparking), con un piccolo gap (8pt) fra loro.
+ */
+function paginaDatiGenerali(righeTecnico) {
+  const pagina = [
+    it('DATI GENERALI', 20, 400),
+    it('Punto vendita', 20, 390), it('Negozio Test', 120, 390), it('Via Roma 1', 120, 382),
+    it('Numero di dipendenti in forza al momento del sopralluogo', 20, 358), it('42', 120, 358)
+  ];
+  let y = 334;
+  righeTecnico.forEach((nome) => {
+    pagina.push(it('Tecnico', 20, y), it(nome, 120, y));
+    y -= 8;
+  });
+  y -= (24 - 8);
+  pagina.push(it('Data del sopralluogo', 20, y), it('08/09/2026', 120, y));
+  y -= 24;
+  pagina.push(it('Responsabile del punto vendita', 20, y), it('Luca Bianchi', 120, y));
+  y -= 24;
+  pagina.push(it('Sopralluogo alla presenza del responsabile', 20, y), it('Si', 120, y));
+  y -= 24;
+  pagina.push(it("Sopralluogo alla presenza dell'R.L.S.", 20, y), it('No', 120, y));
+  y -= 24;
+  pagina.push(it('n.', 20, y), it('Descrizione attività', 40, y));
+  return pagina;
+}
+
+test('DATI GENERALI: riga "Tecnico" su 1-2 righe (Coin/Restage/Melluso) resta allineata ai campi successivi', () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const anagrafica = pdfImportPerTest._test.estraiDatiGeneraliNostro(paginaDatiGenerali(['Mario Rossi', 'Anna Verdi']));
+  assert.equal(anagrafica.punto_vendita, 'Negozio Test');
+  assert.equal(anagrafica.indirizzo_punto_vendita, 'Via Roma 1');
+  assert.equal(anagrafica.numero_dipendenti, '42');
+  assert.equal(anagrafica.tecnico, 'Mario Rossi Anna Verdi');
+  assert.equal(anagrafica.data_sopralluogo, '08/09/2026');
+  assert.equal(anagrafica.responsabile_punto_vendita, 'Luca Bianchi');
+  assert.equal(anagrafica.presenza_responsabile, 'Si');
+  assert.equal(anagrafica.presenza_rls, 'No');
+});
+
+test('DATI GENERALI: riga "Tecnico" su 4 righe (Interparking) NON disallinea i campi successivi', () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const anagrafica = pdfImportPerTest._test.estraiDatiGeneraliNostro(
+    paginaDatiGenerali(['Leonardo Testa', 'Mario Rossi', 'Giulia Verdi', 'Paolo Neri'])
+  );
+  assert.equal(anagrafica.punto_vendita, 'Negozio Test');
+  assert.equal(anagrafica.tecnico, 'Leonardo Testa Mario Rossi Giulia Verdi Paolo Neri');
+  assert.equal(anagrafica.data_sopralluogo, '08/09/2026', 'campo successivo disallineato dalla riga Tecnico su 4 righe');
+  assert.equal(anagrafica.responsabile_punto_vendita, 'Luca Bianchi');
+  assert.equal(anagrafica.presenza_responsabile, 'Si');
+  assert.equal(anagrafica.presenza_rls, 'No');
+});
+
+// ---------------------------------------------------------------------------------------------
 // Formato "storico" — id "N)" attorno a x=32, descrizione da x=60, stato C=300/PC=320/NC=340/NA=360, note=420.
 // ---------------------------------------------------------------------------------------------
 

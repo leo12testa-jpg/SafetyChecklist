@@ -168,7 +168,7 @@ class FileReaderFinto {
   }
 }
 
-function creaMotorePdf(fotoFixture) {
+function creaMotorePdf(fotoFixture, etichettePersonalizzate = {}) {
   const context = {
     console,
     Uint8Array, ArrayBuffer, Blob,
@@ -177,9 +177,10 @@ function creaMotorePdf(fotoFixture) {
     atob: (s) => Buffer.from(s, 'base64').toString('binary'),
     navigator: { userAgent: 'node' },
     FileReader: FileReaderFinto,
-    // Nessuna checklist di test usa etichette personalizzate: mappa vuota, come da fallback
-    // documentato in js/pdf.js (etichetteDatiGenerali) per checklist non elencate.
-    ETICHETTE_PERSONALIZZATE_PER_CHECKLIST: {},
+    // Mappa vuota di default (fallback documentato in js/pdf.js#etichetteDatiGenerali per
+    // checklist non elencate); i test che verificano etichette personalizzate per uno specifico
+    // checklist_id (es. Interparking) passano la propria mappa come secondo argomento.
+    ETICHETTE_PERSONALIZZATE_PER_CHECKLIST: etichettePersonalizzate,
     fetch: async (url) => {
       try {
         const buf = fs.readFileSync(path.join(PROJECT_ROOT, url));
@@ -312,7 +313,8 @@ for (const cliente of CLIENTI) {
     assert.ok(pagine >= 5, `atteso almeno 5 pagine con questo volume di dati di prova, trovate ${pagine}`);
 
     const testoCompleto = testoNormalizzato(buf);
-    assert.equal(testoCompleto.includes(normalizza('Numero di dipendenti in forza al momento del sopralluogo')), cliente.chiave !== 'melluso');
+    const nascondeDipendenti = cliente.chiave === 'melluso' || cliente.chiave === 'interparking';
+    assert.equal(testoCompleto.includes(normalizza('Numero di dipendenti in forza al momento del sopralluogo')), !nascondeDipendenti);
     if (cliente.chiave === 'melluso') {
       assert.ok(!testoCompleto.includes('VECCHIA-DOMANDA-40'));
       assert.equal(sopralluogo.numero_dipendenti, 42);
@@ -435,4 +437,84 @@ test('intestazione Melluso: centri visivi allineati, proporzioni e quota tabella
     assert.equal(images[0].y,layout.margine);
     assert.equal(images[1].y,layout.margine, 'Altri clienti mantengono il posizionamento precedente');
   }
+});
+
+// ---------------------------------------------------------------------------------------------
+// Interparking: etichette personalizzate (Struttura/Parcheggio, Responsabile della struttura),
+// "Numero di dipendenti"/"Area Manager" mai mostrati, fino a 4 tecnici senza righe vuote.
+// La mappa qui sotto rispecchia ETICHETTE_PERSONALIZZATE_PER_CHECKLIST in js/app.js: il motore di
+// test non carica app.js (vedi commento su creaMotorePdf), quindi va tenuta allineata a mano.
+// ---------------------------------------------------------------------------------------------
+const ETICHETTE_INTERPARKING = {
+  interparking_sopralluogo: {
+    puntoVendita: 'Struttura / Parcheggio',
+    responsabile: 'Responsabile della struttura',
+    presenzaResponsabile: 'Il sopralluogo è effettuato alla presenza del responsabile della struttura?'
+  }
+};
+
+test('PDF Interparking: etichette personalizzate, "Numero di dipendenti" e "Area Manager" mai mostrati', async () => {
+  const checklist = caricaChecklist('interparking_sopralluogo.json');
+  const { sopralluogo } = costruisciSopralluogoDiProva(checklist, 'Interparking Test Store');
+  const motore = creaMotorePdf(FOTO_FIXTURE, ETICHETTE_INTERPARKING);
+
+  const buf = await motore.generaPdfBuffer(checklist, sopralluogo);
+  const testoCompleto = testoNormalizzato(buf);
+
+  assert.ok(testoCompleto.includes('Struttura / Parcheggio'), 'etichetta "Struttura / Parcheggio" non trovata');
+  assert.ok(!testoCompleto.includes(normalizza('Responsabile del punto vendita')), 'etichetta di default non doveva comparire');
+  assert.ok(testoCompleto.includes(normalizza('Responsabile della struttura')), 'etichetta "Responsabile della struttura" non trovata');
+  assert.ok(
+    testoCompleto.includes(normalizza('Il sopralluogo è effettuato alla presenza del responsabile della struttura?')),
+    'domanda presenza responsabile non trovata'
+  );
+  assert.ok(
+    !testoCompleto.includes(normalizza('Numero di dipendenti in forza al momento del sopralluogo')),
+    'numero dipendenti non deve comparire per Interparking'
+  );
+  assert.ok(!testoCompleto.includes('Area Manager'), 'Area Manager non deve comparire nel PDF Interparking');
+});
+
+test('PDF Interparking: 4 tecnici compilati, tutti presenti ed etichetta al plurale', async () => {
+  const checklist = caricaChecklist('interparking_sopralluogo.json');
+  const { sopralluogo } = costruisciSopralluogoDiProva(checklist, 'Interparking Test Store');
+  sopralluogo.tecnico = 'Leonardo Testa';
+  sopralluogo.tecnico_2 = 'Mario Rossi';
+  sopralluogo.tecnico_3 = 'Giulia Verdi';
+  sopralluogo.tecnico_4 = 'Paolo Neri';
+  const motore = creaMotorePdf(FOTO_FIXTURE, ETICHETTE_INTERPARKING);
+
+  const buf = await motore.generaPdfBuffer(checklist, sopralluogo);
+  const testoCompleto = testoNormalizzato(buf);
+
+  assert.ok(testoCompleto.includes('Tecnici che hanno eseguito il sopralluogo'), 'etichetta plurale attesa con più tecnici');
+  ['Leonardo Testa', 'Mario Rossi', 'Giulia Verdi', 'Paolo Neri'].forEach((nome) => {
+    assert.ok(testoCompleto.includes(nome), `tecnico "${nome}" non trovato nel PDF`);
+  });
+});
+
+test('PDF Interparking: un solo tecnico compilato, etichetta al singolare, nessuna riga vuota per tecnico 2/3/4', async () => {
+  const checklist = caricaChecklist('interparking_sopralluogo.json');
+  const { sopralluogo } = costruisciSopralluogoDiProva(checklist, 'Interparking Test Store');
+  sopralluogo.tecnico = 'Leonardo Testa';
+  sopralluogo.tecnico_2 = null;
+  const motore = creaMotorePdf(FOTO_FIXTURE, ETICHETTE_INTERPARKING);
+
+  const buf = await motore.generaPdfBuffer(checklist, sopralluogo);
+  const testoCompleto = testoNormalizzato(buf);
+
+  assert.ok(testoCompleto.includes('Tecnico che ha eseguito il sopralluogo'), 'etichetta singolare attesa con un solo tecnico');
+  assert.ok(!testoCompleto.includes('Tecnici che hanno eseguito il sopralluogo'));
+  assert.equal(motore._test.formattaTecnici(sopralluogo), 'Leonardo Testa');
+});
+
+test('formattaTecnici: solo i tecnici compilati, mai righe vuote (compatibile con vecchi sopralluoghi solo tecnico/tecnico_2)', () => {
+  const motore = creaMotorePdf({});
+  assert.equal(motore._test.formattaTecnici({ tecnico: 'Mario Rossi', tecnico_2: 'Anna Verdi' }), 'Mario Rossi\nAnna Verdi');
+  assert.equal(motore._test.formattaTecnici({ tecnico: 'Mario Rossi' }), 'Mario Rossi');
+  assert.equal(
+    motore._test.formattaTecnici({ tecnico: 'Mario Rossi', tecnico_2: null, tecnico_3: undefined, tecnico_4: '' }),
+    'Mario Rossi'
+  );
+  assert.equal(motore._test.formattaTecnici({ tecnico: 'A', tecnico_2: 'B', tecnico_3: 'C', tecnico_4: 'D' }), 'A\nB\nC\nD');
 });

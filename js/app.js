@@ -146,8 +146,32 @@ const ETICHETTE_PERSONALIZZATE_PER_CHECKLIST = {
     puntoVendita: 'Unità produttiva',
     responsabile: 'Referente unità produttiva',
     presenzaResponsabile: 'Il sopralluogo è fatto alla presenza del referente?'
+  },
+  interparking_sopralluogo: {
+    puntoVendita: 'Struttura / Parcheggio',
+    responsabile: 'Responsabile della struttura',
+    presenzaResponsabile: 'Il sopralluogo è effettuato alla presenza del responsabile della struttura?'
   }
 };
+
+/**
+ * true se la checklist nasconde il campo "Numero di dipendenti in forza" (Melluso non lo rileva
+ * mai, Interparking non lo prevede come struttura/parcheggio): stessa gestione UI/PDF per
+ * entrambe, un solo posto da estendere se in futuro se ne aggiungesse un'altra.
+ */
+function checklistNascondeNumeroDipendenti(checklistId) {
+  return checklistId === 'melluso_sopralluogo' || checklistId === 'interparking_sopralluogo';
+}
+
+/** true se la checklist nasconde il campo "Area Manager" (solo Interparking). */
+function checklistNascondeAreaManager(checklistId) {
+  return checklistId === 'interparking_sopralluogo';
+}
+
+/** true se la checklist ammette Tecnico 3 e Tecnico 4 (facoltativi), oltre ai due di default. */
+function checklistAmmetteQuattroTecnici(checklistId) {
+  return checklistId === 'interparking_sopralluogo';
+}
 
 /**
  * Applica le etichette personalizzate (o quelle di default, salvate la prima volta in un data-
@@ -320,6 +344,14 @@ const nuovoSopralluogoScreen = (() => {
   const inputTecnico2 = document.getElementById('input-tecnico-2');
   const labelTecnico2Altro = document.getElementById('label-input-tecnico-2-altro');
   const inputTecnico2Altro = document.getElementById('input-tecnico-2-altro');
+  const labelTecnico3 = document.getElementById('label-input-tecnico-3');
+  const inputTecnico3 = document.getElementById('input-tecnico-3');
+  const labelTecnico3Altro = document.getElementById('label-input-tecnico-3-altro');
+  const inputTecnico3Altro = document.getElementById('input-tecnico-3-altro');
+  const labelTecnico4 = document.getElementById('label-input-tecnico-4');
+  const inputTecnico4 = document.getElementById('input-tecnico-4');
+  const labelTecnico4Altro = document.getElementById('label-input-tecnico-4-altro');
+  const inputTecnico4Altro = document.getElementById('input-tecnico-4-altro');
   const inputDataSopralluogo = document.getElementById('input-data-sopralluogo');
   const inputResponsabile = document.getElementById('input-responsabile');
   const inputAreaManager = document.getElementById('input-area-manager');
@@ -347,7 +379,9 @@ const nuovoSopralluogoScreen = (() => {
     await Promise.all([
       popolaSuggerimentiAnagrafica({ listaPuntiVendita, listaIndirizzi, listaResponsabili, listaAreaManager }),
       popolaSelectTecnico(inputTecnico),
-      popolaSelectTecnico(inputTecnico2)
+      popolaSelectTecnico(inputTecnico2),
+      popolaSelectTecnico(inputTecnico3),
+      popolaSelectTecnico(inputTecnico4)
     ]);
   }
 
@@ -360,9 +394,25 @@ const nuovoSopralluogoScreen = (() => {
 
   /** Etichette anagrafiche (Punto vendita/Responsabile/presenza responsabile) coerenti con la checklist attualmente selezionata. */
   function aggiornaEtichetteAnagrafica() {
-    inputNumeroDipendenti.disabled = selectChecklist.value === 'melluso_sopralluogo';
+    const checklistId = selectChecklist.value;
+
+    inputNumeroDipendenti.disabled = checklistNascondeNumeroDipendenti(checklistId);
     inputNumeroDipendenti.closest('label').hidden = inputNumeroDipendenti.disabled;
-    applicaEtichettePersonalizzate(selectChecklist.value, {
+
+    inputAreaManager.disabled = checklistNascondeAreaManager(checklistId);
+    inputAreaManager.closest('label').hidden = inputAreaManager.disabled;
+
+    const mostraQuattroTecnici = checklistAmmetteQuattroTecnici(checklistId);
+    labelTecnico3.hidden = !mostraQuattroTecnici;
+    labelTecnico4.hidden = !mostraQuattroTecnici;
+    if (!mostraQuattroTecnici) {
+      inputTecnico3.value = '';
+      inputTecnico4.value = '';
+      aggiornaVisibilitaTecnicoAltro(inputTecnico3, labelTecnico3Altro, inputTecnico3Altro);
+      aggiornaVisibilitaTecnicoAltro(inputTecnico4, labelTecnico4Altro, inputTecnico4Altro);
+    }
+
+    applicaEtichettePersonalizzate(checklistId, {
       puntoVendita: labelPuntoVenditaTesto,
       responsabile: labelResponsabileTesto,
       presenzaResponsabile: labelPresenzaResponsabileTesto
@@ -539,24 +589,31 @@ const nuovoSopralluogoScreen = (() => {
     inputDataSopralluogo.value = oggiISO();
     aggiornaVisibilitaTecnicoAltro(inputTecnico, labelTecnicoAltro, inputTecnicoAltro);
     aggiornaVisibilitaTecnicoAltro(inputTecnico2, labelTecnico2Altro, inputTecnico2Altro);
+    aggiornaVisibilitaTecnicoAltro(inputTecnico3, labelTecnico3Altro, inputTecnico3Altro);
+    aggiornaVisibilitaTecnicoAltro(inputTecnico4, labelTecnico4Altro, inputTecnico4Altro);
     annullaImportazione(null);
     await Promise.all([popolaSuggerimenti(), caricaChecklistECliente()]);
   }
 
   /** Valori anagrafici correnti del form, nella forma richiesta da db.creaSopralluogo. */
   function leggiAnagraficaForm() {
+    const checklistId = selectChecklist.value;
     return {
       punto_vendita: inputPuntoVendita.value.trim(),
       indirizzo_punto_vendita: inputIndirizzo.value.trim(),
-      ...(selectChecklist.value === 'melluso_sopralluogo' ? {} : { numero_dipendenti: inputNumeroDipendenti.value }),
+      ...(checklistNascondeNumeroDipendenti(checklistId) ? {} : { numero_dipendenti: inputNumeroDipendenti.value }),
       tecnico: leggiValoreTecnico(inputTecnico, inputTecnicoAltro),
       tecnico_2: leggiValoreTecnico(inputTecnico2, inputTecnico2Altro) || null,
+      ...(checklistAmmetteQuattroTecnici(checklistId) ? {
+        tecnico_3: leggiValoreTecnico(inputTecnico3, inputTecnico3Altro) || null,
+        tecnico_4: leggiValoreTecnico(inputTecnico4, inputTecnico4Altro) || null
+      } : {}),
       data_sopralluogo: inputDataSopralluogo.value,
       responsabile_punto_vendita: inputResponsabile.value.trim(),
-      area_manager: inputAreaManager.value.trim() || null,
+      area_manager: checklistNascondeAreaManager(checklistId) ? null : (inputAreaManager.value.trim() || null),
       presenza_responsabile: selectPresenzaResponsabile.value,
       presenza_rls: selectPresenzaRls.value,
-      checklist_id: selectChecklist.value
+      checklist_id: checklistId
     };
   }
 
@@ -586,6 +643,8 @@ const nuovoSopralluogoScreen = (() => {
     inputPuntoVendita.addEventListener('input', filtraChecklistPerCliente);
     inputTecnico.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico, labelTecnicoAltro, inputTecnicoAltro));
     inputTecnico2.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico2, labelTecnico2Altro, inputTecnico2Altro));
+    inputTecnico3.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico3, labelTecnico3Altro, inputTecnico3Altro));
+    inputTecnico4.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico4, labelTecnico4Altro, inputTecnico4Altro));
     btnImportaPdf.addEventListener('click', onClickImportaPdf);
     inputImportaPdf.addEventListener('change', onFileImportaPdfSelezionato);
     selectChecklist.addEventListener('change', () => {
@@ -2802,6 +2861,14 @@ const anagraficaDialog = (() => {
   const inputTecnico2 = document.getElementById('anagrafica-tecnico-2');
   const labelTecnico2Altro = document.getElementById('label-anagrafica-tecnico-2-altro');
   const inputTecnico2Altro = document.getElementById('anagrafica-tecnico-2-altro');
+  const labelTecnico3 = document.getElementById('label-anagrafica-tecnico-3');
+  const inputTecnico3 = document.getElementById('anagrafica-tecnico-3');
+  const labelTecnico3Altro = document.getElementById('label-anagrafica-tecnico-3-altro');
+  const inputTecnico3Altro = document.getElementById('anagrafica-tecnico-3-altro');
+  const labelTecnico4 = document.getElementById('label-anagrafica-tecnico-4');
+  const inputTecnico4 = document.getElementById('anagrafica-tecnico-4');
+  const labelTecnico4Altro = document.getElementById('label-anagrafica-tecnico-4-altro');
+  const inputTecnico4Altro = document.getElementById('anagrafica-tecnico-4-altro');
   const inputData = document.getElementById('anagrafica-data');
   const inputResponsabile = document.getElementById('anagrafica-responsabile');
   const inputAreaManager = document.getElementById('anagrafica-area-manager');
@@ -2837,13 +2904,19 @@ const anagraficaDialog = (() => {
     inputPuntoVendita.value = sopralluogo.punto_vendita || '';
     inputIndirizzo.value = sopralluogo.indirizzo_punto_vendita || '';
     inputNumeroDipendenti.value = sopralluogo.numero_dipendenti || '';
-    inputNumeroDipendenti.disabled = sopralluogo.checklist_id === 'melluso_sopralluogo';
+    inputNumeroDipendenti.disabled = checklistNascondeNumeroDipendenti(sopralluogo.checklist_id);
     inputNumeroDipendenti.closest('label').hidden = inputNumeroDipendenti.disabled;
     inputData.value = sopralluogo.data_sopralluogo || '';
     inputResponsabile.value = sopralluogo.responsabile_punto_vendita || '';
     inputAreaManager.value = sopralluogo.area_manager || '';
+    inputAreaManager.disabled = checklistNascondeAreaManager(sopralluogo.checklist_id);
+    inputAreaManager.closest('label').hidden = inputAreaManager.disabled;
     selectPresenzaResponsabile.value = sopralluogo.presenza_responsabile || '';
     selectPresenzaRls.value = sopralluogo.presenza_rls || '';
+
+    const mostraQuattroTecnici = checklistAmmetteQuattroTecnici(sopralluogo.checklist_id);
+    labelTecnico3.hidden = !mostraQuattroTecnici;
+    labelTecnico4.hidden = !mostraQuattroTecnici;
 
     applicaEtichettePersonalizzate(sopralluogo.checklist_id, {
       puntoVendita: labelPuntoVenditaTesto,
@@ -2853,8 +2926,12 @@ const anagraficaDialog = (() => {
 
     await popolaSelectTecnico(inputTecnico);
     await popolaSelectTecnico(inputTecnico2);
+    await popolaSelectTecnico(inputTecnico3);
+    await popolaSelectTecnico(inputTecnico4);
     precompilaTecnico(inputTecnico, labelTecnicoAltro, inputTecnicoAltro, sopralluogo.tecnico);
     precompilaTecnico(inputTecnico2, labelTecnico2Altro, inputTecnico2Altro, sopralluogo.tecnico_2);
+    precompilaTecnico(inputTecnico3, labelTecnico3Altro, inputTecnico3Altro, mostraQuattroTecnici ? sopralluogo.tecnico_3 : '');
+    precompilaTecnico(inputTecnico4, labelTecnico4Altro, inputTecnico4Altro, mostraQuattroTecnici ? sopralluogo.tecnico_4 : '');
 
     popolaSuggerimentiAnagrafica({ listaPuntiVendita, listaIndirizzi, listaResponsabili, listaAreaManager });
     dialog.showModal();
@@ -2863,15 +2940,21 @@ const anagraficaDialog = (() => {
   async function onSubmit(event) {
     event.preventDefault();
 
+    const permetteQuattroTecnici = !labelTecnico3.hidden;
+
     const aggiornato = await db.aggiornaSopralluogo(sopralluogoId, {
       punto_vendita: inputPuntoVendita.value.trim(),
       indirizzo_punto_vendita: inputIndirizzo.value.trim(),
       ...(inputNumeroDipendenti.disabled ? {} : { numero_dipendenti: inputNumeroDipendenti.value }),
       tecnico: leggiValoreTecnico(inputTecnico, inputTecnicoAltro),
       tecnico_2: leggiValoreTecnico(inputTecnico2, inputTecnico2Altro) || null,
+      ...(permetteQuattroTecnici ? {
+        tecnico_3: leggiValoreTecnico(inputTecnico3, inputTecnico3Altro) || null,
+        tecnico_4: leggiValoreTecnico(inputTecnico4, inputTecnico4Altro) || null
+      } : {}),
       data_sopralluogo: inputData.value,
       responsabile_punto_vendita: inputResponsabile.value.trim(),
-      area_manager: inputAreaManager.value.trim() || null,
+      ...(inputAreaManager.disabled ? {} : { area_manager: inputAreaManager.value.trim() || null }),
       presenza_responsabile: selectPresenzaResponsabile.value,
       presenza_rls: selectPresenzaRls.value
     });
@@ -2886,6 +2969,8 @@ const anagraficaDialog = (() => {
     form.addEventListener('submit', onSubmit);
     inputTecnico.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico, labelTecnicoAltro, inputTecnicoAltro));
     inputTecnico2.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico2, labelTecnico2Altro, inputTecnico2Altro));
+    inputTecnico3.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico3, labelTecnico3Altro, inputTecnico3Altro));
+    inputTecnico4.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico4, labelTecnico4Altro, inputTecnico4Altro));
     bottoneAnnulla.addEventListener('click', () => dialog.close());
   }
 

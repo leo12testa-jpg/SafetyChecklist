@@ -156,14 +156,26 @@ const pdfImport = (() => {
     return candidate[0][0];
   }
 
-  /** Raggruppa una lista di elementi testo in righe (per y, tolleranza) ordinate dall'alto in basso: [{ y, parti }]. */
-  function raggruppaInLinee(items, tolleranza) {
+  /**
+   * Raggruppa una lista di elementi testo in righe (per y, tolleranza) ordinate dall'alto in
+   * basso: [{ y, parti }]. Con `ancoraScorrevole` la tolleranza si applica all'ultima riga
+   * effettivamente aggiunta al gruppo (non alla prima incontrata): necessario per il valore della
+   * riga "Tecnico" di DATI GENERALI (vedi estraiDatiGeneraliNostro), che con Interparking può
+   * estendersi fino a 4 righe — con l'ancora fissa la 3ª/4ª riga si allontanerebbe troppo dalla
+   * prima e romperebbe erroneamente il gruppo, disallineando tutti i campi successivi. Il
+   * comportamento di default (ancora fissa) resta invariato per tutti gli altri usi di questa
+   * funzione, che raggruppano solo frammenti della STESSA riga visiva.
+   */
+  function raggruppaInLinee(items, tolleranza, ancoraScorrevole = false) {
     const ordinati = [...items].sort((a, b) => b.y - a.y);
     const linee = [];
     ordinati.forEach((parte) => {
       const ultima = linee[linee.length - 1];
       if (ultima && Math.abs(ultima.y - parte.y) <= tolleranza) {
         ultima.parti.push(parte);
+        if (ancoraScorrevole) {
+          ultima.y = parte.y;
+        }
       } else {
         linee.push({ y: parte.y, parti: [parte] });
       }
@@ -434,7 +446,8 @@ const pdfImport = (() => {
 
     const righeValore = raggruppaInLinee(
       zonaTabella.filter((it) => it.x >= sogliaValore),
-      TOLLERANZA_RIGA_MULTILINEA_PT
+      TOLLERANZA_RIGA_MULTILINEA_PT,
+      true
     );
 
     const risultato = {};
@@ -989,7 +1002,8 @@ const pdfImport = (() => {
     _test: {
       provaFormatoNostro,
       provaFormatoStorico,
-      raggruppaFrammentiAdiacenti
+      raggruppaFrammentiAdiacenti,
+      estraiDatiGeneraliNostro
     }
   };
 })();

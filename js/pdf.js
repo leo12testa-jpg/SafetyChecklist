@@ -414,14 +414,15 @@ const pdf = (() => {
   function disegnaTabellaDatiGenerali(doc, layout, checklist, sopralluogo, y, hookLegenda) {
     const etichette = etichetteDatiGenerali(checklist.id);
     const puntoVendita = `${sopralluogo.punto_vendita || ''}\n${sopralluogo.indirizzo_punto_vendita || ''}`;
+    const nascondeNumeroDipendenti = checklist.id === 'melluso_sopralluogo' || checklist.id === 'interparking_sopralluogo';
+    const tecnici = formattaTecnici(sopralluogo);
 
     const corpo = [
       [etichette.puntoVendita, puntoVendita],
-      ...(checklist.id === 'melluso_sopralluogo' ? [] : [
+      ...(nascondeNumeroDipendenti ? [] : [
         ['Numero di dipendenti in forza al momento del sopralluogo', String(sopralluogo.numero_dipendenti || '')]
       ]),
-      [sopralluogo.tecnico_2 ? 'Tecnici che hanno eseguito il sopralluogo' : 'Tecnico che ha eseguito il sopralluogo',
-        formattaTecnici(sopralluogo)],
+      [tecnici.includes('\n') ? 'Tecnici che hanno eseguito il sopralluogo' : 'Tecnico che ha eseguito il sopralluogo', tecnici],
       ['Data del sopralluogo', formattaDataSemplice(sopralluogo.data_sopralluogo)],
       [etichette.responsabile, sopralluogo.responsabile_punto_vendita || ''],
       [etichette.presenzaResponsabile, sopralluogo.presenza_responsabile || ''],
@@ -443,8 +444,9 @@ const pdf = (() => {
     return doc.lastAutoTable.finalY + layout.gapDopoTabellaDatiGenerali;
   }
 
+  /** Solo i tecnici effettivamente compilati (mai righe vuote): fino a 4 con Interparking. */
   function formattaTecnici(sopralluogo) {
-    return [sopralluogo.tecnico, sopralluogo.tecnico_2].filter(Boolean).join('\n');
+    return [sopralluogo.tecnico, sopralluogo.tecnico_2, sopralluogo.tecnico_3, sopralluogo.tecnico_4].filter(Boolean).join('\n');
   }
 
   /**

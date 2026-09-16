@@ -122,6 +122,8 @@ const db = (() => {
     numero_dipendenti,
     tecnico,
     tecnico_2 = null,
+    tecnico_3 = null,
+    tecnico_4 = null,
     data_sopralluogo,
     responsabile_punto_vendita,
     area_manager = null,
@@ -138,6 +140,10 @@ const db = (() => {
       numero_dipendenti,
       tecnico,
       tecnico_2: tecnico_2 || null,
+      // Tecnico 3/4: solo Interparking (fino a 4 tecnici, vedi checklistAmmetteQuattroTecnici in
+      // app.js), null per tutti gli altri clienti.
+      tecnico_3: tecnico_3 || null,
+      tecnico_4: tecnico_4 || null,
       data_sopralluogo,
       responsabile_punto_vendita,
       // Ruolo distinto dal responsabile del punto vendita (un'area manager segue più punti
@@ -191,6 +197,10 @@ const db = (() => {
       numero_dipendenti: originale.numero_dipendenti,
       tecnico: overrides.tecnico ?? originale.tecnico,
       tecnico_2: overrides.tecnico_2 ?? originale.tecnico_2 ?? null,
+      // Tecnico 3/4 (solo Interparking): nessun campo dedicato nel dialogo "Duplica", ma i valori
+      // dell'originale non vanno persi nella copia.
+      tecnico_3: originale.tecnico_3 ?? null,
+      tecnico_4: originale.tecnico_4 ?? null,
       data_sopralluogo: overrides.data_sopralluogo ?? originale.data_sopralluogo,
       responsabile_punto_vendita: originale.responsabile_punto_vendita,
       area_manager: originale.area_manager ?? null,
