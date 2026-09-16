@@ -518,3 +518,61 @@ test('formattaTecnici: solo i tecnici compilati, mai righe vuote (compatibile co
   );
   assert.equal(motore._test.formattaTecnici({ tecnico: 'A', tecnico_2: 'B', tecnico_3: 'C', tecnico_4: 'D' }), 'A\nB\nC\nD');
 });
+
+// ---------------------------------------------------------------------------------------------
+// Interparking: "Nome RLS" mostrato SOLO quando presenza_rls = "Sì" e nome_rls è compilato,
+// mai una riga vuota, mai per altri clienti.
+// ---------------------------------------------------------------------------------------------
+test('PDF Interparking: RLS presente e nome compilato mostra "Nome RLS: <nome>"', async () => {
+  const checklist = caricaChecklist('interparking_sopralluogo.json');
+  const { sopralluogo } = costruisciSopralluogoDiProva(checklist, 'Interparking Test Store');
+  sopralluogo.presenza_rls = 'Sì';
+  sopralluogo.nome_rls = 'Mario Rossi RLS';
+  const motore = creaMotorePdf(FOTO_FIXTURE, ETICHETTE_INTERPARKING);
+
+  const buf = await motore.generaPdfBuffer(checklist, sopralluogo);
+  const testoCompleto = testoNormalizzato(buf);
+
+  assert.ok(testoCompleto.includes('Nome RLS'), 'etichetta "Nome RLS" non trovata');
+  assert.ok(testoCompleto.includes('Mario Rossi RLS'), 'nome del RLS non trovato nel PDF');
+});
+
+test('PDF Interparking: RLS presente ma nome_rls vuoto non mostra la riga "Nome RLS"', async () => {
+  const checklist = caricaChecklist('interparking_sopralluogo.json');
+  const { sopralluogo } = costruisciSopralluogoDiProva(checklist, 'Interparking Test Store');
+  sopralluogo.presenza_rls = 'Sì';
+  sopralluogo.nome_rls = null;
+  const motore = creaMotorePdf(FOTO_FIXTURE, ETICHETTE_INTERPARKING);
+
+  const buf = await motore.generaPdfBuffer(checklist, sopralluogo);
+  const testoCompleto = testoNormalizzato(buf);
+
+  assert.ok(!testoCompleto.includes('Nome RLS'), 'non doveva comparire una riga "Nome RLS" vuota');
+});
+
+test('PDF Interparking: RLS assente non mostra "Nome RLS" anche se un valore storico è rimasto salvato', async () => {
+  const checklist = caricaChecklist('interparking_sopralluogo.json');
+  const { sopralluogo } = costruisciSopralluogoDiProva(checklist, 'Interparking Test Store');
+  sopralluogo.presenza_rls = 'No';
+  sopralluogo.nome_rls = 'Vecchio Nome Storico';
+  const motore = creaMotorePdf(FOTO_FIXTURE, ETICHETTE_INTERPARKING);
+
+  const buf = await motore.generaPdfBuffer(checklist, sopralluogo);
+  const testoCompleto = testoNormalizzato(buf);
+
+  assert.ok(!testoCompleto.includes('Nome RLS'), 'con presenza RLS = No non deve comparire "Nome RLS"');
+});
+
+test('PDF Coin: nome_rls non viene mai mostrato (campo esclusivo Interparking)', async () => {
+  const checklist = caricaChecklist('coin_sopralluogo.json');
+  const { sopralluogo } = costruisciSopralluogoDiProva(checklist, 'Coin Test Store');
+  sopralluogo.presenza_rls = 'Sì';
+  sopralluogo.nome_rls = 'Non dovrebbe comparire';
+  const motore = creaMotorePdf(FOTO_FIXTURE);
+
+  const buf = await motore.generaPdfBuffer(checklist, sopralluogo);
+  const testoCompleto = testoNormalizzato(buf);
+
+  assert.ok(!testoCompleto.includes('Nome RLS'), 'Coin non deve mai mostrare "Nome RLS"');
+  assert.ok(!testoCompleto.includes('Non dovrebbe comparire'));
+});

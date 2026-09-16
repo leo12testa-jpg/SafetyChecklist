@@ -45,7 +45,7 @@
             <datalist id="lista-punti-vendita"></datalist>
           </label>
 
-          <label class="campo-form" for="input-indirizzo-punto-vendita">Indirizzo punto vendita
+          <label class="campo-form" for="input-indirizzo-punto-vendita"><span id="label-input-indirizzo-testo">Indirizzo punto vendita</span>
             <input type="text" id="input-indirizzo-punto-vendita" list="lista-indirizzi" autocomplete="off">
             <datalist id="lista-indirizzi"></datalist>
           </label>
@@ -123,6 +123,11 @@
               <option value="Sì">Sì</option>
               <option value="No">No</option>
             </select>
+          </label>
+
+          <!-- Nome RLS: solo Interparking, visibile solo quando presenza RLS = Sì -->
+          <label class="campo-form" for="input-nome-rls" id="label-input-nome-rls" hidden>Nome RLS (facoltativo)
+            <input type="text" id="input-nome-rls" autocomplete="off">
           </label>
 
           <label class="campo-form" for="select-checklist">Checklist
@@ -319,7 +324,7 @@
           <input type="text" id="duplica-punto-vendita" required>
         </label>
 
-        <label class="campo-form" for="duplica-indirizzo">Indirizzo punto vendita
+        <label class="campo-form" for="duplica-indirizzo"><span id="label-duplica-indirizzo-testo">Indirizzo punto vendita</span>
           <input type="text" id="duplica-indirizzo" required>
         </label>
 
@@ -364,7 +369,7 @@
           <datalist id="anagrafica-lista-punti-vendita"></datalist>
         </label>
 
-        <label class="campo-form" for="anagrafica-indirizzo">Indirizzo punto vendita
+        <label class="campo-form" for="anagrafica-indirizzo"><span id="label-anagrafica-indirizzo-testo">Indirizzo punto vendita</span>
           <input type="text" id="anagrafica-indirizzo" list="anagrafica-lista-indirizzi" autocomplete="off">
           <datalist id="anagrafica-lista-indirizzi"></datalist>
         </label>
@@ -442,6 +447,11 @@
             <option value="Sì">Sì</option>
             <option value="No">No</option>
           </select>
+        </label>
+
+        <!-- Nome RLS: solo Interparking, visibile solo quando presenza RLS = Sì -->
+        <label class="campo-form" for="anagrafica-nome-rls" id="label-anagrafica-nome-rls" hidden>Nome RLS (facoltativo)
+          <input type="text" id="anagrafica-nome-rls" autocomplete="off">
         </label>
 
         <div class="dialog-duplica-azioni">

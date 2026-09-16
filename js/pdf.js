@@ -426,7 +426,12 @@ const pdf = (() => {
       ['Data del sopralluogo', formattaDataSemplice(sopralluogo.data_sopralluogo)],
       [etichette.responsabile, sopralluogo.responsabile_punto_vendita || ''],
       [etichette.presenzaResponsabile, sopralluogo.presenza_responsabile || ''],
-      ["Sopralluogo alla presenza dell'R.L.S.", sopralluogo.presenza_rls || '']
+      ["Sopralluogo alla presenza dell'R.L.S.", sopralluogo.presenza_rls || ''],
+      // Nome RLS: solo Interparking, solo se l'RLS era presente e il nome è stato compilato
+      // (mai una riga vuota altrimenti).
+      ...(checklist.id === 'interparking_sopralluogo' && sopralluogo.presenza_rls === 'Sì' && sopralluogo.nome_rls ? [
+        ['Nome RLS', sopralluogo.nome_rls]
+      ] : [])
     ];
 
     doc.autoTable({

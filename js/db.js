@@ -129,6 +129,7 @@ const db = (() => {
     area_manager = null,
     presenza_responsabile,
     presenza_rls,
+    nome_rls = null,
     checklist_id
   }) {
     const store = await transazione('sopralluoghi', 'readwrite');
@@ -152,6 +153,9 @@ const db = (() => {
       area_manager,
       presenza_responsabile,
       presenza_rls,
+      // Nome del RLS presente al sopralluogo: solo Interparking, facoltativo, visibile solo
+      // quando presenza_rls = "Sì" (vedi checklistAmmetteNomeRls in app.js).
+      nome_rls,
       checklist_id,
       data: adesso,
       stato: 'in corso',
@@ -206,6 +210,9 @@ const db = (() => {
       area_manager: originale.area_manager ?? null,
       presenza_responsabile: originale.presenza_responsabile,
       presenza_rls: originale.presenza_rls,
+      // Nome RLS (solo Interparking): nessun campo dedicato nel dialogo "Duplica", ma il valore
+      // dell'originale non va perso nella copia.
+      nome_rls: originale.nome_rls ?? null,
       checklist_id: originale.checklist_id,
       data: adesso,
       stato: 'in corso',

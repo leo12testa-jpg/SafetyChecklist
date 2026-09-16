@@ -149,6 +149,7 @@ const ETICHETTE_PERSONALIZZATE_PER_CHECKLIST = {
   },
   interparking_sopralluogo: {
     puntoVendita: 'Struttura / Parcheggio',
+    indirizzo: 'Indirizzo struttura',
     responsabile: 'Responsabile della struttura',
     presenzaResponsabile: 'Il sopralluogo è effettuato alla presenza del responsabile della struttura?'
   }
@@ -170,6 +171,11 @@ function checklistNascondeAreaManager(checklistId) {
 
 /** true se la checklist ammette Tecnico 3 e Tecnico 4 (facoltativi), oltre ai due di default. */
 function checklistAmmetteQuattroTecnici(checklistId) {
+  return checklistId === 'interparking_sopralluogo';
+}
+
+/** true se la checklist ammette il campo facoltativo "Nome RLS" (solo Interparking, e solo quando presenza_rls = "Sì"). */
+function checklistAmmetteNomeRls(checklistId) {
   return checklistId === 'interparking_sopralluogo';
 }
 
@@ -357,9 +363,12 @@ const nuovoSopralluogoScreen = (() => {
   const inputAreaManager = document.getElementById('input-area-manager');
   const selectPresenzaResponsabile = document.getElementById('select-presenza-responsabile');
   const selectPresenzaRls = document.getElementById('select-presenza-rls');
+  const labelNomeRls = document.getElementById('label-input-nome-rls');
+  const inputNomeRls = document.getElementById('input-nome-rls');
   const selectChecklist = document.getElementById('select-checklist');
 
   const labelPuntoVenditaTesto = document.getElementById('label-input-punto-vendita-testo');
+  const labelIndirizzoTesto = document.getElementById('label-input-indirizzo-testo');
   const labelResponsabileTesto = document.getElementById('label-input-responsabile-testo');
   const labelPresenzaResponsabileTesto = document.getElementById('label-select-presenza-responsabile-testo');
 
@@ -392,7 +401,12 @@ const nuovoSopralluogoScreen = (() => {
     return `${oggi.getFullYear()}-${mese}-${giorno}`;
   }
 
-  /** Etichette anagrafiche (Punto vendita/Responsabile/presenza responsabile) coerenti con la checklist attualmente selezionata. */
+  /** Mostra "Nome RLS" solo per Interparking e solo quando la presenza RLS è "Sì". */
+  function aggiornaVisibilitaNomeRls() {
+    labelNomeRls.hidden = !(checklistAmmetteNomeRls(selectChecklist.value) && selectPresenzaRls.value === 'Sì');
+  }
+
+  /** Etichette anagrafiche (Punto vendita/Indirizzo/Responsabile/presenza responsabile) coerenti con la checklist attualmente selezionata. */
   function aggiornaEtichetteAnagrafica() {
     const checklistId = selectChecklist.value;
 
@@ -412,8 +426,11 @@ const nuovoSopralluogoScreen = (() => {
       aggiornaVisibilitaTecnicoAltro(inputTecnico4, labelTecnico4Altro, inputTecnico4Altro);
     }
 
+    aggiornaVisibilitaNomeRls();
+
     applicaEtichettePersonalizzate(checklistId, {
       puntoVendita: labelPuntoVenditaTesto,
+      indirizzo: labelIndirizzoTesto,
       responsabile: labelResponsabileTesto,
       presenzaResponsabile: labelPresenzaResponsabileTesto
     });
@@ -568,6 +585,7 @@ const nuovoSopralluogoScreen = (() => {
       if (anagrafica.area_manager) inputAreaManager.value = anagrafica.area_manager;
       impostaSelectSeValido(selectPresenzaResponsabile, anagrafica.presenza_responsabile);
       impostaSelectSeValido(selectPresenzaRls, anagrafica.presenza_rls);
+      aggiornaVisibilitaNomeRls();
       // La Data del sopralluogo NON viene sovrascritta con quella letta dal PDF: il nuovo
       // sopralluogo importato riparte da oggi (di default, comunque modificabile qui sopra).
 
@@ -613,6 +631,7 @@ const nuovoSopralluogoScreen = (() => {
       area_manager: checklistNascondeAreaManager(checklistId) ? null : (inputAreaManager.value.trim() || null),
       presenza_responsabile: selectPresenzaResponsabile.value,
       presenza_rls: selectPresenzaRls.value,
+      ...(checklistAmmetteNomeRls(checklistId) && selectPresenzaRls.value === 'Sì' ? { nome_rls: inputNomeRls.value.trim() || null } : {}),
       checklist_id: checklistId
     };
   }
@@ -645,6 +664,7 @@ const nuovoSopralluogoScreen = (() => {
     inputTecnico2.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico2, labelTecnico2Altro, inputTecnico2Altro));
     inputTecnico3.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico3, labelTecnico3Altro, inputTecnico3Altro));
     inputTecnico4.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico4, labelTecnico4Altro, inputTecnico4Altro));
+    selectPresenzaRls.addEventListener('change', aggiornaVisibilitaNomeRls);
     btnImportaPdf.addEventListener('click', onClickImportaPdf);
     inputImportaPdf.addEventListener('change', onFileImportaPdfSelezionato);
     selectChecklist.addEventListener('change', () => {
@@ -2782,6 +2802,7 @@ const duplicaDialog = (() => {
   const inputData = document.getElementById('duplica-data');
   const bottoneAnnulla = document.getElementById('btn-duplica-annulla');
   const labelPuntoVenditaTesto = document.getElementById('label-duplica-punto-vendita-testo');
+  const labelIndirizzoTesto = document.getElementById('label-duplica-indirizzo-testo');
 
   let sopralluogoOriginale = null;
 
@@ -2798,7 +2819,7 @@ const duplicaDialog = (() => {
     inputPuntoVendita.value = sopralluogo.punto_vendita || '';
     inputIndirizzo.value = sopralluogo.indirizzo_punto_vendita || '';
     inputData.value = oggiISO();
-    applicaEtichettePersonalizzate(sopralluogo.checklist_id, { puntoVendita: labelPuntoVenditaTesto });
+    applicaEtichettePersonalizzate(sopralluogo.checklist_id, { puntoVendita: labelPuntoVenditaTesto, indirizzo: labelIndirizzoTesto });
     await popolaSelectTecnico(inputTecnico);
     await popolaSelectTecnico(inputTecnico2);
     precompilaTecnico(inputTecnico, labelTecnicoAltro, inputTecnicoAltro, sopralluogo.tecnico);
@@ -2874,9 +2895,12 @@ const anagraficaDialog = (() => {
   const inputAreaManager = document.getElementById('anagrafica-area-manager');
   const selectPresenzaResponsabile = document.getElementById('anagrafica-presenza-responsabile');
   const selectPresenzaRls = document.getElementById('anagrafica-presenza-rls');
+  const labelNomeRls = document.getElementById('label-anagrafica-nome-rls');
+  const inputNomeRls = document.getElementById('anagrafica-nome-rls');
   const bottoneAnnulla = document.getElementById('btn-anagrafica-annulla');
 
   const labelPuntoVenditaTesto = document.getElementById('label-anagrafica-punto-vendita-testo');
+  const labelIndirizzoTesto = document.getElementById('label-anagrafica-indirizzo-testo');
   const labelResponsabileTesto = document.getElementById('label-anagrafica-responsabile-testo');
   const labelPresenzaResponsabileTesto = document.getElementById('label-anagrafica-presenza-responsabile-testo');
 
@@ -2887,6 +2911,15 @@ const anagraficaDialog = (() => {
 
   let sopralluogoId = null;
   let alSalvataggio = null;
+  // Checklist del sopralluogo aperto: qui non è modificabile (nessun <select> checklist in questo
+  // dialogo), ma serve a rivalutare la visibilità di "Nome RLS" quando l'utente cambia la
+  // presenza RLS mentre il dialogo è aperto (vedi aggiornaVisibilitaNomeRls).
+  let checklistIdCorrente = null;
+
+  /** Mostra "Nome RLS" solo per Interparking e solo quando la presenza RLS è "Sì". */
+  function aggiornaVisibilitaNomeRls() {
+    labelNomeRls.hidden = !(checklistAmmetteNomeRls(checklistIdCorrente) && selectPresenzaRls.value === 'Sì');
+  }
 
   /**
    * Apre il dialogo precompilato con i dati anagrafici correnti. `onSalvato(sopralluogoAggiornato)`
@@ -2900,6 +2933,7 @@ const anagraficaDialog = (() => {
     sopralluogoId = sopralluogoIdDaAprire;
     alSalvataggio = onSalvato || null;
     const sopralluogo = await db.leggiSopralluogo(sopralluogoId);
+    checklistIdCorrente = sopralluogo.checklist_id;
 
     inputPuntoVendita.value = sopralluogo.punto_vendita || '';
     inputIndirizzo.value = sopralluogo.indirizzo_punto_vendita || '';
@@ -2913,6 +2947,8 @@ const anagraficaDialog = (() => {
     inputAreaManager.closest('label').hidden = inputAreaManager.disabled;
     selectPresenzaResponsabile.value = sopralluogo.presenza_responsabile || '';
     selectPresenzaRls.value = sopralluogo.presenza_rls || '';
+    inputNomeRls.value = sopralluogo.nome_rls || '';
+    aggiornaVisibilitaNomeRls();
 
     const mostraQuattroTecnici = checklistAmmetteQuattroTecnici(sopralluogo.checklist_id);
     labelTecnico3.hidden = !mostraQuattroTecnici;
@@ -2920,6 +2956,7 @@ const anagraficaDialog = (() => {
 
     applicaEtichettePersonalizzate(sopralluogo.checklist_id, {
       puntoVendita: labelPuntoVenditaTesto,
+      indirizzo: labelIndirizzoTesto,
       responsabile: labelResponsabileTesto,
       presenzaResponsabile: labelPresenzaResponsabileTesto
     });
@@ -2956,7 +2993,8 @@ const anagraficaDialog = (() => {
       responsabile_punto_vendita: inputResponsabile.value.trim(),
       ...(inputAreaManager.disabled ? {} : { area_manager: inputAreaManager.value.trim() || null }),
       presenza_responsabile: selectPresenzaResponsabile.value,
-      presenza_rls: selectPresenzaRls.value
+      presenza_rls: selectPresenzaRls.value,
+      ...(!labelNomeRls.hidden ? { nome_rls: inputNomeRls.value.trim() || null } : {})
     });
 
     dialog.close();
@@ -2971,6 +3009,7 @@ const anagraficaDialog = (() => {
     inputTecnico2.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico2, labelTecnico2Altro, inputTecnico2Altro));
     inputTecnico3.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico3, labelTecnico3Altro, inputTecnico3Altro));
     inputTecnico4.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico4, labelTecnico4Altro, inputTecnico4Altro));
+    selectPresenzaRls.addEventListener('change', aggiornaVisibilitaNomeRls);
     bottoneAnnulla.addEventListener('click', () => dialog.close());
   }
 
