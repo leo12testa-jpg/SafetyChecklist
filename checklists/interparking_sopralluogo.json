@@ -45,7 +45,7 @@
         { "id": 27, "testo": "Sono Presenti le registrazioni dei controlli semestrali effettuati a: Impianto sprinkler:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
         { "id": 28, "testo": "Sono Presenti le registrazioni dei controlli semestrali effettuati a: Eventuali altri impianti:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
         { "id": 29, "testo": "Planimetrie antincendio? Sono aggiornate le planimetrie esposte?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 30, "testo": "Verbali delle Prove annuali di evacuazione e gestione delle emergenze È stata eseguita la prova annuale d'evacuazione (Punto vendita)? Indicare nelle note la data dell'ultimo verbale", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
+        { "id": 30, "testo": "Verbali delle Prove annuali di evacuazione e gestione delle emergenze È stata eseguita la prova annuale d'evacuazione? Indicare nelle note la data dell'ultimo verbale", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
       ]
     },
     {
