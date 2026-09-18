@@ -96,6 +96,33 @@ test('Checklist è il primo campo e tutte le checklist sono disponibili prima de
   assert.deepEqual(form.get('select-checklist').options.map((option) => option.value), ['', ...checklists.map((item) => item.id)]);
 });
 
+test('REGRESSIONE: la prima opzione della select checklist è sempre vuota, non disabilitata, e nessuna checklist è selezionata di default', async () => {
+  const form = await formPronto();
+  const opzioni = form.get('select-checklist').options;
+  assert.equal(opzioni[0].value, '', 'la prima opzione deve avere value=""');
+  assert.ok(!opzioni[0].disabled, 'la prima opzione non deve essere disabled, altrimenti l\'utente non può più riselezionarla per nascondere di nuovo il form');
+  assert.equal(form.get('select-checklist').value, '', 'nessuna checklist deve risultare selezionata di default (es. Coin) all\'apertura del form');
+  assert.equal(form.get('dati-sopralluogo').hidden, true, 'il resto del form deve restare nascosto finché non si sceglie una checklist');
+});
+
+test('Selezionare una checklist mostra il resto del form; tornare a "Seleziona checklist…" lo nasconde di nuovo', async () => {
+  const form = await formPronto();
+  assert.equal(form.get('dati-sopralluogo').hidden, true);
+  seleziona(form, 'coin_sopralluogo');
+  assert.equal(form.get('dati-sopralluogo').hidden, false);
+  seleziona(form, '');
+  assert.equal(form.get('dati-sopralluogo').hidden, true);
+});
+
+test('Ogni ingresso manuale nella schermata riparte da checklist vuota e form nascosto, anche dopo una scelta precedente', async () => {
+  const form = await formPronto();
+  seleziona(form, 'coin_sopralluogo');
+  assert.equal(form.get('dati-sopralluogo').hidden, false);
+  await form.router.enter();
+  assert.equal(form.get('select-checklist').value, '', 'rientrando manualmente non deve restare selezionata la checklist della visita precedente');
+  assert.equal(form.get('dati-sopralluogo').hidden, true);
+});
+
 test('Interparking cambia subito etichette e visibilità senza digitare Punto vendita', async () => {
   const form = await formPronto();
   seleziona(form, 'interparking_sopralluogo');
@@ -161,4 +188,15 @@ test('PDF riconosciuto seleziona la checklist e aggiorna subito il form; vecchi 
   assert.equal(form.storico.checklist_id, 'restage_sopralluogo');
   assert.equal(form.storico.punto_vendita, 'Sede storica');
   assert.equal(form.scritture.length, 0);
+});
+
+test('Importazione PDF dallo stato iniziale (nessuna checklist scelta a mano) mostra comunque subito il form riconosciuto', async () => {
+  const form = await formPronto();
+  assert.equal(form.get('select-checklist').value, '');
+  assert.equal(form.get('dati-sopralluogo').hidden, true);
+  const input = form.get('input-importa-pdf');
+  input.files = [{ name: 'storico.pdf' }];
+  await input.listeners.change({ target: input });
+  assert.equal(form.get('select-checklist').value, 'interparking_sopralluogo');
+  assert.equal(form.get('dati-sopralluogo').hidden, false);
 });

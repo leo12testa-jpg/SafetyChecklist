@@ -366,6 +366,7 @@ const nuovoSopralluogoScreen = (() => {
   const labelNomeRls = document.getElementById('label-input-nome-rls');
   const inputNomeRls = document.getElementById('input-nome-rls');
   const selectChecklist = document.getElementById('select-checklist');
+  const datiSopralluogoContainer = document.getElementById('dati-sopralluogo');
 
   const labelPuntoVenditaTesto = document.getElementById('label-input-punto-vendita-testo');
   const labelIndirizzoTesto = document.getElementById('label-input-indirizzo-testo');
@@ -410,6 +411,11 @@ const nuovoSopralluogoScreen = (() => {
   function aggiornaEtichetteAnagrafica() {
     const checklistId = selectChecklist.value;
 
+    // Il resto del form (tutti i campi anagrafici) resta nascosto finché non è stata scelta una
+    // checklist valida: è la selezione della checklist a decidere il layout del form, non il testo
+    // digitato altrove. Selezionare di nuovo "Seleziona checklist…" fa ritornare a questo stato.
+    datiSopralluogoContainer.hidden = checklistId === '';
+
     inputNumeroDipendenti.disabled = checklistNascondeNumeroDipendenti(checklistId);
     inputNumeroDipendenti.closest('label').hidden = inputNumeroDipendenti.disabled;
 
@@ -444,8 +450,11 @@ const nuovoSopralluogoScreen = (() => {
     selectChecklist.innerHTML = '';
     const sceltaIniziale = document.createElement('option');
     sceltaIniziale.value = '';
-    sceltaIniziale.textContent = 'Seleziona…';
-    sceltaIniziale.disabled = true;
+    sceltaIniziale.textContent = 'Seleziona checklist…';
+    // NON disabled: l'utente deve poter tornare esplicitamente su questa opzione (Test 3) per far
+    // ricomparire lo stato "solo checklist" e nascondere di nuovo il resto del form. Un'opzione
+    // disabled verrebbe anche saltata dal browser nella selezione automatica di default, con il
+    // rischio concreto che il primo elemento reale (es. Coin) risulti preselezionato da solo.
     selectChecklist.appendChild(sceltaIniziale);
     elenco.forEach(({ id, titolo }) => {
       const option = document.createElement('option');
@@ -592,6 +601,13 @@ const nuovoSopralluogoScreen = (() => {
 
   async function onEnterScreen() {
     form.reset();
+    // Stato iniziale immediato, prima ancora di ricaricare l'elenco checklist (evita anche solo un
+    // istante di "flash" dei campi della checklist scelta nella visita precedente): nessuna
+    // checklist selezionata, resto del form nascosto. Vale per ogni ingresso manuale nella
+    // schermata — l'importazione da PDF (unica eccezione) lo sovrascrive da sola quando riconosce
+    // una checklist dal contenuto del file.
+    selectChecklist.value = '';
+    datiSopralluogoContainer.hidden = true;
     inputDataSopralluogo.value = oggiISO();
     aggiornaVisibilitaTecnicoAltro(inputTecnico, labelTecnicoAltro, inputTecnicoAltro);
     aggiornaVisibilitaTecnicoAltro(inputTecnico2, labelTecnico2Altro, inputTecnico2Altro);

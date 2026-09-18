@@ -38,100 +38,9 @@
         <button type="button" class="btn-back" data-nav="home">← Indietro</button>
         <h2>Nuovo sopralluogo</h2>
 
-        <p class="placeholder-text">Tutti i campi anagrafici sono facoltativi: si possono completare o correggere più tardi con "✏️ Modifica dati sopralluogo", durante la compilazione o dal Riepilogo.</p>
         <form id="form-nuovo-sopralluogo">
           <label class="campo-form" for="select-checklist">Checklist
             <select id="select-checklist" required></select>
-          </label>
-
-          <label class="campo-form" for="input-punto-vendita"><span id="label-input-punto-vendita-testo">Punto vendita</span>
-            <input type="text" id="input-punto-vendita" list="lista-punti-vendita" autocomplete="off">
-            <datalist id="lista-punti-vendita"></datalist>
-          </label>
-
-          <label class="campo-form" for="input-indirizzo-punto-vendita"><span id="label-input-indirizzo-testo">Indirizzo punto vendita</span>
-            <input type="text" id="input-indirizzo-punto-vendita" list="lista-indirizzi" autocomplete="off">
-            <datalist id="lista-indirizzi"></datalist>
-          </label>
-
-          <label class="campo-form" for="input-numero-dipendenti">Numero di dipendenti in forza al momento del sopralluogo
-            <input type="number" id="input-numero-dipendenti" inputmode="numeric" min="0">
-          </label>
-
-          <label class="campo-form" for="input-tecnico">Tecnico 1
-            <select id="input-tecnico">
-              <option value="">Seleziona…</option>
-              <option value="__altro__">Altro (scrivi il nome)</option>
-            </select>
-          </label>
-          <label class="campo-form" for="input-tecnico-altro" id="label-input-tecnico-altro" hidden>Nome del tecnico
-            <input type="text" id="input-tecnico-altro" autocomplete="off">
-          </label>
-
-          <label class="campo-form" for="input-tecnico-2">Tecnico 2 (facoltativo)
-            <select id="input-tecnico-2">
-              <option value="">Nessun secondo tecnico</option>
-              <option value="__altro__">Altro (scrivi il nome)</option>
-            </select>
-          </label>
-          <label class="campo-form" for="input-tecnico-2-altro" id="label-input-tecnico-2-altro" hidden>Nome del secondo tecnico
-            <input type="text" id="input-tecnico-2-altro" autocomplete="off">
-          </label>
-
-          <!-- Tecnico 3/4: solo Interparking (fino a 4 tecnici), nascosti per gli altri clienti -->
-          <label class="campo-form" for="input-tecnico-3" id="label-input-tecnico-3" hidden>Tecnico 3 (facoltativo)
-            <select id="input-tecnico-3">
-              <option value="">Nessun terzo tecnico</option>
-              <option value="__altro__">Altro (scrivi il nome)</option>
-            </select>
-          </label>
-          <label class="campo-form" for="input-tecnico-3-altro" id="label-input-tecnico-3-altro" hidden>Nome del terzo tecnico
-            <input type="text" id="input-tecnico-3-altro" autocomplete="off">
-          </label>
-
-          <label class="campo-form" for="input-tecnico-4" id="label-input-tecnico-4" hidden>Tecnico 4 (facoltativo)
-            <select id="input-tecnico-4">
-              <option value="">Nessun quarto tecnico</option>
-              <option value="__altro__">Altro (scrivi il nome)</option>
-            </select>
-          </label>
-          <label class="campo-form" for="input-tecnico-4-altro" id="label-input-tecnico-4-altro" hidden>Nome del quarto tecnico
-            <input type="text" id="input-tecnico-4-altro" autocomplete="off">
-          </label>
-
-          <label class="campo-form" for="input-data-sopralluogo">Data del sopralluogo
-            <input type="date" id="input-data-sopralluogo">
-          </label>
-
-          <label class="campo-form" for="input-responsabile"><span id="label-input-responsabile-testo">Responsabile del punto vendita</span>
-            <input type="text" id="input-responsabile" list="lista-responsabili" autocomplete="off">
-            <datalist id="lista-responsabili"></datalist>
-          </label>
-
-          <label class="campo-form" for="input-area-manager">Area Manager (facoltativo)
-            <input type="text" id="input-area-manager" list="lista-area-manager" autocomplete="off">
-            <datalist id="lista-area-manager"></datalist>
-          </label>
-
-          <label class="campo-form" for="select-presenza-responsabile"><span id="label-select-presenza-responsabile-testo">Il sopralluogo è fatto alla presenza del responsabile del punto vendita?</span>
-            <select id="select-presenza-responsabile">
-              <option value="">Seleziona…</option>
-              <option value="Sì">Sì</option>
-              <option value="No">No</option>
-            </select>
-          </label>
-
-          <label class="campo-form" for="select-presenza-rls">Il sopralluogo è fatto alla presenza dell'R.L.S.?
-            <select id="select-presenza-rls">
-              <option value="">Seleziona…</option>
-              <option value="Sì">Sì</option>
-              <option value="No">No</option>
-            </select>
-          </label>
-
-          <!-- Nome RLS: solo Interparking, visibile solo quando presenza RLS = Sì -->
-          <label class="campo-form" for="input-nome-rls" id="label-input-nome-rls" hidden>Nome RLS (facoltativo)
-            <input type="text" id="input-nome-rls" autocomplete="off">
           </label>
 
           <div class="importa-pdf-blocco">
@@ -140,7 +49,101 @@
             <p class="placeholder-text" id="importa-pdf-esito" hidden></p>
           </div>
 
-          <button type="submit" class="btn btn-primary">INIZIA</button>
+          <div id="dati-sopralluogo" hidden>
+            <p class="placeholder-text">Tutti i campi anagrafici sono facoltativi: si possono completare o correggere più tardi con "✏️ Modifica dati sopralluogo", durante la compilazione o dal Riepilogo.</p>
+
+            <label class="campo-form" for="input-punto-vendita"><span id="label-input-punto-vendita-testo">Punto vendita</span>
+              <input type="text" id="input-punto-vendita" list="lista-punti-vendita" autocomplete="off">
+              <datalist id="lista-punti-vendita"></datalist>
+            </label>
+
+            <label class="campo-form" for="input-indirizzo-punto-vendita"><span id="label-input-indirizzo-testo">Indirizzo punto vendita</span>
+              <input type="text" id="input-indirizzo-punto-vendita" list="lista-indirizzi" autocomplete="off">
+              <datalist id="lista-indirizzi"></datalist>
+            </label>
+
+            <label class="campo-form" for="input-numero-dipendenti">Numero di dipendenti in forza al momento del sopralluogo
+              <input type="number" id="input-numero-dipendenti" inputmode="numeric" min="0">
+            </label>
+
+            <label class="campo-form" for="input-tecnico">Tecnico 1
+              <select id="input-tecnico">
+                <option value="">Seleziona…</option>
+                <option value="__altro__">Altro (scrivi il nome)</option>
+              </select>
+            </label>
+            <label class="campo-form" for="input-tecnico-altro" id="label-input-tecnico-altro" hidden>Nome del tecnico
+              <input type="text" id="input-tecnico-altro" autocomplete="off">
+            </label>
+
+            <label class="campo-form" for="input-tecnico-2">Tecnico 2 (facoltativo)
+              <select id="input-tecnico-2">
+                <option value="">Nessun secondo tecnico</option>
+                <option value="__altro__">Altro (scrivi il nome)</option>
+              </select>
+            </label>
+            <label class="campo-form" for="input-tecnico-2-altro" id="label-input-tecnico-2-altro" hidden>Nome del secondo tecnico
+              <input type="text" id="input-tecnico-2-altro" autocomplete="off">
+            </label>
+
+            <!-- Tecnico 3/4: solo Interparking (fino a 4 tecnici), nascosti per gli altri clienti -->
+            <label class="campo-form" for="input-tecnico-3" id="label-input-tecnico-3" hidden>Tecnico 3 (facoltativo)
+              <select id="input-tecnico-3">
+                <option value="">Nessun terzo tecnico</option>
+                <option value="__altro__">Altro (scrivi il nome)</option>
+              </select>
+            </label>
+            <label class="campo-form" for="input-tecnico-3-altro" id="label-input-tecnico-3-altro" hidden>Nome del terzo tecnico
+              <input type="text" id="input-tecnico-3-altro" autocomplete="off">
+            </label>
+
+            <label class="campo-form" for="input-tecnico-4" id="label-input-tecnico-4" hidden>Tecnico 4 (facoltativo)
+              <select id="input-tecnico-4">
+                <option value="">Nessun quarto tecnico</option>
+                <option value="__altro__">Altro (scrivi il nome)</option>
+              </select>
+            </label>
+            <label class="campo-form" for="input-tecnico-4-altro" id="label-input-tecnico-4-altro" hidden>Nome del quarto tecnico
+              <input type="text" id="input-tecnico-4-altro" autocomplete="off">
+            </label>
+
+            <label class="campo-form" for="input-data-sopralluogo">Data del sopralluogo
+              <input type="date" id="input-data-sopralluogo">
+            </label>
+
+            <label class="campo-form" for="input-responsabile"><span id="label-input-responsabile-testo">Responsabile del punto vendita</span>
+              <input type="text" id="input-responsabile" list="lista-responsabili" autocomplete="off">
+              <datalist id="lista-responsabili"></datalist>
+            </label>
+
+            <label class="campo-form" for="input-area-manager">Area Manager (facoltativo)
+              <input type="text" id="input-area-manager" list="lista-area-manager" autocomplete="off">
+              <datalist id="lista-area-manager"></datalist>
+            </label>
+
+            <label class="campo-form" for="select-presenza-responsabile"><span id="label-select-presenza-responsabile-testo">Il sopralluogo è fatto alla presenza del responsabile del punto vendita?</span>
+              <select id="select-presenza-responsabile">
+                <option value="">Seleziona…</option>
+                <option value="Sì">Sì</option>
+                <option value="No">No</option>
+              </select>
+            </label>
+
+            <label class="campo-form" for="select-presenza-rls">Il sopralluogo è fatto alla presenza dell'R.L.S.?
+              <select id="select-presenza-rls">
+                <option value="">Seleziona…</option>
+                <option value="Sì">Sì</option>
+                <option value="No">No</option>
+              </select>
+            </label>
+
+            <!-- Nome RLS: solo Interparking, visibile solo quando presenza RLS = Sì -->
+            <label class="campo-form" for="input-nome-rls" id="label-input-nome-rls" hidden>Nome RLS (facoltativo)
+              <input type="text" id="input-nome-rls" autocomplete="off">
+            </label>
+
+            <button type="submit" class="btn btn-primary">INIZIA</button>
+          </div>
         </form>
       </section>
 
