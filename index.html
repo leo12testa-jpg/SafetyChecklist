@@ -40,6 +40,10 @@
 
         <p class="placeholder-text">Tutti i campi anagrafici sono facoltativi: si possono completare o correggere più tardi con "✏️ Modifica dati sopralluogo", durante la compilazione o dal Riepilogo.</p>
         <form id="form-nuovo-sopralluogo">
+          <label class="campo-form" for="select-checklist">Checklist
+            <select id="select-checklist" required></select>
+          </label>
+
           <label class="campo-form" for="input-punto-vendita"><span id="label-input-punto-vendita-testo">Punto vendita</span>
             <input type="text" id="input-punto-vendita" list="lista-punti-vendita" autocomplete="off">
             <datalist id="lista-punti-vendita"></datalist>
@@ -128,10 +132,6 @@
           <!-- Nome RLS: solo Interparking, visibile solo quando presenza RLS = Sì -->
           <label class="campo-form" for="input-nome-rls" id="label-input-nome-rls" hidden>Nome RLS (facoltativo)
             <input type="text" id="input-nome-rls" autocomplete="off">
-          </label>
-
-          <label class="campo-form" for="select-checklist">Checklist
-            <select id="select-checklist" required></select>
           </label>
 
           <div class="importa-pdf-blocco">

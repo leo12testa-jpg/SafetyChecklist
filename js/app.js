@@ -333,7 +333,7 @@ function precompilaTecnico(select, labelAltro, inputAltro, valore) {
 
 /**
  * Schermata "Nuovo sopralluogo": popola i campi editabili come testo libero (valori già usati
- * in precedenza), filtra la Checklist in base al punto vendita digitato (checklists/clients.json),
+ * in precedenza), carica tutte le Checklist disponibili da checklists/index.json,
  * poi crea il sopralluogo e avvia la compilazione (PROJECT.md §7.2). Supporta anche l'importazione
  * delle risposte da un PDF già generato da questa app (js/pdf-import.js): precompila i campi del
  * form con l'anagrafica letta dal PDF e porta le risposte estratte fino alla creazione del
@@ -419,11 +419,14 @@ const nuovoSopralluogoScreen = (() => {
     const mostraQuattroTecnici = checklistAmmetteQuattroTecnici(checklistId);
     labelTecnico3.hidden = !mostraQuattroTecnici;
     labelTecnico4.hidden = !mostraQuattroTecnici;
-    if (!mostraQuattroTecnici) {
-      inputTecnico3.value = '';
-      inputTecnico4.value = '';
+    if (mostraQuattroTecnici) {
       aggiornaVisibilitaTecnicoAltro(inputTecnico3, labelTecnico3Altro, inputTecnico3Altro);
       aggiornaVisibilitaTecnicoAltro(inputTecnico4, labelTecnico4Altro, inputTecnico4Altro);
+    } else {
+      labelTecnico3Altro.hidden = true;
+      labelTecnico4Altro.hidden = true;
+      inputTecnico3Altro.required = false;
+      inputTecnico4Altro.required = false;
     }
 
     aggiornaVisibilitaNomeRls();
@@ -439,42 +442,27 @@ const nuovoSopralluogoScreen = (() => {
   function popolaSelectChecklist(elenco) {
     const valorePrecedente = selectChecklist.value;
     selectChecklist.innerHTML = '';
+    const sceltaIniziale = document.createElement('option');
+    sceltaIniziale.value = '';
+    sceltaIniziale.textContent = 'Seleziona…';
+    sceltaIniziale.disabled = true;
+    selectChecklist.appendChild(sceltaIniziale);
     elenco.forEach(({ id, titolo }) => {
       const option = document.createElement('option');
       option.value = id;
       option.textContent = titolo;
       selectChecklist.appendChild(option);
     });
-    if (elenco.some((c) => c.id === valorePrecedente)) {
-      selectChecklist.value = valorePrecedente;
-    }
+    selectChecklist.value = elenco.some((c) => c.id === valorePrecedente) ? valorePrecedente : '';
     aggiornaEtichetteAnagrafica();
   }
 
-  /** Filtra le checklist disponibili in base al punto vendita digitato (associazioni in clients.json). */
-  function filtraChecklistPerCliente() {
-    const nome = inputPuntoVendita.value.trim().toLowerCase();
-    const associazione = associazioniClienti.find((c) => c.nome.toLowerCase() === nome);
-
-    if (!associazione) {
-      popolaSelectChecklist(checklistDisponibili);
-      return;
-    }
-
-    const filtrate = checklistDisponibili.filter((c) => associazione.checklist_ids.includes(c.id));
-    popolaSelectChecklist(filtrate.length ? filtrate : checklistDisponibili);
-  }
-
   async function caricaChecklistECliente() {
-    const [risChecklist, risClienti] = await Promise.all([
-      fetch('checklists/index.json'),
-      fetch('checklists/clients.json')
-    ]);
+    const richiestaClienti = fetch('checklists/clients.json');
+    const risChecklist = await fetch('checklists/index.json');
     checklistDisponibili = (await risChecklist.json()).checklists;
-    associazioniClienti = (await risClienti.json()).clienti;
-    // Riapplica il filtro (non solo popolare con tutte le checklist): se l'utente ha già digitato
-    // il punto vendita prima che questo fetch si completasse, non deve perdere il filtro applicato.
-    filtraChecklistPerCliente();
+    popolaSelectChecklist(checklistDisponibili);
+    associazioniClienti = (await (await richiestaClienti).json()).clienti;
   }
 
   /** Azzera lo stato di un'eventuale importazione PDF precedente (entrando di nuovo nella schermata, o cambiando checklist dopo un'importazione: l'anteprima in attesa vale solo per la checklist rilevata al momento della lettura). */
@@ -659,7 +647,6 @@ const nuovoSopralluogoScreen = (() => {
 
   function init() {
     form.addEventListener('submit', onSubmit);
-    inputPuntoVendita.addEventListener('input', filtraChecklistPerCliente);
     inputTecnico.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico, labelTecnicoAltro, inputTecnicoAltro));
     inputTecnico2.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico2, labelTecnico2Altro, inputTecnico2Altro));
     inputTecnico3.addEventListener('change', () => aggiornaVisibilitaTecnicoAltro(inputTecnico3, labelTecnico3Altro, inputTecnico3Altro));
@@ -1399,7 +1386,8 @@ const compilazioneScreen = (() => {
       marker.dataset.stato = compilate.has(id) ? 'completa' : 'da-completare';
       progressMarkers.appendChild(marker);
     });
-    progressBar.title = `${compilate.size} domande compilate su ${totale}`;
+    // Le risposte storiche a domande rimosse restano salvate, ma non fanno parte del progresso attuale.
+    progressBar.title = `${ids.filter((id) => compilate.has(id)).length} domande compilate su ${totale}`;
   }
 
   // --- Rendering dinamico dei controlli per checklist "stile": "raccolta-dati" ---

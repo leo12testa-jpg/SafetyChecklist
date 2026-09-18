@@ -31,8 +31,6 @@
       "titolo": "Gestione dell'Emergenza",
       "domande": [
         { "id": 15, "testo": "Piano di Emergenza ed evacuazione (D.M. 1, 2 e 3 settembre 2021 e art. 43 – D.Lgs 81/08) E'presente in archivio una copia del piano di emergenza?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 16, "testo": "Piano di Emergenza ed evacuazione (D.M. 1, 2 e 3 settembre 2021 e art. 43 – D.Lgs 81/08) E'disponibile una copia della scheda divulgativa?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 17, "testo": "Piano di Emergenza ed evacuazione (D.M. 1, 2 e 3 settembre 2021 e art. 43 – D.Lgs 81/08) Viene consegnata a tutti i dipendenti la scheda divulgativa?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
         { "id": 18, "testo": "Registro delle verifiche e manutenzioni periodiche dei sistemi antincendio È presente il registro antincendio?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
         { "id": 19, "testo": "Sono Presenti le registrazioni dei controlli semestrali effettuati a: Porte Tagliafuoco:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
         { "id": 20, "testo": "Sono Presenti le registrazioni dei controlli semestrali effettuati a: Estintori:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
@@ -43,7 +41,7 @@
         { "id": 25, "testo": "Sono Presenti le registrazioni dei controlli semestrali effettuati a: Gruppo elettrogeno:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
         { "id": 26, "testo": "Sono Presenti le registrazioni dei controlli semestrali effettuati a: Impianto di evacuazione fumi:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
         { "id": 27, "testo": "Sono Presenti le registrazioni dei controlli semestrali effettuati a: Impianto sprinkler:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
-        { "id": 28, "testo": "Sono Presenti le registrazioni dei controlli semestrali effettuati a: Eventuali altri impianti:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
+        { "id": 28, "testo": "Sono Presenti le registrazioni dei controlli effettuati a: Eventuali altri impianti:", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
         { "id": 29, "testo": "Planimetrie antincendio? Sono aggiornate le planimetrie esposte?", "tipo": "C-PC-NC-NA", "foto": true, "note": true },
         { "id": 30, "testo": "Verbali delle Prove annuali di evacuazione e gestione delle emergenze È stata eseguita la prova annuale d'evacuazione? Indicare nelle note la data dell'ultimo verbale", "tipo": "C-PC-NC-NA", "foto": true, "note": true }
       ]
