@@ -652,13 +652,40 @@ const nuovoSopralluogoScreen = (() => {
       return;
     }
 
-    const sopralluogo = await db.creaSopralluogo(leggiAnagraficaForm());
+    // Blocca un doppio INIZIA (doppio tap/click prima che la prima creazione sia completata):
+    // senza questa guardia ogni submit genera un id nuovo, quindi due sopralluoghi distinti.
+    const bottoneInizia = form.querySelector('button[type="submit"]');
+    if (bottoneInizia.disabled) {
+      return;
+    }
+    bottoneInizia.disabled = true;
 
-    const checklist = await checklistEngine.carica(sopralluogo.checklist_id);
-    checklistEngine.avvia(checklist, sopralluogo);
+    try {
+      let sopralluogo;
+      try {
+        sopralluogo = await db.creaSopralluogo(leggiAnagraficaForm());
+      } catch (errore) {
+        console.error('Creazione sopralluogo fallita:', errore);
+        alert('Impossibile salvare il sopralluogo sul dispositivo. Nessun dato è stato perso: riprova.');
+        return;
+      }
 
-    router.navigate('compilazione');
-    compilazioneScreen.renderDomandaCorrente();
+      try {
+        const checklist = await checklistEngine.carica(sopralluogo.checklist_id);
+        checklistEngine.avvia(checklist, sopralluogo);
+        router.navigate('compilazione');
+        compilazioneScreen.renderDomandaCorrente();
+      } catch (errore) {
+        // Il sopralluogo ESISTE già in locale (creazione sopra riuscita e verificata): un
+        // problema nel caricare la checklist (es. offline e mai scaricata prima) non deve far
+        // sembrare che il salvataggio sia fallito. Si trova già in Storico, riprendibile da lì.
+        console.error('Caricamento checklist fallito dopo la creazione del sopralluogo:', errore);
+        alert('Il sopralluogo è stato salvato correttamente ma non è stato possibile caricare la checklist per iniziare subito la compilazione. Lo trovi nello Storico: riprova da lì.');
+        router.navigate('history');
+      }
+    } finally {
+      bottoneInizia.disabled = false;
+    }
   }
 
   function init() {

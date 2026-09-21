@@ -108,11 +108,43 @@ const db = (() => {
     return database.transaction(storeName, mode).objectStore(storeName);
   }
 
+  /**
+   * Come transazione(), ma ritorna anche la transazione stessa: usata dove serve attendere
+   * esplicitamente il commit (transazioneCompletata) prima di considerare la scrittura definitiva
+   * — non solo il successo della singola richiesta add/put, che per una IndexedDB
+   * (specialmente Safari/WebKit, storicamente meno affidabile) non garantisce da sola che la
+   * transazione abbia effettivamente terminato il commit.
+   */
+  async function transazioneConHandle(storeName, mode) {
+    const database = await open();
+    const tx = database.transaction(storeName, mode);
+    return { tx, store: tx.objectStore(storeName) };
+  }
+
   function richiesta(request) {
     return new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
+  }
+
+  function transazioneCompletata(tx) {
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('Transazione IndexedDB interrotta prima del commit.'));
+    });
+  }
+
+  /**
+   * Verifica mirata: rilegge un singolo sopralluogo in una transazione readonly appena aperta
+   * (mai riusando quella di scrittura appena committata), per confermare che il commit sia
+   * davvero visibile a una lettura successiva indipendente. Usata da creaSopralluogo/
+   * salvaRisposta invece di un giro completo su elencaSopralluoghi: costa una sola get.
+   */
+  async function leggiSopralluogoGrezzo(sopralluogoId) {
+    const store = await transazione('sopralluoghi', 'readonly');
+    return richiesta(store.get(sopralluogoId));
   }
 
   /** Crea un nuovo sopralluogo con stato "in corso" e lo salva su DB. Ritorna il record creato. */
@@ -132,7 +164,7 @@ const db = (() => {
     nome_rls = null,
     checklist_id
   }) {
-    const store = await transazione('sopralluoghi', 'readwrite');
+    const { tx, store } = await transazioneConHandle('sopralluoghi', 'readwrite');
     const adesso = new Date().toISOString();
     const sopralluogo = {
       id: generaId(),
@@ -174,6 +206,16 @@ const db = (() => {
       aggiornato_il: adesso
     };
     await richiesta(store.add(sopralluogo));
+    await transazioneCompletata(tx);
+
+    // Un sopralluogo non è "creato" finché non è stato riletto con successo dal DB locale
+    // (verifica mirata, transazione readonly separata da quella di scrittura appena committata):
+    // vedi commento su transazioneConHandle.
+    const verificato = await leggiSopralluogoGrezzo(sopralluogo.id);
+    if (!verificato) {
+      throw new Error(`Salvataggio locale non verificabile: il sopralluogo ${sopralluogo.id} non risulta rileggibile da IndexedDB dopo la scrittura.`);
+    }
+
     notificaCambiamento({ tipo: 'upsert', sopralluogo });
     return sopralluogo;
   }
@@ -257,7 +299,7 @@ const db = (() => {
    * sopralluogo si sovrascriverebbero a vicenda).
    */
   async function salvaRisposta(sopralluogoId, risposta) {
-    const store = await transazione('sopralluoghi', 'readwrite');
+    const { tx, store } = await transazioneConHandle('sopralluoghi', 'readwrite');
     const sopralluogo = await richiesta(store.get(sopralluogoId));
     if (!sopralluogo) {
       throw new Error(`Sopralluogo non trovato: ${sopralluogoId}`);
@@ -277,7 +319,19 @@ const db = (() => {
     sopralluogo.aggiornato_il = adesso;
 
     await richiesta(store.put(sopralluogo));
-    notificaCambiamento({ tipo: 'upsert-risposta', sopralluogoId, risposta: risposte[idx >= 0 ? idx : risposte.length - 1], aggiornato_il: adesso });
+    await transazioneCompletata(tx);
+
+    // Verifica mirata sul commit (non un re-read dell'intero store: costa una sola get, vedi
+    // leggiSopralluogoGrezzo): il salvataggio della risposta è completato solo quando domanda_id,
+    // risposta, note e foto-id sono rileggibili da una transazione indipendente.
+    const rispostaSalvata = risposte[idx >= 0 ? idx : risposte.length - 1];
+    const verificato = await leggiSopralluogoGrezzo(sopralluogoId);
+    const rispostaVerificata = verificato && normalizzaRisposte(verificato.risposte).find((r) => r.domanda_id === risposta.domanda_id);
+    if (!rispostaVerificata || rispostaVerificata.aggiornato_il !== adesso) {
+      throw new Error(`Salvataggio locale non verificabile per la risposta alla domanda ${risposta.domanda_id} del sopralluogo ${sopralluogoId}.`);
+    }
+
+    notificaCambiamento({ tipo: 'upsert-risposta', sopralluogoId, risposta: rispostaSalvata, aggiornato_il: adesso });
     return sopralluogo;
   }
 
