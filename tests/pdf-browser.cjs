@@ -30,7 +30,7 @@ async function run(name, browserType, origin) {
   let browser, context, page;
   const report = { browser: name, tests: [] };
   try {
-    const options = { headless: true, executablePath: executable(name) };
+    const options = name === 'msedge' ? { channel: 'msedge', headless: false } : { headless: true, executablePath: executable(name) };
     const contextOptions = { acceptDownloads: true, viewport: { width: 1100, height: 850 } };
     if (name === 'webkit') {
       // Windows WebKit's ephemeral context cannot persist Blob objects in IDB.
@@ -70,6 +70,7 @@ async function run(name, browserType, origin) {
       };
     });
     for (const client of ['coin', 'interparking', 'restage', 'melluso']) {
+      console.log(`${name}: generating and importing ${client}`);
       const result = await page.evaluate(async client => {
         const checklist = await (await fetch(`checklists/${client}_sopralluogo.json`)).json();
         const record = await db.creaSopralluogo({ checklist_id: checklist.id, punto_vendita: `${client} verifica PDF`, data_sopralluogo: '2026-09-08', tecnico: 'Tecnico Test' });
@@ -101,13 +102,54 @@ async function run(name, browserType, origin) {
         check(extracted.immagini.every(p => p.metodo === 'originale'), 'Original XObjects not used');
         check(extracted.immagini.some(p => p.altezza > p.larghezza), 'Portrait missing');
         check(extracted.immagini.some(p => p.didascalia.includes('Didascalia originale mantenuta')), 'Caption missing');
+        const noPhotos = { ...record, risposte:record.risposte.map(r=>({...r,foto:[]})), altri_aspetti_foto:[], altri_aspetti_foto_didascalie:{} };
+        const withoutPhotos = await pdfImport.estraiRighe(await pdf.generaReport(checklist,noPhotos));
+        check(withoutPhotos.immagini.length===0, `${client}: letterhead imported in PDF without photos`);
         window.extracted = extracted;
-        return { pages, photos: extracted.immagini.map(p => ({ width:p.larghezza, height:p.altezza, caption:p.didascalia, method:p.metodo })), bytes: Array.from(new Uint8Array(await pdf.leggiArrayBuffer(blob))) };
+        return { pages, noPhotoHeader:'pass', photos: extracted.immagini.map(p => ({ width:p.larghezza, height:p.altezza, caption:p.didascalia, method:p.metodo })), bytes: Array.from(new Uint8Array(await pdf.leggiArrayBuffer(blob))) };
       }, client);
       fs.writeFileSync(path.join(out, `${name}-${client}.pdf`), Buffer.from(result.bytes));
       delete result.bytes;
       report.tests.push({ client, ...result });
     }
+    report.tests.push(await page.evaluate(async () => {
+      const loadImage = async url => new Promise(async (resolve, reject) => {
+        try { const r = new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(await (await fetch(url)).blob()); } catch(e) { reject(e); }
+      });
+      const logo = await loadImage('assets/logo_melluso.png');
+      const otherLogo = await loadImage('assets/logo_colligo.webp');
+      const photo = (w,h,color) => { const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle=color;x.fillRect(0,0,w,h);return c.toDataURL(); };
+      const portrait=photo(60,100,'#ed1245'),landscape=photo(120,50,'#1254ed');
+      const doc=new jspdf.jsPDF({unit:'pt',format:'a4'});
+      for(let n=1;n<=3;n++) {
+        if(n>1) doc.addPage();
+        // Deliberately use different XObjects for identical header pixels.
+        doc.addImage(logo,'PNG',440,20,125,86,`header-${n}`);
+        doc.addImage(otherLogo,'WEBP',40,35,110,38,`other-${n}`);
+        if(n===1) {doc.addImage(portrait,'PNG',220,10,60,100);doc.text('Foto 1 - Domanda 7: portrait',200,124);}
+        if(n===2) {doc.addImage(landscape,'PNG',210,10,120,50);doc.text('Foto 2 - Domanda 8: landscape',200,74);}
+        // The same image in the body must not be globally blacklisted.
+        if(n===3) doc.addImage(logo,'PNG',440,350,125,86,'body-image');
+      }
+      const parsed=await pdfjsLib.getDocument({data:new Uint8Array(doc.output('arraybuffer'))}).promise;
+      try {
+        const headerEsclusi=await pdfImport._test.analizzaHeader(parsed);
+        const found=[];
+        for(let n=1;n<=3;n++) {
+          const p=await parsed.getPage(n),t=await p.getTextContent();
+          const items=t.items.map(i=>({testo:i.str,x:i.transform[4],y:i.transform[5],w:i.width}));
+          const images=await pdfImport.estraiImmaginiPagina(p,items,n,{headerEsclusi});
+          check(images.length===1,`Header repeated page ${n}: expected exactly one real image, got ${images.length}`);
+          found.push(images[0]);
+        }
+        check(found[0].larghezza===60 && found[0].altezza===100,'Unique top portrait lost');
+        check(found[1].larghezza===120 && found[1].altezza===50,'Unique top landscape lost');
+        check(found[0].didascalia==='Foto 1 - Domanda 7: portrait','Portrait caption changed');
+        check(found[1].didascalia==='Foto 2 - Domanda 8: landscape','Landscape caption changed');
+        check(found[2].larghezza===715 && found[2].altezza===490,'Body copy incorrectly excluded');
+        return { repeatedHeader:'pass',uniqueTopPortrait:'pass',uniqueTopLandscape:'pass',captions:'pass',bodyImage:'pass' };
+      } finally {await parsed.destroy();}
+    }));
     // Exact orphan reproduction: only 24 mm remain, enough for the two head rows
     // but not for the first complete row (a multi-line note).
     const boundary = await page.evaluate(async () => {
@@ -162,7 +204,7 @@ async function run(name, browserType, origin) {
       for (const file of ['esempio_formato_storico_coin.pdf','restage_reale.pdf.pdf']) {
         const blob = await (await fetch(`test-sample/${file}`)).blob();
         const result = await pdfImport.estraiRighe(blob);
-        check(result.immagini.length === (file.startsWith('esempio') ? 0 : 5), 'Historical photo count incorrect');
+        check(result.immagini.length === (file.startsWith('esempio') ? 0 : 5), `Historical photo count incorrect: ${file}, found ${result.immagini.length}: ${JSON.stringify(result.immagini.map(p=>({page:p.pagina,w:p.larghezza,h:p.altezza,caption:p.didascalia})))}`);
         if (file.startsWith('restage')) result.immagini.forEach((p,i) => {
           check(p.didascalia.startsWith(`Foto ${i+1}`), 'Wrong caption association');
           check(!p.didascalia.includes(`Foto ${i+2}`), 'Neighbor column leaked into caption');
@@ -269,7 +311,7 @@ async function run(name, browserType, origin) {
   }
   finally { if (context) await context.close(); if (browser) await browser.close(); }
   results.push(report);
-  fs.writeFileSync(path.join(out, 'browser-results.json'), JSON.stringify(results,null,2));
+  fs.writeFileSync(path.join(out, process.env.PDF_BROWSER_REPORT || 'browser-results.json'), JSON.stringify(results,null,2));
   console.log(`${name}: ${report.status} (${report.tests.length} checks)${report.error ? '\n'+report.error : ''}`);
 }
 (async()=> {
@@ -277,9 +319,9 @@ async function run(name, browserType, origin) {
   const origin = `http://127.0.0.1:${server.address().port}/`;
   try {
     const pw=playwright();
-    for(const name of (process.env.PDF_BROWSERS || 'chromium,firefox,webkit').split(',')) {
+    for(const name of (process.env.PDF_BROWSERS || 'chromium,msedge,firefox,webkit').split(',')) {
       // Firefox 131 in the local cache requires its matching protocol client.
-      let type = pw[name];
+      let type = pw[name === 'msedge' ? 'chromium' : name];
       const legacy = path.join(process.env.LOCALAPPDATA || '', 'npm-cache/_npx/5c6d8c4f680fcd0a/node_modules/playwright');
       if (name === 'firefox' && executable(name)?.includes('1465') && fs.existsSync(legacy)) type = require(legacy).firefox;
       await run(name,type,origin);

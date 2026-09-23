@@ -841,8 +841,7 @@ const pdfImport = (() => {
   // Punto di ingresso comune
   // ======================================================================================
 
-  /** Estrae solo le regioni fotografiche e le didascalie della pagina, senza persistenza. */
-  async function estraiImmaginiPagina(pagina, items, numeroPagina, opzioni = {}) {
+  async function regioniImmagine(pagina) {
     const ops = await pagina.getOperatorList();
     const OPS = pdfjsLib.OPS;
     const stack = [];
@@ -861,13 +860,102 @@ const pdfImport = (() => {
         const corners = [[0, 0], [1, 0], [0, 1], [1, 1]].map(p => pdfjsLib.Util.applyTransform(p, matrix));
         const x = Math.min(...corners.map(p => p[0])), y = Math.min(...corners.map(p => p[1]));
         const right = Math.max(...corners.map(p => p[0])), top = Math.max(...corners.map(p => p[1]));
-        // Known letterheads sit entirely in the top 115pt and are wider than tall.
-        // Old Coin repeats them on every page; a portrait photo starting near the
-        // top (e.g. Restage page 7) must still be imported.
-        if (right - x < 20 || top - y < 20 || (y > pagina.view[3] - 115 && (numeroPagina === 1 || (right - x) / (top - y) > 1.5))) continue;
-        regioni.push({ x, y, right, top, matrix: matrix.slice(), ref: args[0], inline: fn === OPS.paintInlineImageXObject });
+        if (right - x < 1 || top - y < 1) continue;
+        regioni.push({ x, y, right, top, indice: i, matrix: matrix.slice(), ref: args[0], inline: fn === OPS.paintInlineImageXObject });
       }
     }
+    return regioni;
+  }
+
+  async function leggiImmagine(pagina, region) {
+    if (region.inline) return region.ref;
+    const store = String(region.ref).startsWith('g_') ? pagina.commonObjs : pagina.objs;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Immagine non disponibile')), 2000);
+      store.get(region.ref, value => { clearTimeout(timer); resolve(value); });
+    });
+  }
+
+  // Hash all decoded pixels, not the PDF.js page-local name (img_p0_1 etc.).
+  // Those names can differ for identical XObjects, or collide across pages.
+  async function improntaImmagine(pagina, region) {
+    const img = await leggiImmagine(pagina, region);
+    if (!img || !img.width || !img.height || img.width * img.height > 24000000) return null;
+    let data = img.data;
+    let canvas;
+    try {
+      if (img.bitmap) {
+        canvas = document.createElement('canvas');
+        canvas.width = img.width; canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img.bitmap, 0, 0);
+        data = ctx.getImageData(0, 0, img.width, img.height).data;
+      }
+      if (!data) return null;
+      let a = 2166136261, b = 5381;
+      for (let i = 0; i < data.length; i++) {
+        a = Math.imul(a ^ data[i], 16777619);
+        b = Math.imul(b, 33) ^ data[i];
+      }
+      return `${img.width}:${img.height}:${data.length}:${a >>> 0}:${b >>> 0}`;
+    } finally { if (canvas) canvas.width = canvas.height = 0; }
+  }
+
+  function classificaHeader(candidati) {
+    const esclusi = new Map();
+    const escludi = r => {
+      if (!esclusi.has(r.pagina)) esclusi.set(r.pagina, new Set());
+      esclusi.get(r.pagina).add(r.indice);
+    };
+    for (const r of candidati) {
+      // Repetition needs both image identity and stable geometry on another page.
+      // A reused photo in the body, a unique image or a moved image is retained.
+      if (r.impronta && candidati.some(s => s.pagina !== r.pagina && s.impronta === r.impronta &&
+          ['x', 'distanzaTop'].every(k => Math.abs(r[k] - s[k]) <= 16) &&
+          ['larghezza', 'altezza'].every(k => Math.abs(r[k] - s[k]) <= 3))) escludi(r);
+      // Some formats have a letterhead only on page 1. Recognize the paired
+      // graphics above the explicit general-data block, never just an aspect ratio.
+      if (r.pagina === 1 && r.sopraDati && !r.didascaliaFoto && candidati.some(s =>
+          s.pagina === 1 && s !== r && s.sopraDati && !s.didascaliaFoto &&
+          ((r.right < r.larghezzaPagina * 0.4 && s.x > r.larghezzaPagina * 0.6) ||
+           (s.right < r.larghezzaPagina * 0.4 && r.x > r.larghezzaPagina * 0.6)) &&
+          Math.abs((r.y + r.top) / 2 - (s.y + s.top) / 2) <= 24)) escludi(r);
+    }
+    return esclusi;
+  }
+
+  async function analizzaHeader(documento) {
+    const candidati = [];
+    for (let n = 1; n <= documento.numPages; n++) {
+      const pagina = await documento.getPage(n);
+      try {
+        const regioni = await regioniImmagine(pagina);
+        const items = n === 1 ? (await pagina.getTextContent()).items : [];
+        const titolo = items.find(it => /^DATI\s+GENERALI$/i.test(it.str.trim()));
+        const limiteDati = titolo ? titolo.transform[5] + Math.abs(titolo.transform[3]) : null;
+        for (const r of regioni) {
+          // This is only a candidate zone, not an exclusion criterion.
+          if (pagina.view[3] - r.y > Math.min(180, (pagina.view[3] - pagina.view[1]) * 0.23)) continue;
+          let impronta = null;
+          try { impronta = await improntaImmagine(pagina, r); } catch (_) { /* No identity: retain unique images. */ }
+          candidati.push({ ...r, pagina: n, impronta, distanzaTop: pagina.view[3] - r.top,
+            larghezza: r.right - r.x, altezza: r.top - r.y, larghezzaPagina: pagina.view[2],
+            sopraDati: limiteDati !== null && r.y > limiteDati,
+            didascaliaFoto: items.some(it => /^Foto\s+\d/i.test(it.str.trim()) &&
+              it.transform[5] < r.y && it.transform[5] > r.y - 40 &&
+              it.transform[4] >= r.x - 10 && it.transform[4] <= r.right)
+          });
+        }
+      } finally { pagina.cleanup(); }
+    }
+    return classificaHeader(candidati);
+  }
+
+  /** Estrae solo le regioni fotografiche e le didascalie della pagina, senza persistenza. */
+  async function estraiImmaginiPagina(pagina, items, numeroPagina, opzioni = {}) {
+    const esclusi = opzioni.headerEsclusi && opzioni.headerEsclusi.get(numeroPagina);
+    const regioni = (await regioniImmagine(pagina)).filter(r =>
+      r.right - r.x >= 20 && r.top - r.y >= 20 && (!esclusi || !esclusi.has(r.indice)));
     const immagini = [];
     for (const region of regioni) {
       // Limit caption search to this column and stop at the next image below it.
@@ -887,14 +975,7 @@ const pdfImport = (() => {
       let metodo = 'originale';
       try {
         if (opzioni.forzaCrop || region.matrix[1] || region.matrix[2] || region.matrix[0] < 0 || region.matrix[3] < 0) throw new Error('Trasformazione: usa crop');
-        let img = region.inline ? region.ref : null;
-        if (!img) {
-          const store = String(region.ref).startsWith('g_') ? pagina.commonObjs : pagina.objs;
-          img = await new Promise((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error('Immagine non disponibile')), 2000);
-            store.get(region.ref, value => { clearTimeout(timer); resolve(value); });
-          });
-        }
+        const img = await leggiImmagine(pagina, region);
         if (!img || !img.width || !img.height || img.width * img.height > 24000000) throw new Error('Immagine troppo grande');
         canvas.width = img.width; canvas.height = img.height;
         const ctx = canvas.getContext('2d');
@@ -952,6 +1033,7 @@ const pdfImport = (() => {
     const buffer = await pdf.leggiArrayBuffer(file);
     const documento = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
     try {
+      const headerEsclusi = await analizzaHeader(documento);
       const pagine = [];
       const immagini = [];
       for (let numeroPagina = 1; numeroPagina <= documento.numPages; numeroPagina += 1) {
@@ -962,7 +1044,7 @@ const pdfImport = (() => {
           .filter((it) => it.testo.trim() !== '');
         items.bordi = await estraiBordiTabella(pagina);
         pagine.push(items);
-        immagini.push(...await estraiImmaginiPagina(pagina, items, numeroPagina, opzioni));
+        immagini.push(...await estraiImmaginiPagina(pagina, items, numeroPagina, { ...opzioni, headerEsclusi }));
         pagina.cleanup();
       }
 
@@ -1000,6 +1082,8 @@ const pdfImport = (() => {
     estraiRighe,
     estraiImmaginiPagina,
     _test: {
+      classificaHeader,
+      analizzaHeader,
       provaFormatoNostro,
       provaFormatoStorico,
       raggruppaFrammentiAdiacenti,

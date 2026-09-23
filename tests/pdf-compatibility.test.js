@@ -36,6 +36,24 @@ test('canShare without share: download works, URL is not revoked before click', 
   assert.ok(events.includes('revoke'));
 });
 
+test('desktop PDF download bypasses Web Share even when it would fail', async () => {
+  let shares = 0;
+  const { pdf, events } = engine({ navigator: {
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0) Edg/153.0', canShare: () => true,
+    share: async () => { shares++; throw new Error('share unavailable'); }
+  } });
+  await pdf.salvaOCondividi(new Blob(['%PDF-'], { type: 'application/pdf' }), 'report.pdf');
+  assert.equal(shares, 0);
+  assert.ok(events.includes('download'));
+});
+
+test('opening a PDF never reserves a popup, even when window.open is available', () => {
+  let popups = 0;
+  const { pdf } = engine({ open: () => { popups++; return {}; } });
+  assert.equal(pdf.prenotaFinestra(), null);
+  assert.equal(popups, 0);
+});
+
 for (const name of ['NotAllowedError','TypeError']) test(`share rejects ${name}: falls back to download`, async () => {
   const { pdf, events } = engine({ navigator: { canShare: () => true, share: async () => { throw { name }; } } });
   await pdf.salvaOCondividi(new Blob(['%PDF-']), 'report.pdf');

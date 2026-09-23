@@ -933,6 +933,9 @@ h3 {
 .pdf-preview-overlay { position: fixed; inset: 0; z-index: 10000; overflow: auto; background: #ddd; padding: 16px; }
 .pdf-preview-overlay button { min-height: 44px; margin: 0 8px 12px 0; }
 .pdf-preview-overlay canvas { display: block; max-width: 100%; height: auto; margin: 0 auto 16px; background: white; }
+.pdf-preview-toolbar { position: sticky; top: -16px; padding: 12px; background: white; z-index: 1; border-bottom: 1px solid #777; }
+.pdf-preview-toolbar a { display: inline-block; padding: 12px 18px; margin: 0 8px 12px 0; color: #0645ad; text-decoration: underline; border: 1px solid #777; border-radius: 4px; }
+.pdf-preview-toolbar p { margin: 0; color: #222; }
 
 .import-immagine-collegamento {
   display: grid;

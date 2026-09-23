@@ -1102,12 +1102,8 @@ const pdf = (() => {
   }
 
   function prenotaFinestra() {
-    try {
-      if (typeof window.open !== 'function') { diagnostica('window.open'); return null; }
-      const result = window.open('', '_blank');
-      if (!result) diagnostica('window.open', new Error('Popup bloccato: uso anteprima locale'));
-      return result;
-    } catch (error) { diagnostica('window.open', error); return null; }
+    // PDF.js renders inside the app: no popup or native viewer is required.
+    return null;
   }
 
   function diagnostica(metodo, errore) {
@@ -1140,6 +1136,12 @@ const pdf = (() => {
   }
 
   async function scarica(blob, filename) {
+    if (blob.type === 'application/pdf' && typeof pdfjsLib !== 'undefined' && typeof pdfjsLib.getDocument === 'function') {
+      const link = await apri(blob, filename);
+      // A synthetic click is only an attempt. The real link stays available.
+      if (link && typeof link.click === 'function') link.click();
+      return;
+    }
     const url = await urlPdf(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -1167,39 +1169,57 @@ const pdf = (() => {
   }
 
   async function apri(blob, filename, finestra) {
-    if (finestra && navigator.pdfViewerEnabled === false) {
-      diagnostica('navigator.pdfViewerEnabled', new Error('Lettore PDF nativo assente: uso anteprima locale'));
+    if (finestra) {
       try { if (typeof finestra.close === 'function') finestra.close(); } catch (error) { diagnostica('window.close', error); }
-      finestra = null;
     }
-    if (finestra && !finestra.closed) {
-      let url;
-      try {
-        url = await urlPdf(blob);
-        finestra.location.href = url;
-        return;
-      } catch (error) { diagnostica('window.location.href', error); }
-      finally { if (url) rilasciaUrl(url); }
-    }
-    // Blocked popup / installed PWA: a visible local preview remains usable.
+    // Native viewer navigation can succeed while leaving a blank tab on Edge.
+    // Success here means every PDF.js page has actually finished rendering.
     if (typeof pdfjsLib !== 'undefined' && typeof pdfjsLib.getDocument === 'function') {
       const panel = document.createElement('div');
       panel.className = 'pdf-preview-overlay';
       panel.setAttribute('role', 'dialog');
       panel.setAttribute('aria-label', 'Anteprima PDF');
+      panel.setAttribute('aria-modal', 'true');
+      const previousFocus = document.activeElement;
+      const toolbar = document.createElement('div');
+      toolbar.className = 'pdf-preview-toolbar';
       const close = document.createElement('button');
       close.textContent = 'Chiudi anteprima PDF';
-      const download = document.createElement('button');
+      const download = document.createElement('a');
       download.textContent = 'Scarica PDF';
-      download.onclick = () => scarica(blob, filename).catch(e => alert(descriviErrore('scaricare', e)));
-      panel.append(close, download);
+      download.download = filename;
+      const status = document.createElement('p');
+      status.setAttribute('role', 'status');
+      status.textContent = 'Preparazione PDF…';
+      toolbar.append(close, download, status);
+      panel.append(toolbar);
       document.body.appendChild(panel);
+      close.focus();
       let documento;
+      let url;
       let chiuso = false;
       let distruzione;
       const distruggi = () => documento ? (distruzione || (distruzione = documento.destroy())) : Promise.resolve();
-      close.onclick = () => { chiuso = true; panel.remove(); distruggi().catch(e => diagnostica('PDF.js.destroy', e)); };
+      close.onclick = () => {
+        chiuso = true; panel.remove();
+        if (url) rilasciaUrl(url);
+        distruggi().catch(e => diagnostica('PDF.js.destroy', e));
+        if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
+      };
+      panel.onkeydown = event => {
+        if (event.key === 'Escape') close.click();
+        if (event.key === 'Tab') {
+          event.preventDefault();
+          (document.activeElement === close && download.href ? download : close).focus();
+        }
+      };
+      download.onclick = () => {
+        status.textContent = 'Download richiesto. Se il file non compare nei download del browser, premi di nuovo Scarica PDF.';
+      };
       try {
+        url = await urlPdf(blob);
+        if (chiuso) { rilasciaUrl(url); return; }
+        download.href = url;
         documento = await pdfjsLib.getDocument({ data: new Uint8Array(await leggiArrayBuffer(blob)) }).promise;
         for (let n = 1; n <= documento.numPages && !chiuso; n++) {
           const page = await documento.getPage(n);
@@ -1210,11 +1230,17 @@ const pdf = (() => {
           await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
           page.cleanup();
         }
+        if (!chiuso) {
+          panel.dataset.renderedPages = String(documento.numPages);
+          status.textContent = `${documento.numPages} pagine pronte. Premi Scarica PDF per salvare il file.`;
+        }
       } catch (error) {
-        panel.remove();
-        if (!chiuso) throw error;
+        if (!chiuso) {
+          status.textContent = descriviErrore('visualizzare', error) + ' Puoi usare Scarica PDF se disponibile.';
+          throw error;
+        }
       } finally { await distruggi(); }
-      return;
+      return chiuso ? null : download;
     }
     await scarica(blob, filename);
   }
@@ -1227,6 +1253,14 @@ const pdf = (() => {
 
   /** Salva/condivide il PDF: Web Share API con file se disponibile, altrimenti download diretto. */
   async function salvaOCondividi(blob, filename) {
+    // Desktop download must not open the Windows share sheet (or depend on
+    // transient activation surviving asynchronous PDF generation).
+    if (blob.type === 'application/pdf' && /Windows NT|Macintosh|X11|CrOS/.test(navigator.userAgent || '') &&
+        !/Android|iPhone|iPad/.test(navigator.userAgent || '') &&
+        !(/Macintosh/.test(navigator.userAgent || '') && navigator.maxTouchPoints > 1)) {
+      await scarica(blob, filename);
+      return;
+    }
     if (typeof File === 'function' && typeof navigator.canShare === 'function' && typeof navigator.share === 'function') {
       try {
         const file = new File([blob], filename, { type: 'application/pdf' });
