@@ -1,23 +1,8 @@
 /**
- * Sincronizzazione multi-dispositivo dei sopralluoghi via Firestore (solo dati testuali:
- * le foto restano esclusivamente in IndexedDB locale, non vengono mai caricate).
- *
- * IndexedDB locale (db.js) resta la fonte di verità per l'uso offline dell'app: questo modulo
- * è un livello aggiuntivo "best effort" che, quando online, mantiene la collection Firestore
- * "sopralluoghi" allineata ai dati locali (e viceversa). Nessuna chiamata qui blocca mai l'uso
- * dell'app: ogni errore (rete assente, permessi Firestore, progetto non raggiungibile) viene
- * intercettato e loggato in console, mai mostrato all'utente.
- *
- * Compilazione concorrente: "risposte" e "foto_url" NON sono mai sovrascritti come blocco unico.
- * Su Firestore "risposte" è una mappa domanda_id -> risposta (mentre in locale, in IndexedDB,
- * resta un array, per non toccare tutto il resto dell'app): ogni risposta viaggia da sola con un
- * write a singola chiave ("risposte.<domanda_id>", vedi pushRisposta), e "foto_url" allo stesso
- * modo per singolo fotoId (pushFotoUrl). Così due tecnici che rispondono a domande diverse dello
- * stesso sopralluogo, anche in contemporanea, non si sovrascrivono a vicenda. Il caso limite di
- * due risposte alla STESSA domanda è risolto last-write-wins sul "aggiornato_il" di quella
- * singola risposta (non più su quello dell'intero documento). I campi anagrafici e "Altri
- * aspetti" restano invece whole-value last-write-wins sul "aggiornato_il" dell'intero documento,
- * come prima: sono singoli valori condivisi, il rischio di conflitto è basso.
+ * Local-first synchronization: IndexedDB commits before any cloud request. Firestore is
+ * the live transport, Supabase stores photo blobs. Missing remote documents are uploaded,
+ * never interpreted as a deletion. Transactions merge individual questions, photo IDs and
+ * timestamped metadata; snapshot application does not emit local mutation notifications.
  */
 const sync = (() => {
   const COLLECTION = 'sopralluoghi';
@@ -44,13 +29,15 @@ const sync = (() => {
       firebase.initializeApp(firebaseConfig);
     }
     firestoreDb = firebase.firestore();
+    // WebKit/iOS can buffer or cancel the streaming Listen transport on resume.
+    // The same server/collection and merge protocol work with long polling.
+    if (/AppleWebKit/.test(navigator.userAgent || '') && !/Chrome|Chromium|Edg/.test(navigator.userAgent || '')) {
+      firestoreDb.settings({ experimentalForceLongPolling: true, experimentalAutoDetectLongPolling: false, useFetchStreams: false });
+    }
     return firestoreDb;
   }
 
   function impostaStato(nuovo) {
-    if (statoAttuale === nuovo) {
-      return;
-    }
     statoAttuale = nuovo;
     listenerStato.forEach((callback) => callback(statoAttuale));
   }
@@ -68,7 +55,7 @@ const sync = (() => {
   }
 
   function timestampDi(sopralluogo) {
-    return new Date(sopralluogo.aggiornato_il || sopralluogo.data || 0).getTime();
+    return new Date(sopralluogo.aggiornato_il || sopralluogo.data || 0).getTime() || 0;
   }
 
   // --- Funzioni pure di conversione/merge (nessuna chiamata a IndexedDB/Firestore: testabili in isolamento) ---
@@ -128,7 +115,7 @@ const sync = (() => {
    */
   function unisciRisposte(risposteLocaliArray, risposteRemoteMappa, fallbackLocale, fallbackRemoto) {
     const localiMappa = arrayRisposteInMappa(risposteLocaliArray);
-    const remoteMappa = risposteRemoteMappa || {};
+    const remoteMappa = arrayRisposteInMappa(risposteRemoteMappa);
     const tuttiId = new Set([...Object.keys(localiMappa), ...Object.keys(remoteMappa)]);
 
     const mappaUnita = {};
@@ -152,9 +139,9 @@ const sync = (() => {
 
       const tsLoc = timestampRisposta(loc, fallbackLocale);
       const tsRem = timestampRisposta(rem, fallbackRemoto);
-      if (tsLoc >= tsRem) {
+      if (tsLoc > tsRem || (tsLoc === tsRem && stabile(loc) >= stabile(rem))) {
         mappaUnita[id] = loc;
-        if (JSON.stringify(loc) !== JSON.stringify(rem)) {
+        if (stabile(loc) !== stabile(rem)) {
           daScrivereRemoto[id] = loc;
         }
       } else {
@@ -200,287 +187,311 @@ const sync = (() => {
     return resto;
   }
 
-  // --- Scritture su Firestore ---
-
-  /** Carica su Firestore l'intero sopralluogo (creazione, duplicazione, import PDF): merge:true così non cancella mai risposte/foto_url scritti nel frattempo da un altro dispositivo su un documento già esistente. */
-  async function pushSopralluogoCompleto(sopralluogo) {
-    const fdb = inizializzaFirebase();
-    if (!fdb || !online()) {
-      return;
-    }
-    try {
-      await fdb.collection(COLLECTION).doc(sopralluogo.id).set({
-        ...estraiMetadati(sopralluogo),
-        risposte: arrayRisposteInMappa(sopralluogo.risposte),
-        foto_url: sopralluogo.foto_url || {}
-      }, { merge: true });
-    } catch (errore) {
-      console.warn('Sync: impossibile caricare su Firestore il sopralluogo', sopralluogo.id, errore);
-    }
+  // Stable comparison also makes equal-timestamp conflicts converge on every device.
+  function stabile(value) {
+    if (Array.isArray(value)) return '[' + value.map(stabile).join(',') + ']';
+    if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map(k => JSON.stringify(k) + ':' + stabile(value[k])).join(',') + '}';
+    return JSON.stringify(value);
   }
 
-  /** Carica su Firestore solo i campi anagrafici/stato/altri_aspetti (mai risposte/foto_url). */
-  async function pushMetadati(sopralluogo) {
-    const fdb = inizializzaFirebase();
-    if (!fdb || !online()) {
-      return;
-    }
-    try {
-      await fdb.collection(COLLECTION).doc(sopralluogo.id).set(estraiMetadati(sopralluogo), { merge: true });
-    } catch (errore) {
-      console.warn('Sync: impossibile caricare su Firestore i metadati del sopralluogo', sopralluogo.id, errore);
-    }
-  }
-
-  /** Carica su Firestore SOLO la singola risposta appena salvata, senza toccare le altre. */
-  async function pushRisposta(sopralluogoId, risposta, aggiornatoIl) {
-    const fdb = inizializzaFirebase();
-    if (!fdb || !online()) {
-      return;
-    }
-    try {
-      await fdb.collection(COLLECTION).doc(sopralluogoId).set({
-        risposte: { [risposta.domanda_id]: risposta },
-        aggiornato_il: aggiornatoIl
-      }, { merge: true });
-    } catch (errore) {
-      console.warn('Sync: impossibile caricare su Firestore la risposta', sopralluogoId, risposta.domanda_id, errore);
-    }
-  }
-
-  /** Carica su Firestore SOLO il fotoId appena caricato su Supabase, senza toccare gli altri. */
-  async function pushFotoUrl(sopralluogoId, fotoId, valore, aggiornatoIl) {
-    const fdb = inizializzaFirebase();
-    if (!fdb || !online()) {
-      return;
-    }
-    try {
-      await fdb.collection(COLLECTION).doc(sopralluogoId).set({
-        foto_url: { [fotoId]: valore },
-        aggiornato_il: aggiornatoIl
-      }, { merge: true });
-    } catch (errore) {
-      console.warn('Sync: impossibile caricare su Firestore foto_url', sopralluogoId, fotoId, errore);
-    }
-  }
-
-  /**
-   * Propaga su Firestore l'eliminazione definitiva di un sopralluogo. Scrive una "tomba"
-   * (eliminato_definitivamente: true) invece di cancellare il documento: se lo cancellassimo,
-   * un dispositivo che non ha ancora visto l'eliminazione e più tardi fa un giro di
-   * sincronizzazione completa vedrebbe "il locale c'è, il remoto non c'è" e lo ricaricherebbe
-   * per errore, facendolo risorgere per tutti. La tomba resta confrontabile con aggiornato_il
-   * come una normale versione del documento (vince comunque la più recente).
-   */
-  async function eliminaSuFirestore(sopralluogoId, aggiornatoIl) {
-    const fdb = inizializzaFirebase();
-    if (!fdb || !online()) {
-      return;
-    }
-    try {
-      await fdb.collection(COLLECTION).doc(sopralluogoId).set({
-        eliminato_definitivamente: true,
-        aggiornato_il: aggiornatoIl || new Date().toISOString()
-      });
-    } catch (errore) {
-      console.warn('Sync: impossibile eliminare su Firestore il sopralluogo', sopralluogoId, errore);
-    }
-  }
-
-  /** Reagisce a ogni mutazione locale notificata da db.js (vedi db.onCambiamento). */
-  function alCambiamentoLocale(evento) {
-    if (evento.tipo === 'upsert') {
-      pushSopralluogoCompleto(evento.sopralluogo);
-    } else if (evento.tipo === 'upsert-metadati') {
-      pushMetadati(evento.sopralluogo);
-    } else if (evento.tipo === 'upsert-risposta') {
-      pushRisposta(evento.sopralluogoId, evento.risposta, evento.aggiornato_il);
-    } else if (evento.tipo === 'upsert-fotourl') {
-      pushFotoUrl(evento.sopralluogoId, evento.fotoId, evento.valore, evento.aggiornato_il);
-    } else if (evento.tipo === 'delete') {
-      eliminaSuFirestore(evento.sopralluogoId, evento.aggiornato_il);
-    }
-  }
-
-  /**
-   * Riconcilia un sopralluogo presente sia in locale che da remoto (non una tomba): unisce
-   * risposte e foto_url per chiave (mai un lato "vince" in blocco), poi decide la direzione dei
-   * soli metadati con il confronto whole-doc di sempre. Applica in locale solo il patch
-   * risultante (mai un put cieco dell'intero record remoto) e scrive su Firestore solo le chiavi
-   * effettivamente cambiate. Ritorna true se il locale è stato modificato (serve a chi chiama per
-   * sapere se notificare la UI).
-   */
-  async function unisciEPropaga(fdb, id, locale, remoto) {
-    const risultatoRisposte = unisciRisposte(locale.risposte, remoto.risposte, timestampDi(locale), timestampDi(remoto));
-    const risultatoFoto = unisciFotoUrl(locale.foto_url, remoto.foto_url);
-
-    const patchLocale = {};
-    const payloadRemoto = {};
-
-    if (risultatoRisposte.cambiatoLocale) {
-      patchLocale.risposte = risultatoRisposte.array;
-    }
-    if (Object.keys(risultatoRisposte.daScrivereRemoto).length > 0) {
-      payloadRemoto.risposte = risultatoRisposte.daScrivereRemoto;
-    }
-
-    if (risultatoFoto.cambiatoLocale) {
-      patchLocale.foto_url = risultatoFoto.mappa;
-    }
-    if (Object.keys(risultatoFoto.daScrivereRemoto).length > 0) {
-      payloadRemoto.foto_url = risultatoFoto.daScrivereRemoto;
-    }
-
-    if (timestampDi(locale) > timestampDi(remoto)) {
-      Object.assign(payloadRemoto, estraiMetadati(locale));
-    } else if (timestampDi(remoto) > timestampDi(locale)) {
-      Object.assign(patchLocale, estraiMetadati(remoto));
-    }
-
-    const attese = [];
-    if (Object.keys(payloadRemoto).length > 0) {
-      attese.push(
-        fdb.collection(COLLECTION).doc(id).set(payloadRemoto, { merge: true }).catch((errore) => {
-          console.warn('Sync: impossibile propagare il merge su Firestore per il sopralluogo', id, errore);
-        })
-      );
-    }
-
-    let localeCambiato = false;
-    if (Object.keys(patchLocale).length > 0) {
-      localeCambiato = true;
-      attese.push(db.applicaMergeSopralluogoRemoto(id, patchLocale));
-    }
-
-    await Promise.all(attese);
-    return localeCambiato;
-  }
-
-  /**
-   * Sincronizzazione bidirezionale completa: confronta tutti i sopralluoghi locali con tutti
-   * quelli remoti. Per i sopralluoghi mancanti da un lato (o con una tomba di eliminazione) si
-   * comporta come prima (copia/elimina l'intero record, non c'è alcun conflitto possibile). Per i
-   * sopralluoghi presenti su entrambi i lati, invece di scegliere un vincitore per l'intero
-   * documento, unisce risposte e foto_url per chiave (vedi unisciEPropaga) — così due dispositivi
-   * che hanno risposto a domande diverse nel frattempo non si cancellano più a vicenda. Chiamata
-   * all'avvio dell'app, al ritorno della connessione/visibilità della pagina. Ritorna true/false
-   * (riuscita o no): app.js usa questo esito per decidere se è sicuro far girare
-   * db.pulisciCestino() nello stesso avvio (mai su dati locali potenzialmente incompleti).
-   */
-  async function sincronizzaTutto() {
-    const fdb = inizializzaFirebase();
-    if (!fdb || !online()) {
-      impostaStato('offline');
-      return false;
-    }
-
-    impostaStato('sincronizzando');
-
-    try {
-      const [locali, snapshotRemoto] = await Promise.all([
-        db.elencaTuttiSopralluoghi(),
-        fdb.collection(COLLECTION).get()
-      ]);
-
-      const localiPerId = new Map(locali.map((s) => [s.id, s]));
-      const remotiPerId = new Map();
-      snapshotRemoto.forEach((doc) => remotiPerId.set(doc.id, { id: doc.id, ...doc.data() }));
-
-      const daCaricare = [];
-      const daScaricare = [];
-      const daEliminareLocalmente = [];
-      const daUnire = [];
-
-      const tuttiId = new Set([...localiPerId.keys(), ...remotiPerId.keys()]);
-      tuttiId.forEach((id) => {
-        const locale = localiPerId.get(id);
-        const remoto = remotiPerId.get(id);
-        const remotoEUnaTomba = !!(remoto && remoto.eliminato_definitivamente);
-
-        if (locale && !remoto) {
-          daCaricare.push(locale);
-          return;
-        }
-        if (!locale && remoto) {
-          if (!remotoEUnaTomba) {
-            daScaricare.push(remoto);
-          }
-          return;
-        }
-        // Da qui: sia locale che remoto esistono.
-        if (remotoEUnaTomba) {
-          if (timestampDi(locale) > timestampDi(remoto)) {
-            daCaricare.push(locale);
-          } else if (timestampDi(remoto) > timestampDi(locale)) {
-            daEliminareLocalmente.push(id);
-          }
-          return;
-        }
-        daUnire.push({ id, locale, remoto });
-      });
-
-      await Promise.all(daCaricare.map((s) => pushSopralluogoCompleto(s)));
-      await Promise.all(daScaricare.map((s) => db.applicaSopralluogoRemoto(s)));
-      await Promise.all(daEliminareLocalmente.map((id) => db.eliminaSopralluogoSenzaNotifica(id)));
-      const esitiUnione = await Promise.all(daUnire.map(({ id, locale, remoto }) => unisciEPropaga(fdb, id, locale, remoto)));
-
-      const localeCambiato = esitiUnione.some(Boolean);
-      if (daScaricare.length > 0 || daEliminareLocalmente.length > 0 || localeCambiato) {
-        notificaDatiAggiornati();
+  function unisciDocumenti(locale, remoto) {
+    if (!locale) return { ...remoto, risposte: mappaRisposteInArray(arrayRisposteInMappa(remoto.risposte)) };
+    if (!remoto) return { ...locale };
+    const risultato = { ...locale };
+    const tempi = { ...(locale.campi_aggiornati || {}) };
+    const esclusi = new Set(['foto', 'risposte', 'foto_url', 'campi_aggiornati', '_sync_rev']);
+    for (const k of new Set([...Object.keys(locale), ...Object.keys(remoto)])) {
+      if (esclusi.has(k)) continue;
+      const tl = Date.parse(locale.campi_aggiornati?.[k] || locale.aggiornato_il || locale.data) || 0;
+      const tr = Date.parse(remoto.campi_aggiornati?.[k] || remoto.aggiornato_il || remoto.data) || 0;
+      if (k in remoto && (!(k in locale) || tr > tl || (tr === tl && stabile(remoto[k]) > stabile(locale[k])))) {
+        risultato[k] = remoto[k];
+        tempi[k] = remoto.campi_aggiornati?.[k] || remoto.aggiornato_il || remoto.data || new Date(0).toISOString();
+      } else if (k in locale) {
+        tempi[k] = locale.campi_aggiornati?.[k] || locale.aggiornato_il || locale.data || new Date(0).toISOString();
       }
-
-      impostaStato('sincronizzato');
-      return true;
-    } catch (errore) {
-      console.warn('Sync: sincronizzazione completa fallita, resta valido lo stato locale', errore);
-      impostaStato('offline');
-      return false;
     }
+    risultato.campi_aggiornati = tempi;
+    const risposteConTempi = s => Object.fromEntries(Object.entries(arrayRisposteInMappa(s.risposte)).map(([id, r]) => [id, {
+      ...r, domanda_id: r.domanda_id ?? (Number.isNaN(Number(id)) ? id : Number(id)),
+      aggiornato_il: r.aggiornato_il || s.aggiornato_il || s.data || new Date(0).toISOString()
+    }]));
+    risultato.risposte = unisciRisposte(risposteConTempi(locale), risposteConTempi(remoto), 0, 0).array;
+    risultato.foto_url = unisciFotoUrl(locale.foto_url, remoto.foto_url).mappa;
+    return risultato;
   }
 
-  /**
-   * Ritorna una Promise<boolean> che si risolve con l'esito della sincronizzazione iniziale
-   * (true = riuscita, false = offline o fallita): chi chiama init() può fare `await` per sapere
-   * quando è sicuro far girare operazioni che presuppongono dati locali aggiornati (es.
-   * db.pulisciCestino() in app.js), senza dover duplicare la logica online()/sincronizzaTutto().
-   * Le sincronizzazioni successive (al ritorno della connessione, al tornare visibile/attiva la
-   * pagina) restano fire-and-forget: sono l'unico modo con cui questo dispositivo scopre le
-   * modifiche fatte nel frattempo da un altro (nessun listener Firestore in tempo reale, per non
-   * introdurre complessità sproporzionata rispetto al beneficio — vedi js/app.js,
-   * compilazioneScreen si iscrive a onDatiAggiornati per rinfrescare lo schermo se aperto).
-   */
-  function init() {
-    db.onCambiamento(alCambiamentoLocale);
+  function datiCloud(s) {
+    const { foto, _sync_rev, ...record } = s;
+    return JSON.parse(JSON.stringify({ ...record, risposte: arrayRisposteInMappa(s.risposte) }));
+  }
 
-    window.addEventListener('online', sincronizzaTutto);
-    window.addEventListener('offline', () => impostaStato('offline'));
-    window.addEventListener('focus', () => { if (online()) sincronizzaTutto(); });
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && online()) {
-        sincronizzaTutto();
+  // Exact per-question fields: never replace the complete answers/photos map.
+  function differenze(unito, remoto) {
+    const patch = {}, campi = [];
+    for (const [k, v] of Object.entries(datiCloud(unito))) {
+      if (['risposte', 'foto_url', 'campi_aggiornati'].includes(k)) {
+        for (const [id, valore] of Object.entries(v || {})) {
+          if (stabile(valore) === stabile(remoto?.[k]?.[id])) continue;
+          (patch[k] ||= {})[id] = valore;
+          campi.push(new firebase.firestore.FieldPath(k, id));
+        }
+      } else if (stabile(v) !== stabile(remoto?.[k])) {
+        patch[k] = v;
+        campi.push(new firebase.firestore.FieldPath(k));
       }
+    }
+    return { patch, campi };
+  }
+
+  let sincronizzazioneInCorso = null;
+  let completoInCorso = null;
+  let unsubscribe = null;
+  let inizializzato = false;
+  let datiVerificati = false;
+  let attesaFoto = 0;
+  let erroreDati = false;
+  let retry = null;
+  const pendenti = new Map();
+  const invii = new Map();
+  let codaSnapshot = Promise.resolve();
+
+  function elementiInAttesa() { return pendenti.size + attesaFoto + (erroreDati ? 1 : 0); }
+  function aggiornaStato() {
+    impostaStato(!online() ? 'offline' : completoInCorso || sincronizzazioneInCorso || invii.size ? 'sincronizzando'
+      : elementiInAttesa() || !datiVerificati ? 'parziale' : 'sincronizzato');
+  }
+  function riprovaDopo() {
+    if (retry || !online()) return;
+    retry = setTimeout(() => { retry = null; sincronizzaCompleto(); }, 15000);
+  }
+  function conScadenza(promise, ms = 12000) {
+    let timer;
+    return Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Timeout sincronizzazione')), ms); })]).finally(() => clearTimeout(timer));
+  }
+
+  async function applicaRemoto(remoto) {
+    // Read + conservative merge + put share one IDB transaction, including concurrent edits.
+    const esito = await db.unisciSopralluogoRemoto(remoto, unisciDocumenti);
+    if (esito.cambiato) notificaDatiAggiornati();
+    return esito.record;
+  }
+
+  function invia(id) {
+    if (invii.has(id)) return invii.get(id);
+    if (!online() || !inizializzaFirebase()) { aggiornaStato(); return Promise.resolve(false); }
+    const lavoro = (async () => {
+      try {
+        let ancora;
+        do {
+          const locale = await db.leggiSopralluogo(id);
+          if (!locale) return true;
+          const rev = locale._sync_rev;
+          const ref = firestoreDb.collection(COLLECTION).doc(id);
+          const unito = await conScadenza(firestoreDb.runTransaction(async tx => {
+            const snap = await tx.get(ref);
+            const remoto = snap.exists ? { ...snap.data(), id } : null;
+            const record = unisciDocumenti(locale, remoto);
+            const { patch, campi } = differenze(record, remoto);
+            if (campi.length) tx.set(ref, patch, { mergeFields: campi });
+            return record;
+          }));
+          await applicaRemoto(unito);
+          await db.confermaSincronizzato(id, rev);
+          const attuale = await db.leggiSopralluogo(id);
+          ancora = !!attuale?._sync_rev;
+          if (!ancora) pendenti.delete(id);
+        } while (ancora && online());
+        return !ancora;
+      } catch (errore) {
+        pendenti.set(id, true);
+        console.warn('Sync: dati conservati sul dispositivo, invio da ritentare', id, errore);
+        riprovaDopo();
+        return false;
+      }
+    })();
+    invii.set(id, lavoro);
+    aggiornaStato();
+    lavoro.then(ok => {
+      invii.delete(id); aggiornaStato();
+      if (ok && pendenti.has(id)) invia(id);
     });
+    return lavoro;
+  }
 
-    if (online()) {
-      return sincronizzaTutto();
-    }
-    impostaStato('offline');
-    return Promise.resolve(false);
+  function alCambiamentoLocale(evento) {
+    const id = evento.sopralluogoId || evento.sopralluogo?.id;
+    if (!id) return;
+    pendenti.set(id, true);
+    invia(id);
+  }
+
+  // Server documents as last delivered by the live listener. While it is aligned, a full sync
+  // reuses it instead of re-reading the whole collection on every focus/visibility change.
+  const remotiRealtime = new Map();
+  let realtimeAllineato = false;
+
+  function fermaRealtime() {
+    if (unsubscribe) unsubscribe();
+    unsubscribe = null;
+    realtimeAllineato = false;
+    remotiRealtime.clear();
+  }
+
+  function avviaRealtime() {
+    if (unsubscribe || !online()) return;
+    const fdb = inizializzaFirebase();
+    if (!fdb) return;
+    unsubscribe = fdb.collection(COLLECTION).onSnapshot({ includeMetadataChanges: true }, snapshot => {
+      // docChanges() is relative to the previous snapshot: skipping a whole snapshot would lose
+      // its remote changes. Every change is applied (the merge is idempotent); only the
+      // "aligned with the server" flag waits for a snapshot that is not served from cache.
+      const cambi = snapshot.docChanges();
+      const daServer = !snapshot.metadata.fromCache;
+      codaSnapshot = codaSnapshot.then(async () => {
+        for (const change of cambi) {
+          const id = change.doc.id;
+          // Absence/removal on the server NEVER deletes a local inspection: it is re-uploaded.
+          if (change.type === 'removed') {
+            remotiRealtime.delete(id);
+            const locale = await db.leggiSopralluogo(id);
+            if (locale) { pendenti.set(locale.id, true); invia(locale.id); }
+            continue;
+          }
+          const remoto = { ...change.doc.data(), id };
+          remotiRealtime.set(id, remoto);
+          await applicaRemoto(remoto);
+        }
+        if (daServer && !realtimeAllineato) {
+          realtimeAllineato = true;
+          // First aligned snapshot: upload anything local the server does not have yet.
+          const locali = await db.elencaTuttiSopralluoghi();
+          for (const locale of locali) {
+            if (locale._sync_rev || !remotiRealtime.has(locale.id)) { pendenti.set(locale.id, true); invia(locale.id); }
+          }
+        }
+        aggiornaStato();
+      }).catch(errore => { erroreDati = true; aggiornaStato(); riprovaDopo(); console.warn('Sync snapshot', errore); });
+    }, errore => {
+      fermaRealtime();
+      erroreDati = true;
+      aggiornaStato();
+      riprovaDopo();
+      console.warn('Sync realtime da riconnettere', errore);
+    });
+  }
+
+  /**
+   * verificaServer=false only for the second pass inside sincronizzaCompleto: every explicit
+   * trigger re-reads the server, so a silently stalled listener can never hide a document
+   * that disappeared from Firestore (it is re-uploaded).
+   */
+  function sincronizzaTutto({ verificaServer = true } = {}) {
+    if (sincronizzazioneInCorso) return sincronizzazioneInCorso;
+    sincronizzazioneInCorso = (async () => {
+      if (!online() || !inizializzaFirebase()) { datiVerificati = false; return false; }
+      try {
+        // ALL local records first, including legacy entries and the trash.
+        const locali = await db.elencaTuttiSopralluoghi();
+        locali.filter(s => s._sync_rev).forEach(s => pendenti.set(s.id, true));
+        let remoti, nonApplicati = 0;
+        if (!verificaServer && realtimeAllineato && unsubscribe) {
+          // The listener already applied every server document it delivered.
+          await codaSnapshot;
+          remoti = new Map(remotiRealtime);
+        } else {
+          const snapshot = await conScadenza(firestoreDb.collection(COLLECTION).get({ source: 'server' }));
+          remoti = new Map();
+          snapshot.forEach(doc => remoti.set(doc.id, { ...doc.data(), id: doc.id }));
+          // One malformed remote document must never prevent local records from uploading.
+          for (const remoto of remoti.values()) {
+            try { await applicaRemoto(remoto); } catch (errore) { nonApplicati++; console.warn('Sync: documento remoto non applicato', remoto.id, errore); }
+          }
+        }
+        const esiti = [];
+        for (const locale of locali) {
+          try {
+            const corrente = await db.leggiSopralluogo(locale.id);
+            if (corrente && (!remoti.has(locale.id) || corrente._sync_rev || differenze(corrente, remoti.get(locale.id)).campi.length)) {
+              pendenti.set(locale.id, true);
+              esiti.push(invia(locale.id));
+              if (esiti.length % 8 === 0) await Promise.all(esiti);
+            }
+          } catch (errore) {
+            // Never skip the remaining records; this one stays pending and is retried.
+            pendenti.set(locale.id, true);
+            esiti.push(Promise.resolve(false));
+            console.warn('Sync: confronto locale/cloud non riuscito, record conservato', locale.id, errore);
+          }
+        }
+        datiVerificati = true;
+        erroreDati = nonApplicati > 0;
+        avviaRealtime();
+        return (await Promise.all(esiti)).every(Boolean) && !nonApplicati;
+      } catch (errore) {
+        erroreDati = true;
+        console.warn('Sync: cloud non disponibile, dati locali conservati', errore);
+        riprovaDopo();
+        return false;
+      }
+    })().finally(() => { sincronizzazioneInCorso = null; aggiornaStato(); });
+    aggiornaStato();
+    return sincronizzazioneInCorso;
+  }
+
+  function sincronizzaCompleto() {
+    if (completoInCorso) return completoInCorso;
+    completoInCorso = (async () => {
+      const primo = await sincronizzaTutto();
+      if (typeof fotoSync !== 'undefined') await conScadenza(fotoSync.riprovaInSospeso());
+      const secondo = await sincronizzaTutto({ verificaServer: false });
+      if (typeof fotoSync !== 'undefined') await conScadenza(fotoSync.recuperaFotoMancanti());
+      attesaFoto = (await db.elencaFotoSenzaUrl()).length;
+      return primo && secondo && !elementiInAttesa();
+    })().catch(errore => {
+      erroreDati = true;
+      console.warn('Sync parziale, dati locali conservati', errore);
+      return false;
+    }).finally(() => {
+      completoInCorso = null;
+      aggiornaStato();
+      if (elementiInAttesa()) riprovaDopo();
+    });
+    aggiornaStato();
+    return completoInCorso;
+  }
+
+  function init() {
+    if (inizializzato) return sincronizzaCompleto();
+    inizializzato = true;
+    db.onCambiamento(alCambiamentoLocale);
+    const riprendi = () => { avviaRealtime(); sincronizzaCompleto(); };
+    window.addEventListener('online', riprendi);
+    window.addEventListener('offline', () => {
+      fermaRealtime();
+      aggiornaStato();
+    });
+    window.addEventListener('focus', riprendi);
+    window.addEventListener('pagehide', () => {
+      fermaRealtime();
+      // Close the streaming channel before iOS/WebKit suspends or replaces the document.
+      if (firestoreDb) firestoreDb.disableNetwork().catch(() => {});
+    });
+    window.addEventListener('pageshow', event => {
+      if (event.persisted && firestoreDb) firestoreDb.enableNetwork().then(riprendi).catch(() => riprovaDopo());
+    });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') riprendi(); });
+    if (typeof fotoSync !== 'undefined') fotoSync.onCambioStato(async () => {
+      attesaFoto = (await db.elencaFotoSenzaUrl()).length;
+      aggiornaStato();
+      if (attesaFoto) riprovaDopo();
+    });
+    return sincronizzaCompleto();
   }
 
   return {
-    init,
-    sincronizzaTutto,
-    onCambioStato,
-    onDatiAggiornati,
-    statoAttuale: () => statoAttuale,
-    _test: {
-      arrayRisposteInMappa,
-      mappaRisposteInArray,
-      unisciRisposte,
-      unisciFotoUrl,
-      estraiMetadati,
-      timestampDi
-    }
+    init, sincronizzaTutto, sincronizzaCompleto, onCambioStato, onDatiAggiornati,
+    elementiInAttesa, statoAttuale: () => statoAttuale,
+    _test: { arrayRisposteInMappa, mappaRisposteInArray, unisciRisposte, unisciFotoUrl, estraiMetadati, timestampDi, unisciDocumenti, stabile }
   };
 })();

@@ -162,7 +162,7 @@ test('row taller than a page continues without losing or duplicating note text',
   for (const token of tokens) assert.equal(text.split(token).length-1,1,token);
 });
 
-test('PWA update preserves pending PDF import on automatic and manual refresh', () => {
+test('PWA update preserves pending PDF import on automatic and manual refresh', async () => {
   const handlers={}; let reloads=0, alerts=0;
   const banner={ hidden:true }, button={ addEventListener:(name,fn)=>{handlers.click=fn;} };
   const context={
@@ -172,14 +172,15 @@ test('PWA update preserves pending PDF import on automatic and manual refresh', 
       querySelector:()=>({dataset:{screen:'home'}}), addEventListener(){}
     },
     navigator:{ serviceWorker:{ addEventListener:(name,fn)=>{handlers[name]=fn;} } },
-    window:{addEventListener(){}}, location:{reload:()=>reloads++}, alert:()=>alerts++, console
+    window:{addEventListener(){}}, location:{reload:()=>reloads++}, alert:()=>alerts++, console,
+    fetch:async()=>({ok:true,json:async()=>({buildId:'new-build'})})
   };
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../js/aggiornamento.js'),'utf8')+';aggiornamentoApp.init();',context);
-  handlers.controllerchange(); handlers.click();
+  await handlers.controllerchange(); await handlers.click();
   assert.equal(reloads,0); assert.equal(alerts,1); assert.equal(banner.hidden,false);
   context.anteprimaImportazionePendente=null;
-  handlers.click(); assert.equal(reloads,1);
+  await handlers.click(); assert.equal(reloads,1);
 });
 
 test('compatibilità mobile legacy: il codice applicativo non richiede Array.prototype.flatMap', () => {

@@ -119,19 +119,60 @@ async function contaFotoMancanti(sopralluogo) {
  * e può essere precedente alle foto caricate dal PC. Il giro di sync porta sul telefono sia
  * i fotoId nelle risposte sia la mappa foto_url necessaria per scaricare i blob da Supabase.
  */
+const ATTESA_MASSIMA_SYNC_PDF_MS = 10000;
+
 async function preparaDatiPdfCrossDevice() {
-  if (typeof navigator === 'undefined' || !navigator.onLine) return;
+  // Bounded: a slow or unreachable cloud must never keep the PDF from opening.
+  const attesaMassimaMs = ATTESA_MASSIMA_SYNC_PDF_MS;
+  let timer;
   try {
-    if (typeof fotoSync !== 'undefined' && typeof fotoSync.riprovaInSospeso === 'function') {
-      await fotoSync.riprovaInSospeso();
-    }
-    if (typeof sync !== 'undefined' && typeof sync.sincronizzaTutto === 'function') {
-      const sincronizzato = await sync.sincronizzaTutto();
-      if (sincronizzato === false) throw new Error('Sincronizzazione non riuscita. Riprova con una connessione attiva prima di generare il PDF.');
-    }
+    const giro = (async () => {
+      if (typeof sync.sincronizzaCompleto === 'function') await sync.sincronizzaCompleto();
+      else await sync.sincronizzaTutto();
+    })();
+    await Promise.race([giro, new Promise((resolve) => { timer = setTimeout(resolve, attesaMassimaMs); })]);
   } catch (errore) {
-    throw new Error('Preparazione dati PDF non completata: ' + (errore.message || errore));
+    console.warn('PDF: utilizzo i dati locali disponibili', errore);
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+/**
+ * Short retry for photos whose foto_url may still be arriving. Returns how many are still
+ * missing and the freshest record read (the same object when no retry was needed).
+ */
+async function recuperaFotoConRetry(sopralluogo, tentativi = 2, pausaMs = 1500) {
+  let mancanti = await contaFotoMancanti(sopralluogo);
+  for (let i = 0; mancanti > 0 && i < tentativi && navigator.onLine; i++) {
+    await new Promise((resolve) => setTimeout(resolve, pausaMs));
+    sopralluogo = (await db.leggiSopralluogo(sopralluogo.id)) || sopralluogo;
+    mancanti = await contaFotoMancanti(sopralluogo);
+  }
+  return { mancanti, sopralluogo };
+}
+
+/** Avviso non bloccante (mai alert): il PDF resta aperto e l'utente non deve confermare nulla. */
+function mostraAvvisoNonBloccante(testo) {
+  let el = document.getElementById('avviso-non-bloccante');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'avviso-non-bloccante';
+    el.className = 'avviso-non-bloccante';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    document.body.appendChild(el);
+  }
+  el.textContent = testo;
+  el.hidden = false;
+  clearTimeout(mostraAvvisoNonBloccante.timer);
+  mostraAvvisoNonBloccante.timer = setTimeout(() => { el.hidden = true; }, 7000);
+}
+
+function testoFotoInSincronizzazione(azione, mancanti) {
+  return mancanti === 1
+    ? `PDF ${azione}. 1 foto è ancora in sincronizzazione.`
+    : `PDF ${azione}. ${mancanti} foto sono ancora in sincronizzazione.`;
 }
 
 /**
@@ -1869,6 +1910,9 @@ const compilazioneScreen = (() => {
     const corrente = checklistEngine.domandaCorrente();
     if (corrente) {
       renderIndicatori(corrente.totale, corrente.indice);
+      if (!screen.contains(document.activeElement) || !document.activeElement.matches('textarea')) {
+        renderDomandaCorrente();
+      }
       // Le foto possono essere arrivate da un altro dispositivo insieme a foto_url: aggiorniamo
       // solo l'elenco foto della domanda corrente, senza toccare radio/note eventualmente in
       // modifica. Vale per tutte le checklist perché passa dal motore comune.
@@ -2037,6 +2081,16 @@ const altriAspettiScreen = (() => {
   }
 
   function init() {
+    textarea.addEventListener('change', async () => {
+      const record = checklistEngine.sopralluogoCorrente();
+      if (record) await db.aggiornaSopralluogo(record.id, { altri_aspetti: textarea.value.trim() || null });
+    });
+    sync.onDatiAggiornati(async () => {
+      const schermata = document.querySelector('[data-screen="altri-aspetti"]');
+      if (!schermata || schermata.hidden || schermata.contains(document.activeElement)) return;
+      await checklistEngine.ricaricaSopralluogoCorrente();
+      prepara();
+    });
     btnAvanti.addEventListener('click', onAvanti);
     btnFoto.addEventListener('click', onFoto);
     fotoSync.onCambioStato((fotoId) => {
@@ -2153,7 +2207,9 @@ const riepilogoScreen = (() => {
       // caricate su Supabase e che i relativi riferimenti siano arrivati su Firestore. In questo
       // modo il PDF aperto successivamente da un telefono può ricostruire gli stessi allegati.
       await preparaDatiPdfCrossDevice();
-      const sopralluogo = await db.leggiSopralluogo(sopralluogoId);
+      const recupero = await recuperaFotoConRetry(await db.leggiSopralluogo(sopralluogoId));
+      const sopralluogo = recupero.sopralluogo;
+      const fotoMancanti = recupero.mancanti;
 
       pdfBlob = await pdf.generaReport(checklist, sopralluogo);
       pdfFilename = pdf.nomeFile(sopralluogo);
@@ -2164,11 +2220,13 @@ const riepilogoScreen = (() => {
         sopralluogo_id: sopralluogoId,
         blob: pdfBlob,
         filename: pdfFilename,
-        firma_foto: firmaFotoSopralluogo(sopralluogoAggiornato || sopralluogo)
+        firma_foto: firmaFotoSopralluogo(sopralluogoAggiornato || sopralluogo),
+        foto_incomplete: fotoMancanti > 0
       });
 
       pdfEsito.hidden = false;
       bannerAnagrafica.hidden = true;
+      if (fotoMancanti > 0) mostraAvvisoNonBloccante(testoFotoInSincronizzazione('generato', fotoMancanti));
     } catch (errore) {
       mostraErrore(pdf.descriviErrore('generare', errore));
     } finally {
@@ -2360,7 +2418,7 @@ const storicoScreen = (() => {
   async function ottieniOGeneraPdf(sopralluogoId) {
     await preparaDatiPdfCrossDevice();
 
-    const [salvato, sopralluogo] = await Promise.all([
+    let [salvato, sopralluogo] = await Promise.all([
       db.leggiPdfReport(sopralluogoId),
       db.leggiSopralluogo(sopralluogoId)
     ]);
@@ -2368,25 +2426,17 @@ const storicoScreen = (() => {
       throw new Error('Sopralluogo non trovato.');
     }
 
-    if (pdfSalvatoAncoraValido(salvato, sopralluogo)) {
+    if (!salvato?.foto_incomplete && pdfSalvatoAncoraValido(salvato, sopralluogo)) {
       return { blob: salvato.blob, filename: salvato.filename, rigenerato: false, fotoMancanti: 0 };
     }
 
-    const [checklist, fotoMancanti] = await Promise.all([
+    const [checklist, recupero] = await Promise.all([
       checklistEngine.carica(sopralluogo.checklist_id),
-      contaFotoMancanti(sopralluogo)
+      recuperaFotoConRetry(sopralluogo)
     ]);
-
-    // Se siamo online ma una foto referenziata non è ancora recuperabile, non mostriamo come
-    // definitivo un PDF apparentemente valido ma privo di allegati. Il messaggio indica cosa
-    // fare invece di lasciare l'utente con un report incompleto senza spiegazione.
-    if (fotoMancanti > 0) {
-      throw new Error(
-        `${fotoMancanti} foto non sono ancora sincronizzate su questo dispositivo. ` +
-        'Apri per qualche secondo la stessa checklist sul dispositivo dove sono state scattate, ' +
-        'attendi la connessione e poi riprova ad aprire il PDF.'
-      );
-    }
+    // foto_url may have arrived during the retry: generate from the freshest local record.
+    sopralluogo = recupero.sopralluogo;
+    const fotoMancanti = recupero.mancanti;
 
     const blob = await pdf.generaReport(checklist, sopralluogo);
     const filename = pdf.nomeFile(sopralluogo);
@@ -2394,18 +2444,16 @@ const storicoScreen = (() => {
       sopralluogo_id: sopralluogoId,
       blob,
       filename,
-      firma_foto: firmaFotoSopralluogo(sopralluogo)
+      firma_foto: firmaFotoSopralluogo(sopralluogo),
+      foto_incomplete: fotoMancanti > 0
     });
 
     return { blob, filename, rigenerato: true, fotoMancanti };
   }
 
-  function avvisaSeFotoMancanti(rigenerato, fotoMancanti) {
+  function avvisaSeFotoMancanti(rigenerato, fotoMancanti, azione = 'aperto') {
     if (rigenerato && fotoMancanti > 0) {
-      alert(
-        `Alcune foto di questo sopralluogo non sono disponibili su questo dispositivo (${fotoMancanti}). ` +
-        'Il PDF è stato rigenerato senza quelle foto.'
-      );
+      mostraAvvisoNonBloccante(testoFotoInSincronizzazione(azione, fotoMancanti));
     }
   }
 
@@ -2438,7 +2486,7 @@ const storicoScreen = (() => {
       try {
         const { blob, filename, rigenerato, fotoMancanti } = await ottieniOGeneraPdf(sopralluogoId);
         await pdf.salvaOCondividi(blob, filename);
-        avvisaSeFotoMancanti(rigenerato, fotoMancanti);
+        avvisaSeFotoMancanti(rigenerato, fotoMancanti, 'scaricato');
       } catch (errore) {
         if (errore.name !== 'AbortError') {
           alert(pdf.descriviErrore('scaricare', errore));
@@ -2460,6 +2508,7 @@ const storicoScreen = (() => {
    * stato resta quello precedente.
    */
   async function apriModifica(sopralluogo) {
+    sync.sincronizzaCompleto?.();
     const checklist = await checklistEngine.carica(sopralluogo.checklist_id);
     checklistEngine.avvia(checklist, sopralluogo);
 
@@ -2806,7 +2855,7 @@ const storicoScreen = (() => {
     filtroStatoChiusuraContainer.addEventListener('change', onFiltroStatoChiusuraChange);
     checkboxSelezionaTutti.addEventListener('change', onSelezionaTuttiChange);
     bottoneScaricaSelezionati.addEventListener('click', scaricaSelezionati);
-    router.onEnter('history', render);
+    router.onEnter('history', () => { render(); sync.sincronizzaCompleto?.(); });
     sync.onDatiAggiornati(alRicevimentoDatiSync);
   }
 
@@ -3171,7 +3220,7 @@ const connessioneIndicatore = (() => {
   const testo = document.getElementById('stato-connessione-testo');
 
   const ETICHETTE = {
-    offline: 'Offline - in attesa di connessione',
+    offline: 'Offline - modifiche salvate sul dispositivo',
     sincronizzando: 'Sincronizzazione in corso…',
     sincronizzato: 'Sincronizzato'
   };
@@ -3180,7 +3229,7 @@ const connessioneIndicatore = (() => {
     const stato = navigator.onLine ? sync.statoAttuale() : 'offline';
     contenitore.classList.toggle('is-offline', stato === 'offline');
     contenitore.classList.toggle('is-sincronizzando', stato === 'sincronizzando');
-    testo.textContent = ETICHETTE[stato] || ETICHETTE.offline;
+    testo.textContent = stato === 'parziale' ? `Sincronizzazione parziale: ${sync.elementiInAttesa()} elementi in attesa` : ETICHETTE[stato] || ETICHETTE.offline;
   }
 
   function init() {
@@ -3234,22 +3283,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   impostazioniScreen.init();
   fotoSync.init();
 
-  const sincronizzazioneIniziale = await sync.init();
-
-  /**
-   * Pulizia silenziosa del cestino (elimina definitivamente i sopralluoghi da più di 30 giorni):
-   * SOLO dopo che la sincronizzazione iniziale è riuscita, mai in parallelo con essa. Prima
-   * girava subito dopo sync.init() senza aspettarlo: db.pulisciCestino() legge lo stato locale
-   * corrente, e se lo legge mentre il download dei dati remoti è ancora in corso rischia di
-   * operare su un IndexedDB locale incompleto/non ancora aggiornato. Se offline o la
-   * sincronizzazione fallisce, si salta semplicemente la pulizia in questo avvio: non è mai
-   * urgente (i 30 giorni di margine assorbono un ciclo saltato) e riproverà al prossimo avvio.
-   */
-  if (sincronizzazioneIniziale) {
-    db.pulisciCestino()
-      .then((eliminati) => fotoSync.eliminaFotoDiSopralluoghi(eliminati))
-      .catch((errore) => console.error('Pulizia automatica del cestino fallita:', errore));
-  } else {
-    console.warn('Pulizia automatica del cestino saltata: sincronizzazione iniziale non riuscita o offline.');
-  }
+  // Never purge legacy data during startup/recovery. Trash removal remains explicit.
+  await sync.init();
 });

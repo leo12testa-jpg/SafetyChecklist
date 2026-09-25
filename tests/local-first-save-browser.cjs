@@ -94,12 +94,14 @@ async function run(browserName, browserType, launchOptions) {
     try {
       assert.ok(condizione, nome);
       risultati.push({ nome, ok: true });
+      console.log('PASS ' + nome);
     } catch (errore) {
       risultati.push({ nome, ok: false, errore: errore.message });
     }
   }
 
   const browser = await browserType.launch(launchOptions);
+  console.log(browserName + " launched " + browser.version());
 
   try {
     // --- Per ciascuna checklist: creazione, risposta+nota, reload, offline ---
@@ -107,6 +109,7 @@ async function run(browserName, browserType, launchOptions) {
       const { context, page, erroriConsole, erroriPagina } = await creaContestoPagina(browser, { failMode: 'abort' });
       const puntoVendita = `E2E-${checklistId}-${Date.now()}`;
 
+      console.log(browserName + " opening page");
       await page.goto(BASE_URL, { waitUntil: 'load', timeout: 20000 });
       await apriNuovoSopralluogo(page, checklistId, puntoVendita);
       await page.locator('button:has-text("INIZIA")').click();
@@ -172,6 +175,7 @@ async function run(browserName, browserType, launchOptions) {
     {
       const { context, page } = await creaContestoPagina(browser, { failMode: 'abort' });
       const puntoVendita = `E2E-doppio-click-${Date.now()}`;
+      console.log(browserName + " opening page");
       await page.goto(BASE_URL, { waitUntil: 'load', timeout: 20000 });
       await apriNuovoSopralluogo(page, 'coin_sopralluogo', puntoVendita);
       // Due submit sincroni sullo stesso tick, prima che l'handler asincrono del primo possa
@@ -193,6 +197,7 @@ async function run(browserName, browserType, launchOptions) {
     {
       const { context, page } = await creaContestoPagina(browser, { failMode: '404' });
       const puntoVendita = `E2E-404-${Date.now()}`;
+      console.log(browserName + " opening page");
       await page.goto(BASE_URL, { waitUntil: 'load', timeout: 20000 });
       await apriNuovoSopralluogo(page, 'coin_sopralluogo', puntoVendita);
       await page.locator('button:has-text("INIZIA")').click();
@@ -211,6 +216,7 @@ async function run(browserName, browserType, launchOptions) {
       const messaggiDialogo = [];
       page.on('dialog', async (dialog) => { messaggiDialogo.push(dialog.message()); await dialog.accept(); });
 
+      console.log(browserName + " opening page");
       await page.goto(BASE_URL, { waitUntil: 'load', timeout: 20000 });
       await apriNuovoSopralluogo(page, 'coin_sopralluogo', puntoVendita);
       await page.locator('button:has-text("INIZIA")').click();
@@ -227,6 +233,7 @@ async function run(browserName, browserType, launchOptions) {
     {
       const { context, page } = await creaContestoPagina(browser, { failMode: 'abort' });
       const puntoVendita = `E2E-sync-noremoto-${Date.now()}`;
+      console.log(browserName + " opening page");
       await page.goto(BASE_URL, { waitUntil: 'load', timeout: 20000 });
       await apriNuovoSopralluogo(page, 'coin_sopralluogo', puntoVendita);
       await page.locator('button:has-text("INIZIA")').click();
@@ -256,7 +263,11 @@ async function run(browserName, browserType, launchOptions) {
     ['webkit', pw.webkit, { headless: true, executablePath: executable('webkit') }]
   ];
 
-  for (const [nome, browserType, opts] of browsers) {
+  for (let [nome, browserType, opts] of browsers) {
+    if (process.env.LOCAL_FIRST_BROWSERS && !process.env.LOCAL_FIRST_BROWSERS.split(',').includes(nome)) continue;
+    if (nome === 'firefox' && executable(nome)?.includes('1465')) {
+      browserType = require(path.join(process.env.LOCALAPPDATA, 'npm-cache/_npx/5c6d8c4f680fcd0a/node_modules/playwright')).firefox;
+    }
     if (opts.executablePath === undefined && !process.env.PLAYWRIGHT_MODULE) {
       console.log(`[${nome}] eseguibile non trovato, salto.`);
       continue;

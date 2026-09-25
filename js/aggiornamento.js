@@ -1,17 +1,9 @@
-/**
- * Registrazione del Service Worker + coordinamento dell'aggiornamento e badge versione.
- *
- * Il Service Worker (service-worker.js) chiama già self.skipWaiting()/clients.claim() senza
- * attendere il consenso della pagina: quando arriva una versione nuova, il browser la attiva e ne
- * prende il controllo comunque, a prescindere da cosa sta facendo l'utente in quel momento. Quello
- * che questo modulo controlla NON è se il nuovo Service Worker prende il controllo (già deciso),
- * ma SE e QUANDO la pagina visibile si ricarica per usarlo davvero: al massimo un reload per
- * aggiornamento (mai un loop, garantito dal flag "ricaricamentoGiaFatto"), ed evitato del tutto se
- * l'utente sta scrivendo dati non ancora salvati (schermate compilazione/altri-aspetti/nuovo
- * sopralluogo: le note si autosalvano solo al blur, non a ogni tasto — vedi checklist.js/app.js) —
- * in quel caso si mostra un banner "Nuova versione disponibile" e si ricarica solo al click.
+/** Compare the build embedded in this running script with the server version.
+ * A controller change alone is not an update. Never reload unsaved input automatically.
  */
 const aggiornamentoApp = (() => {
+  const BUILD_ID = '20260925-184044';
+  let buildServer = null;
   // "import-preview" (anteprima importazione PDF, vedi js/pdf-import.js + js/import-matching.js
   // in app.js) esiste SOLO in memoria finché non si preme "Conferma importazione": un reload lì
   // perderebbe silenziosamente l'intera revisione dell'utente, esattamente come per le altre
@@ -22,7 +14,6 @@ const aggiornamentoApp = (() => {
   const bannerBottone = document.getElementById('banner-aggiornamento-bottone');
   const badgeVersione = document.getElementById('versione-app');
 
-  let ricaricamentoGiaFatto = false;
 
   function schermataARischioAttiva() {
     if (typeof anteprimaImportazionePendente !== 'undefined' && anteprimaImportazionePendente) return true;
@@ -34,15 +25,7 @@ const aggiornamentoApp = (() => {
     if (!banner) {
       return;
     }
-    banner.hidden = false;
-  }
-
-  function ricaricaUnaVoltaSola() {
-    if (ricaricamentoGiaFatto) {
-      return;
-    }
-    ricaricamentoGiaFatto = true;
-    location.reload();
+    banner.hidden = !buildServer || buildServer === BUILD_ID;
   }
 
   function registraServiceWorker() {
@@ -55,49 +38,68 @@ const aggiornamentoApp = (() => {
       // quando ne verifica gli aggiornamenti (su GitHub Pages, senza controllo sugli header
       // Cache-Control, altrimenti il controllo vedrebbe una copia non aggiornata del file per la
       // durata della sua cache HTTP).
-      navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' })
+      navigator.serviceWorker.register('service-worker.js', { scope: './', updateViaCache: 'none' })
         .then((registrazione) => registrazione.update())
         .catch((errore) => console.error('[SW] Registrazione non riuscita:', errore));
     });
 
     // Il nuovo Service Worker prende comunque il controllo (skipWaiting/clients.claim lato SW):
     // qui si decide solo se e quando mostrarlo all'utente con un reload.
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (schermataARischioAttiva()) {
-        mostraBannerAggiornamento();
-        return;
-      }
-      ricaricaUnaVoltaSola();
-    });
+    navigator.serviceWorker.addEventListener('controllerchange', () => aggiornaBadgeVersione());
 
     if (bannerBottone) {
-      bannerBottone.addEventListener('click', () => {
+      bannerBottone.addEventListener('click', async () => {
         if (typeof anteprimaImportazionePendente !== 'undefined' && anteprimaImportazionePendente) {
           alert('Conferma o annulla l’importazione PDF prima di aggiornare: l’anteprima non è ancora salvata.');
           return;
         }
+        bannerBottone.disabled = true;
+        // The shell is served cache-first: reloading before the new worker has activated would
+        // bring back the old build (and the banner). Wait for it, bounded, then reload once.
+        await attendiNuovoServiceWorker(10000);
         location.reload();
       });
     }
   }
 
+  async function attendiNuovoServiceWorker(timeoutMs) {
+    try {
+      const registrazione = await navigator.serviceWorker.getRegistration();
+      if (!registrazione) return;
+      await registrazione.update();
+      const worker = registrazione.installing || registrazione.waiting;
+      if (!worker || worker.state === 'activated') return;
+      await new Promise((resolve) => {
+        const timer = setTimeout(resolve, timeoutMs);
+        worker.addEventListener('statechange', () => {
+          if (worker.state === 'activated' || worker.state === 'redundant') { clearTimeout(timer); resolve(); }
+        });
+      });
+    } catch (errore) {
+      console.warn('[SW] Verifica aggiornamento non riuscita, ricarico comunque:', errore);
+    }
+  }
+
   /** Badge discreto in Impostazioni: legge version.json (mai cacheato, vedi service-worker.js) con un parametro anti-cache, così mostra sempre il BUILD_ID realmente in esecuzione. */
   async function aggiornaBadgeVersione() {
-    if (!badgeVersione) {
-      return;
-    }
+    if (badgeVersione) badgeVersione.textContent = `Versione ${BUILD_ID}`;
     try {
-      const risposta = await fetch(`version.json?t=${Date.now()}`);
-      const { buildId } = await risposta.json();
-      badgeVersione.textContent = `Versione ${buildId}`;
+      const risposta = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+      if (!risposta.ok) return;
+      buildServer = (await risposta.json()).buildId;
+      mostraBannerAggiornamento();
     } catch (errore) {
-      console.warn('Impossibile leggere version.json:', errore);
+      console.warn('Impossibile verificare la nuova versione:', errore);
     }
   }
 
   function init() {
     registraServiceWorker();
     aggiornaBadgeVersione();
+    window.addEventListener('focus', aggiornaBadgeVersione);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') aggiornaBadgeVersione();
+    });
   }
 
   return { init, _test: { schermataARischioAttiva } };

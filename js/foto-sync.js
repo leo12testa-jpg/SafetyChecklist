@@ -34,7 +34,14 @@ const fotoSync = (() => {
       console.warn('FotoSync: SDK Supabase o supabase-config.js non caricati, sincronizzazione foto disabilitata.');
       return null;
     }
-    client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { fetch: async (url, options = {}) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+        try { return await fetch(url, { ...options, signal: controller.signal }); }
+        finally { clearTimeout(timer); }
+      } }
+    });
     return client;
   }
 
@@ -64,7 +71,7 @@ const fotoSync = (() => {
    */
   function percorsoStorage({ sopralluogo_id, domanda_id, fotoId }) {
     const cartellaDomanda = domanda_id === null || domanda_id === undefined ? 'altri-aspetti' : domanda_id;
-    return `${sopralluogo_id}/${cartellaDomanda}_${Date.now()}_${fotoId}.jpg`;
+    return `${sopralluogo_id}/${cartellaDomanda}_${fotoId}.jpg`;
   }
 
   /**
@@ -74,7 +81,16 @@ const fotoSync = (() => {
    * offline o in errore: la foto resta comunque valida solo in locale, verrà ritentata da
    * riprovaInSospeso al ritorno della connessione.
    */
-  async function caricaFoto({ fotoId, sopralluogo_id, domanda_id, blob }) {
+  const uploads = new Map();
+  const downloads = new Map();
+  let retryInCorso = null;
+  function caricaFoto(foto) {
+    if (uploads.has(foto.fotoId)) return uploads.get(foto.fotoId);
+    const lavoro = caricaFotoInterna(foto).finally(() => uploads.delete(foto.fotoId));
+    uploads.set(foto.fotoId, lavoro);
+    return lavoro;
+  }
+  async function caricaFotoInterna({ fotoId, sopralluogo_id, domanda_id, blob }) {
     const supa = inizializzaClient();
     if (!supa || !online()) {
       impostaStato(fotoId, 'fallito');
@@ -88,17 +104,17 @@ const fotoSync = (() => {
         contentType: 'image/jpeg',
         upsert: false
       });
-      if (erroreUpload) {
-        throw erroreUpload;
-      }
+      if (erroreUpload && !['409', 'Duplicate'].includes(String(erroreUpload.statusCode || erroreUpload.error)) && !/already exists/i.test(erroreUpload.message || '')) throw erroreUpload;
 
       const { data } = supa.storage.from(SUPABASE_BUCKET).getPublicUrl(path);
       const url = data ? data.publicUrl : null;
 
       // No-op se la foto è stata eliminata in locale mentre l'upload era ancora in corso (vedi
       // db.impostaUrlFoto): niente da aggiornare, la foto non è più referenziata da nessuna parte.
-      await db.impostaUrlFoto(fotoId, { url, storage_path: path });
+      // Persist the reference first. If the browser closes here, the upload retry uses the
+      // same immutable path and repairs the remaining local photo metadata.
       await db.impostaUrlFotoSopralluogo(sopralluogo_id, fotoId, { url, path });
+      await db.impostaUrlFoto(fotoId, { url, storage_path: path });
 
       impostaStato(fotoId, 'completato');
     } catch (errore) {
@@ -112,7 +128,12 @@ const fotoSync = (() => {
    * db.elencaFotoSenzaUrl): chiamata all'avvio dell'app e al ritorno della connessione, stesso
    * pattern di sync.sincronizzaTutto per i dati testuali.
    */
-  async function riprovaInSospeso() {
+  function riprovaInSospeso() {
+    if (retryInCorso) return retryInCorso;
+    retryInCorso = riprovaInterno().finally(() => { retryInCorso = null; });
+    return retryInCorso;
+  }
+  async function riprovaInterno() {
     if (!online()) {
       return;
     }
@@ -214,9 +235,15 @@ const fotoSync = (() => {
    * pubblico salvato: il bucket di questo progetto non è marcato "Public" (vedi
    * supabase-config.js), quindi un fetch diretto sull'url fallirebbe.
    */
-  async function risolviFoto(fotoId, sopralluogo) {
+  function risolviFoto(fotoId, sopralluogo) {
+    if (downloads.has(fotoId)) return downloads.get(fotoId);
+    const lavoro = risolviFotoInterna(fotoId, sopralluogo).finally(() => downloads.delete(fotoId));
+    downloads.set(fotoId, lavoro);
+    return lavoro;
+  }
+  async function risolviFotoInterna(fotoId, sopralluogo) {
     const locale = await db.leggiFoto(fotoId);
-    if (locale) {
+    if (locale?.blob?.size) {
       return locale;
     }
 
@@ -235,25 +262,33 @@ const fotoSync = (() => {
       if (error) {
         throw error;
       }
-      return { id: fotoId, sopralluogo_id: sopralluogo.id, blob };
+      if (!blob?.size) return null;
+      return await db.salvaFotoRemota({
+        id: fotoId, sopralluogo_id: sopralluogo.id, blob,
+        url: voce.url, storage_path: voce.path
+      });
     } catch (errore) {
       console.warn('FotoSync: impossibile scaricare da Supabase la foto', fotoId, errore);
       return null;
     }
   }
 
-  function init() {
-    window.addEventListener('online', () => {
-      riprovaInSospeso().catch((errore) => console.error('FotoSync: ripresa upload in sospeso fallita', errore));
-    });
-
-    if (online()) {
-      riprovaInSospeso().catch((errore) => console.error('FotoSync: ripresa upload in sospeso fallita', errore));
+  async function recuperaFotoMancanti() {
+    if (!online()) return;
+    const sopralluoghi = await db.elencaTuttiSopralluoghi();
+    for (const s of sopralluoghi) {
+      if (s.eliminato_definitivamente) continue;
+      const ids = new Set((s.altri_aspetti_foto || []).concat(Object.values(s.risposte || {}).reduce((ids, r) => ids.concat(r.foto || []), [])));
+      for (const id of ids) await risolviFoto(id, s);
     }
   }
 
+  // Lifecycle is coordinated once by sync.sincronizzaCompleto().
+  function init() {}
+
   return {
     init,
+    recuperaFotoMancanti,
     caricaFoto,
     riprovaInSospeso,
     eliminaFotoRemota,

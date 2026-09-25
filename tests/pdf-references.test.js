@@ -86,9 +86,14 @@ test('foto su domande differenti hanno riferimenti e didascalie corrispondenti',
     ['Foto 1 — Domanda 51', 'Foto 2 — Domanda 52']);
 });
 
-test('foto mancante blocca il PDF; eliminazione esplicita consente la rinumerazione', async () => {
+test('foto mancante produce segnaposto senza bloccare PDF o cambiare numerazione', async () => {
   const api = caricaPdf({ b: { id: 'b', blob: new Blob(['b']) }, c: { id: 'c', blob: new Blob(['c']) } });
-  await assert.rejects(api.filtraFotoEsistenti([{ fotoId: 'mancante' }, { fotoId: 'b' }]), /1 foto mancanti/);
+  const incomplete = await api.filtraFotoEsistenti([{ fotoId: 'mancante' }, { fotoId: 'b' }]);
+  assert.equal(incomplete.length, 2);
+  assert.equal(incomplete[0].mancante, true);
+  const eventi = [];
+  await api.disegnaSezioniFinali(creaDocumentoTracciato(eventi), {}, incomplete, []);
+  assert.ok(eventi.includes('text:Foto non disponibile al momento della generazione.'));
   const valide = await api.filtraFotoEsistenti([
     { fotoId: 'c', domandaId: 52 },
     { fotoId: 'b', domandaId: 51 }

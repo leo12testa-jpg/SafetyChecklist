@@ -147,6 +147,58 @@ const db = (() => {
     return richiesta(store.get(sopralluogoId));
   }
 
+  function stabilizzaTempi(record) {
+    const fallback = record.aggiornato_il || record.data || new Date(0).toISOString();
+    record.campi_aggiornati ||= {};
+    for (const k of Object.keys(record)) {
+      if (!['foto', 'risposte', 'foto_url', 'campi_aggiornati', '_sync_rev'].includes(k)) record.campi_aggiornati[k] ||= fallback;
+    }
+    record.risposte = normalizzaRisposte(record.risposte).map(r => ({ ...r, aggiornato_il: r.aggiornato_il || fallback }));
+  }
+
+  function marcaModifica(record, campi) {
+    record._sync_rev = generaId();
+    record.campi_aggiornati ||= {};
+    for (const k of campi) {
+      if (!['risposte', 'foto_url', 'foto', '_sync_rev', 'campi_aggiornati'].includes(k)) record.campi_aggiornati[k] = record.aggiornato_il;
+    }
+    record.campi_aggiornati.aggiornato_il = record.aggiornato_il;
+  }
+
+  // Atomic merge: a remote snapshot cannot overwrite an edit committed during network I/O.
+  async function unisciSopralluogoRemoto(remoto, unisci) {
+    const { tx, store } = await transazioneConHandle('sopralluoghi', 'readwrite');
+    const locale = await richiesta(store.get(remoto.id));
+    const record = normalizzaSopralluogo(unisci(locale, remoto));
+    delete record.foto;
+    delete record._sync_rev;
+    if (locale?._sync_rev) record._sync_rev = locale._sync_rev;
+    const cambiato = JSON.stringify(locale) !== JSON.stringify(record);
+    if (cambiato) await richiesta(store.put(record));
+    await transazioneCompletata(tx);
+    return { record, cambiato };
+  }
+
+  async function confermaSincronizzato(id, revisione) {
+    const { tx, store } = await transazioneConHandle('sopralluoghi', 'readwrite');
+    const record = await richiesta(store.get(id));
+    if (record && record._sync_rev === revisione) {
+      delete record._sync_rev;
+      await richiesta(store.put(record));
+    }
+    await transazioneCompletata(tx);
+  }
+
+  // Idempotent cache hydration, preserving the photo ID assigned on the original device.
+  async function salvaFotoRemota({ id, sopralluogo_id, domanda_id = null, blob, url, storage_path }) {
+    const { tx, store } = await transazioneConHandle('foto', 'readwrite');
+    const esistente = await richiesta(store.get(id));
+    const foto = esistente?.blob ? esistente : { id, sopralluogo_id, domanda_id, blob, url, storage_path };
+    if (!esistente?.blob) await richiesta(store.put(foto));
+    await transazioneCompletata(tx);
+    return foto;
+  }
+
   /** Crea un nuovo sopralluogo con stato "in corso" e lo salva su DB. Ritorna il record creato. */
   async function creaSopralluogo({
     punto_vendita,
@@ -205,6 +257,7 @@ const db = (() => {
       foto_url: {},
       aggiornato_il: adesso
     };
+    marcaModifica(sopralluogo, Object.keys(sopralluogo));
     await richiesta(store.add(sopralluogo));
     await transazioneCompletata(tx);
 
@@ -229,7 +282,7 @@ const db = (() => {
    * (il resto dei campi anagrafici è copiato dall'originale).
    */
   async function duplicaSopralluogo(sopralluogoOriginaleId, overrides = {}) {
-    const store = await transazione('sopralluoghi', 'readwrite');
+    const { tx, store } = await transazioneConHandle('sopralluoghi', 'readwrite');
     const originale = await richiesta(store.get(sopralluogoOriginaleId));
     if (!originale) {
       throw new Error(`Sopralluogo non trovato: ${sopralluogoOriginaleId}`);
@@ -266,7 +319,9 @@ const db = (() => {
       aggiornato_il: adesso
     };
 
+    marcaModifica(nuovo, Object.keys(nuovo));
     await richiesta(store.add(nuovo));
+    await transazioneCompletata(tx);
     notificaCambiamento({ tipo: 'upsert', sopralluogo: nuovo });
     return nuovo;
   }
@@ -276,15 +331,18 @@ const db = (() => {
    * da PDF: vedi js/pdf-import.js), invece dell'upsert singolo di salvaRisposta.
    */
   async function impostaRisposte(sopralluogoId, risposte) {
-    const store = await transazione('sopralluoghi', 'readwrite');
+    const { tx, store } = await transazioneConHandle('sopralluoghi', 'readwrite');
     const sopralluogo = await richiesta(store.get(sopralluogoId));
     if (!sopralluogo) {
       throw new Error(`Sopralluogo non trovato: ${sopralluogoId}`);
     }
 
+    stabilizzaTempi(sopralluogo);
     sopralluogo.risposte = normalizzaRisposte(risposte);
     sopralluogo.aggiornato_il = new Date().toISOString();
+    marcaModifica(sopralluogo, []);
     await richiesta(store.put(sopralluogo));
+    await transazioneCompletata(tx);
     notificaCambiamento({ tipo: 'upsert', sopralluogo });
     return sopralluogo;
   }
@@ -305,6 +363,7 @@ const db = (() => {
       throw new Error(`Sopralluogo non trovato: ${sopralluogoId}`);
     }
 
+    stabilizzaTempi(sopralluogo);
     const adesso = new Date().toISOString();
     const rispostaConTimestamp = { ...risposta, aggiornato_il: adesso };
 
@@ -318,6 +377,7 @@ const db = (() => {
     sopralluogo.risposte = risposte;
     sopralluogo.aggiornato_il = adesso;
 
+    marcaModifica(sopralluogo, []);
     await richiesta(store.put(sopralluogo));
     await transazioneCompletata(tx);
 
@@ -343,16 +403,19 @@ const db = (() => {
    * sopralluogo è stato nel frattempo eliminato in locale.
    */
   async function impostaUrlFotoSopralluogo(sopralluogoId, fotoId, { url, path }) {
-    const store = await transazione('sopralluoghi', 'readwrite');
+    const { tx, store } = await transazioneConHandle('sopralluoghi', 'readwrite');
     const sopralluogo = await richiesta(store.get(sopralluogoId));
     if (!sopralluogo) {
       return;
     }
+    stabilizzaTempi(sopralluogo);
     const adesso = new Date().toISOString();
     const valore = { url, path };
     sopralluogo.foto_url = { ...(sopralluogo.foto_url || {}), [fotoId]: valore };
     sopralluogo.aggiornato_il = adesso;
+    marcaModifica(sopralluogo, []);
     await richiesta(store.put(sopralluogo));
+    await transazioneCompletata(tx);
     // Evento dedicato (non "upsert" generico): come per le risposte, ogni fotoId è unico per
     // dispositivo (generato da crypto.randomUUID in salvaFoto), quindi non può mai collidere fra
     // due tecnici — js/sync.js scrive solo questa chiave, senza toccare foto_url caricati nel
@@ -370,24 +433,28 @@ const db = (() => {
    * dispositivo.
    */
   async function aggiornaSopralluogo(sopralluogoId, cambiamenti) {
-    const store = await transazione('sopralluoghi', 'readwrite');
+    const { tx, store } = await transazioneConHandle('sopralluoghi', 'readwrite');
     const sopralluogo = await richiesta(store.get(sopralluogoId));
     if (!sopralluogo) {
       throw new Error(`Sopralluogo non trovato: ${sopralluogoId}`);
     }
 
+    stabilizzaTempi(sopralluogo);
     Object.assign(sopralluogo, cambiamenti);
     sopralluogo.aggiornato_il = new Date().toISOString();
+    marcaModifica(sopralluogo, Object.keys(cambiamenti));
     await richiesta(store.put(sopralluogo));
+    await transazioneCompletata(tx);
     notificaCambiamento({ tipo: 'upsert-metadati', sopralluogo });
     return sopralluogo;
   }
 
   /** Salva una foto (blob) collegata a un sopralluogo e, opzionalmente, a una domanda. Ritorna l'id generato. */
   async function salvaFoto({ sopralluogo_id, domanda_id = null, blob }) {
-    const store = await transazione('foto', 'readwrite');
+    const { tx, store } = await transazioneConHandle('foto', 'readwrite');
     const foto = { id: generaId(), sopralluogo_id, domanda_id, blob };
     await richiesta(store.add(foto));
+    await transazioneCompletata(tx);
     return foto.id;
   }
 
@@ -417,7 +484,7 @@ const db = (() => {
    * niente da aggiornare, non è più referenziata da nessuna parte.
    */
   async function impostaUrlFoto(fotoId, { url, storage_path }) {
-    const store = await transazione('foto', 'readwrite');
+    const { tx, store } = await transazioneConHandle('foto', 'readwrite');
     const foto = await richiesta(store.get(fotoId));
     if (!foto) {
       return;
@@ -425,6 +492,7 @@ const db = (() => {
     foto.url = url;
     foto.storage_path = storage_path;
     await richiesta(store.put(foto));
+    await transazioneCompletata(tx);
   }
 
   /**
@@ -457,7 +525,7 @@ const db = (() => {
     const tutti = await richiesta(store.getAll());
     return tutti
       .map(normalizzaSopralluogo)
-      .filter((s) => !s.eliminato_il)
+      .filter((s) => !s.eliminato_il && !s.eliminato_definitivamente)
       .sort((a, b) => new Date(b.data) - new Date(a.data));
   }
 
@@ -467,7 +535,7 @@ const db = (() => {
     const tutti = await richiesta(store.getAll());
     return tutti
       .map(normalizzaSopralluogo)
-      .filter((s) => s.eliminato_il)
+      .filter((s) => s.eliminato_il && !s.eliminato_definitivamente)
       .sort((a, b) => new Date(b.eliminato_il) - new Date(a.eliminato_il));
   }
 
@@ -537,15 +605,18 @@ const db = (() => {
 
   /** Ripristina un sopralluogo dal cestino, rimuovendo il campo "eliminato_il". */
   async function ripristinaSopralluogo(sopralluogoId) {
-    const store = await transazione('sopralluoghi', 'readwrite');
+    const { tx, store } = await transazioneConHandle('sopralluoghi', 'readwrite');
     const sopralluogo = await richiesta(store.get(sopralluogoId));
     if (!sopralluogo) {
       throw new Error(`Sopralluogo non trovato: ${sopralluogoId}`);
     }
 
-    delete sopralluogo.eliminato_il;
+    stabilizzaTempi(sopralluogo);
+    sopralluogo.eliminato_il = null;
     sopralluogo.aggiornato_il = new Date().toISOString();
+    marcaModifica(sopralluogo, ['eliminato_il']);
     await richiesta(store.put(sopralluogo));
+    await transazioneCompletata(tx);
     notificaCambiamento({ tipo: 'upsert-metadati', sopralluogo });
     return sopralluogo;
   }
@@ -623,8 +694,9 @@ const db = (() => {
    * l'eliminazione anche su Firestore.
    */
   async function eliminaSopralluogo(sopralluogoId) {
-    await eliminaSopralluogoInterno(sopralluogoId);
-    notificaCambiamento({ tipo: 'delete', sopralluogoId, aggiornato_il: new Date().toISOString() });
+    return aggiornaSopralluogo(sopralluogoId, {
+      eliminato_definitivamente: true, eliminato_il: new Date().toISOString()
+    });
   }
 
   /**
@@ -673,13 +745,14 @@ const db = (() => {
    * sopralluogo (es. dopo una modifica ai soli dati anagrafici) per capire se il PDF salvato è
    * ancora aggiornato o andrebbe rigenerato (vedi riepilogoScreen in app.js).
    */
-  async function salvaPdfReport({ sopralluogo_id, blob, filename, firma_foto = '' }) {
+  async function salvaPdfReport({ sopralluogo_id, blob, filename, firma_foto = '', foto_incomplete = false }) {
     const store = await transazione('pdf_report', 'readwrite');
     await richiesta(store.put({
       sopralluogo_id,
       blob,
       filename,
       firma_foto,
+      foto_incomplete,
       generato_il: new Date().toISOString()
     }));
   }
@@ -691,6 +764,9 @@ const db = (() => {
   }
 
   return {
+    unisciSopralluogoRemoto,
+    confermaSincronizzato,
+    salvaFotoRemota,
     creaSopralluogo,
     duplicaSopralluogo,
     salvaRisposta,

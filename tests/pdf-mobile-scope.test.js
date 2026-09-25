@@ -12,11 +12,11 @@ function app(risposte, missing = false, synced = true) {
     return nodes.get(id);
   }
   const record = { id: 's1', risposte };
-  const context = { console, Blob, navigator: { onLine: true }, window: { addEventListener() {} },
+  const context = { console, Blob, setTimeout, clearTimeout, navigator: { onLine: true }, window: { addEventListener() {} },
     document: { getElementById: element, querySelector: element, querySelectorAll: () => [], addEventListener() {} },
     checklistEngine: { getChecklist: () => ({}), sopralluogoCorrente: () => record },
     sync: { sincronizzaTutto: async () => { calls.push('sync'); record.foto_url = { a: { path: 'remote/a' } }; return synced; } },
-    fotoSync: { riprovaInSospeso: async () => calls.push('upload') },
+    fotoSync: { riprovaInSospeso: async () => calls.push('upload'), risolviFoto: async (id) => missing ? null : { id, blob: new Blob(['jpg']) } },
     db: { leggiSopralluogo: async () => { calls.push('read'); return record; },
       aggiornaSopralluogo: async () => calls.push('complete'), salvaPdfReport: async r => calls.push(r) },
     pdf: { generaReport: async (_, r) => {
@@ -35,7 +35,7 @@ for (const legacy of [false, true]) test(`Genera PDF riepilogo: scope reale e ri
   const answer = { domanda_id: 17, risposta: 'NC', foto: ['a', 'b'] };
   const { nodes, calls, context } = app(legacy ? { 17: answer } : [answer]);
   await nodes.get('btn-genera-pdf').click();
-  assert.deepEqual(calls.slice(0, 4), ['upload', 'sync', 'read', 'generate']);
+  assert.deepEqual(calls.slice(0, 3), ['sync', 'read', 'generate']);
   assert.equal(calls.at(-1).firma_foto, 'complete-v2:a|b');
   assert.equal(vm.runInContext('typeof preparaDatiPdfCrossDevice', context), 'function');
   assert.equal(vm.runInContext('typeof firmaFotoSopralluogo', context), 'function');
@@ -48,10 +48,11 @@ test('riepilogo non salva né completa il sopralluogo se mancano foto', async ()
   assert.ok([...nodes.values()].some(n => n.textContent === '2 foto mancanti'));
 });
 
-test('sincronizzazione fallita impedisce PDF con dati potenzialmente obsoleti', async () => {
+test('sincronizzazione fallita lascia aprire PDF con dati locali', async () => {
   const { nodes, calls } = app([], false, false);
   await nodes.get('btn-genera-pdf').click();
-  assert.deepEqual(calls, ['upload', 'sync']);
+  assert.ok(calls.includes('generate'));
+  assert.equal(calls.at(-1).filename, 'report.pdf');
 });
 
 test('cache: firma precedente non certifica un PDF completo, firma nuova consente il riuso', () => {
@@ -65,4 +66,18 @@ test('cache: firma precedente non certifica un PDF completo, firma nuova consent
   assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'melluso-layout-3:' }, { checklist_id: 'melluso_sopralluogo', risposte: [] })", context), true);
   assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'a|b' }, { risposte: [{ foto: ['a','b'] }] })", context), false);
   assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'complete-v2:a|b' }, { risposte: [{ foto: ['a','b'] }] })", context), true);
+});
+
+
+test('foto mancante non blocca: il PDF viene generato, il sopralluogo completato e compare un avviso non bloccante', async () => {
+  const answer = { domanda_id: 17, risposta: 'NC', foto: ['a'] };
+  const { nodes, calls, context } = app([answer], false, true);
+  context.fotoSync.risolviFoto = async () => null; // foto non recuperabile né in locale né da Supabase
+  let alerts = 0; context.alert = () => alerts++;
+  await nodes.get('btn-genera-pdf').click();
+  assert.ok(calls.includes('generate'));
+  assert.ok(calls.includes('complete'));
+  assert.equal(calls.at(-1).foto_incomplete, true);
+  assert.equal(alerts, 0);
+  assert.equal(nodes.get('avviso-non-bloccante').textContent, 'PDF generato. 1 foto è ancora in sincronizzazione.');
 });

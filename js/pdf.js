@@ -780,17 +780,15 @@ const pdf = (() => {
     return { fotoDomande, allegatiNote };
   }
 
-  /** Risolve tutti i riferimenti prima della numerazione: un PDF incompleto non ? valido. */
+  /** Conserva ogni riferimento e la numerazione anche quando il blob non ? disponibile. */
   async function filtraFotoEsistenti(elenco, sopralluogo) {
     const risultato = [];
-    const mancanti = new Set();
     for (const voce of elenco) {
       let record;
       try { record = await fotoSync.risolviFoto(voce.fotoId, sopralluogo); } catch (_) {}
       if (record && record.blob && record.blob.size > 0) risultato.push({ ...voce, record });
-      else mancanti.add(voce.fotoId);
+      else risultato.push({ ...voce, mancante: true });
     }
-    if (mancanti.size) throw new Error(`${mancanti.size} foto mancanti: impossibile recuperarle dal dispositivo o da Supabase. Attendi la sincronizzazione dal dispositivo originale e riprova. PDF non generato.`);
     return risultato;
   }
 
@@ -854,8 +852,7 @@ const pdf = (() => {
     let colonna = 0;
 
     for (const [indice, voce] of elencoFoto.entries()) {
-      const record = voce.record || await fotoSync.risolviFoto(voce.fotoId);
-      if (!record || !record.blob) throw new Error('1 foto mancante: PDF non generato.');
+      const record = voce.record || null;
 
       if (colonna === 0) {
         const yPrima = y;
@@ -872,6 +869,8 @@ const pdf = (() => {
       }
 
       const x = layout.margine + colonna * (LARGHEZZA_CELLA + GAP);
+      try {
+        if (!record?.blob) throw new Error('Foto assente');
       const dataURL = await blobADataURL(record.blob);
       const proprietaImmagine = doc.getImageProperties(dataURL);
       const scalaImmagine = Math.min(
@@ -884,6 +883,10 @@ const pdf = (() => {
       const xImmagine = x + (LARGHEZZA_CELLA - larghezzaImmagine) / 2;
       const yImmagine = y + (ALTEZZA_MASSIMA_IMMAGINE - altezzaImmagine) / 2;
       doc.addImage(dataURL, proprietaImmagine.fileType, xImmagine, yImmagine, larghezzaImmagine, altezzaImmagine);
+      } catch (_) {
+        doc.setFontSize(9);
+        doc.text(doc.splitTextToSize('Foto non disponibile al momento della generazione.', LARGHEZZA_CELLA - 4), x + 2, y + 15);
+      }
 
       /**
        * Didascalia MAI troncata a metà parola: si prova prima il testo della domanda per
