@@ -49,8 +49,9 @@ body[data-authenticated="false"] #banner-aggiornamento { display: none !importan
 .tabella-utenti td button { margin: 2px; }
 
 #app {
-  max-width: 480px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -152,7 +153,9 @@ body[data-authenticated="false"] #banner-aggiornamento { display: none !importan
 
 #screens {
   flex: 1;
-  padding: var(--spacing);
+  width: 100%;
+  min-width: 0;
+  padding: 0;
 }
 
 .screen[hidden] {
@@ -1537,4 +1540,56 @@ body[data-authenticated="false"] { background: #edf3fa; }
   .dashboard-action-grid { grid-template-columns: repeat(2, minmax(260px, 1fr)) !important; }
   .dashboard-mini-card, .dashboard-action-card { min-width: 0; }
   .dashboard-mini-card > div, .action-card-copy { min-width: 0; }
+}
+
+
+/* Desktop layout hardening: prevents any legacy mobile rule from compressing the dashboard. */
+html, body, #app { width: 100% !important; max-width: none !important; }
+body[data-authenticated="true"] #app { margin: 0 !important; }
+#screens.app-shell {
+  display: grid !important;
+  grid-template-columns: 230px minmax(0, 1fr) !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+#screens.app-shell > .app-sidebar { min-width: 0 !important; }
+#screens.app-shell > .app-content {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+}
+.dashboard-screen,
+.dashboard-heading,
+.dashboard-mini-grid,
+.dashboard-action-grid { width: 100% !important; min-width: 0 !important; }
+.dashboard-mini-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+.dashboard-action-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+.dashboard-mini-card,
+.dashboard-action-card {
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+.dashboard-mini-card > div,
+.action-card-copy {
+  width: auto !important;
+  min-width: 0 !important;
+  overflow-wrap: anywhere;
+}
+.dashboard-new { width: auto !important; max-width: 280px; }
+@media (max-width: 900px) {
+  #screens.app-shell { display: block !important; }
+  .dashboard-mini-grid,
+  .dashboard-action-grid { grid-template-columns: 1fr !important; }
+  .dashboard-new { width: 100% !important; max-width: none; }
 }

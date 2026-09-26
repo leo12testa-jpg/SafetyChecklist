@@ -2,13 +2,13 @@
 // autoreferenziale, dato che modificare questo stesso file cambierebbe l'hash finale). Cambia sempre
 // a ogni pubblicazione, cosÃ¬ il browser rileva sempre un service-worker.js diverso byte per byte e
 // installa una cache nuova; l'activate qui sotto elimina da sÃ© quelle vecchie.
-const CACHE_NAME = 'safety-checklist-shell-20260926-113300';
+const CACHE_NAME = 'safety-checklist-shell-20260926-114000';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css',
+  './css/style.css?v=20260926-114000',
   './js/vendor/jspdf.umd.min.js',
   './js/vendor/jspdf.plugin.autotable.min.js',
   './js/vendor/jszip.min.js',
@@ -32,7 +32,7 @@ const APP_SHELL = [
   './js/pdf-import.js',
   './js/camera.js',
   './js/sync.js',
-  './js/aggiornamento.js',
+  './js/aggiornamento.js?v=20260926-114000',
   './checklists/index.json',
   './checklists/clients.json',
   './checklists/tecnici.json',
@@ -123,10 +123,16 @@ self.addEventListener('fetch', (event) => {
   }
 
   const isChecklist = url.pathname.includes('/checklists/');
-  // version.json Ã¨ la sonda di freschezza usata dallo script di pubblicazione e dal badge
-  // versione in Impostazioni: non va mai precacheata nÃ© servita da una cache-first, altrimenti
-  // mostrerebbe per sempre il BUILD_ID della prima installazione invece di quello reale.
+  // version.json è la sonda di freschezza usata dallo script di pubblicazione e dal badge.
   const isVersione = url.pathname.endsWith('/version.json');
+  const isDocumento = event.request.mode === 'navigate' || url.pathname.endsWith('/index.html');
+  const isCodice = event.request.destination === 'script' || event.request.destination === 'style';
 
-  event.respondWith(isChecklist || isVersione ? networkFirst(event.request) : cacheFirst(event.request));
+  // Online prende sempre la versione pubblicata; offline usa la cache.
+  // Evita che HTML/CSS/JS vecchi restino bloccati dopo un rilascio.
+  event.respondWith(
+    isChecklist || isVersione || isDocumento || isCodice
+      ? networkFirst(event.request)
+      : cacheFirst(event.request)
+  );
 });
