@@ -1,8 +1,8 @@
 // BUILD_ID sostituito automaticamente da pubblica.sh a ogni release (mai un hash di commit: sarebbe
 // autoreferenziale, dato che modificare questo stesso file cambierebbe l'hash finale). Cambia sempre
-// a ogni pubblicazione, così il browser rileva sempre un service-worker.js diverso byte per byte e
-// installa una cache nuova; l'activate qui sotto elimina da sé quelle vecchie.
-const CACHE_NAME = 'safety-checklist-shell-20260925-184044';
+// a ogni pubblicazione, cosÃ¬ il browser rileva sempre un service-worker.js diverso byte per byte e
+// installa una cache nuova; l'activate qui sotto elimina da sÃ© quelle vecchie.
+const CACHE_NAME = 'safety-checklist-shell-20260926-110159';
 
 const APP_SHELL = [
   './',
@@ -14,12 +14,16 @@ const APP_SHELL = [
   './js/vendor/jszip.min.js',
   './js/vendor/firebase-app-compat.js',
   './js/vendor/firebase-firestore-compat.js',
+  './js/vendor/firebase-auth-compat.js',
   './js/firebase-config.js',
+  './js/auth.js',
   './js/vendor/supabase.js',
   './js/supabase-config.js',
   './js/vendor/pdf.min.js',
   './js/vendor/pdf.worker.min.js',
   './js/app.js',
+  './js/identity.js',
+  './js/account-screens.js',
   './js/db.js',
   './js/checklist.js',
   './js/question-navigator.js',
@@ -42,7 +46,7 @@ const APP_SHELL = [
   './assets/logo_melluso.png'
 ];
 
-/** Precachea l'App Shell statica più tutte le checklist elencate in checklists/index.json. */
+/** Precachea l'App Shell statica piÃ¹ tutte le checklist elencate in checklists/index.json. */
 async function precacheTutto(cache) {
   await cache.addAll(APP_SHELL);
 
@@ -91,7 +95,7 @@ function cacheFirst(request) {
   });
 }
 
-/** Checklist JSON: network-first con fallback cache, per riflettere subito eventuali aggiornamenti da remoto (PROJECT.md §6, §8). */
+/** Checklist JSON: network-first con fallback cache, per riflettere subito eventuali aggiornamenti da remoto (PROJECT.md Â§6, Â§8). */
 function networkFirst(request) {
   return fetch(request)
     .then((response) => {
@@ -119,8 +123,8 @@ self.addEventListener('fetch', (event) => {
   }
 
   const isChecklist = url.pathname.includes('/checklists/');
-  // version.json è la sonda di freschezza usata dallo script di pubblicazione e dal badge
-  // versione in Impostazioni: non va mai precacheata né servita da una cache-first, altrimenti
+  // version.json Ã¨ la sonda di freschezza usata dallo script di pubblicazione e dal badge
+  // versione in Impostazioni: non va mai precacheata nÃ© servita da una cache-first, altrimenti
   // mostrerebbe per sempre il BUILD_ID della prima installazione invece di quello reale.
   const isVersione = url.pathname.endsWith('/version.json');
 

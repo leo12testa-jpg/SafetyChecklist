@@ -10,9 +10,14 @@
   <link rel="apple-touch-icon" href="assets/icon-512.png">
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body data-auth-ready="false" data-authenticated="false">
   <div id="app">
     <header class="app-header">
+      <div class="utente-sessione" id="utente-sessione" hidden>
+        <span id="utente-sessione-dettaglio"></span>
+        <button type="button" class="btn-esci" id="btn-cambia-password">PASSWORD</button>
+        <button type="button" class="btn-esci" id="btn-esci">ESCI</button>
+      </div>
       <h1>🦺 Safety Checklist</h1>
       <span class="stato-connessione" id="stato-connessione">
         <span class="stato-connessione-pallino" id="stato-connessione-pallino"></span>
@@ -25,12 +30,28 @@
       <button type="button" class="banner-aggiornamento-bottone" id="banner-aggiornamento-bottone">Aggiorna</button>
     </div>
 
+    <main id="login-view" class="login-view" hidden>
+      <h2>Accedi a Safety Checklist</h2>
+      <form id="login-form" autocomplete="on">
+        <label class="campo-form" for="login-username">Username
+          <input id="login-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        </label>
+        <label class="campo-form" for="login-password">Password
+          <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <p id="login-messaggio" class="login-messaggio" role="status" aria-live="polite" hidden></p>
+        <button type="submit" class="btn btn-primary" id="login-submit">ACCEDI</button>
+      </form>
+    </main>
+
     <main id="screens">
       <section id="screen-home" class="screen" data-screen="home">
         <div class="home-actions">
           <button type="button" class="btn btn-primary" data-nav="new-inspection">Nuovo sopralluogo</button>
           <button type="button" class="btn" data-nav="history">Storico</button>
           <button type="button" class="btn" data-nav="settings">Impostazioni</button>
+          <button type="button" class="btn" data-nav="my-work">Il mio lavoro</button>
+          <button type="button" class="btn" data-nav="admin-users" id="btn-area-utenti" hidden>Utenti</button>
         </div>
       </section>
 
@@ -305,6 +326,37 @@
         <p class="placeholder-text" id="cestino-vuoto" hidden>Il cestino è vuoto.</p>
       </section>
 
+      <section id="screen-my-work" class="screen" data-screen="my-work" hidden>
+        <button type="button" class="btn-back" data-nav="home">← Home</button>
+        <h2>Il mio lavoro</h2>
+        <div class="filtri-mio-lavoro" role="group" aria-label="Filtra il mio lavoro">
+          <button type="button" data-my-work-filter="all" aria-pressed="true">Tutti</button>
+          <button type="button" data-my-work-filter="created">Creati da me</button>
+          <button type="button" data-my-work-filter="modified">Modificati da me</button>
+          <button type="button" data-my-work-filter="completed">Completati</button>
+        </div>
+        <ul id="lista-mio-lavoro" class="storico-lista"></ul>
+        <p id="mio-lavoro-vuoto" class="placeholder-text" hidden>Nessun sopralluogo per questo filtro.</p>
+      </section>
+
+      <section id="screen-admin-users" class="screen" data-screen="admin-users" hidden>
+        <button type="button" class="btn-back" data-nav="home">← Home</button>
+        <h2>Utenti</h2>
+        <button type="button" class="btn btn-primary" id="admin-nuovo-utente">Nuovo utente</button>
+        <form id="admin-user-form" hidden>
+          <label class="campo-form" for="admin-nome">Nome<input id="admin-nome" required maxlength="80"></label>
+          <label class="campo-form" for="admin-cognome">Cognome<input id="admin-cognome" required maxlength="80"></label>
+          <label class="campo-form" for="admin-username">Username<input id="admin-username" required maxlength="40" autocapitalize="none"></label>
+          <label class="campo-form" for="admin-ruolo">Ruolo<select id="admin-ruolo"><option value="tecnico">Tecnico</option><option value="admin">Admin</option></select></label>
+          <label class="campo-form" for="admin-password">Password iniziale<input id="admin-password" type="password" autocomplete="new-password" minlength="12" required></label>
+          <p class="placeholder-text">La password iniziale serve solo per il primo accesso e non viene salvata nell'app. Il tecnico può cambiarla dal pulsante PASSWORD in alto.</p>
+          <button type="submit" class="btn btn-primary">Crea account</button>
+          <button type="button" class="btn" id="admin-annulla-utente">Annulla</button>
+        </form>
+        <p id="admin-user-message" class="login-messaggio" role="status" aria-live="polite" hidden></p>
+        <div class="tabella-utenti-scroll"><table class="tabella-utenti"><thead><tr><th>Nome</th><th>Cognome</th><th>Username</th><th>Ruolo</th><th>Stato</th><th>Azioni</th></tr></thead><tbody id="admin-utenti-body"></tbody></table></div>
+      </section>
+
       <section id="screen-settings" class="screen" data-screen="settings" hidden>
         <button type="button" class="btn-back" data-nav="home">← Indietro</button>
         <h2>Impostazioni</h2>
@@ -317,6 +369,27 @@
         <p class="versione-app" id="versione-app"></p>
       </section>
     </main>
+
+
+    <dialog id="dialog-cambia-password" class="dialog-duplica">
+      <form id="form-cambia-password">
+        <h3>Cambia password</h3>
+        <label class="campo-form" for="password-attuale">Password attuale
+          <input id="password-attuale" type="password" autocomplete="current-password" required>
+        </label>
+        <label class="campo-form" for="password-nuova">Nuova password
+          <input id="password-nuova" type="password" autocomplete="new-password" minlength="12" required>
+        </label>
+        <label class="campo-form" for="password-conferma">Conferma nuova password
+          <input id="password-conferma" type="password" autocomplete="new-password" minlength="12" required>
+        </label>
+        <p id="password-messaggio" class="login-messaggio" role="status" aria-live="polite" hidden></p>
+        <div class="dialog-actions">
+          <button type="submit" class="btn btn-primary">Salva password</button>
+          <button type="button" class="btn" id="annulla-cambia-password">Annulla</button>
+        </div>
+      </form>
+    </dialog>
 
     <dialog id="dialog-duplica" class="dialog-duplica">
       <form id="form-duplica">
@@ -541,11 +614,14 @@
   <script src="js/vendor/jszip.min.js"></script>
   <script src="js/vendor/firebase-app-compat.js"></script>
   <script src="js/vendor/firebase-firestore-compat.js"></script>
+  <script src="js/vendor/firebase-auth-compat.js"></script>
   <script src="js/firebase-config.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/vendor/supabase.js"></script>
   <script src="js/supabase-config.js"></script>
   <script src="js/vendor/pdf.min.js"></script>
   <script src="js/db.js"></script>
+  <script src="js/identity.js"></script>
   <script src="js/checklist.js"></script>
   <script src="js/question-navigator.js"></script>
   <script src="js/foto-sync.js"></script>
@@ -555,6 +631,7 @@
   <script src="js/import-matching.js"></script>
   <script src="js/sync.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/account-screens.js"></script>
   <script src="js/aggiornamento.js"></script>
 </body>
 </html>

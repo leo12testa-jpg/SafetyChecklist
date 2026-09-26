@@ -16,24 +16,20 @@ const sync = (() => {
     return navigator.onLine;
   }
 
-  /** Inizializza l'SDK Firebase (compat) al primo utilizzo. Ritorna null se non disponibile. */
+  /** Riusa l'unica istanza Firestore preparata da firebase-config.js prima di Auth. */
   function inizializzaFirebase() {
-    if (firestoreDb) {
-      return firestoreDb;
-    }
+    if (firestoreDb) return firestoreDb;
     if (typeof firebase === 'undefined' || typeof firebaseConfig === 'undefined') {
       console.warn('Sync: SDK Firebase o firebase-config.js non caricati, sincronizzazione disabilitata.');
       return null;
     }
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
+    if (typeof firebaseClient !== 'undefined' && firebaseClient?.firestore) {
+      firestoreDb = firebaseClient.firestore();
+      return firestoreDb;
     }
+    // Fallback solo per harness/test isolati che caricano sync.js senza firebase-config.js.
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     firestoreDb = firebase.firestore();
-    // WebKit/iOS can buffer or cancel the streaming Listen transport on resume.
-    // The same server/collection and merge protocol work with long polling.
-    if (/AppleWebKit/.test(navigator.userAgent || '') && !/Chrome|Chromium|Edg/.test(navigator.userAgent || '')) {
-      firestoreDb.settings({ experimentalForceLongPolling: true, experimentalAutoDetectLongPolling: false, useFetchStreams: false });
-    }
     return firestoreDb;
   }
 

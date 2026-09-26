@@ -159,10 +159,36 @@ const db = (() => {
   function marcaModifica(record, campi) {
     record._sync_rev = generaId();
     record.campi_aggiornati ||= {};
+    const operatore = typeof appIdentity !== 'undefined' ? appIdentity.current() : null;
+    if (operatore) {
+      const timestampIdentita = record.aggiornato_il || new Date().toISOString();
+      record.ultimo_aggiornamento_da_uid = operatore.uid;
+      record.ultimo_aggiornamento_da_username = operatore.username;
+      record.ultimo_aggiornamento_da_nome = `${operatore.nome} ${operatore.cognome}`;
+      // Questi tre campi sono un'unica identità logica. Dopo stabilizzaTempi() possono ancora
+      // portare i timestamp del vecchio operatore: aggiornarli insieme impedisce al merge
+      // multiutente di ricomporre uid/username/nome provenienti da operatori diversi.
+      record.campi_aggiornati.ultimo_aggiornamento_da_uid = timestampIdentita;
+      record.campi_aggiornati.ultimo_aggiornamento_da_username = timestampIdentita;
+      record.campi_aggiornati.ultimo_aggiornamento_da_nome = timestampIdentita;
+    }
     for (const k of campi) {
       if (!['risposte', 'foto_url', 'foto', '_sync_rev', 'campi_aggiornati'].includes(k)) record.campi_aggiornati[k] = record.aggiornato_il;
     }
     record.campi_aggiornati.aggiornato_il = record.aggiornato_il;
+  }
+
+  function marcaCreazione(record) {
+    const creatore = typeof appIdentity !== 'undefined' ? appIdentity.current() : null;
+    if (!creatore) return;
+    record.creato_da_uid = creatore.uid;
+    record.creato_da_username = creatore.username;
+    record.creato_da_nome = `${creatore.nome} ${creatore.cognome}`;
+    record.creato_il ||= record.data || new Date().toISOString();
+  }
+
+  function registraAudit(sopralluogo_id, tipo, domanda_id = null) {
+    if (typeof auditAttivita !== 'undefined') auditAttivita.record({ sopralluogo_id, tipo, domanda_id }).catch(error => console.warn('Audit accodato per nuovo tentativo', error));
   }
 
   // Atomic merge: a remote snapshot cannot overwrite an edit committed during network I/O.
@@ -257,6 +283,7 @@ const db = (() => {
       foto_url: {},
       aggiornato_il: adesso
     };
+    marcaCreazione(sopralluogo);
     marcaModifica(sopralluogo, Object.keys(sopralluogo));
     await richiesta(store.add(sopralluogo));
     await transazioneCompletata(tx);
@@ -270,6 +297,7 @@ const db = (() => {
     }
 
     notificaCambiamento({ tipo: 'upsert', sopralluogo });
+    registraAudit(sopralluogo.id, 'creazione_sopralluogo');
     return sopralluogo;
   }
 
@@ -319,10 +347,12 @@ const db = (() => {
       aggiornato_il: adesso
     };
 
+    marcaCreazione(nuovo);
     marcaModifica(nuovo, Object.keys(nuovo));
     await richiesta(store.add(nuovo));
     await transazioneCompletata(tx);
     notificaCambiamento({ tipo: 'upsert', sopralluogo: nuovo });
+    registraAudit(nuovo.id, 'creazione_sopralluogo');
     return nuovo;
   }
 
@@ -344,6 +374,7 @@ const db = (() => {
     await richiesta(store.put(sopralluogo));
     await transazioneCompletata(tx);
     notificaCambiamento({ tipo: 'upsert', sopralluogo });
+    for (const risposta of normalizzaRisposte(sopralluogo.risposte)) registraAudit(sopralluogoId, 'modifica_risposta', risposta.domanda_id);
     return sopralluogo;
   }
 
@@ -369,6 +400,7 @@ const db = (() => {
 
     const risposte = normalizzaRisposte(sopralluogo.risposte);
     const idx = risposte.findIndex((r) => r.domanda_id === risposta.domanda_id);
+    const precedente = idx >= 0 ? risposte[idx] : null;
     if (idx >= 0) {
       risposte[idx] = { ...risposte[idx], ...rispostaConTimestamp };
     } else {
@@ -392,6 +424,8 @@ const db = (() => {
     }
 
     notificaCambiamento({ tipo: 'upsert-risposta', sopralluogoId, risposta: rispostaSalvata, aggiornato_il: adesso });
+    if (!precedente || precedente.risposta !== rispostaSalvata.risposta) registraAudit(sopralluogoId, 'modifica_risposta', risposta.domanda_id);
+    if (!precedente || precedente.note !== rispostaSalvata.note) registraAudit(sopralluogoId, 'modifica_nota', risposta.domanda_id);
     return sopralluogo;
   }
 
@@ -446,6 +480,12 @@ const db = (() => {
     await richiesta(store.put(sopralluogo));
     await transazioneCompletata(tx);
     notificaCambiamento({ tipo: 'upsert-metadati', sopralluogo });
+    const tipoAudit = cambiamenti.eliminato_definitivamente ? 'eliminazione'
+      : cambiamenti.eliminato_il === null ? 'ripristino'
+      : cambiamenti.stato === 'completato' ? 'completamento_sopralluogo'
+      : Object.keys(cambiamenti).some(k => ['punto_vendita', 'indirizzo_punto_vendita', 'tecnico', 'tecnico_2', 'tecnico_3', 'tecnico_4', 'data_sopralluogo', 'responsabile_punto_vendita'].includes(k)) ? 'modifica_anagrafica'
+      : Object.keys(cambiamenti).some(k => k.includes('aspetti')) ? 'modifica_nota' : null;
+    if (tipoAudit) registraAudit(sopralluogoId, tipoAudit);
     return sopralluogo;
   }
 
@@ -455,6 +495,7 @@ const db = (() => {
     const foto = { id: generaId(), sopralluogo_id, domanda_id, blob };
     await richiesta(store.add(foto));
     await transazioneCompletata(tx);
+    registraAudit(sopralluogo_id, 'aggiunta_foto', domanda_id);
     return foto.id;
   }
 
@@ -474,6 +515,7 @@ const db = (() => {
     const store = await transazione('foto', 'readwrite');
     const foto = await richiesta(store.get(fotoId));
     await richiesta(store.delete(fotoId));
+    if (foto) registraAudit(foto.sopralluogo_id, 'rimozione_foto', foto.domanda_id);
     return foto;
   }
 
@@ -755,6 +797,7 @@ const db = (() => {
       foto_incomplete,
       generato_il: new Date().toISOString()
     }));
+    registraAudit(sopralluogo_id, 'generazione_pdf');
   }
 
   /** Legge il PDF salvato di un sopralluogo. Ritorna undefined se non è mai stato generato/salvato. */

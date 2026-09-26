@@ -3268,7 +3268,10 @@ const impostazioniScreen = (() => {
   return { init };
 })();
 
-document.addEventListener('DOMContentLoaded', async () => {
+let appAutenticataAvviata = false;
+async function inizializzaAppAutenticata() {
+  if (appAutenticataAvviata || !appIdentity.current()) return;
+  appAutenticataAvviata = true;
   router.init();
   connessioneIndicatore.init();
   nuovoSopralluogoScreen.init();
@@ -3281,8 +3284,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   anagraficaDialog.init();
   cestinoScreen.init();
   impostazioniScreen.init();
+  accountScreens.init();
   fotoSync.init();
 
   // Never purge legacy data during startup/recovery. Trash removal remains explicit.
   await sync.init();
+}
+
+window.addEventListener('account:authenticated', inizializzaAppAutenticata);
+document.addEventListener('DOMContentLoaded', async () => {
+  if (await appIdentity.ready()) await inizializzaAppAutenticata();
 });

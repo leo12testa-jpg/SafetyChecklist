@@ -2,10 +2,10 @@
  * A controller change alone is not an update. Never reload unsaved input automatically.
  */
 const aggiornamentoApp = (() => {
-  const BUILD_ID = '20260925-184044';
+  const BUILD_ID = '20260926-110159';
   let buildServer = null;
   // "import-preview" (anteprima importazione PDF, vedi js/pdf-import.js + js/import-matching.js
-  // in app.js) esiste SOLO in memoria finché non si preme "Conferma importazione": un reload lì
+  // in app.js) esiste SOLO in memoria finchÃ© non si preme "Conferma importazione": un reload lÃ¬
   // perderebbe silenziosamente l'intera revisione dell'utente, esattamente come per le altre
   // schermate con dati non ancora salvati elencate qui.
   const SCHERMATE_A_RISCHIO = new Set(['new-inspection', 'compilazione', 'altri-aspetti', 'import-preview']);
@@ -50,7 +50,7 @@ const aggiornamentoApp = (() => {
     if (bannerBottone) {
       bannerBottone.addEventListener('click', async () => {
         if (typeof anteprimaImportazionePendente !== 'undefined' && anteprimaImportazionePendente) {
-          alert('Conferma o annulla l’importazione PDF prima di aggiornare: l’anteprima non è ancora salvata.');
+          alert('Conferma o annulla lâ€™importazione PDF prima di aggiornare: lâ€™anteprima non Ã¨ ancora salvata.');
           return;
         }
         bannerBottone.disabled = true;
@@ -80,7 +80,7 @@ const aggiornamentoApp = (() => {
     }
   }
 
-  /** Badge discreto in Impostazioni: legge version.json (mai cacheato, vedi service-worker.js) con un parametro anti-cache, così mostra sempre il BUILD_ID realmente in esecuzione. */
+  /** Badge discreto in Impostazioni: legge version.json (mai cacheato, vedi service-worker.js) con un parametro anti-cache, cosÃ¬ mostra sempre il BUILD_ID realmente in esecuzione. */
   async function aggiornaBadgeVersione() {
     if (badgeVersione) badgeVersione.textContent = `Versione ${BUILD_ID}`;
     try {

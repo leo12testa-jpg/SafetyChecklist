@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function profilePath() { return /databases/$(database)/documents/utenti/$(request.auth.uid); }
+    function activeUser() { return signedIn() && exists(profilePath()) && get(profilePath()).data.attivo == true; }
+    function isAdmin() { return activeUser() && get(profilePath()).data.ruolo == 'admin'; }
+    function profile() { return get(profilePath()).data; }
+    function matchesActor(data) {
+      return data.ultimo_aggiornamento_da_uid == request.auth.uid
+        && data.ultimo_aggiornamento_da_username == profile().username
+        && data.ultimo_aggiornamento_da_nome == profile().nome + ' ' + profile().cognome;
+    }
+
+    match /utenti/{uid} {
+      allow get: if activeUser() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // All active technicians share the same inspection collection and live listener.
+    match /sopralluoghi/{sopralluogoId} {
+      allow read, delete: if activeUser();
+      allow create: if activeUser()
+        && request.resource.data.creato_da_uid == request.auth.uid
+        && request.resource.data.creato_da_username == profile().username
+        && request.resource.data.creato_da_nome == profile().nome + ' ' + profile().cognome;
+      allow update: if activeUser() && matchesActor(request.resource.data);
+    }
+
+    match /attivita/{activityId} {
+      allow create: if activeUser()
+        && request.resource.data.keys().hasOnly(['uid', 'username', 'nome', 'sopralluogo_id', 'tipo', 'domanda_id', 'timestamp'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.username == profile().username
+        && request.resource.data.nome == profile().nome + ' ' + profile().cognome
+        && request.resource.data.sopralluogo_id is string
+        && (request.resource.data.domanda_id == null || request.resource.data.domanda_id is string || request.resource.data.domanda_id is int)
+        && request.resource.data.tipo in ['creazione_sopralluogo', 'modifica_risposta', 'modifica_nota', 'aggiunta_foto', 'rimozione_foto', 'modifica_anagrafica', 'completamento_sopralluogo', 'generazione_pdf', 'eliminazione', 'ripristino']
+        && request.resource.data.timestamp == request.time;
+      allow get, list: if activeUser() && (isAdmin() || resource.data.uid == request.auth.uid);
+      allow update, delete: if false;
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}

@@ -28,6 +28,26 @@ body {
   touch-action: manipulation;
 }
 
+body[data-auth-ready="false"] #screens,
+body[data-auth-ready="false"] #banner-aggiornamento,
+body[data-auth-ready="false"] .stato-connessione,
+body[data-auth-ready="false"] .utente-sessione { display: none !important; }
+body[data-authenticated="false"] #banner-aggiornamento { display: none !important; }
+
+.login-view { padding: 28px var(--spacing); }
+.login-view h2 { margin: 4px 0 24px; }
+.login-view form { display: grid; gap: 14px; }
+.login-messaggio { color: #9b1c1c; font-weight: 600; }
+.utente-sessione { display: flex; align-items: center; gap: 10px; font-size: .8rem; }
+.btn-esci { border: 1px solid rgba(255,255,255,.65); border-radius: 7px; padding: 7px 10px; color: #fff; background: transparent; font-weight: 700; }
+.filtri-mio-lavoro { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0; }
+.filtri-mio-lavoro button { border: 1px solid var(--color-border); border-radius: 18px; padding: 7px 11px; background: #fff; }
+.filtri-mio-lavoro button[aria-pressed="true"] { color: #fff; background: var(--color-primary); }
+.tabella-utenti-scroll { overflow-x: auto; margin-top: 18px; }
+.tabella-utenti { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.tabella-utenti th, .tabella-utenti td { padding: 8px 6px; border-bottom: 1px solid var(--color-border); text-align: left; }
+.tabella-utenti td button { margin: 2px; }
+
 #app {
   max-width: 480px;
   margin: 0 auto;
