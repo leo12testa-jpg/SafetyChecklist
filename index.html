@@ -13,16 +13,24 @@
 <body data-auth-ready="false" data-authenticated="false">
   <div id="app">
     <header class="app-header">
-      <div class="utente-sessione" id="utente-sessione" hidden>
-        <span id="utente-sessione-dettaglio"></span>
-        <button type="button" class="btn-esci" id="btn-cambia-password">PASSWORD</button>
-        <button type="button" class="btn-esci" id="btn-esci">ESCI</button>
+      <div class="header-brand">
+        <img src="assets/icon-192.png" alt="" class="header-brand-icon">
+        <div class="header-brand-copy">
+          <strong>Safety Checklist</strong>
+          <span>Colligo Ingegneria</span>
+        </div>
       </div>
-      <h1>🦺 Safety Checklist</h1>
-      <span class="stato-connessione" id="stato-connessione">
-        <span class="stato-connessione-pallino" id="stato-connessione-pallino"></span>
-        <span id="stato-connessione-testo">Online</span>
-      </span>
+      <div class="header-actions">
+        <span class="stato-connessione" id="stato-connessione">
+          <span class="stato-connessione-pallino" id="stato-connessione-pallino"></span>
+          <span id="stato-connessione-testo">Online</span>
+        </span>
+        <div class="utente-sessione" id="utente-sessione" hidden>
+          <span id="utente-sessione-dettaglio"></span>
+          <button type="button" class="btn-esci" id="btn-cambia-password">Password</button>
+          <button type="button" class="btn-esci btn-esci-primary" id="btn-esci">Esci</button>
+        </div>
+      </div>
     </header>
 
     <div class="banner-aggiornamento" id="banner-aggiornamento" hidden>
@@ -31,27 +39,105 @@
     </div>
 
     <main id="login-view" class="login-view" hidden>
-      <h2>Accedi a Safety Checklist</h2>
-      <form id="login-form" autocomplete="on">
-        <label class="campo-form" for="login-username">Username
-          <input id="login-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
-        </label>
-        <label class="campo-form" for="login-password">Password
-          <input id="login-password" name="password" type="password" autocomplete="current-password" required>
-        </label>
-        <p id="login-messaggio" class="login-messaggio" role="status" aria-live="polite" hidden></p>
-        <button type="submit" class="btn btn-primary" id="login-submit">ACCEDI</button>
-      </form>
+      <section class="login-brand-panel" aria-hidden="true">
+        <div class="login-brand-mark">
+          <img src="assets/icon-192.png" alt="">
+          <div><strong>Safety Checklist</strong><span>Colligo Ingegneria</span></div>
+        </div>
+        <div class="login-brand-content">
+          <span class="login-kicker">SICUREZZA • SOPRALLUOGHI • REPORT</span>
+          <h1>Controlli chiari.<br>Report pronti.<br>Lavoro sincronizzato.</h1>
+          <p>La checklist operativa interna per gestire sopralluoghi, evidenze fotografiche e PDF da qualsiasi dispositivo.</p>
+        </div>
+        <div class="login-feature-row">
+          <span>✓ Offline-first</span><span>✓ Foto sincronizzate</span><span>✓ PDF immediati</span>
+        </div>
+      </section>
+      <section class="login-card">
+        <div class="login-card-logo">
+          <img src="assets/icon-192.png" alt="">
+          <div><strong>Safety Checklist</strong><span>Accesso riservato</span></div>
+        </div>
+        <div class="login-card-heading">
+          <h2>Accedi al tuo account</h2>
+          <p>Inserisci le credenziali aziendali per continuare.</p>
+        </div>
+        <form id="login-form" autocomplete="on">
+          <label class="campo-form" for="login-username">Username
+            <input id="login-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="nome.cognome" required>
+          </label>
+          <label class="campo-form" for="login-password">Password
+            <input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Inserisci la password" required>
+          </label>
+          <p id="login-messaggio" class="login-messaggio" role="status" aria-live="polite" hidden></p>
+          <button type="submit" class="btn btn-primary login-submit" id="login-submit">Accedi <span aria-hidden="true">→</span></button>
+        </form>
+        <p class="login-security-note">Accesso consentito esclusivamente al personale autorizzato.</p>
+      </section>
     </main>
 
-    <main id="screens">
-      <section id="screen-home" class="screen" data-screen="home">
-        <div class="home-actions">
-          <button type="button" class="btn btn-primary" data-nav="new-inspection">Nuovo sopralluogo</button>
-          <button type="button" class="btn" data-nav="history">Storico</button>
-          <button type="button" class="btn" data-nav="settings">Impostazioni</button>
-          <button type="button" class="btn" data-nav="my-work">Il mio lavoro</button>
-          <button type="button" class="btn" data-nav="admin-users" id="btn-area-utenti" hidden>Utenti</button>
+    <main id="screens" class="app-shell">
+      <aside class="app-sidebar" aria-label="Navigazione principale">
+        <nav class="side-nav">
+          <button type="button" class="side-nav-item" data-nav="home"><span class="nav-icon" aria-hidden="true">⌂</span><span>Dashboard</span></button>
+          <button type="button" class="side-nav-item" data-nav="new-inspection"><span class="nav-icon" aria-hidden="true">＋</span><span>Nuovo sopralluogo</span></button>
+          <button type="button" class="side-nav-item" data-nav="history"><span class="nav-icon" aria-hidden="true">▤</span><span>Storico</span></button>
+          <div class="side-nav-separator" data-admin-only hidden></div>
+          <span class="side-nav-label" data-admin-only hidden>AMMINISTRAZIONE</span>
+          <button type="button" class="side-nav-item" data-nav="my-work" data-admin-only hidden><span class="nav-icon" aria-hidden="true">✓</span><span>Il mio lavoro</span></button>
+          <button type="button" class="side-nav-item" data-nav="admin-users" data-admin-only hidden><span class="nav-icon" aria-hidden="true">◎</span><span>Utenti</span></button>
+          <button type="button" class="side-nav-item" data-nav="settings" data-admin-only hidden><span class="nav-icon" aria-hidden="true">⚙</span><span>Impostazioni</span></button>
+        </nav>
+        <div class="sidebar-foot">
+          <span class="sidebar-foot-dot"></span>
+          <div><strong>Safety Checklist</strong><small>Ambiente aziendale</small></div>
+        </div>
+      </aside>
+      <div class="app-content">
+      <section id="screen-home" class="screen dashboard-screen" data-screen="home">
+        <div class="dashboard-heading">
+          <div>
+            <span class="eyebrow">AREA OPERATIVA</span>
+            <h2>Buongiorno, <span id="dashboard-utente-nome">tecnico</span></h2>
+            <p>Gestisci i sopralluoghi e continua il lavoro da qualsiasi dispositivo.</p>
+          </div>
+          <button type="button" class="btn btn-primary dashboard-new" data-nav="new-inspection">＋ Nuovo sopralluogo</button>
+        </div>
+
+        <div class="dashboard-mini-grid">
+          <article class="dashboard-mini-card">
+            <span class="mini-card-icon mini-card-green">↻</span>
+            <div><small>Sincronizzazione</small><strong>Automatica</strong><span>Locale + cloud</span></div>
+          </article>
+          <article class="dashboard-mini-card">
+            <span class="mini-card-icon mini-card-blue">▣</span>
+            <div><small>Report</small><strong>PDF sempre disponibili</strong><span>Anche con dati locali</span></div>
+          </article>
+          <article class="dashboard-mini-card">
+            <span class="mini-card-icon mini-card-violet">☁</span>
+            <div><small>Foto</small><strong>Multi-dispositivo</strong><span>Stesso sopralluogo, stessi allegati</span></div>
+          </article>
+        </div>
+
+        <div class="dashboard-section-title">
+          <div><span class="eyebrow">AZIONI RAPIDE</span><h3>Cosa vuoi fare?</h3></div>
+        </div>
+        <div class="home-actions dashboard-action-grid">
+          <button type="button" class="dashboard-action-card primary-action" data-nav="new-inspection">
+            <span class="action-card-icon">＋</span><span class="action-card-copy"><strong>Nuovo sopralluogo</strong><small>Avvia una nuova checklist o importa un PDF</small></span><span class="action-arrow">→</span>
+          </button>
+          <button type="button" class="dashboard-action-card" data-nav="history">
+            <span class="action-card-icon">▤</span><span class="action-card-copy"><strong>Storico</strong><small>Apri, modifica e scarica i sopralluoghi</small></span><span class="action-arrow">→</span>
+          </button>
+          <button type="button" class="dashboard-action-card" data-nav="my-work" data-admin-only hidden>
+            <span class="action-card-icon">✓</span><span class="action-card-copy"><strong>Il mio lavoro</strong><small>Attività create e modificate dal tuo account</small></span><span class="action-arrow">→</span>
+          </button>
+          <button type="button" class="dashboard-action-card" data-nav="admin-users" id="btn-area-utenti" data-admin-only hidden>
+            <span class="action-card-icon">◎</span><span class="action-card-copy"><strong>Utenti</strong><small>Crea, disattiva e gestisci gli account</small></span><span class="action-arrow">→</span>
+          </button>
+          <button type="button" class="dashboard-action-card" data-nav="settings" data-admin-only hidden>
+            <span class="action-card-icon">⚙</span><span class="action-card-copy"><strong>Impostazioni</strong><small>Checklist disponibili e versione applicazione</small></span><span class="action-arrow">→</span>
+          </button>
         </div>
       </section>
 
@@ -326,7 +412,7 @@
         <p class="placeholder-text" id="cestino-vuoto" hidden>Il cestino è vuoto.</p>
       </section>
 
-      <section id="screen-my-work" class="screen" data-screen="my-work" hidden>
+      <section id="screen-my-work" class="screen" data-screen="my-work" data-admin-only hidden>
         <button type="button" class="btn-back" data-nav="home">← Home</button>
         <h2>Il mio lavoro</h2>
         <div class="filtri-mio-lavoro" role="group" aria-label="Filtra il mio lavoro">
@@ -339,7 +425,7 @@
         <p id="mio-lavoro-vuoto" class="placeholder-text" hidden>Nessun sopralluogo per questo filtro.</p>
       </section>
 
-      <section id="screen-admin-users" class="screen" data-screen="admin-users" hidden>
+      <section id="screen-admin-users" class="screen" data-screen="admin-users" data-admin-only hidden>
         <button type="button" class="btn-back" data-nav="home">← Home</button>
         <h2>Utenti</h2>
         <button type="button" class="btn btn-primary" id="admin-nuovo-utente">Nuovo utente</button>
@@ -357,7 +443,7 @@
         <div class="tabella-utenti-scroll"><table class="tabella-utenti"><thead><tr><th>Nome</th><th>Cognome</th><th>Username</th><th>Ruolo</th><th>Stato</th><th>Azioni</th></tr></thead><tbody id="admin-utenti-body"></tbody></table></div>
       </section>
 
-      <section id="screen-settings" class="screen" data-screen="settings" hidden>
+      <section id="screen-settings" class="screen" data-screen="settings" data-admin-only hidden>
         <button type="button" class="btn-back" data-nav="home">← Indietro</button>
         <h2>Impostazioni</h2>
 
@@ -368,6 +454,7 @@
 
         <p class="versione-app" id="versione-app"></p>
       </section>
+          </div>
     </main>
 
 

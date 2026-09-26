@@ -78,6 +78,7 @@ const accountScreens = (() => {
   }
 
   async function loadWork() {
+    if (!appIdentity.isAdmin()) { router.navigate('home'); return; }
     const user = appIdentity.current(); if (!user) return;
     const records = await db.elencaTuttiSopralluoghi();
     const modifiedIds = new Set(records.filter(r => r.ultimo_aggiornamento_da_uid === user.uid).map(r => r.id));

@@ -45,6 +45,8 @@ const appIdentity = (() => {
   function mostraLogin(text = '') {
     profile = null;
     document.body.dataset.authenticated = 'false';
+    delete document.body.dataset.role;
+    document.querySelectorAll('[data-admin-only]').forEach((element) => { element.hidden = true; });
     screens.hidden = true;
     login.hidden = false;
     session.hidden = true;
@@ -58,6 +60,10 @@ const appIdentity = (() => {
   function mostraApp(value) {
     profile = value;
     document.body.dataset.authenticated = 'true';
+    document.body.dataset.role = value.ruolo;
+    document.querySelectorAll('[data-admin-only]').forEach((element) => { element.hidden = value.ruolo !== 'admin'; });
+    const dashboardName = document.getElementById('dashboard-utente-nome');
+    if (dashboardName) dashboardName.textContent = value.nome || value.username;
     login.hidden = true;
     screens.hidden = false;
     session.hidden = false;

@@ -22,6 +22,9 @@ const router = (() => {
     screens.forEach((el) => {
       el.hidden = el.dataset.screen !== target;
     });
+    document.querySelectorAll('.side-nav-item[data-nav]').forEach((item) => {
+      item.classList.toggle('is-active', item.dataset.nav === target);
+    });
 
     if (pushState) {
       history.pushState({ screen: target }, '', `#${target}`);
@@ -3262,7 +3265,10 @@ const impostazioniScreen = (() => {
   }
 
   function init() {
-    router.onEnter('settings', popolaChecklistDisponibili);
+    router.onEnter('settings', () => {
+      if (!appIdentity.isAdmin()) { router.navigate('home'); return; }
+      popolaChecklistDisponibili();
+    });
   }
 
   return { init };
