@@ -1373,6 +1373,8 @@ const compilazioneScreen = (() => {
           note: notaTesto.value.trim() || null,
           foto: fotoDomandaCorrente
         });
+        const corrente = checklistEngine.domandaCorrente();
+        if (corrente) renderIndicatori(corrente.totale, corrente.indice);
         nascondiErrore();
         return true;
       } catch (errore) {
@@ -1459,7 +1461,7 @@ const compilazioneScreen = (() => {
 
   function renderIndicatori(totale, indiceCorrente) {
     const compilate = new Set(risposteComeArray(checklistEngine.sopralluogoCorrente().risposte)
-      .filter((risposta) => risposta.risposta !== null && risposta.risposta !== undefined && risposta.risposta !== '')
+      .filter((risposta) => checklistEngine.rispostaCompilata(risposta))
       .map((risposta) => risposta.domanda_id));
     const checklist = checklistEngine.getChecklist();
     const ids = [];

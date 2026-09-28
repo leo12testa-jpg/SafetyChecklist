@@ -24,6 +24,23 @@ const checklistEngine = (() => {
   }
 
   /**
+   * Una domanda è compilata solo se contiene un valore effettivo.
+   * Serve anche alle checklist "raccolta-dati": [] e oggetti con soli campi vuoti NON sono
+   * risposte, mentre 0 è un valore valido.
+   */
+  function rispostaHaValore(valore) {
+    if (valore === null || valore === undefined) return false;
+    if (typeof valore === 'string') return valore.trim() !== '';
+    if (Array.isArray(valore)) return valore.some((voce) => rispostaHaValore(voce));
+    if (typeof valore === 'object') return Object.values(valore).some((voce) => rispostaHaValore(voce));
+    return true;
+  }
+
+  function rispostaCompilata(risposta) {
+    return Boolean(risposta && rispostaHaValore(risposta.risposta));
+  }
+
+  /**
    * Carica il JSON di una checklist da checklists/<id>.json (schema PROJECT.md §5),
    * salvandone una copia in checklists_cache. Se la rete non è disponibile, usa la cache.
    */
@@ -54,7 +71,7 @@ const checklistEngine = (() => {
     sopralluogo = sopralluogoCorrente;
     domande = appiattisciDomande(checklist);
 
-    const primaSenzaRisposta = domande.findIndex((d) => !trovaRisposta(d.domanda.id));
+    const primaSenzaRisposta = domande.findIndex((d) => !rispostaCompilata(trovaRisposta(d.domanda.id)));
     indice = primaSenzaRisposta === -1 ? domande.length - 1 : primaSenzaRisposta;
   }
 
@@ -164,7 +181,7 @@ const checklistEngine = (() => {
       const r = (sopralluogoDati.risposte || []).find((x) => x.domanda_id === domanda.id);
       const valore = r ? r.risposta : null;
 
-      if (!valore) {
+      if (!rispostaHaValore(valore)) {
         nonRisposte += 1;
         return;
       }
@@ -198,6 +215,8 @@ const checklistEngine = (() => {
     sopralluogoCorrente,
     ricaricaSopralluogoCorrente,
     getChecklist,
-    calcolaRiepilogo
+    calcolaRiepilogo,
+    rispostaHaValore,
+    rispostaCompilata
   };
 })();

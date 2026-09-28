@@ -78,3 +78,37 @@ test('pulsanti avanti e indietro restano compatibili con il salto diretto', () =
   assert.equal(context.api.avanti(), true);
   assert.equal(context.api.domandaCorrente().indice, 5);
 });
+
+
+test('pallini: solo una risposta con valore reale conta come compilata', () => {
+  const context = caricaMotore();
+  const has = context.api.rispostaHaValore;
+  assert.equal(has(null), false);
+  assert.equal(has(undefined), false);
+  assert.equal(has(''), false);
+  assert.equal(has('   '), false);
+  assert.equal(has([]), false);
+  assert.equal(has({ Campo: '' }), false);
+  assert.equal(has({ Campo: '   ' }), false);
+  assert.equal(has('C'), true);
+  assert.equal(has('No'), true);
+  assert.equal(has(0), true);
+  assert.equal(has([{ label: 'Voce' }]), true);
+  assert.equal(has({ Campo: 'testo' }), true);
+});
+
+test('ripresa checklist parte dalla prima risposta realmente mancante, non da un record vuoto salvato', () => {
+  const context = caricaMotore();
+  context.sopralluogo = {
+    id: 's1',
+    risposte: [
+      { domanda_id: 1, risposta: 'C' },
+      { domanda_id: 2, risposta: '' },
+      { domanda_id: 3, risposta: [] },
+      { domanda_id: 4, risposta: { Campo: '' } },
+      { domanda_id: 5, risposta: 0 }
+    ]
+  };
+  context.api.avvia(checklistConDomande(5), context.sopralluogo);
+  assert.equal(context.api.domandaCorrente().domanda.id, 2);
+});

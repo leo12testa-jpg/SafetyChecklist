@@ -185,6 +185,64 @@ async function bodyFits(page) {
     assert.ok(fit.scroll <= fit.width + 2, 'history mobile horizontal overflow');
     await mobile.screenshot({ path:path.join(out,'history-mobile.png'), fullPage:true });
 
+
+    // Progress bar semantics: red/incomplete means exactly "no actual answer".
+    const markerPage = await context.newPage();
+    await markerPage.setViewportSize({ width:1280, height:900 });
+    await markerPage.goto(url, { waitUntil:'domcontentloaded', timeout:45000 });
+    await markerPage.waitForSelector('#login-view:not([hidden])', { timeout:15000 });
+    await markerPage.evaluate(() => {
+      document.body.dataset.authReady = 'true';
+      document.body.dataset.authenticated = 'true';
+      document.querySelector('#login-view').hidden = true;
+      document.querySelector('#screens').hidden = false;
+      document.querySelectorAll('.screen').forEach(el => { el.hidden = el.dataset.screen !== 'compilazione'; });
+
+      const fake = {
+        id:'marker-smoke',
+        risposte:[
+          { domanda_id:1, risposta:'Sì', note:null, foto:[] },
+          { domanda_id:2, risposta:'', note:null, foto:[] },
+          { domanda_id:3, risposta:[], note:null, foto:[] },
+          { domanda_id:4, risposta:{ Campo:'' }, note:null, foto:[] },
+          { domanda_id:5, risposta:0, note:null, foto:[] }
+        ]
+      };
+      const checklist = {
+        id:'marker-smoke',
+        stile:'raccolta-dati',
+        sezioni:[{ titolo:'Test', domande:[
+          { id:1, testo:'Uno', tipo:'si-no' },
+          { id:2, testo:'Due', tipo:'testo' },
+          { id:3, testo:'Tre', tipo:'checkbox-multi', opzioni:[{label:'A'}] },
+          { id:4, testo:'Quattro', tipo:'gruppo-testo', campi:[{label:'Campo'}] },
+          { id:5, testo:'Cinque', tipo:'numero' }
+        ]}]
+      };
+      db.salvaRisposta = async (_id, risposta) => {
+        const i = fake.risposte.findIndex(r => r.domanda_id === risposta.domanda_id);
+        if (i >= 0) fake.risposte[i] = { ...fake.risposte[i], ...risposta };
+        else fake.risposte.push(risposta);
+        return fake;
+      };
+      checklistEngine.avvia(checklist, fake);
+      compilazioneScreen.init();
+      compilazioneScreen.renderDomandaCorrente();
+    });
+    assert.equal(await markerPage.locator('#progress-label').textContent(), 'Domanda 2 di 5');
+    assert.deepEqual(
+      await markerPage.locator('.progress-marker').evaluateAll(els => els.map(el => el.dataset.stato)),
+      ['completa','da-completare','da-completare','da-completare','completa']
+    );
+    const rispostaTesto = markerPage.locator('#raccolta-dati-controllo textarea');
+    await rispostaTesto.fill('Risposta presente');
+    await rispostaTesto.dispatchEvent('change');
+    await markerPage.waitForFunction(() => document.querySelectorAll('.progress-marker')[1]?.dataset.stato === 'completa');
+    await rispostaTesto.fill('');
+    await rispostaTesto.dispatchEvent('change');
+    await markerPage.waitForFunction(() => document.querySelectorAll('.progress-marker')[1]?.dataset.stato === 'da-completare');
+    await markerPage.screenshot({ path:path.join(out,'progress-markers.png'), fullPage:true });
+
     console.log('FINAL UI SMOKE PASS');
   } finally {
     await browser.close();
