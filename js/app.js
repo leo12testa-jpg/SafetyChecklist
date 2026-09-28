@@ -2372,7 +2372,11 @@ const storicoScreen = (() => {
 
   function popolaFiltroTecnico() {
     const selezionato = filtroTecnicoContainer.value;
-    const nomi = Array.from(new Set(sopralluoghiCache.flatMap(tecniciSopralluogo)))
+    const nomiTecnici = [];
+    sopralluoghiCache.forEach((sopralluogo) => {
+      tecniciSopralluogo(sopralluogo).forEach((nome) => nomiTecnici.push(nome));
+    });
+    const nomi = Array.from(new Set(nomiTecnici))
       .sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' }));
     filtroTecnicoContainer.replaceChildren();
     const tutti = document.createElement('option');
