@@ -3,10 +3,17 @@ const accountScreens = (() => {
   const userBody = document.getElementById('admin-utenti-body');
   const userForm = document.getElementById('admin-user-form');
   const userMessage = document.getElementById('admin-user-message');
+  const userSearch = document.getElementById('admin-user-search');
+  const userCount = document.getElementById('admin-users-count');
+  const statTotali = document.getElementById('admin-stat-totali');
+  const statAttivi = document.getElementById('admin-stat-attivi');
+  const statDisattivati = document.getElementById('admin-stat-disattivati');
+  const statAdmin = document.getElementById('admin-stat-admin');
   const workList = document.getElementById('lista-mio-lavoro');
   const workEmpty = document.getElementById('mio-lavoro-vuoto');
   let filtro = 'all';
   let lavori = [];
+  let utentiCache = [];
 
   function messaggio(target, text, error = false) {
     target.textContent = text;
@@ -16,24 +23,82 @@ const accountScreens = (() => {
 
   async function api(action, body = {}) { return appIdentity.callAdmin(action, body); }
 
-  async function renderUsers() {
-    if (!appIdentity.isAdmin()) { router.navigate('home'); return; }
-    const { users } = await api('list');
+  function aggiornaStatisticheUtenti() {
+    statTotali.textContent = String(utentiCache.length);
+    statAttivi.textContent = String(utentiCache.filter((user) => user.attivo).length);
+    statDisattivati.textContent = String(utentiCache.filter((user) => !user.attivo).length);
+    statAdmin.textContent = String(utentiCache.filter((user) => user.ruolo === 'admin').length);
+  }
+
+  function filtraUtenti() {
+    const testo = String(userSearch.value || '').trim().toLowerCase();
+    return utentiCache.filter((user) => {
+      if (!testo) return true;
+      return [user.nome, user.cognome, user.username, user.ruolo]
+        .some((valore) => String(valore || '').toLowerCase().includes(testo));
+    });
+  }
+
+  function creaBadgeUtente(testo, classe) {
+    const badge = document.createElement('span');
+    badge.className = `admin-user-badge ${classe}`;
+    badge.textContent = testo;
+    return badge;
+  }
+
+  function renderUserRows() {
+    const users = filtraUtenti();
     userBody.replaceChildren();
+    userCount.textContent = users.length === 1 ? '1 utente' : `${users.length} utenti`;
+
     for (const user of users) {
-      const row = document.createElement('tr'); row.dataset.uid = user.uid;
-      for (const value of [`${user.nome}`, `${user.cognome}`, user.username, user.ruolo, user.attivo ? 'Attivo' : 'Disattivato']) {
-        const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell);
+      const row = document.createElement('tr');
+      row.dataset.uid = user.uid;
+
+      for (const value of [user.nome, user.cognome, user.username]) {
+        const cell = document.createElement('td');
+        cell.textContent = value || '—';
+        row.appendChild(cell);
       }
+
+      const roleCell = document.createElement('td');
+      roleCell.appendChild(creaBadgeUtente(user.ruolo === 'admin' ? 'Admin' : 'Tecnico', user.ruolo === 'admin' ? 'is-admin' : 'is-tech'));
+      row.appendChild(roleCell);
+
+      const statusCell = document.createElement('td');
+      statusCell.appendChild(creaBadgeUtente(user.attivo ? 'Attivo' : 'Disattivato', user.attivo ? 'is-active' : 'is-disabled'));
+      row.appendChild(statusCell);
+
       const actions = document.createElement('td');
-      const active = document.createElement('button'); active.type = 'button'; active.textContent = user.attivo ? 'Disattiva' : 'Riattiva';
+      actions.className = 'admin-user-actions';
+      const active = document.createElement('button');
+      active.type = 'button';
+      active.className = user.attivo ? 'admin-user-disable' : 'admin-user-enable';
+      active.textContent = user.attivo ? 'Disattiva' : 'Riattiva';
       active.addEventListener('click', async () => {
         active.disabled = true;
-        try { await api('setActive', { uid: user.uid, active: !user.attivo }); await renderUsers(); }
-        catch (error) { messaggio(userMessage, error.message, true); active.disabled = false; }
+        try {
+          await api('setActive', { uid: user.uid, active: !user.attivo });
+          messaggio(userMessage, user.attivo ? 'Utente disattivato.' : 'Utente riattivato.');
+          await renderUsers();
+        } catch (error) {
+          messaggio(userMessage, error.message, true);
+          active.disabled = false;
+        }
       });
-      actions.append(active); row.appendChild(actions); userBody.appendChild(row);
+      actions.append(active);
+      row.appendChild(actions);
+      userBody.appendChild(row);
     }
+  }
+
+  async function renderUsers() {
+    if (!appIdentity.isAdmin()) { router.navigate('home'); return; }
+    messaggio(userMessage, '');
+    const { users } = await api('list');
+    utentiCache = Array.isArray(users) ? users : [];
+    aggiornaStatisticheUtenti();
+    renderUserRows();
   }
 
   async function createUser(event) {
@@ -97,6 +162,7 @@ const accountScreens = (() => {
 
   function init() {
     document.getElementById('admin-nuovo-utente').addEventListener('click', () => { userForm.hidden = false; userMessage.hidden = true; });
+    userSearch.addEventListener('input', renderUserRows);
     document.getElementById('admin-annulla-utente').addEventListener('click', () => { userForm.reset(); userForm.hidden = true; });
     userForm.addEventListener('submit', createUser);
     router.onEnter('admin-users', renderUsers);

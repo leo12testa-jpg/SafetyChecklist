@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/icon-512.png">
-  <link rel="stylesheet" href="css/style.css?v=20260928-214500">
+  <link rel="stylesheet" href="css/style.css?v=20260928-215500">
 </head>
 <body data-auth-ready="false" data-authenticated="false">
   <div id="app">
@@ -464,8 +464,28 @@
 
       <section id="screen-admin-users" class="screen" data-screen="admin-users" data-admin-only hidden>
         <button type="button" class="btn-back" data-nav="home">← Home</button>
-        <h2>Utenti</h2>
-        <button type="button" class="btn btn-primary" id="admin-nuovo-utente">Nuovo utente</button>
+        <div class="admin-users-heading">
+          <div>
+            <span class="eyebrow">AMMINISTRAZIONE</span>
+            <h2>Utenti</h2>
+            <p class="placeholder-text">Gestisci gli accessi alla Safety Checklist.</p>
+          </div>
+          <button type="button" class="btn btn-primary admin-users-new" id="admin-nuovo-utente">＋ Nuovo utente</button>
+        </div>
+
+        <div class="admin-users-stats" aria-label="Riepilogo utenti">
+          <article><small>Totali</small><strong id="admin-stat-totali">—</strong></article>
+          <article><small>Attivi</small><strong id="admin-stat-attivi">—</strong></article>
+          <article><small>Disattivati</small><strong id="admin-stat-disattivati">—</strong></article>
+          <article><small>Admin</small><strong id="admin-stat-admin">—</strong></article>
+        </div>
+
+        <div class="admin-users-toolbar">
+          <label class="admin-users-search">Cerca utente
+            <input type="search" id="admin-user-search" placeholder="Nome, cognome o username…" autocomplete="off">
+          </label>
+          <span id="admin-users-count" class="admin-users-count"></span>
+        </div>
         <form id="admin-user-form" hidden>
           <label class="campo-form" for="admin-nome">Nome<input id="admin-nome" required maxlength="80"></label>
           <label class="campo-form" for="admin-cognome">Cognome<input id="admin-cognome" required maxlength="80"></label>
@@ -756,6 +776,6 @@
   <script src="js/sync.js"></script>
   <script src="js/app.js"></script>
   <script src="js/account-screens.js"></script>
-  <script src="js/aggiornamento.js?v=20260928-214500"></script>
+  <script src="js/aggiornamento.js?v=20260928-215500"></script>
 </body>
 </html>

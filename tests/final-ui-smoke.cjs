@@ -123,6 +123,17 @@ async function bodyFits(page) {
     await assertNoCardOverlap(page, '.dashboard-action-card');
     await page.screenshot({ path:path.join(out,'dashboard-admin-desktop.png'), fullPage:true });
 
+    // Admin user management layout.
+    await page.evaluate(() => {
+      document.querySelectorAll('.screen').forEach(el => { el.hidden = el.dataset.screen !== 'admin-users'; });
+    });
+    assert.equal(await page.locator('#admin-user-search').isVisible(), true);
+    assert.equal(await page.locator('.admin-users-stats').isVisible(), true);
+    fit = await bodyFits(page);
+    assert.ok(fit.scroll <= fit.width + 2, 'admin users horizontal overflow');
+    await page.screenshot({ path:path.join(out,'admin-users-desktop.png'), fullPage:true });
+    await forceDashboard(page, 'admin');
+
     // Real login page, mobile.
     const mobile = await context.newPage();
     await mobile.setViewportSize({ width:390, height:844 });
