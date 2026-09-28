@@ -3495,49 +3495,6 @@ const installazioneApp = (() => {
 })();
 
 /**
- * Installazione PWA: il pulsante compare solo sui browser che espongono il prompt nativo.
- * Su dispositivi dove l'app è già installata resta nascosto.
- */
-const installazioneApp = (() => {
-  const bottone = document.getElementById('btn-installa-app');
-  let promptInstallazione = null;
-
-  function aggiornaVisibilita() {
-    if (!bottone) return;
-    const standalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
-    bottone.hidden = standalone || !promptInstallazione;
-  }
-
-  window.addEventListener('beforeinstallprompt', (event) => {
-    event.preventDefault();
-    promptInstallazione = event;
-    aggiornaVisibilita();
-  });
-
-  window.addEventListener('appinstalled', () => {
-    promptInstallazione = null;
-    aggiornaVisibilita();
-  });
-
-  if (bottone) {
-    bottone.addEventListener('click', async () => {
-      if (!promptInstallazione) return;
-      bottone.disabled = true;
-      try {
-        await promptInstallazione.prompt();
-        await promptInstallazione.userChoice;
-        promptInstallazione = null;
-        aggiornaVisibilita();
-      } finally {
-        bottone.disabled = false;
-      }
-    });
-  }
-
-  return { aggiornaVisibilita };
-})();
-
-/**
  * Dashboard operativa con statistiche reali lette da IndexedDB.
  * I dati restano local-first: dopo il sync vengono ridisegnati usando lo stesso archivio locale
  * che alimenta Storico, quindi funzionano anche offline.

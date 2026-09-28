@@ -2220,11 +2220,6 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
 
 
 /* V1.1 — storico/admin/PWA */
-.btn-installa-app {
-  color: var(--ui-blue) !important;
-  border-color: #cdddf4 !important;
-  background: #f5f9ff !important;
-}
 .storico-filtri {
   display: grid !important;
   grid-template-columns: repeat(4, minmax(150px, 1fr));
@@ -2255,5 +2250,4 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
 @media (max-width: 620px) {
   .storico-filtri { grid-template-columns: 1fr; }
   .storico-filtro-ricerca, .storico-filtri-footer { grid-column: auto; }
-  .btn-installa-app { padding: 7px 8px !important; font-size: .65rem; }
 }
