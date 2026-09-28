@@ -2284,7 +2284,12 @@ const storicoScreen = (() => {
   const nessunRisultato = document.getElementById('storico-nessun-risultato');
   const filtroClienteContainer = document.getElementById('storico-filtro-cliente');
   const filtroStatoChiusuraContainer = document.getElementById('storico-filtro-stato-chiusura');
+  const filtroTecnicoContainer = document.getElementById('storico-filtro-tecnico');
+  const inputDataDa = document.getElementById('storico-data-da');
+  const inputDataA = document.getElementById('storico-data-a');
   const inputRicerca = document.getElementById('storico-ricerca');
+  const bottoneResetFiltri = document.getElementById('storico-reset-filtri');
+  const risultatiContatore = document.getElementById('storico-risultati-contatore');
   const checkboxSelezionaTutti = document.getElementById('storico-seleziona-tutti');
   const bottoneScaricaSelezionati = document.getElementById('storico-scarica-selezionati');
   const bottoneVaiCestino = document.getElementById('storico-vai-cestino');
@@ -2296,6 +2301,9 @@ const storicoScreen = (() => {
   let sopralluoghiCache = [];
   let clienteAttivo = '';
   let statoChiusuraAttivo = '';
+  let tecnicoAttivo = '';
+  let dataDaAttiva = '';
+  let dataAAttiva = '';
   let nomiClientiConfigurati = [];
   let testoRicerca = '';
   let timerDebounce = null;
@@ -2355,11 +2363,67 @@ const storicoScreen = (() => {
     return puntoVendita === filtro.toLowerCase();
   }
 
+  function tecniciSopralluogo(sopralluogo) {
+    return [sopralluogo.tecnico, sopralluogo.tecnico_2, sopralluogo.tecnico_3, sopralluogo.tecnico_4]
+      .filter(Boolean)
+      .map((nome) => String(nome).trim())
+      .filter(Boolean);
+  }
+
+  function popolaFiltroTecnico() {
+    const selezionato = filtroTecnicoContainer.value;
+    const nomi = Array.from(new Set(sopralluoghiCache.flatMap(tecniciSopralluogo)))
+      .sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' }));
+    filtroTecnicoContainer.replaceChildren();
+    const tutti = document.createElement('option');
+    tutti.value = '';
+    tutti.textContent = 'Tutti i tecnici';
+    filtroTecnicoContainer.appendChild(tutti);
+    nomi.forEach((nome) => {
+      const option = document.createElement('option');
+      option.value = nome;
+      option.textContent = nome;
+      filtroTecnicoContainer.appendChild(option);
+    });
+    filtroTecnicoContainer.value = nomi.includes(selezionato) ? selezionato : '';
+    tecnicoAttivo = filtroTecnicoContainer.value;
+  }
+
   function corrispondeRicerca(sopralluogo, testo) {
-    if (!testo) {
-      return true;
-    }
-    return String(sopralluogo.punto_vendita || '').toLowerCase().includes(testo);
+    if (!testo) return true;
+    const campi = [
+      sopralluogo.punto_vendita,
+      sopralluogo.indirizzo_punto_vendita,
+      sopralluogo.responsabile_punto_vendita,
+      sopralluogo.area_manager,
+      ...tecniciSopralluogo(sopralluogo)
+    ];
+    return campi.some((valore) => String(valore || '').toLowerCase().includes(testo));
+  }
+
+  function corrispondeTecnico(sopralluogo, tecnico) {
+    if (!tecnico) return true;
+    return tecniciSopralluogo(sopralluogo)
+      .some((nome) => nome.localeCompare(tecnico, 'it', { sensitivity: 'base' }) === 0);
+  }
+
+  function dataFiltroSopralluogo(sopralluogo) {
+    const valore = sopralluogo.data_sopralluogo || sopralluogo.data;
+    if (!valore) return '';
+    const data = new Date(valore);
+    if (Number.isNaN(data.getTime())) return '';
+    const anno = data.getFullYear();
+    const mese = String(data.getMonth() + 1).padStart(2, '0');
+    const giorno = String(data.getDate()).padStart(2, '0');
+    return `${anno}-${mese}-${giorno}`;
+  }
+
+  function corrispondeDate(sopralluogo) {
+    const data = dataFiltroSopralluogo(sopralluogo);
+    if (!data) return !dataDaAttiva && !dataAAttiva;
+    if (dataDaAttiva && data < dataDaAttiva) return false;
+    if (dataAAttiva && data > dataAAttiva) return false;
+    return true;
   }
 
   /**
@@ -2379,6 +2443,8 @@ const storicoScreen = (() => {
       (s) =>
         corrispondeCliente(s, clienteAttivo) &&
         corrispondeStatoChiusura(s, statoChiusuraAttivo) &&
+        corrispondeTecnico(s, tecnicoAttivo) &&
+        corrispondeDate(s) &&
         corrispondeRicerca(s, testoRicerca)
     );
   }
@@ -2722,6 +2788,7 @@ const storicoScreen = (() => {
 
     vuoto.hidden = sopralluoghiCache.length > 0;
     nessunRisultato.hidden = sopralluoghiCache.length === 0 || filtrati.length > 0;
+    risultatiContatore.textContent = filtrati.length === 1 ? '1 risultato' : `${filtrati.length} risultati`;
 
     aggiornaBottoneScaricaSelezionati();
     aggiornaCheckboxSelezionaTutti();
@@ -2742,6 +2809,37 @@ const storicoScreen = (() => {
 
   function onFiltroStatoChiusuraChange() {
     statoChiusuraAttivo = filtroStatoChiusuraContainer.value;
+    applicaFiltri();
+  }
+
+  function onFiltroTecnicoChange() {
+    tecnicoAttivo = filtroTecnicoContainer.value;
+    applicaFiltri();
+  }
+
+  function onFiltroDataChange() {
+    dataDaAttiva = inputDataDa.value;
+    dataAAttiva = inputDataA.value;
+    if (dataDaAttiva && dataAAttiva && dataDaAttiva > dataAAttiva) {
+      if (document.activeElement === inputDataDa) inputDataA.value = dataAAttiva = dataDaAttiva;
+      else inputDataDa.value = dataDaAttiva = dataAAttiva;
+    }
+    applicaFiltri();
+  }
+
+  function resetFiltri() {
+    clienteAttivo = '';
+    statoChiusuraAttivo = '';
+    tecnicoAttivo = '';
+    dataDaAttiva = '';
+    dataAAttiva = '';
+    testoRicerca = '';
+    filtroClienteContainer.value = '';
+    filtroStatoChiusuraContainer.value = '';
+    filtroTecnicoContainer.value = '';
+    inputDataDa.value = '';
+    inputDataA.value = '';
+    inputRicerca.value = '';
     applicaFiltri();
   }
 
@@ -2830,17 +2928,38 @@ const storicoScreen = (() => {
     }
   }
 
-  async function render() {
+  async function render({ reset = true } = {}) {
+    const filtriPrecedenti = {
+      cliente: clienteAttivo,
+      stato: statoChiusuraAttivo,
+      tecnico: tecnicoAttivo,
+      da: dataDaAttiva,
+      a: dataAAttiva,
+      ricerca: testoRicerca
+    };
     const [sopralluoghi] = await Promise.all([db.elencaSopralluoghi(), popolaFiltroCliente()]);
     sopralluoghiCache = sopralluoghi;
     selezionati.clear();
-    clienteAttivo = '';
-    statoChiusuraAttivo = '';
-    testoRicerca = '';
-    inputRicerca.value = '';
-    filtroClienteContainer.value = '';
-    filtroStatoChiusuraContainer.value = '';
-    applicaFiltri();
+    popolaFiltroTecnico();
+
+    if (reset) {
+      resetFiltri();
+    } else {
+      clienteAttivo = filtriPrecedenti.cliente;
+      statoChiusuraAttivo = filtriPrecedenti.stato;
+      tecnicoAttivo = Array.from(filtroTecnicoContainer.options).some((o) => o.value === filtriPrecedenti.tecnico)
+        ? filtriPrecedenti.tecnico : '';
+      dataDaAttiva = filtriPrecedenti.da;
+      dataAAttiva = filtriPrecedenti.a;
+      testoRicerca = filtriPrecedenti.ricerca;
+      filtroClienteContainer.value = clienteAttivo;
+      filtroStatoChiusuraContainer.value = statoChiusuraAttivo;
+      filtroTecnicoContainer.value = tecnicoAttivo;
+      inputDataDa.value = dataDaAttiva;
+      inputDataA.value = dataAAttiva;
+      inputRicerca.value = testoRicerca;
+      applicaFiltri();
+    }
     await aggiornaContatoreCestino();
   }
 
@@ -2848,7 +2967,7 @@ const storicoScreen = (() => {
   function alRicevimentoDatiSync() {
     const schermata = document.getElementById('screen-history');
     if (schermata && !schermata.hidden) {
-      render();
+      render({ reset: false });
     }
   }
 
@@ -2856,6 +2975,10 @@ const storicoScreen = (() => {
     inputRicerca.addEventListener('input', onRicercaInput);
     filtroClienteContainer.addEventListener('change', onFiltroClienteChange);
     filtroStatoChiusuraContainer.addEventListener('change', onFiltroStatoChiusuraChange);
+    filtroTecnicoContainer.addEventListener('change', onFiltroTecnicoChange);
+    inputDataDa.addEventListener('change', onFiltroDataChange);
+    inputDataA.addEventListener('change', onFiltroDataChange);
+    bottoneResetFiltri.addEventListener('click', resetFiltri);
     checkboxSelezionaTutti.addEventListener('change', onSelezionaTuttiChange);
     bottoneScaricaSelezionati.addEventListener('click', scaricaSelezionati);
     router.onEnter('history', () => { render(); sync.sincronizzaCompleto?.(); });

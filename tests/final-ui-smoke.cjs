@@ -101,6 +101,19 @@ async function bodyFits(page) {
     await assertNoCardOverlap(page, '.dashboard-action-card');
     await page.screenshot({ path:path.join(out,'dashboard-tech-desktop.png'), fullPage:true });
 
+    // History filters stay usable on desktop.
+    await page.evaluate(() => {
+      document.querySelectorAll('.screen').forEach(el => { el.hidden = el.dataset.screen !== 'history'; });
+    });
+    assert.equal(await page.locator('#storico-filtro-tecnico').isVisible(), true);
+    assert.equal(await page.locator('#storico-data-da').isVisible(), true);
+    assert.equal(await page.locator('#storico-data-a').isVisible(), true);
+    assert.equal(await page.locator('#storico-reset-filtri').isVisible(), true);
+    fit = await bodyFits(page);
+    assert.ok(fit.scroll <= fit.width + 2, 'history desktop horizontal overflow');
+    await page.screenshot({ path:path.join(out,'history-desktop.png'), fullPage:true });
+    await forceDashboard(page, 'tecnico');
+
     // Admin desktop dashboard.
     await forceDashboard(page, 'admin');
     assert.equal(await page.locator('[data-nav="admin-users"].side-nav-item').isVisible(), true);
@@ -136,6 +149,16 @@ async function bodyFits(page) {
     await assertNoCardOverlap(mobile, '.dashboard-mini-card');
     await assertNoCardOverlap(mobile, '.dashboard-action-card');
     await mobile.screenshot({ path:path.join(out,'dashboard-tech-mobile.png'), fullPage:true });
+
+    // History filters remain stacked and usable on mobile.
+    await mobile.evaluate(() => {
+      document.querySelectorAll('.screen').forEach(el => { el.hidden = el.dataset.screen !== 'history'; });
+    });
+    assert.equal(await mobile.locator('#storico-filtro-tecnico').isVisible(), true);
+    assert.equal(await mobile.locator('#storico-reset-filtri').isVisible(), true);
+    fit = await bodyFits(mobile);
+    assert.ok(fit.scroll <= fit.width + 2, 'history mobile horizontal overflow');
+    await mobile.screenshot({ path:path.join(out,'history-mobile.png'), fullPage:true });
 
     console.log('FINAL UI SMOKE PASS');
   } finally {

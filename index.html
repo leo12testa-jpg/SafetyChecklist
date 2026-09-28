@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/icon-512.png">
-  <link rel="stylesheet" href="css/style.css?v=20260928-213500">
+  <link rel="stylesheet" href="css/style.css?v=20260928-214500">
 </head>
 <body data-auth-ready="false" data-authenticated="false">
   <div id="app">
@@ -394,16 +394,37 @@
         <button type="button" class="btn-secondario storico-vai-cestino" id="storico-vai-cestino" data-nav="trash">🗑️ Cestino (0)</button>
 
         <div class="storico-filtri">
-          <select class="storico-filtro-cliente" id="storico-filtro-cliente">
-            <option value="">Tutti</option>
-            <option value="__altro__">Altro</option>
-          </select>
-          <select class="storico-filtro-stato-chiusura" id="storico-filtro-stato-chiusura">
-            <option value="">Tutti</option>
-            <option value="aperto">Da completare</option>
-            <option value="chiuso">Chiuse</option>
-          </select>
-          <input type="search" class="storico-ricerca" id="storico-ricerca" placeholder="Cerca punto vendita…" autocomplete="off">
+          <label class="storico-filtro-campo">Cliente
+            <select class="storico-filtro-cliente" id="storico-filtro-cliente">
+              <option value="">Tutti i clienti</option>
+              <option value="__altro__">Altro</option>
+            </select>
+          </label>
+          <label class="storico-filtro-campo">Stato
+            <select class="storico-filtro-stato-chiusura" id="storico-filtro-stato-chiusura">
+              <option value="">Tutti gli stati</option>
+              <option value="aperto">Da completare</option>
+              <option value="chiuso">Chiuse</option>
+            </select>
+          </label>
+          <label class="storico-filtro-campo">Tecnico
+            <select class="storico-filtro-tecnico" id="storico-filtro-tecnico">
+              <option value="">Tutti i tecnici</option>
+            </select>
+          </label>
+          <label class="storico-filtro-campo">Dal
+            <input type="date" id="storico-data-da">
+          </label>
+          <label class="storico-filtro-campo">Al
+            <input type="date" id="storico-data-a">
+          </label>
+          <label class="storico-filtro-campo storico-filtro-ricerca">Ricerca
+            <input type="search" class="storico-ricerca" id="storico-ricerca" placeholder="Sede, indirizzo, tecnico…" autocomplete="off">
+          </label>
+          <div class="storico-filtri-footer">
+            <span id="storico-risultati-contatore" class="storico-risultati-contatore">0 risultati</span>
+            <button type="button" class="storico-reset-filtri" id="storico-reset-filtri">Azzera filtri</button>
+          </div>
         </div>
 
         <div class="storico-selezione-barra">
@@ -735,6 +756,6 @@
   <script src="js/sync.js"></script>
   <script src="js/app.js"></script>
   <script src="js/account-screens.js"></script>
-  <script src="js/aggiornamento.js?v=20260928-213500"></script>
+  <script src="js/aggiornamento.js?v=20260928-214500"></script>
 </body>
 </html>
