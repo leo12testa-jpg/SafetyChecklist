@@ -1226,11 +1226,29 @@ const pdf = (() => {
         documento = await pdfjsLib.getDocument({ data: new Uint8Array(await leggiArrayBuffer(blob)) }).promise;
         for (let n = 1; n <= documento.numPages && !chiuso; n++) {
           const page = await documento.getPage(n);
-          const viewport = page.getViewport({ scale: 1 });
+
+          // Il vecchio viewer renderizzava ogni pagina a 1 pixel per punto PDF (~595 px per un A4):
+          // su schermi moderni/zoom browser il canvas veniva poi ingrandito dal CSS e risultava
+          // visibilmente sgranato. Manteniamo una dimensione comoda a schermo ma renderizziamo
+          // internamente a densità molto più alta, rispettando anche il devicePixelRatio.
+          const scalaCss = 1.25;
+          const densitaSchermo = Math.max(1.5, Number(window.devicePixelRatio) || 1);
+          const scalaRender = Math.min(2.25, scalaCss * densitaSchermo);
+          const viewportCss = page.getViewport({ scale: scalaCss });
+          const viewportRender = page.getViewport({ scale: scalaRender });
+
           const canvas = document.createElement('canvas');
-          canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
+          canvas.width = Math.ceil(viewportRender.width);
+          canvas.height = Math.ceil(viewportRender.height);
+          canvas.style.width = `${Math.ceil(viewportCss.width)}px`;
+          canvas.style.height = `${Math.ceil(viewportCss.height)}px`;
+          canvas.dataset.renderScale = String(scalaRender);
+          canvas.dataset.cssScale = String(scalaCss);
           panel.appendChild(canvas);
-          await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+          status.textContent = `Rendering pagina ${n} di ${documento.numPages}…`;
+          const contesto = canvas.getContext('2d', { alpha: false });
+          await page.render({ canvasContext: contesto, viewport: viewportRender }).promise;
           page.cleanup();
         }
         if (!chiuso) {

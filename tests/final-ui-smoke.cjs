@@ -79,6 +79,30 @@ async function bodyFits(page) {
     assert.ok(fit.scroll <= fit.width + 2, 'login desktop horizontal overflow');
     await page.screenshot({ path:path.join(out,'login-desktop.png'), fullPage:true });
 
+    // PDF preview: verify the canvas backing store is substantially denser than its CSS size.
+    const pdfQuality = await page.evaluate(async () => {
+      const doc = new jspdf.jsPDF();
+      doc.setFontSize(9);
+      doc.text('Verifica nitidezza anteprima Safety Checklist', 18, 22);
+      for (let y = 34; y < 270; y += 8) doc.text('Testo PDF ad alta definizione 0123456789', 18, y);
+      await pdf.apri(doc.output('blob'), 'nitidezza-test.pdf', null);
+      const canvas = document.querySelector('.pdf-preview-overlay canvas');
+      const box = canvas.getBoundingClientRect();
+      return {
+        width: canvas.width,
+        height: canvas.height,
+        cssWidth: box.width,
+        cssHeight: box.height,
+        ratio: canvas.width / box.width,
+        renderScale: Number(canvas.dataset.renderScale || 0)
+      };
+    });
+    assert.ok(pdfQuality.cssWidth > 650, 'PDF preview desktop too small: ' + JSON.stringify(pdfQuality));
+    assert.ok(pdfQuality.ratio >= 1.45, 'PDF preview backing store too low resolution: ' + JSON.stringify(pdfQuality));
+    assert.ok(pdfQuality.renderScale >= 1.8, 'PDF render scale too low: ' + JSON.stringify(pdfQuality));
+    await page.screenshot({ path:path.join(out,'pdf-preview-hidpi.png'), fullPage:false });
+    await page.getByRole('button',{name:'Chiudi anteprima PDF'}).click();
+
     // Technician desktop dashboard.
     await forceDashboard(page, 'tecnico');
     fit = await bodyFits(page);
