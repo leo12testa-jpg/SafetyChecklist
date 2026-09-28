@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/icon-512.png">
-  <link rel="stylesheet" href="css/style.css?v=20260928-220500">
+  <link rel="stylesheet" href="css/style.css?v=20260928-221500">
 </head>
 <body data-auth-ready="false" data-authenticated="false">
   <div id="app">
@@ -154,6 +154,9 @@
           </button>
           <button type="button" class="dashboard-action-card" data-nav="history">
             <span class="action-card-icon">▤</span><span class="action-card-copy"><strong>Storico</strong><small>Apri, modifica e scarica i sopralluoghi</small></span><span class="action-arrow">→</span>
+          </button>
+          <button type="button" class="dashboard-action-card dashboard-install-card" id="dashboard-install-card" hidden>
+            <span class="action-card-icon">↓</span><span class="action-card-copy"><strong id="dashboard-install-title">Installa l'app</strong><small id="dashboard-install-copy">Aggiungila al dispositivo per aprirla come un'app.</small></span><span class="action-arrow">→</span>
           </button>
           <button type="button" class="dashboard-action-card" data-nav="my-work" data-admin-only hidden>
             <span class="action-card-icon">✓</span><span class="action-card-copy"><strong>Il mio lavoro</strong><small>Attività create e modificate dal tuo account</small></span><span class="action-arrow">→</span>
@@ -791,6 +794,6 @@
   <script src="js/sync.js"></script>
   <script src="js/app.js"></script>
   <script src="js/account-screens.js"></script>
-  <script src="js/aggiornamento.js?v=20260928-220500"></script>
+  <script src="js/aggiornamento.js?v=20260928-221500"></script>
 </body>
 </html>

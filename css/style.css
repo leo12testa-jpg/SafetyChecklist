@@ -1925,3 +1925,11 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
   .dashboard-resume-copy strong,
   .dashboard-resume-copy > span:last-child { white-space: normal; }
 }
+
+
+/* Installazione PWA */
+.dashboard-install-card[hidden] { display: none !important; }
+.dashboard-install-card .action-card-icon {
+  background: #eaf8f1;
+  color: #148556;
+}

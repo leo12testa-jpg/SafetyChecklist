@@ -89,6 +89,16 @@ async function bodyFits(page) {
     assert.equal(await page.locator('.dashboard-recent-panel').isVisible(), true);
     assert.equal(await page.locator('#dashboard-resume-panel').count(), 1);
     assert.equal(await page.locator('.dashboard-action-card:visible').count(), 2);
+    assert.equal(await page.locator('#dashboard-install-card').isVisible(), false);
+    await page.evaluate(() => {
+      const event = new Event('beforeinstallprompt', { cancelable:true });
+      event.prompt = async () => {};
+      event.userChoice = Promise.resolve({ outcome:'dismissed', platform:'web' });
+      window.dispatchEvent(event);
+    });
+    assert.equal(await page.locator('#dashboard-install-card').isVisible(), true);
+    assert.match(await page.locator('#dashboard-install-title').textContent(), /Installa/i);
+    await page.locator('#dashboard-install-card').evaluate(el => { el.hidden = true; });
     for (const box of await page.locator('.dashboard-mini-card:visible').evaluateAll(els => els.map(e => e.getBoundingClientRect().width))) {
       assert.ok(box > 220, 'mini card too narrow: ' + box);
     }
@@ -156,6 +166,7 @@ async function bodyFits(page) {
     assert.equal(await mobile.locator('.dashboard-recent-panel').isVisible(), true);
     assert.equal(await mobile.locator('#dashboard-resume-panel').count(), 1);
     assert.equal(await mobile.locator('.dashboard-action-card:visible').count(), 2);
+    assert.equal(await mobile.locator('#dashboard-install-card').count(), 1);
     const gridCols = await mobile.locator('.dashboard-mini-grid').evaluate(el => getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
     assert.equal(gridCols, 1, 'mobile mini cards not one column');
     const sidebar = await mobile.locator('.app-sidebar').evaluate(el => ({ position:getComputedStyle(el).position, bottom:getComputedStyle(el).bottom }));

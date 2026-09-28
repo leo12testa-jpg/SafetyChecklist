@@ -3385,6 +3385,88 @@ const cestinoScreen = (() => {
 })();
 
 /**
+ * Installazione PWA: mostra l'azione solo quando il browser la supporta.
+ * Su iPhone/iPad, dove non esiste beforeinstallprompt, mostra l'istruzione nativa "Condividi → Home".
+ */
+const installazioneApp = (() => {
+  const card = document.getElementById('dashboard-install-card');
+  const title = document.getElementById('dashboard-install-title');
+  const copy = document.getElementById('dashboard-install-copy');
+  let richiestaInstallazione = null;
+  let inizializzato = false;
+
+  function standalone() {
+    return window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+
+  function dispositivoIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+
+  function aggiornaVisibilita() {
+    if (!card) return;
+    if (standalone()) {
+      card.hidden = true;
+      return;
+    }
+    if (richiestaInstallazione) {
+      title.textContent = 'Installa l\'app';
+      copy.textContent = 'Aggiungila al dispositivo per aprirla come un’app.';
+      card.hidden = false;
+      return;
+    }
+    if (dispositivoIOS()) {
+      title.textContent = 'Aggiungi alla Home';
+      copy.textContent = 'Aprila dalla schermata Home come una normale app.';
+      card.hidden = false;
+      return;
+    }
+    card.hidden = true;
+  }
+
+  async function installa() {
+    if (standalone()) {
+      card.hidden = true;
+      return;
+    }
+    if (richiestaInstallazione) {
+      const richiesta = richiestaInstallazione;
+      richiestaInstallazione = null;
+      try {
+        await richiesta.prompt();
+        await richiesta.userChoice;
+      } catch (errore) {
+        console.warn('Installazione PWA non completata:', errore);
+      }
+      aggiornaVisibilita();
+      return;
+    }
+    if (dispositivoIOS()) {
+      mostraAvvisoNonBloccante('Su iPhone/iPad: premi Condividi e poi “Aggiungi alla schermata Home”.');
+    }
+  }
+
+  function init() {
+    if (inizializzato || !card) return;
+    inizializzato = true;
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      richiestaInstallazione = event;
+      aggiornaVisibilita();
+    });
+    window.addEventListener('appinstalled', () => {
+      richiestaInstallazione = null;
+      card.hidden = true;
+    });
+    card.addEventListener('click', installa);
+    aggiornaVisibilita();
+  }
+
+  return { init };
+})();
+
+/**
  * Dashboard operativa con statistiche reali lette da IndexedDB.
  * I dati restano local-first: dopo il sync vengono ridisegnati usando lo stesso archivio locale
  * che alimenta Storico, quindi funzionano anche offline.
@@ -3628,5 +3710,6 @@ async function inizializzaAppAutenticata() {
 
 window.addEventListener('account:authenticated', inizializzaAppAutenticata);
 document.addEventListener('DOMContentLoaded', async () => {
+  installazioneApp.init();
   if (await appIdentity.ready()) await inizializzaAppAutenticata();
 });
