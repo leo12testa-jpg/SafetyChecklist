@@ -1243,7 +1243,7 @@ body[data-authenticated="false"] { background: #edf3fa; }
 
 .dashboard-mini-grid {
   display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-columns:repeat(4,minmax(0,1fr));
   gap:14px;
   margin-bottom:28px;
 }
@@ -1536,7 +1536,7 @@ body[data-authenticated="false"] { background: #edf3fa; }
 }
 @media (min-width: 901px) {
   .app-content { width: 100%; min-width: 0; }
-  .dashboard-mini-grid { grid-template-columns: repeat(3, minmax(180px, 1fr)); }
+  .dashboard-mini-grid { grid-template-columns: repeat(4, minmax(180px, 1fr)); }
   .dashboard-action-grid { grid-template-columns: repeat(2, minmax(260px, 1fr)) !important; }
   .dashboard-mini-card, .dashboard-action-card { min-width: 0; }
   .dashboard-mini-card > div, .action-card-copy { min-width: 0; }
@@ -1568,7 +1568,7 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
 .dashboard-action-grid { width: 100% !important; min-width: 0 !important; }
 .dashboard-mini-grid {
   display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
 }
 .dashboard-action-grid {
   display: grid !important;
@@ -1599,4 +1599,101 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
 #screens[hidden],
 #login-view[hidden] {
   display: none !important;
+}
+
+
+/* Dashboard V1.1: KPI reali + attività recenti */
+.mini-card-amber { background:#fff5df; color:#c67a06; }
+.dashboard-kpi-card strong {
+  font-size: 1.65rem;
+  line-height: 1;
+  letter-spacing: -.04em;
+  color: var(--ui-text);
+}
+.dashboard-kpi-card small { margin-bottom: 2px; }
+.dashboard-recent-panel {
+  margin: 0 0 28px;
+  padding: 18px;
+  background: #fff;
+  border: 1px solid var(--ui-border);
+  border-radius: 16px;
+  box-shadow: 0 6px 22px rgba(32,58,95,.045);
+}
+.dashboard-recent-heading { margin: 0 0 10px; }
+.dashboard-recent-heading h3 { font-size: 1.08rem; }
+.dashboard-link-button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ui-blue);
+  padding: 8px 4px;
+  font-size: .76rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.dashboard-link-button:hover { text-decoration: underline; }
+.dashboard-recent-list { display: flex; flex-direction: column; }
+.dashboard-recent-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 66px;
+  padding: 10px 2px;
+  border-top: 1px solid #edf1f6;
+}
+.dashboard-recent-row:first-child { border-top: 0; }
+.dashboard-recent-icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #eef4fd;
+  color: var(--ui-blue);
+  font-weight: 900;
+}
+.dashboard-recent-info { min-width: 0; display: flex; flex-direction: column; }
+.dashboard-recent-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .86rem;
+  color: var(--ui-text);
+}
+.dashboard-recent-info span {
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ui-muted);
+  font-size: .72rem;
+}
+.dashboard-recent-status {
+  justify-self: end;
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-size: .66rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.dashboard-recent-status.is-complete { color: #168454; background: #e7f8ef; }
+.dashboard-recent-status.is-open { color: #a96600; background: #fff5df; }
+.dashboard-recent-empty {
+  margin: 8px 0 2px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: var(--ui-muted);
+  font-size: .8rem;
+}
+@media (max-width: 1180px) and (min-width: 901px) {
+  .dashboard-mini-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+}
+@media (max-width: 900px) {
+  .dashboard-recent-panel { padding: 14px; }
+  .dashboard-recent-row { grid-template-columns: 30px minmax(0,1fr); gap: 10px; }
+  .dashboard-recent-status { grid-column: 2; justify-self: start; margin-top: -4px; }
+  .dashboard-recent-info strong, .dashboard-recent-info span { white-space: normal; }
 }

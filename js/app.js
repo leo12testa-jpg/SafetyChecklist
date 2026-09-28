@@ -3214,6 +3214,114 @@ const cestinoScreen = (() => {
 })();
 
 /**
+ * Dashboard operativa con statistiche reali lette da IndexedDB.
+ * I dati restano local-first: dopo il sync vengono ridisegnati usando lo stesso archivio locale
+ * che alimenta Storico, quindi funzionano anche offline.
+ */
+const dashboardScreen = (() => {
+  const totale = document.getElementById('dashboard-kpi-totali');
+  const aperti = document.getElementById('dashboard-kpi-aperti');
+  const completati = document.getElementById('dashboard-kpi-completati');
+  const mese = document.getElementById('dashboard-kpi-mese');
+  const lista = document.getElementById('dashboard-recent-list');
+  const vuoto = document.getElementById('dashboard-recent-empty');
+  let aggiornamentoInCorso = null;
+
+  function homeVisibile() {
+    const home = document.getElementById('screen-home');
+    return !!home && !home.hidden && document.body.dataset.authenticated === 'true';
+  }
+
+  function dataRiferimento(sopralluogo) {
+    const valore = sopralluogo.data_sopralluogo || sopralluogo.data || sopralluogo.aggiornato_il;
+    const data = valore ? new Date(valore) : null;
+    return data && !Number.isNaN(data.getTime()) ? data : null;
+  }
+
+  function formattaData(sopralluogo) {
+    const data = dataRiferimento(sopralluogo);
+    return data ? data.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Data non indicata';
+  }
+
+  function eDelMeseCorrente(sopralluogo) {
+    const data = dataRiferimento(sopralluogo);
+    if (!data) return false;
+    const oggi = new Date();
+    return data.getFullYear() === oggi.getFullYear() && data.getMonth() === oggi.getMonth();
+  }
+
+  function creaRiga(sopralluogo) {
+    const riga = document.createElement('article');
+    riga.className = 'dashboard-recent-row';
+
+    const stato = sopralluogo.stato === 'completato' ? 'Completato' : 'Da completare';
+    const statoClass = sopralluogo.stato === 'completato' ? 'is-complete' : 'is-open';
+
+    const icona = document.createElement('span');
+    icona.className = 'dashboard-recent-icon';
+    icona.textContent = sopralluogo.stato === 'completato' ? '✓' : '•';
+
+    const info = document.createElement('div');
+    info.className = 'dashboard-recent-info';
+    const titolo = document.createElement('strong');
+    titolo.textContent = sopralluogo.punto_vendita || 'Sopralluogo senza sede';
+    const dettaglio = document.createElement('span');
+    const pezzi = [
+      sopralluogo.indirizzo_punto_vendita,
+      sopralluogo.tecnico,
+      formattaData(sopralluogo)
+    ].filter(Boolean);
+    dettaglio.textContent = pezzi.join(' · ');
+    info.append(titolo, dettaglio);
+
+    const badge = document.createElement('span');
+    badge.className = `dashboard-recent-status ${statoClass}`;
+    badge.textContent = stato;
+
+    riga.append(icona, info, badge);
+    return riga;
+  }
+
+  async function aggiorna() {
+    if (aggiornamentoInCorso) return aggiornamentoInCorso;
+    aggiornamentoInCorso = (async () => {
+      try {
+        const sopralluoghi = await db.elencaSopralluoghi();
+        const chiusi = sopralluoghi.filter((s) => s.stato === 'completato').length;
+        totale.textContent = String(sopralluoghi.length);
+        completati.textContent = String(chiusi);
+        aperti.textContent = String(sopralluoghi.length - chiusi);
+        mese.textContent = String(sopralluoghi.filter(eDelMeseCorrente).length);
+
+        lista.replaceChildren();
+        const recenti = sopralluoghi.slice(0, 5);
+        recenti.forEach((sopralluogo) => lista.appendChild(creaRiga(sopralluogo)));
+        vuoto.hidden = recenti.length > 0;
+        lista.hidden = recenti.length === 0;
+      } catch (errore) {
+        console.warn('Dashboard: impossibile aggiornare le statistiche.', errore);
+      }
+    })().finally(() => { aggiornamentoInCorso = null; });
+    return aggiornamentoInCorso;
+  }
+
+  function aggiornaSeVisibile() {
+    if (homeVisibile()) aggiorna();
+  }
+
+  function init() {
+    router.onEnter('home', aggiorna);
+    sync.onDatiAggiornati(aggiornaSeVisibile);
+    sync.onCambioStato((stato) => {
+      if (stato === 'sincronizzato') aggiornaSeVisibile();
+    });
+    window.addEventListener('focus', aggiornaSeVisibile);
+  }
+
+  return { init, aggiorna };
+})();
+
+/**
  * Indicatore di connessione + sincronizzazione fisso nell'header, visibile in ogni schermata
  * (l'header non fa parte di #screens e non viene mai nascosto dal router). Riflette sia lo
  * stato online/offline del browser sia lo stato della sincronizzazione con Firestore (sync.js).
@@ -3278,6 +3386,7 @@ let appAutenticataAvviata = false;
 async function inizializzaAppAutenticata() {
   if (appAutenticataAvviata || !appIdentity.current()) return;
   appAutenticataAvviata = true;
+  dashboardScreen.init();
   router.init();
   connessioneIndicatore.init();
   nuovoSopralluogoScreen.init();
@@ -3295,6 +3404,7 @@ async function inizializzaAppAutenticata() {
 
   // Never purge legacy data during startup/recovery. Trash removal remains explicit.
   await sync.init();
+  await dashboardScreen.aggiorna();
 }
 
 window.addEventListener('account:authenticated', inizializzaAppAutenticata);

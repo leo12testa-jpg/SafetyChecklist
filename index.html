@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/icon-512.png">
-  <link rel="stylesheet" href="css/style.css?v=20260928-212500-114000">
+  <link rel="stylesheet" href="css/style.css?v=20260928-213500">
 </head>
 <body data-auth-ready="false" data-authenticated="false">
   <div id="app">
@@ -104,20 +104,36 @@
           <button type="button" class="btn btn-primary dashboard-new" data-nav="new-inspection">＋ Nuovo sopralluogo</button>
         </div>
 
-        <div class="dashboard-mini-grid">
-          <article class="dashboard-mini-card">
-            <span class="mini-card-icon mini-card-green">↻</span>
-            <div><small>Sincronizzazione</small><strong>Automatica</strong><span>Locale + cloud</span></div>
+        <div class="dashboard-mini-grid dashboard-kpi-grid" aria-label="Statistiche sopralluoghi">
+          <article class="dashboard-mini-card dashboard-kpi-card">
+            <span class="mini-card-icon mini-card-blue">▤</span>
+            <div><small>Sopralluoghi</small><strong id="dashboard-kpi-totali">—</strong><span>Totale nello storico</span></div>
           </article>
-          <article class="dashboard-mini-card">
-            <span class="mini-card-icon mini-card-blue">▣</span>
-            <div><small>Report</small><strong>PDF sempre disponibili</strong><span>Anche con dati locali</span></div>
+          <article class="dashboard-mini-card dashboard-kpi-card">
+            <span class="mini-card-icon mini-card-amber">◷</span>
+            <div><small>Da completare</small><strong id="dashboard-kpi-aperti">—</strong><span>Checklist ancora in corso</span></div>
           </article>
-          <article class="dashboard-mini-card">
-            <span class="mini-card-icon mini-card-violet">☁</span>
-            <div><small>Foto</small><strong>Multi-dispositivo</strong><span>Stesso sopralluogo, stessi allegati</span></div>
+          <article class="dashboard-mini-card dashboard-kpi-card">
+            <span class="mini-card-icon mini-card-green">✓</span>
+            <div><small>Completati</small><strong id="dashboard-kpi-completati">—</strong><span>PDF/report conclusi</span></div>
+          </article>
+          <article class="dashboard-mini-card dashboard-kpi-card">
+            <span class="mini-card-icon mini-card-violet">↗</span>
+            <div><small>Questo mese</small><strong id="dashboard-kpi-mese">—</strong><span>Sopralluoghi del mese corrente</span></div>
           </article>
         </div>
+
+        <section class="dashboard-recent-panel" aria-labelledby="dashboard-recent-title">
+          <div class="dashboard-section-title dashboard-recent-heading">
+            <div>
+              <span class="eyebrow">ULTIME ATTIVITÀ</span>
+              <h3 id="dashboard-recent-title">Sopralluoghi recenti</h3>
+            </div>
+            <button type="button" class="dashboard-link-button" data-nav="history">Vedi tutto →</button>
+          </div>
+          <div id="dashboard-recent-list" class="dashboard-recent-list" aria-live="polite"></div>
+          <p id="dashboard-recent-empty" class="dashboard-recent-empty" hidden>Nessun sopralluogo presente. Puoi iniziare dal pulsante “Nuovo sopralluogo”.</p>
+        </section>
 
         <div class="dashboard-section-title">
           <div><span class="eyebrow">AZIONI RAPIDE</span><h3>Cosa vuoi fare?</h3></div>
@@ -719,6 +735,6 @@
   <script src="js/sync.js"></script>
   <script src="js/app.js"></script>
   <script src="js/account-screens.js"></script>
-  <script src="js/aggiornamento.js?v=20260928-212500-114000"></script>
+  <script src="js/aggiornamento.js?v=20260928-213500"></script>
 </body>
 </html>

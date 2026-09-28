@@ -85,7 +85,8 @@ async function bodyFits(page) {
     assert.ok(fit.app >= 1300, 'desktop app still constrained: ' + JSON.stringify(fit));
     assert.ok(fit.screens >= 1300, 'desktop screens still constrained: ' + JSON.stringify(fit));
     assert.ok(fit.scroll <= fit.width + 2, 'desktop tech horizontal overflow');
-    assert.equal(await page.locator('.dashboard-mini-card:visible').count(), 3);
+    assert.equal(await page.locator('.dashboard-mini-card:visible').count(), 4);
+    assert.equal(await page.locator('.dashboard-recent-panel').isVisible(), true);
     assert.equal(await page.locator('.dashboard-action-card:visible').count(), 2);
     for (const box of await page.locator('.dashboard-mini-card:visible').evaluateAll(els => els.map(e => e.getBoundingClientRect().width))) {
       assert.ok(box > 220, 'mini card too narrow: ' + box);
@@ -125,7 +126,8 @@ async function bodyFits(page) {
     await forceDashboard(mobile, 'tecnico');
     fit = await bodyFits(mobile);
     assert.ok(fit.scroll <= fit.width + 2, 'dashboard mobile horizontal overflow: ' + JSON.stringify(fit));
-    assert.equal(await mobile.locator('.dashboard-mini-card:visible').count(), 3);
+    assert.equal(await mobile.locator('.dashboard-mini-card:visible').count(), 4);
+    assert.equal(await mobile.locator('.dashboard-recent-panel').isVisible(), true);
     assert.equal(await mobile.locator('.dashboard-action-card:visible').count(), 2);
     const gridCols = await mobile.locator('.dashboard-mini-grid').evaluate(el => getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
     assert.equal(gridCols, 1, 'mobile mini cards not one column');
