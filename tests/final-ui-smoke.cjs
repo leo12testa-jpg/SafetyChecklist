@@ -74,6 +74,7 @@ async function bodyFits(page) {
     await page.waitForSelector('#login-view:not([hidden])', { timeout:15000 });
     assert.equal(await page.locator('.login-brand-panel').isVisible(), true);
     assert.equal(await page.locator('.login-card').isVisible(), true);
+    assert.equal(await page.locator('#screens').isVisible(), false, 'dashboard visible behind desktop login');
     let fit = await bodyFits(page);
     assert.ok(fit.scroll <= fit.width + 2, 'login desktop horizontal overflow');
     await page.screenshot({ path:path.join(out,'login-desktop.png'), fullPage:true });
@@ -115,6 +116,7 @@ async function bodyFits(page) {
     await mobile.waitForSelector('#login-view:not([hidden])', { timeout:15000 });
     assert.equal(await mobile.locator('.login-brand-panel').isVisible(), false);
     assert.equal(await mobile.locator('.login-card').isVisible(), true);
+    assert.equal(await mobile.locator('#screens').isVisible(), false, 'dashboard visible behind mobile login');
     fit = await bodyFits(mobile);
     assert.ok(fit.scroll <= fit.width + 2, 'login mobile horizontal overflow');
     await mobile.screenshot({ path:path.join(out,'login-mobile.png'), fullPage:true });
