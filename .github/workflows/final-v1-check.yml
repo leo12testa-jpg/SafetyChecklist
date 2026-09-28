@@ -1,0 +1,93 @@
+name: Final V1 check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/final-v1-check.yml"
+      - "tests/final-ui-smoke.cjs"
+      - "tests/final-security-smoke.mjs"
+      - "index.html"
+      - "css/**"
+      - "js/**"
+      - "service-worker.js"
+      - "version.json"
+      - "firestore.rules"
+      - "checklists/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  final-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Core regression suite
+        run: node --test tests/*.test.js
+
+      - name: Build and role consistency
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD="$(node -p "require('./version.json').buildId")"
+          grep -q "const BUILD_ID = '${BUILD}'" js/aggiornamento.js
+          grep -q "safety-checklist-shell-${BUILD}" service-worker.js
+          grep -q "css/style.css?v=${BUILD}" index.html
+          grep -q "js/aggiornamento.js?v=${BUILD}" index.html
+          grep -q 'data-admin-only' index.html
+          grep -q "value.ruolo !== 'admin'" js/auth.js
+          grep -q "if (!appIdentity.isAdmin())" js/account-screens.js
+          grep -q "if (!appIdentity.isAdmin())" js/app.js
+          echo "Build/ruoli coerenti: ${BUILD}"
+
+      - name: Install Playwright driver only
+        run: npm install --no-save playwright-core@1.55.0
+
+      - name: Find Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME"
+          echo "CHROME_PATH=$CHROME" >> "$GITHUB_ENV"
+
+      - name: Wait for published build
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD="$(node -p "require('./version.json').buildId")"
+          for i in $(seq 1 30); do
+            REMOTE="$(curl -fsSL "https://leo12testa-jpg.github.io/SafetyChecklist/version.json?t=$(date +%s%N)" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(JSON.parse(s).buildId||'')}catch{}})")" || true
+            if [ "$REMOTE" = "$BUILD" ]; then
+              echo "Live build OK: $REMOTE"
+              exit 0
+            fi
+            echo "Attendo Pages... trovato '$REMOTE', atteso '$BUILD'"
+            sleep 5
+          done
+          echo "Build live non allineata" >&2
+          exit 1
+
+      - name: Live UI layout smoke
+        env:
+          LIVE_URL: https://leo12testa-jpg.github.io/SafetyChecklist/
+        run: node tests/final-ui-smoke.cjs
+
+      - name: Public security smoke
+        run: node tests/final-security-smoke.mjs
+
+      - name: Upload UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-v1-ui
+          path: reports/final-ui/
+          if-no-files-found: ignore
