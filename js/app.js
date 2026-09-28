@@ -1152,9 +1152,10 @@ const importPreviewScreen = (() => {
  * condiviso fra compilazioneScreen e altriAspettiScreen, entrambi con foto proprie.
  */
 const ETICHETTE_STATO_UPLOAD = {
-  'in-corso': { simbolo: '⏳', titolo: 'Caricamento in corso su Supabase…' },
-  completato: { simbolo: '✓', titolo: 'Foto sincronizzata su Supabase' },
-  fallito: { simbolo: '⚠', titolo: 'Caricamento non riuscito, verrà ritentato automaticamente' }
+  'in-corso': { simbolo: '↻', testo: 'Sincronizzazione…', titolo: 'Caricamento foto sul cloud in corso' },
+  completato: { simbolo: '✓', testo: 'Sincronizzata', titolo: 'Foto disponibile anche sugli altri dispositivi' },
+  fallito: { simbolo: '⚠', testo: 'Da sincronizzare', titolo: 'Caricamento non riuscito: verrà ritentato automaticamente' },
+  locale: { simbolo: '●', testo: 'Da sincronizzare', titolo: 'Foto salvata sul dispositivo e in attesa del cloud' }
 };
 
 /**
@@ -1163,16 +1164,41 @@ const ETICHETTE_STATO_UPLOAD = {
  * precedente, o sopralluogo riaperto), così da non dover interrogare la rete solo per disegnare
  * l'interfaccia. Condiviso fra compilazioneScreen e altriAspettiScreen.
  */
-function creaIndicatoreUpload(fotoId) {
+function statoUploadFoto(fotoId, sopralluogo) {
+  const statoSessione = fotoSync.statoDi(fotoId);
+  if (statoSessione) return statoSessione;
+  const remoto = sopralluogo && sopralluogo.foto_url && sopralluogo.foto_url[fotoId];
+  return remoto && remoto.path ? 'completato' : 'locale';
+}
+
+function creaIndicatoreUpload(fotoId, sopralluogo) {
   const span = document.createElement('span');
-  span.className = 'foto-stato-upload';
-  const stato = fotoSync.statoDi(fotoId);
-  if (stato && ETICHETTE_STATO_UPLOAD[stato]) {
-    span.classList.add(`is-${stato}`);
-    span.textContent = ETICHETTE_STATO_UPLOAD[stato].simbolo;
-    span.title = ETICHETTE_STATO_UPLOAD[stato].titolo;
-  }
+  const stato = statoUploadFoto(fotoId, sopralluogo);
+  const config = ETICHETTE_STATO_UPLOAD[stato] || ETICHETTE_STATO_UPLOAD.locale;
+  span.className = `foto-stato-upload is-${stato}`;
+  span.title = config.titolo;
+  span.setAttribute('aria-label', config.titolo);
+  span.innerHTML = `<span class="foto-stato-simbolo" aria-hidden="true">${config.simbolo}</span><span class="foto-stato-testo">${config.testo}</span>`;
   return span;
+}
+
+function apriAnteprimaFoto(src) {
+  if (!src) return;
+  let dialog = document.getElementById('dialog-anteprima-foto');
+  if (!dialog) {
+    dialog = document.createElement('dialog');
+    dialog.id = 'dialog-anteprima-foto';
+    dialog.className = 'foto-lightbox';
+    dialog.innerHTML = '<div class="foto-lightbox-toolbar"><strong>Anteprima foto</strong><button type="button" aria-label="Chiudi anteprima foto">Chiudi</button></div><div class="foto-lightbox-body"><img alt="Foto allegata ingrandita"></div>';
+    document.body.appendChild(dialog);
+    dialog.querySelector('button').addEventListener('click', () => dialog.close());
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+  }
+  dialog.querySelector('img').src = src;
+  if (typeof dialog.showModal === 'function') dialog.showModal();
+  else window.open(src, '_blank', 'noopener');
 }
 
 /**
@@ -1211,6 +1237,16 @@ function aggiungiMiniaturaFoto(contenitore, fotoId, sopralluogo) {
     const img = document.createElement('img');
     img.className = 'foto-miniatura';
     img.alt = 'Anteprima foto allegata';
+    img.tabIndex = 0;
+    img.setAttribute('role', 'button');
+    img.title = 'Apri foto';
+    img.addEventListener('click', () => apriAnteprimaFoto(img.src));
+    img.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        apriAnteprimaFoto(img.src);
+      }
+    });
     slot.appendChild(img);
 
     // FileReader è supportato anche dai browser mobili più vecchi; createObjectURL resta un
@@ -1313,7 +1349,7 @@ const compilazioneScreen = (() => {
       const testo = document.createElement('span');
       testo.textContent = `Foto ${indice + 1}`;
       comandi.appendChild(testo);
-      comandi.appendChild(creaIndicatoreUpload(fotoId));
+      comandi.appendChild(creaIndicatoreUpload(fotoId, checklistEngine.sopralluogoCorrente()));
       [['↑', -1], ['↓', 1]].forEach(([etichetta, spostamento]) => {
         const bottone = document.createElement('button');
         bottone.type = 'button';
@@ -1752,15 +1788,21 @@ const compilazioneScreen = (() => {
       mostraErrore('Seleziona una risposta prima di aggiungere una foto.');
       return;
     }
+    btnFoto.disabled = true;
+    btnFoto.textContent = '📷 Elaborazione…';
     try {
       const sopralluogoId = checklistEngine.sopralluogoCorrente().id;
       const fotoId = await camera.scattaFoto({ sopralluogo_id: sopralluogoId, domanda_id: corrente.domanda.id });
+      if (!fotoId) return;
       fotoDomandaCorrente = [...fotoDomandaCorrente, fotoId];
       aggiornaContatoreFoto();
       const valoreCorrente = corrente.risposta ? corrente.risposta.risposta : null;
       await salvaRispostaCorrente(valoreCorrente);
     } catch (errore) {
       mostraErrore(errore.message);
+    } finally {
+      btnFoto.disabled = false;
+      aggiornaContatoreFoto();
     }
   }
 
@@ -1990,7 +2032,7 @@ const altriAspettiScreen = (() => {
     const voce = fotoLista.querySelector(`[data-foto-id="${fotoId}"]`);
     if (!voce) return;
     const vecchioBadge = voce.querySelector('.foto-stato-upload');
-    if (vecchioBadge) vecchioBadge.replaceWith(creaIndicatoreUpload(fotoId));
+    if (vecchioBadge) vecchioBadge.replaceWith(creaIndicatoreUpload(fotoId, checklistEngine.sopralluogoCorrente()));
   }
 
   /**
@@ -2008,7 +2050,7 @@ const altriAspettiScreen = (() => {
     const testo = document.createElement('span');
     testo.textContent = `Foto ${indice + 1}`;
     intestazione.appendChild(testo);
-    intestazione.appendChild(creaIndicatoreUpload(fotoId));
+    intestazione.appendChild(creaIndicatoreUpload(fotoId, checklistEngine.sopralluogoCorrente()));
 
     const elimina = document.createElement('button');
     elimina.type = 'button';
@@ -2067,14 +2109,20 @@ const altriAspettiScreen = (() => {
   }
 
   async function onFoto() {
+    btnFoto.disabled = true;
+    btnFoto.textContent = '📷 Elaborazione…';
     try {
       const sopralluogo = checklistEngine.sopralluogoCorrente();
       const fotoId = await camera.scattaFoto({ sopralluogo_id: sopralluogo.id, domanda_id: null });
+      if (!fotoId) return;
       fotoAltriAspetti = [...fotoAltriAspetti, fotoId];
       aggiornaContatoreFoto();
       await db.aggiornaSopralluogo(sopralluogo.id, { altri_aspetti_foto: fotoAltriAspetti });
     } catch (errore) {
       mostraErrore(errore.message);
+    } finally {
+      btnFoto.disabled = false;
+      aggiornaContatoreFoto();
     }
   }
 

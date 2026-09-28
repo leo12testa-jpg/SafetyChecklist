@@ -2251,3 +2251,160 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
   .storico-filtri { grid-template-columns: 1fr; }
   .storico-filtro-ricerca, .storico-filtri-footer { grid-column: auto; }
 }
+
+
+/* Foto V1.2 — galleria leggibile, stato cloud chiaro e anteprima grande */
+.foto-gestione {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px !important;
+  margin: 14px 0 !important;
+}
+.foto-gestione-verticale {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: stretch;
+}
+.foto-gestione-voce {
+  width: 100%;
+  min-width: 0;
+  display: flex !important;
+  flex-direction: column;
+  align-items: stretch !important;
+  gap: 9px !important;
+  padding: 10px !important;
+  border: 1px solid var(--ui-border) !important;
+  border-radius: 14px !important;
+  background: #fff;
+  box-shadow: 0 5px 18px rgba(32,58,95,.045);
+}
+.foto-gestione-voce-intestazione {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.foto-gestione-voce-intestazione > span:first-child {
+  font-size: .76rem;
+  font-weight: 800;
+  color: var(--ui-text);
+}
+.foto-gestione-voce-intestazione button {
+  margin-left: 0 !important;
+  min-height: 30px;
+  padding: 4px 8px !important;
+  border: 1px solid #dce5f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #40516b;
+  font-size: .7rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.foto-gestione-voce-intestazione button:first-of-type { margin-left: auto !important; }
+.foto-gestione-voce-intestazione button:hover { background: #eef4fb; }
+.foto-gestione-voce-intestazione button:disabled { opacity: .38; cursor: default; }
+.foto-miniatura-slot {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  min-height: 150px !important;
+  border-radius: 11px !important;
+  background: #edf2f7 !important;
+  overflow: hidden;
+}
+.foto-miniatura {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
+  object-fit: contain !important;
+  background: #182235;
+  cursor: zoom-in;
+}
+.foto-miniatura:focus-visible {
+  outline: 3px solid rgba(7,94,230,.25);
+  outline-offset: 2px;
+}
+.foto-stato-upload {
+  min-width: 0 !important;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font-size: .64rem !important;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  background: #f1f5f9;
+  color: #64748b;
+}
+.foto-stato-simbolo { font-size: .72rem; }
+.foto-stato-upload.is-completato { background: #e7f8ef; color: #168454; }
+.foto-stato-upload.is-in-corso { background: #eaf3ff; color: var(--ui-blue); animation: none !important; }
+.foto-stato-upload.is-in-corso .foto-stato-simbolo { animation: foto-stato-upload-rotazione 1s linear infinite; }
+.foto-stato-upload.is-fallito,
+.foto-stato-upload.is-locale { background: #fff5df; color: #a96600; }
+.foto-didascalia-input {
+  min-height: 42px;
+  padding: 9px 11px !important;
+  border: 1px solid #dce5f0 !important;
+  border-radius: 9px !important;
+  background: #fbfcfe;
+  color: var(--ui-text);
+}
+.foto-lightbox {
+  width: min(94vw, 1100px);
+  max-width: 1100px;
+  height: min(92vh, 820px);
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #0d1726;
+  box-shadow: 0 28px 90px rgba(6,17,31,.45);
+}
+.foto-lightbox::backdrop { background: rgba(4,12,24,.72); backdrop-filter: blur(4px); }
+.foto-lightbox-toolbar {
+  min-height: 52px;
+  padding: 10px 12px 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fff;
+  color: var(--ui-text);
+}
+.foto-lightbox-toolbar strong { font-size: .86rem; }
+.foto-lightbox-toolbar button {
+  border: 1px solid #dce5f0;
+  border-radius: 9px;
+  padding: 7px 11px;
+  background: #f8fafc;
+  color: #31425d;
+  font-weight: 750;
+  cursor: pointer;
+}
+.foto-lightbox-body {
+  height: calc(100% - 52px);
+  display: grid;
+  place-items: center;
+  padding: 12px;
+}
+.foto-lightbox-body img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+#btn-foto:disabled,
+#btn-altri-aspetti-foto:disabled { opacity: .7; cursor: wait; }
+@media (max-width: 620px) {
+  .foto-gestione,
+  .foto-gestione-verticale { grid-template-columns: 1fr !important; }
+  .foto-miniatura-slot { min-height: 180px !important; }
+  .foto-stato-testo { display: inline; }
+  .foto-lightbox { width: 100vw; height: 100dvh; max-width: none; border-radius: 0; }
+}

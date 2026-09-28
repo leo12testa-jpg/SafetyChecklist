@@ -13,13 +13,11 @@ const camera = (() => {
       input.type = 'file';
       input.accept = 'image/*';
 
+      // Annullare il selettore non è un errore: l'utente può chiuderlo senza ricevere
+      // un messaggio rosso nella checklist.
       input.addEventListener('change', () => {
         const file = input.files && input.files[0];
-        if (!file) {
-          reject(new Error('Nessuna foto selezionata.'));
-          return;
-        }
-        resolve(file);
+        resolve(file || null);
       }, { once: true });
 
       input.click();
@@ -68,6 +66,7 @@ const camera = (() => {
    */
   async function scattaFoto({ sopralluogo_id, domanda_id = null }) {
     const file = await scegliFile();
+    if (!file) return null;
     const { img, url } = await caricaImmagine(file);
     try {
       const blob = await comprimi(img);

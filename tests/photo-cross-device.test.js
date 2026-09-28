@@ -100,3 +100,16 @@ test('nuove foto: online si attende il tentativo di upload remoto prima di prose
   const source = fs.readFileSync(path.join(__dirname, '../js/camera.js'), 'utf8');
   assert.match(source, /await fotoSync\.caricaFoto\(\{ fotoId, sopralluogo_id, domanda_id, blob \}\)/);
 });
+
+
+test('foto UX: annullare il selettore non genera errore e la miniatura apre anteprima grande', () => {
+  const cameraSource = fs.readFileSync(path.join(__dirname, '../js/camera.js'), 'utf8');
+  const appSource = fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8');
+  const cssSource = fs.readFileSync(path.join(__dirname, '../css/style.css'), 'utf8');
+  assert.match(cameraSource, /resolve\(file \|\| null\)/);
+  assert.match(cameraSource, /if \(!file\) return null/);
+  assert.match(appSource, /function apriAnteprimaFoto\(src\)/);
+  assert.match(appSource, /img\.addEventListener\('click', \(\) => apriAnteprimaFoto\(img\.src\)\)/);
+  assert.match(cssSource, /\.foto-lightbox\s*\{/);
+  assert.match(cssSource, /\.foto-stato-upload\.is-locale/);
+});
