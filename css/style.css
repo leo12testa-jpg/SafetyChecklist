@@ -1593,3 +1593,10 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
   .dashboard-action-grid { grid-template-columns: 1fr !important; }
   .dashboard-new { width: 100% !important; max-width: none; }
 }
+
+
+/* Hidden must always win over desktop shell display rules. */
+#screens[hidden],
+#login-view[hidden] {
+  display: none !important;
+}
