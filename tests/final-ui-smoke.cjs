@@ -87,6 +87,7 @@ async function bodyFits(page) {
     assert.ok(fit.scroll <= fit.width + 2, 'desktop tech horizontal overflow');
     assert.equal(await page.locator('.dashboard-mini-card:visible').count(), 4);
     assert.equal(await page.locator('.dashboard-recent-panel').isVisible(), true);
+    assert.equal(await page.locator('#dashboard-resume-panel').count(), 1);
     assert.equal(await page.locator('.dashboard-action-card:visible').count(), 2);
     for (const box of await page.locator('.dashboard-mini-card:visible').evaluateAll(els => els.map(e => e.getBoundingClientRect().width))) {
       assert.ok(box > 220, 'mini card too narrow: ' + box);
@@ -97,6 +98,7 @@ async function bodyFits(page) {
     assert.equal(await page.locator('[data-nav="admin-users"].side-nav-item').isVisible(), false);
     assert.equal(await page.locator('[data-nav="settings"].side-nav-item').isVisible(), false);
     assert.equal(await page.locator('[data-nav="my-work"].side-nav-item').isVisible(), false);
+    assert.equal(await page.locator('#storico-filtro-checklist').count(), 1);
     await assertNoCardOverlap(page, '.dashboard-mini-card');
     await assertNoCardOverlap(page, '.dashboard-action-card');
     await page.screenshot({ path:path.join(out,'dashboard-tech-desktop.png'), fullPage:true });
@@ -152,6 +154,7 @@ async function bodyFits(page) {
     assert.ok(fit.scroll <= fit.width + 2, 'dashboard mobile horizontal overflow: ' + JSON.stringify(fit));
     assert.equal(await mobile.locator('.dashboard-mini-card:visible').count(), 4);
     assert.equal(await mobile.locator('.dashboard-recent-panel').isVisible(), true);
+    assert.equal(await mobile.locator('#dashboard-resume-panel').count(), 1);
     assert.equal(await mobile.locator('.dashboard-action-card:visible').count(), 2);
     const gridCols = await mobile.locator('.dashboard-mini-grid').evaluate(el => getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
     assert.equal(gridCols, 1, 'mobile mini cards not one column');

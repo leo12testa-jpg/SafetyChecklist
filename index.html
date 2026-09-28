@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/icon-512.png">
-  <link rel="stylesheet" href="css/style.css?v=20260928-215500">
+  <link rel="stylesheet" href="css/style.css?v=20260928-220500">
 </head>
 <body data-auth-ready="false" data-authenticated="false">
   <div id="app">
@@ -103,6 +103,16 @@
           </div>
           <button type="button" class="btn btn-primary dashboard-new" data-nav="new-inspection">＋ Nuovo sopralluogo</button>
         </div>
+
+        <section id="dashboard-resume-panel" class="dashboard-resume-panel" hidden>
+          <div class="dashboard-resume-icon" aria-hidden="true">▶</div>
+          <div class="dashboard-resume-copy">
+            <span class="eyebrow">CONTINUA DA DOVE ERI RIMASTO</span>
+            <strong id="dashboard-resume-title">Sopralluogo in corso</strong>
+            <span id="dashboard-resume-meta"></span>
+          </div>
+          <button type="button" class="btn btn-primary dashboard-resume-button" id="dashboard-resume-button">Riprendi →</button>
+        </section>
 
         <div class="dashboard-mini-grid dashboard-kpi-grid" aria-label="Statistiche sopralluoghi">
           <article class="dashboard-mini-card dashboard-kpi-card">
@@ -398,6 +408,11 @@
             <select class="storico-filtro-cliente" id="storico-filtro-cliente">
               <option value="">Tutti i clienti</option>
               <option value="__altro__">Altro</option>
+            </select>
+          </label>
+          <label class="storico-filtro-campo">Checklist
+            <select class="storico-filtro-checklist" id="storico-filtro-checklist">
+              <option value="">Tutte le checklist</option>
             </select>
           </label>
           <label class="storico-filtro-campo">Stato
@@ -776,6 +791,6 @@
   <script src="js/sync.js"></script>
   <script src="js/app.js"></script>
   <script src="js/account-screens.js"></script>
-  <script src="js/aggiornamento.js?v=20260928-215500"></script>
+  <script src="js/aggiornamento.js?v=20260928-220500"></script>
 </body>
 </html>

@@ -1866,3 +1866,62 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
   .admin-users-search { max-width: none; }
   .admin-users-count { padding-bottom: 0; }
 }
+
+
+/* Migliorie operative: riprendi lavoro + filtro checklist */
+.dashboard-resume-panel {
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 16px 18px;
+  display: grid;
+  grid-template-columns: 46px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #bfd8ff;
+  border-radius: 16px;
+  background: linear-gradient(135deg,#ffffff 0%,#edf5ff 100%);
+  box-shadow: 0 8px 25px rgba(7,94,230,.08);
+}
+.dashboard-resume-panel[hidden] { display: none !important; }
+.dashboard-resume-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: var(--ui-blue);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 900;
+  box-shadow: 0 8px 18px rgba(7,94,230,.20);
+}
+.dashboard-resume-copy { min-width: 0; display: flex; flex-direction: column; }
+.dashboard-resume-copy .eyebrow { margin-bottom: 4px; color: #5f7da8; }
+.dashboard-resume-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ui-text);
+  font-size: .98rem;
+}
+.dashboard-resume-copy > span:last-child {
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ui-muted);
+  font-size: .74rem;
+}
+.dashboard-resume-button { width: auto !important; min-width: 124px; }
+@media (max-width: 900px) {
+  .dashboard-resume-panel {
+    grid-template-columns: 42px minmax(0,1fr);
+    padding: 14px;
+  }
+  .dashboard-resume-button {
+    grid-column: 1 / -1;
+    width: 100% !important;
+  }
+  .dashboard-resume-copy strong,
+  .dashboard-resume-copy > span:last-child { white-space: normal; }
+}

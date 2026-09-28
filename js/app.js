@@ -2283,6 +2283,7 @@ const storicoScreen = (() => {
   const vuoto = document.getElementById('storico-vuoto');
   const nessunRisultato = document.getElementById('storico-nessun-risultato');
   const filtroClienteContainer = document.getElementById('storico-filtro-cliente');
+  const filtroChecklistContainer = document.getElementById('storico-filtro-checklist');
   const filtroStatoChiusuraContainer = document.getElementById('storico-filtro-stato-chiusura');
   const filtroTecnicoContainer = document.getElementById('storico-filtro-tecnico');
   const inputDataDa = document.getElementById('storico-data-da');
@@ -2300,6 +2301,7 @@ const storicoScreen = (() => {
 
   let sopralluoghiCache = [];
   let clienteAttivo = '';
+  let checklistAttiva = '';
   let statoChiusuraAttivo = '';
   let tecnicoAttivo = '';
   let dataDaAttiva = '';
@@ -2361,6 +2363,35 @@ const storicoScreen = (() => {
       return !nomiClientiConfigurati.some((nome) => nome.toLowerCase() === puntoVendita);
     }
     return puntoVendita === filtro.toLowerCase();
+  }
+
+  async function popolaFiltroChecklist() {
+    const selezionato = filtroChecklistContainer.value;
+    let checklists = [];
+    try {
+      const risposta = await fetch('checklists/index.json');
+      if (!risposta.ok) throw new Error(`HTTP ${risposta.status}`);
+      checklists = (await risposta.json()).checklists || [];
+    } catch (errore) {
+      console.error('[app.js] Impossibile caricare le checklist per il filtro Storico:', errore);
+    }
+    filtroChecklistContainer.replaceChildren();
+    const tutte = document.createElement('option');
+    tutte.value = '';
+    tutte.textContent = 'Tutte le checklist';
+    filtroChecklistContainer.appendChild(tutte);
+    checklists.forEach(({ id, titolo }) => {
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = titolo || id;
+      filtroChecklistContainer.appendChild(option);
+    });
+    filtroChecklistContainer.value = checklists.some((item) => item.id === selezionato) ? selezionato : '';
+    checklistAttiva = filtroChecklistContainer.value;
+  }
+
+  function corrispondeChecklist(sopralluogo, checklistId) {
+    return !checklistId || sopralluogo.checklist_id === checklistId;
   }
 
   function tecniciSopralluogo(sopralluogo) {
@@ -2446,6 +2477,7 @@ const storicoScreen = (() => {
     return sopralluoghiCache.filter(
       (s) =>
         corrispondeCliente(s, clienteAttivo) &&
+        corrispondeChecklist(s, checklistAttiva) &&
         corrispondeStatoChiusura(s, statoChiusuraAttivo) &&
         corrispondeTecnico(s, tecnicoAttivo) &&
         corrispondeDate(s) &&
@@ -2811,6 +2843,11 @@ const storicoScreen = (() => {
     applicaFiltri();
   }
 
+  function onFiltroChecklistChange() {
+    checklistAttiva = filtroChecklistContainer.value;
+    applicaFiltri();
+  }
+
   function onFiltroStatoChiusuraChange() {
     statoChiusuraAttivo = filtroStatoChiusuraContainer.value;
     applicaFiltri();
@@ -2833,12 +2870,14 @@ const storicoScreen = (() => {
 
   function resetFiltri() {
     clienteAttivo = '';
+    checklistAttiva = '';
     statoChiusuraAttivo = '';
     tecnicoAttivo = '';
     dataDaAttiva = '';
     dataAAttiva = '';
     testoRicerca = '';
     filtroClienteContainer.value = '';
+    filtroChecklistContainer.value = '';
     filtroStatoChiusuraContainer.value = '';
     filtroTecnicoContainer.value = '';
     inputDataDa.value = '';
@@ -2935,13 +2974,14 @@ const storicoScreen = (() => {
   async function render({ reset = true } = {}) {
     const filtriPrecedenti = {
       cliente: clienteAttivo,
+      checklist: checklistAttiva,
       stato: statoChiusuraAttivo,
       tecnico: tecnicoAttivo,
       da: dataDaAttiva,
       a: dataAAttiva,
       ricerca: testoRicerca
     };
-    const [sopralluoghi] = await Promise.all([db.elencaSopralluoghi(), popolaFiltroCliente()]);
+    const [sopralluoghi] = await Promise.all([db.elencaSopralluoghi(), popolaFiltroCliente(), popolaFiltroChecklist()]);
     sopralluoghiCache = sopralluoghi;
     selezionati.clear();
     popolaFiltroTecnico();
@@ -2950,6 +2990,8 @@ const storicoScreen = (() => {
       resetFiltri();
     } else {
       clienteAttivo = filtriPrecedenti.cliente;
+      checklistAttiva = Array.from(filtroChecklistContainer.options).some((o) => o.value === filtriPrecedenti.checklist)
+        ? filtriPrecedenti.checklist : '';
       statoChiusuraAttivo = filtriPrecedenti.stato;
       tecnicoAttivo = Array.from(filtroTecnicoContainer.options).some((o) => o.value === filtriPrecedenti.tecnico)
         ? filtriPrecedenti.tecnico : '';
@@ -2957,6 +2999,7 @@ const storicoScreen = (() => {
       dataAAttiva = filtriPrecedenti.a;
       testoRicerca = filtriPrecedenti.ricerca;
       filtroClienteContainer.value = clienteAttivo;
+      filtroChecklistContainer.value = checklistAttiva;
       filtroStatoChiusuraContainer.value = statoChiusuraAttivo;
       filtroTecnicoContainer.value = tecnicoAttivo;
       inputDataDa.value = dataDaAttiva;
@@ -2978,6 +3021,7 @@ const storicoScreen = (() => {
   function init() {
     inputRicerca.addEventListener('input', onRicercaInput);
     filtroClienteContainer.addEventListener('change', onFiltroClienteChange);
+    filtroChecklistContainer.addEventListener('change', onFiltroChecklistChange);
     filtroStatoChiusuraContainer.addEventListener('change', onFiltroStatoChiusuraChange);
     filtroTecnicoContainer.addEventListener('change', onFiltroTecnicoChange);
     inputDataDa.addEventListener('change', onFiltroDataChange);
@@ -3352,6 +3396,11 @@ const dashboardScreen = (() => {
   const mese = document.getElementById('dashboard-kpi-mese');
   const lista = document.getElementById('dashboard-recent-list');
   const vuoto = document.getElementById('dashboard-recent-empty');
+  const resumePanel = document.getElementById('dashboard-resume-panel');
+  const resumeTitle = document.getElementById('dashboard-resume-title');
+  const resumeMeta = document.getElementById('dashboard-resume-meta');
+  const resumeButton = document.getElementById('dashboard-resume-button');
+  let sopralluogoDaRiprendere = null;
   let aggiornamentoInCorso = null;
 
   function homeVisibile() {
@@ -3409,12 +3458,54 @@ const dashboardScreen = (() => {
     return riga;
   }
 
+  function aggiornaRiprendi(sopralluoghi) {
+    const utente = appIdentity.current();
+    sopralluogoDaRiprendere = utente ? sopralluoghi.find((s) =>
+      s.stato !== 'completato' &&
+      (s.creato_da_uid === utente.uid || s.ultimo_aggiornamento_da_uid === utente.uid)
+    ) : null;
+
+    resumePanel.hidden = !sopralluogoDaRiprendere;
+    if (!sopralluogoDaRiprendere) return;
+    resumeTitle.textContent = sopralluogoDaRiprendere.punto_vendita || 'Sopralluogo in corso';
+    const dettagli = [
+      sopralluogoDaRiprendere.indirizzo_punto_vendita,
+      formattaData(sopralluogoDaRiprendere)
+    ].filter(Boolean);
+    resumeMeta.textContent = dettagli.join(' · ');
+  }
+
+  async function riprendiUltimo() {
+    if (!sopralluogoDaRiprendere) return;
+    resumeButton.disabled = true;
+    const testo = resumeButton.textContent;
+    resumeButton.textContent = 'Apertura…';
+    try {
+      const fresco = await db.leggiSopralluogo(sopralluogoDaRiprendere.id);
+      if (!fresco || fresco.eliminato_il || fresco.eliminato_definitivamente) {
+        await aggiorna();
+        return;
+      }
+      const checklist = await checklistEngine.carica(fresco.checklist_id);
+      checklistEngine.avvia(checklist, fresco);
+      router.navigate('compilazione');
+      compilazioneScreen.renderDomandaCorrente();
+    } catch (errore) {
+      console.error('Dashboard: impossibile riprendere il sopralluogo.', errore);
+      mostraAvvisoNonBloccante('Impossibile aprire il sopralluogo. Riprova dallo Storico.');
+    } finally {
+      resumeButton.disabled = false;
+      resumeButton.textContent = testo;
+    }
+  }
+
   async function aggiorna() {
     if (aggiornamentoInCorso) return aggiornamentoInCorso;
     aggiornamentoInCorso = (async () => {
       try {
         const sopralluoghi = await db.elencaSopralluoghi();
         const chiusi = sopralluoghi.filter((s) => s.stato === 'completato').length;
+        aggiornaRiprendi(sopralluoghi);
         totale.textContent = String(sopralluoghi.length);
         completati.textContent = String(chiusi);
         aperti.textContent = String(sopralluoghi.length - chiusi);
@@ -3437,6 +3528,7 @@ const dashboardScreen = (() => {
   }
 
   function init() {
+    resumeButton.addEventListener('click', riprendiUltimo);
     router.onEnter('home', aggiorna);
     sync.onDatiAggiornati(aggiornaSeVisibile);
     sync.onCambioStato((stato) => {
