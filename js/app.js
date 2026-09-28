@@ -2291,6 +2291,7 @@ const storicoScreen = (() => {
   const inputDataDa = document.getElementById('storico-data-da');
   const inputDataA = document.getElementById('storico-data-a');
   const inputRicerca = document.getElementById('storico-ricerca');
+  const filtroOrdinamento = document.getElementById('storico-ordinamento');
   const bottoneResetFiltri = document.getElementById('storico-reset-filtri');
   const risultatiContatore = document.getElementById('storico-risultati-contatore');
   const checkboxSelezionaTutti = document.getElementById('storico-seleziona-tutti');
@@ -2308,6 +2309,7 @@ const storicoScreen = (() => {
   let tecnicoAttivo = '';
   let dataDaAttiva = '';
   let dataAAttiva = '';
+  let ordinamentoAttivo = 'data-desc';
   let nomiClientiConfigurati = [];
   let testoRicerca = '';
   let timerDebounce = null;
@@ -2475,8 +2477,16 @@ const storicoScreen = (() => {
     return isChiuso(sopralluogo) === (filtro === 'chiuso');
   }
 
+  function timestampOrdinamento(sopralluogo, preferisciAggiornamento = false) {
+    const valore = preferisciAggiornamento
+      ? (sopralluogo.aggiornato_il || sopralluogo.data_sopralluogo || sopralluogo.data)
+      : (sopralluogo.data_sopralluogo || sopralluogo.data || sopralluogo.aggiornato_il);
+    const data = valore ? new Date(valore) : null;
+    return data && !Number.isNaN(data.getTime()) ? data.getTime() : 0;
+  }
+
   function elencoFiltrato() {
-    return sopralluoghiCache.filter(
+    const filtrati = sopralluoghiCache.filter(
       (s) =>
         corrispondeCliente(s, clienteAttivo) &&
         corrispondeChecklist(s, checklistAttiva) &&
@@ -2485,6 +2495,11 @@ const storicoScreen = (() => {
         corrispondeDate(s) &&
         corrispondeRicerca(s, testoRicerca)
     );
+    return filtrati.sort((a, b) => {
+      if (ordinamentoAttivo === 'data-asc') return timestampOrdinamento(a) - timestampOrdinamento(b);
+      if (ordinamentoAttivo === 'aggiornato-desc') return timestampOrdinamento(b, true) - timestampOrdinamento(a, true);
+      return timestampOrdinamento(b) - timestampOrdinamento(a);
+    });
   }
 
   async function eseguiConBottone(bottone, azione) {
@@ -2860,6 +2875,11 @@ const storicoScreen = (() => {
     applicaFiltri();
   }
 
+  function onOrdinamentoChange() {
+    ordinamentoAttivo = filtroOrdinamento.value || 'data-desc';
+    applicaFiltri();
+  }
+
   function onFiltroDataChange() {
     dataDaAttiva = inputDataDa.value;
     dataAAttiva = inputDataA.value;
@@ -2877,6 +2897,7 @@ const storicoScreen = (() => {
     tecnicoAttivo = '';
     dataDaAttiva = '';
     dataAAttiva = '';
+    ordinamentoAttivo = 'data-desc';
     testoRicerca = '';
     filtroClienteContainer.value = '';
     filtroChecklistContainer.value = '';
@@ -2884,6 +2905,7 @@ const storicoScreen = (() => {
     filtroTecnicoContainer.value = '';
     inputDataDa.value = '';
     inputDataA.value = '';
+    filtroOrdinamento.value = 'data-desc';
     inputRicerca.value = '';
     applicaFiltri();
   }
@@ -2981,6 +3003,7 @@ const storicoScreen = (() => {
       tecnico: tecnicoAttivo,
       da: dataDaAttiva,
       a: dataAAttiva,
+      ordinamento: ordinamentoAttivo,
       ricerca: testoRicerca
     };
     const [sopralluoghi] = await Promise.all([db.elencaSopralluoghi(), popolaFiltroCliente(), popolaFiltroChecklist()]);
@@ -2999,6 +3022,7 @@ const storicoScreen = (() => {
         ? filtriPrecedenti.tecnico : '';
       dataDaAttiva = filtriPrecedenti.da;
       dataAAttiva = filtriPrecedenti.a;
+      ordinamentoAttivo = filtriPrecedenti.ordinamento || 'data-desc';
       testoRicerca = filtriPrecedenti.ricerca;
       filtroClienteContainer.value = clienteAttivo;
       filtroChecklistContainer.value = checklistAttiva;
@@ -3006,6 +3030,7 @@ const storicoScreen = (() => {
       filtroTecnicoContainer.value = tecnicoAttivo;
       inputDataDa.value = dataDaAttiva;
       inputDataA.value = dataAAttiva;
+      filtroOrdinamento.value = ordinamentoAttivo;
       inputRicerca.value = testoRicerca;
       applicaFiltri();
     }
@@ -3028,6 +3053,7 @@ const storicoScreen = (() => {
     filtroTecnicoContainer.addEventListener('change', onFiltroTecnicoChange);
     inputDataDa.addEventListener('change', onFiltroDataChange);
     inputDataA.addEventListener('change', onFiltroDataChange);
+    filtroOrdinamento.addEventListener('change', onOrdinamentoChange);
     bottoneResetFiltri.addEventListener('click', resetFiltri);
     checkboxSelezionaTutti.addEventListener('change', onSelezionaTuttiChange);
     bottoneScaricaSelezionati.addEventListener('click', scaricaSelezionati);
@@ -3466,6 +3492,49 @@ const installazioneApp = (() => {
   }
 
   return { init };
+})();
+
+/**
+ * Installazione PWA: il pulsante compare solo sui browser che espongono il prompt nativo.
+ * Su dispositivi dove l'app è già installata resta nascosto.
+ */
+const installazioneApp = (() => {
+  const bottone = document.getElementById('btn-installa-app');
+  let promptInstallazione = null;
+
+  function aggiornaVisibilita() {
+    if (!bottone) return;
+    const standalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+    bottone.hidden = standalone || !promptInstallazione;
+  }
+
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    promptInstallazione = event;
+    aggiornaVisibilita();
+  });
+
+  window.addEventListener('appinstalled', () => {
+    promptInstallazione = null;
+    aggiornaVisibilita();
+  });
+
+  if (bottone) {
+    bottone.addEventListener('click', async () => {
+      if (!promptInstallazione) return;
+      bottone.disabled = true;
+      try {
+        await promptInstallazione.prompt();
+        await promptInstallazione.userChoice;
+        promptInstallazione = null;
+        aggiornaVisibilita();
+      } finally {
+        bottone.disabled = false;
+      }
+    });
+  }
+
+  return { aggiornaVisibilita };
 })();
 
 /**

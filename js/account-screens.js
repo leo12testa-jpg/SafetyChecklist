@@ -14,6 +14,7 @@ const accountScreens = (() => {
   let filtro = 'all';
   let lavori = [];
   let utentiCache = [];
+  let ultimeAttivita = new Map();
 
   function messaggio(target, text, error = false) {
     target.textContent = text;
@@ -46,6 +47,27 @@ const accountScreens = (() => {
     return badge;
   }
 
+  function formattaUltimaAttivita(value) {
+    if (!value) return '—';
+    const data = value && typeof value.toDate === 'function' ? value.toDate() : new Date(value);
+    if (Number.isNaN(data.getTime())) return '—';
+    return data.toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  }
+
+  async function caricaUltimeAttivita() {
+    ultimeAttivita = new Map();
+    if (!navigator.onLine) return;
+    try {
+      const snapshot = await firebaseClient.firestore().collection('attivita').orderBy('timestamp', 'desc').limit(300).get();
+      snapshot.forEach((doc) => {
+        const item = doc.data();
+        if (item.uid && !ultimeAttivita.has(item.uid)) ultimeAttivita.set(item.uid, item.timestamp);
+      });
+    } catch (error) {
+      console.warn('Ultime attività utenti non disponibili.', error);
+    }
+  }
+
   function renderUserRows() {
     const users = filtraUtenti();
     userBody.replaceChildren();
@@ -62,12 +84,37 @@ const accountScreens = (() => {
       }
 
       const roleCell = document.createElement('td');
-      roleCell.appendChild(creaBadgeUtente(user.ruolo === 'admin' ? 'Admin' : 'Tecnico', user.ruolo === 'admin' ? 'is-admin' : 'is-tech'));
+      const roleSelect = document.createElement('select');
+      roleSelect.className = 'admin-role-select';
+      roleSelect.innerHTML = '<option value="tecnico">Tecnico</option><option value="admin">Admin</option>';
+      roleSelect.value = user.ruolo === 'admin' ? 'admin' : 'tecnico';
+      roleSelect.setAttribute('aria-label', `Ruolo di ${user.nome || user.username}`);
+      roleSelect.disabled = user.uid === appIdentity.current()?.uid;
+      roleSelect.title = roleSelect.disabled ? 'Il tuo ruolo non può essere cambiato durante la sessione.' : 'Cambia ruolo';
+      roleSelect.addEventListener('change', async () => {
+        const precedente = user.ruolo;
+        roleSelect.disabled = true;
+        try {
+          await api('setRole', { uid: user.uid, role: roleSelect.value });
+          messaggio(userMessage, `Ruolo aggiornato: ${roleSelect.value === 'admin' ? 'Admin' : 'Tecnico'}.`);
+          await renderUsers();
+        } catch (error) {
+          roleSelect.value = precedente;
+          messaggio(userMessage, error.message, true);
+          roleSelect.disabled = false;
+        }
+      });
+      roleCell.appendChild(roleSelect);
       row.appendChild(roleCell);
 
       const statusCell = document.createElement('td');
       statusCell.appendChild(creaBadgeUtente(user.attivo ? 'Attivo' : 'Disattivato', user.attivo ? 'is-active' : 'is-disabled'));
       row.appendChild(statusCell);
+
+      const activityCell = document.createElement('td');
+      activityCell.className = 'admin-user-last-activity';
+      activityCell.textContent = formattaUltimaAttivita(ultimeAttivita.get(user.uid));
+      row.appendChild(activityCell);
 
       const actions = document.createElement('td');
       actions.className = 'admin-user-actions';
@@ -95,7 +142,7 @@ const accountScreens = (() => {
   async function renderUsers() {
     if (!appIdentity.isAdmin()) { router.navigate('home'); return; }
     messaggio(userMessage, '');
-    const { users } = await api('list');
+    const [{ users }] = await Promise.all([api('list'), caricaUltimeAttivita()]);
     utentiCache = Array.isArray(users) ? users : [];
     aggiornaStatisticheUtenti();
     renderUserRows();

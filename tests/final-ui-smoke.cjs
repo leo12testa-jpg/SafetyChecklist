@@ -132,6 +132,8 @@ async function bodyFits(page) {
     assert.equal(await page.locator('[data-nav="settings"].side-nav-item').isVisible(), true);
     assert.equal(await page.locator('[data-nav="my-work"].side-nav-item').isVisible(), true);
     assert.equal(await page.locator('.dashboard-action-card:visible').count(), 5);
+    assert.equal(await page.locator('#admin-user-search').count(), 1);
+    assert.equal(await page.locator('#storico-ordinamento').count(), 1);
     await assertNoCardOverlap(page, '.dashboard-action-card');
     await page.screenshot({ path:path.join(out,'dashboard-admin-desktop.png'), fullPage:true });
 

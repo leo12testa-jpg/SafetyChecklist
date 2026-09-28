@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/icon-512.png">
-  <link rel="stylesheet" href="css/style.css?v=20260928-223500">
+  <link rel="stylesheet" href="css/style.css?v=20260928-214500">
 </head>
 <body data-auth-ready="false" data-authenticated="false">
   <div id="app">
@@ -25,6 +25,7 @@
           <span class="stato-connessione-pallino" id="stato-connessione-pallino"></span>
           <span id="stato-connessione-testo">Online</span>
         </span>
+        <button type="button" class="btn-esci btn-installa-app" id="btn-installa-app" hidden>Installa app</button>
         <div class="utente-sessione" id="utente-sessione" hidden>
           <span id="utente-sessione-dettaglio"></span>
           <button type="button" class="btn-esci" id="btn-cambia-password">Password</button>
@@ -453,6 +454,13 @@
           <label class="storico-filtro-campo">Al
             <input type="date" id="storico-data-a">
           </label>
+          <label class="storico-filtro-campo">Ordina
+            <select id="storico-ordinamento">
+              <option value="data-desc">Più recenti</option>
+              <option value="data-asc">Più vecchi</option>
+              <option value="aggiornato-desc">Ultima modifica</option>
+            </select>
+          </label>
           <label class="storico-filtro-campo storico-filtro-ricerca">Ricerca
             <input type="search" class="storico-ricerca" id="storico-ricerca" placeholder="Sede, indirizzo, tecnico…" autocomplete="off">
           </label>
@@ -532,7 +540,7 @@
           <button type="button" class="btn" id="admin-annulla-utente">Annulla</button>
         </form>
         <p id="admin-user-message" class="login-messaggio" role="status" aria-live="polite" hidden></p>
-        <div class="tabella-utenti-scroll"><table class="tabella-utenti"><thead><tr><th>Nome</th><th>Cognome</th><th>Username</th><th>Ruolo</th><th>Stato</th><th>Azioni</th></tr></thead><tbody id="admin-utenti-body"></tbody></table></div>
+        <div class="tabella-utenti-scroll"><table class="tabella-utenti"><thead><tr><th>Nome</th><th>Cognome</th><th>Username</th><th>Ruolo</th><th>Stato</th><th>Ultima attività</th><th>Azioni</th></tr></thead><tbody id="admin-utenti-body"></tbody></table></div>
       </section>
 
       <section id="screen-settings" class="screen" data-screen="settings" data-admin-only hidden>
@@ -811,6 +819,6 @@
   <script src="js/sync.js"></script>
   <script src="js/app.js"></script>
   <script src="js/account-screens.js"></script>
-  <script src="js/aggiornamento.js?v=20260928-223500"></script>
+  <script src="js/aggiornamento.js?v=20260928-214500"></script>
 </body>
 </html>
