@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/icon-512.png">
-  <link rel="stylesheet" href="css/style.css?v=20260928-222500">
+  <link rel="stylesheet" href="css/style.css?v=20260928-223500">
 </head>
 <body data-auth-ready="false" data-authenticated="false">
   <div id="app">
@@ -307,49 +307,66 @@
       </section>
 
       <section id="screen-compilazione" class="screen" data-screen="compilazione" hidden>
-        <button type="button" class="btn-back" data-nav="home">← Home</button>
-        <button type="button" class="btn-secondario" id="btn-modifica-anagrafica-compilazione">✏️ Modifica dati sopralluogo</button>
+        <div class="compilazione-toolbar">
+          <div class="compilazione-toolbar-actions">
+            <button type="button" class="btn-back" data-nav="home">← Home</button>
+            <button type="button" class="btn-secondario" id="btn-modifica-anagrafica-compilazione">✏️ Modifica dati sopralluogo</button>
+          </div>
+          <span class="compilazione-live-badge" title="Le modifiche degli altri operatori arrivano tramite sincronizzazione realtime">
+            <span class="compilazione-live-dot" aria-hidden="true"></span>
+            Sincronizzazione live
+          </span>
+        </div>
 
         <p class="banner-avviso" id="compilazione-banner-import" hidden>⚠️ Dati importati da PDF: verifica ogni risposta prima di generare il nuovo report.</p>
 
-        <div class="macro-gruppi-tabs" id="macro-gruppi-tabs" hidden>
-          <button type="button" class="macro-gruppo-tab" id="tab-gruppo-1" data-gruppo="0">Analisi documentale</button>
-          <button type="button" class="macro-gruppo-tab" id="tab-gruppo-2" data-gruppo="1">Ambienti di lavoro</button>
+        <div class="compilazione-progress-card">
+          <div class="macro-gruppi-tabs" id="macro-gruppi-tabs" hidden>
+            <button type="button" class="macro-gruppo-tab" id="tab-gruppo-1" data-gruppo="0">Analisi documentale</button>
+            <button type="button" class="macro-gruppo-tab" id="tab-gruppo-2" data-gruppo="1">Ambienti di lavoro</button>
+          </div>
+
+          <div class="compilazione-progress-meta">
+            <span>Avanzamento checklist</span>
+            <p class="progress-label" id="progress-label"></p>
+          </div>
+          <div class="progress-bar" id="question-navigator" role="slider" tabindex="0"
+               aria-label="Naviga tra le domande" aria-valuemin="1">
+            <div class="progress-bar-fill" id="progress-fill"></div>
+            <div class="progress-markers" id="progress-markers" aria-hidden="true"></div>
+            <div class="progress-thumb" id="progress-thumb" aria-hidden="true"></div>
+          </div>
         </div>
 
-        <div class="progress-bar" id="question-navigator" role="slider" tabindex="0"
-             aria-label="Naviga tra le domande" aria-valuemin="1">
-          <div class="progress-bar-fill" id="progress-fill"></div>
-          <div class="progress-markers" id="progress-markers" aria-hidden="true"></div>
-          <div class="progress-thumb" id="progress-thumb" aria-hidden="true"></div>
+        <div class="compilazione-question-card">
+          <span class="compilazione-question-label">DOMANDA CORRENTE</span>
+          <h2 id="compilazione-sezione"></h2>
+          <p class="domanda-testo" id="compilazione-domanda"></p>
+
+          <div class="risposte-opzioni" id="risposte-opzioni">
+            <label class="opzione-risposta"><input type="radio" name="risposta" value="C"> <span class="etichetta-risposta"></span></label>
+            <label class="opzione-risposta"><input type="radio" name="risposta" value="PC"> <span class="etichetta-risposta"></span></label>
+            <label class="opzione-risposta"><input type="radio" name="risposta" value="NC"> <span class="etichetta-risposta"></span></label>
+            <label class="opzione-risposta"><input type="radio" name="risposta" value="NA"> <span class="etichetta-risposta"></span></label>
+          </div>
+
+          <div id="raccolta-dati-controllo" hidden></div>
+
+          <div class="azioni-secondarie">
+            <button type="button" class="btn-secondario" id="btn-note" hidden>✎ Note</button>
+            <button type="button" class="btn-secondario" id="btn-foto" hidden>📷 Foto</button>
+          </div>
+
+          <div class="nota-editor" id="nota-editor" hidden>
+            <label for="nota-testo">Note della domanda</label>
+            <textarea id="nota-testo" placeholder="Scrivi qui eventuali note, date o dettagli utili…"></textarea>
+          </div>
+          <div class="foto-gestione" id="foto-domanda-lista" hidden></div>
+
+          <p class="errore-validazione" id="errore-validazione" hidden></p>
         </div>
-        <p class="progress-label" id="progress-label"></p>
 
-        <h2 id="compilazione-sezione"></h2>
-        <p class="domanda-testo" id="compilazione-domanda"></p>
-
-        <div class="risposte-opzioni" id="risposte-opzioni">
-          <label class="opzione-risposta"><input type="radio" name="risposta" value="C"> <span class="etichetta-risposta"></span></label>
-          <label class="opzione-risposta"><input type="radio" name="risposta" value="PC"> <span class="etichetta-risposta"></span></label>
-          <label class="opzione-risposta"><input type="radio" name="risposta" value="NC"> <span class="etichetta-risposta"></span></label>
-          <label class="opzione-risposta"><input type="radio" name="risposta" value="NA"> <span class="etichetta-risposta"></span></label>
-        </div>
-
-        <div id="raccolta-dati-controllo" hidden></div>
-
-        <div class="azioni-secondarie">
-          <button type="button" class="btn-secondario" id="btn-note" hidden>Note</button>
-          <button type="button" class="btn-secondario" id="btn-foto" hidden>📷 Foto</button>
-        </div>
-
-        <div class="nota-editor" id="nota-editor" hidden>
-          <textarea id="nota-testo" placeholder="Note"></textarea>
-        </div>
-        <div class="foto-gestione" id="foto-domanda-lista" hidden></div>
-
-        <p class="errore-validazione" id="errore-validazione" hidden></p>
-
-        <div class="navigazione-domande">
+        <div class="navigazione-domande compilazione-navigation">
           <button type="button" class="btn" id="btn-indietro">← Indietro</button>
           <button type="button" class="btn btn-primary" id="btn-avanti">Avanti →</button>
         </div>
@@ -794,6 +811,6 @@
   <script src="js/sync.js"></script>
   <script src="js/app.js"></script>
   <script src="js/account-screens.js"></script>
-  <script src="js/aggiornamento.js?v=20260928-222500"></script>
+  <script src="js/aggiornamento.js?v=20260928-223500"></script>
 </body>
 </html>

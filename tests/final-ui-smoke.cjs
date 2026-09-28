@@ -241,7 +241,40 @@ async function bodyFits(page) {
     await rispostaTesto.fill('');
     await rispostaTesto.dispatchEvent('change');
     await markerPage.waitForFunction(() => document.querySelectorAll('.progress-marker')[1]?.dataset.stato === 'da-completare');
-    await markerPage.screenshot({ path:path.join(out,'progress-markers.png'), fullPage:true });
+    assert.equal(await markerPage.locator('.compilazione-live-badge').isVisible(), true);
+    const questionCardWidth = await markerPage.locator('.compilazione-question-card').evaluate(el => el.getBoundingClientRect().width);
+    const noteWidth = await markerPage.locator('#nota-editor').evaluate(el => {
+      el.hidden = false;
+      return el.getBoundingClientRect().width;
+    });
+    assert.ok(noteWidth > questionCardWidth * 0.85, 'note editor too narrow');
+    fit = await bodyFits(markerPage);
+    assert.ok(fit.scroll <= fit.width + 2, 'compilazione desktop horizontal overflow');
+    await markerPage.screenshot({ path:path.join(out,'compilazione-desktop.png'), fullPage:true });
+
+    const compilationMobile = await context.newPage();
+    await compilationMobile.setViewportSize({ width:390, height:844 });
+    await compilationMobile.goto(url, { waitUntil:'domcontentloaded', timeout:45000 });
+    await compilationMobile.waitForSelector('#login-view:not([hidden])', { timeout:15000 });
+    await compilationMobile.evaluate(() => {
+      document.body.dataset.authReady = 'true';
+      document.body.dataset.authenticated = 'true';
+      document.querySelector('#login-view').hidden = true;
+      document.querySelector('#screens').hidden = false;
+      document.querySelectorAll('.screen').forEach(el => { el.hidden = el.dataset.screen !== 'compilazione'; });
+      document.querySelector('#macro-gruppi-tabs').hidden = false;
+      document.querySelector('#compilazione-sezione').textContent = 'GESTIONE DELL’EMERGENZA';
+      document.querySelector('#compilazione-domanda').textContent = 'È stata eseguita la prova annuale di evacuazione? Indicare nelle note la data dell’ultimo verbale.';
+      document.querySelector('#progress-label').textContent = 'Domanda 27 di 60';
+      document.querySelector('#nota-editor').hidden = false;
+    });
+    assert.equal(await compilationMobile.locator('.compilazione-live-badge').isVisible(), true);
+    assert.equal(await compilationMobile.locator('.opzione-risposta:visible').count(), 4);
+    const mobileCols = await compilationMobile.locator('#risposte-opzioni').evaluate(el => getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
+    assert.equal(mobileCols, 2, 'mobile answers not 2 columns');
+    fit = await bodyFits(compilationMobile);
+    assert.ok(fit.scroll <= fit.width + 2, 'compilazione mobile horizontal overflow');
+    await compilationMobile.screenshot({ path:path.join(out,'compilazione-mobile.png'), fullPage:true });
 
     console.log('FINAL UI SMOKE PASS');
   } finally {
