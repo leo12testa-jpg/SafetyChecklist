@@ -239,3 +239,24 @@ test('real edit on another technician record is attributed to the current user b
   assert.equal(s.local.get('MISDO')._sync_rev,undefined);
   assert.equal(s.api.dettaglioInAttesa().dati,0);
 });
+
+
+test('ten technicians editing different questions converge on the same shared inspection',()=>{
+  const {unisciDocumenti:merge}=setup().api._test;
+  const docs=Array.from({length:10},(_,i)=>({
+    ...legacy,
+    aggiornato_il:`2026-09-30T20:${String(i).padStart(2,'0')}:00Z`,
+    risposte:[{
+      domanda_id:i+1,
+      risposta:i%2?'C':'NC',
+      note:`tecnico-${i+1}`,
+      aggiornato_il:`2026-09-30T20:${String(i).padStart(2,'0')}:00Z`
+    }]
+  }));
+  const merged=docs.reduce((acc,doc)=>acc?merge(acc,doc):doc,null);
+  assert.equal(merged.risposte.length,10);
+  assert.deepEqual(
+    Array.from(merged.risposte,r=>r.note).sort(),
+    Array.from({length:10},(_,i)=>`tecnico-${i+1}`).sort()
+  );
+});
