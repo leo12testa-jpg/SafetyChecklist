@@ -306,6 +306,48 @@ const sync = (() => {
     return risultato;
   }
 
+
+  const CAMPI_ATTORE = [
+    'ultimo_aggiornamento_da_uid',
+    'ultimo_aggiornamento_da_username',
+    'ultimo_aggiornamento_da_nome'
+  ];
+  const CAMPI_CREAZIONE = [
+    'creato_da_uid', 'creato_da_username', 'creato_da_nome', 'creato_il',
+    'origine_creato_da_uid', 'origine_creato_da_username', 'origine_creato_da_nome'
+  ];
+
+  function contenutoOperativo(sopralluogo) {
+    const record = datiCloud(sopralluogo || {});
+    ['aggiornato_il', 'campi_aggiornati', ...CAMPI_ATTORE, ...CAMPI_CREAZIONE]
+      .forEach((campo) => delete record[campo]);
+    return record;
+  }
+
+  function haDifferenzeOperative(unito, remoto) {
+    return stabile(contenutoOperativo(unito)) !== stabile(contenutoOperativo(remoto || {}));
+  }
+
+  function preparaAggiornamentoCloud(record, remoto) {
+    const identita = typeof appIdentity !== 'undefined' ? appIdentity.current() : null;
+    if (!identita) return record;
+    const adesso = new Date().toISOString();
+    const risultato = { ...record, campi_aggiornati: { ...(record.campi_aggiornati || {}) } };
+
+    CAMPI_CREAZIONE.forEach((campo) => {
+      if (remoto && Object.prototype.hasOwnProperty.call(remoto, campo)) risultato[campo] = remoto[campo];
+    });
+
+    risultato.ultimo_aggiornamento_da_uid = identita.uid;
+    risultato.ultimo_aggiornamento_da_username = identita.username;
+    risultato.ultimo_aggiornamento_da_nome = `${identita.nome} ${identita.cognome}`;
+    risultato.aggiornato_il = adesso;
+    [...CAMPI_ATTORE, 'aggiornato_il'].forEach((campo) => {
+      risultato.campi_aggiornati[campo] = adesso;
+    });
+    return risultato;
+  }
+
   async function applicaRemoto(remoto) {
     // Se non esiste una revisione locale esplicitamente pendente, il server è autorevole.
     // Questo evita che differenze di normalizzazione/cache di un dispositivo passivo vengano
@@ -328,27 +370,43 @@ const sync = (() => {
           if (!locale) return true;
           const rev = locale._sync_rev;
           const ref = firestoreDb.collection(COLLECTION).doc(id);
-          const unito = await conScadenza(firestoreDb.runTransaction(async tx => {
+          const esitoTx = await conScadenza(firestoreDb.runTransaction(async tx => {
             const snap = await tx.get(ref);
             const remoto = snap.exists ? { ...snap.data(), id } : null;
             const haRevisioneLocale = !!locale._sync_rev;
             let record;
+            let soloPulizia = false;
+
             if (!remoto) {
               record = preparaCreazioneCloud(unisciDocumenti(locale, null));
             } else if (haRevisioneLocale) {
-              record = unisciDocumenti(locale, remoto);
+              const unito = unisciDocumenti(locale, remoto);
+              if (haDifferenzeOperative(unito, remoto)) {
+                record = preparaAggiornamentoCloud(unito, remoto);
+              } else {
+                record = remotoNormalizzato(remoto);
+                soloPulizia = true;
+              }
             } else {
-              // Record solo in cache, nessuna modifica locale tracciata: non deve mai tentare
-              // una scrittura con l'identità dell'ultimo tecnico che lo aveva modificato.
               record = remotoNormalizzato(remoto);
             }
-            const { patch, campi } = (!remoto || haRevisioneLocale)
+
+            const { patch, campi } = (!remoto || (haRevisioneLocale && !soloPulizia))
               ? differenze(record, remoto)
               : { patch: {}, campi: [] };
             if (campi.length) tx.set(ref, patch, { mergeFields: campi });
-            return record;
+            return { record, soloPulizia };
           }));
-          await applicaRemoto(unito);
+
+          if (esitoTx.soloPulizia) {
+            const esito = await db.unisciSopralluogoRemoto(
+              esitoTx.record,
+              (_locale, server) => remotoNormalizzato(server)
+            );
+            if (esito.cambiato) notificaDatiAggiornati();
+          } else {
+            await applicaRemoto(esitoTx.record);
+          }
           await db.confermaSincronizzato(id, rev);
           const attuale = await db.leggiSopralluogo(id);
           ancora = !!attuale?._sync_rev;
@@ -548,6 +606,6 @@ const sync = (() => {
   return {
     init, sincronizzaTutto, sincronizzaCompleto, onCambioStato, onDatiAggiornati,
     elementiInAttesa, dettaglioInAttesa, statoAttuale: () => statoAttuale,
-    _test: { arrayRisposteInMappa, mappaRisposteInArray, unisciRisposte, unisciFotoUrl, estraiMetadati, timestampDi, unisciDocumenti, stabile }
+    _test: { arrayRisposteInMappa, mappaRisposteInArray, unisciRisposte, unisciFotoUrl, estraiMetadati, timestampDi, unisciDocumenti, stabile, contenutoOperativo, haDifferenzeOperative, preparaAggiornamentoCloud }
   };
 })();
