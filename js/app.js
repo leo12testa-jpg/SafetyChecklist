@@ -178,6 +178,13 @@ function testoFotoInSincronizzazione(azione, mancanti) {
     : `PDF ${azione}. ${mancanti} foto sono ancora in sincronizzazione.`;
 }
 
+function sopralluogoChiuso(sopralluogo) {
+  if (!sopralluogo) return false;
+  if (sopralluogo.stato_chiusura === 'chiuso') return true;
+  if (sopralluogo.stato_chiusura === 'aperto') return false;
+  return sopralluogo.stato === 'completato';
+}
+
 /**
  * Etichette di visualizzazione personalizzate per checklist_id: solo il testo mostrato cambia,
  * mai i nomi dei campi salvati nel sopralluogo (punto_vendita/responsabile_punto_vendita/
@@ -2267,7 +2274,11 @@ const riepilogoScreen = (() => {
       pdfBlob = await pdf.generaReport(checklist, sopralluogo);
       pdfFilename = pdf.nomeFile(sopralluogo);
 
-      await db.aggiornaSopralluogo(sopralluogoId, { stato: 'completato' });
+      await db.aggiornaSopralluogo(sopralluogoId, {
+        stato: 'completato',
+        stato_chiusura: 'chiuso',
+        chiuso_il: new Date().toISOString()
+      });
       const sopralluogoAggiornato = await db.leggiSopralluogo(sopralluogoId);
       await db.salvaPdfReport({
         sopralluogo_id: sopralluogoId,
@@ -2712,12 +2723,11 @@ const storicoScreen = (() => {
   }
 
   /**
-   * Stato di chiusura amministrativa (Da completare/Chiusa): puramente manuale, non dipende dal
-   * numero di conformità/non conformità né dal campo "stato" di compilazione. I sopralluoghi
-   * salvati prima dell'introduzione di questo campo non lo hanno: vanno trattati come "aperto".
+   * Stato unico usato da Storico e Dashboard. I completati legacy senza stato_chiusura
+   * sono considerati chiusi; "aperto" esplicito resta una vera riapertura.
    */
   function isChiuso(sopralluogo) {
-    return sopralluogo.stato_chiusura === 'chiuso';
+    return sopralluogoChiuso(sopralluogo);
   }
 
   /** Sostituisce in cache il sopralluogo aggiornato (stessa identità di riferimento delle altre voci) e ridisegna subito la lista. */
@@ -3588,12 +3598,13 @@ const dashboardScreen = (() => {
     const riga = document.createElement('article');
     riga.className = 'dashboard-recent-row';
 
-    const stato = sopralluogo.stato === 'completato' ? 'Completato' : 'Da completare';
-    const statoClass = sopralluogo.stato === 'completato' ? 'is-complete' : 'is-open';
+    const chiuso = sopralluogoChiuso(sopralluogo);
+    const stato = chiuso ? 'Chiusa' : 'Da completare';
+    const statoClass = chiuso ? 'is-complete' : 'is-open';
 
     const icona = document.createElement('span');
     icona.className = 'dashboard-recent-icon';
-    icona.textContent = sopralluogo.stato === 'completato' ? '✓' : '•';
+    icona.textContent = chiuso ? '✓' : '•';
 
     const info = document.createElement('div');
     info.className = 'dashboard-recent-info';
@@ -3619,7 +3630,7 @@ const dashboardScreen = (() => {
   function aggiornaRiprendi(sopralluoghi) {
     const utente = appIdentity.current();
     sopralluogoDaRiprendere = utente ? sopralluoghi.find((s) =>
-      s.stato !== 'completato' &&
+      !sopralluogoChiuso(s) &&
       (s.creato_da_uid === utente.uid || s.ultimo_aggiornamento_da_uid === utente.uid)
     ) : null;
 
@@ -3662,7 +3673,7 @@ const dashboardScreen = (() => {
     aggiornamentoInCorso = (async () => {
       try {
         const sopralluoghi = await db.elencaSopralluoghi();
-        const chiusi = sopralluoghi.filter((s) => s.stato === 'completato').length;
+        const chiusi = sopralluoghi.filter(sopralluogoChiuso).length;
         aggiornaRiprendi(sopralluoghi);
         totale.textContent = String(sopralluoghi.length);
         completati.textContent = String(chiusi);
@@ -3736,6 +3747,23 @@ const connessioneIndicatore = (() => {
     window.addEventListener('online', aggiorna);
     window.addEventListener('offline', aggiorna);
     sync.onCambioStato(aggiorna);
+
+    contenitore.setAttribute('role', 'button');
+    contenitore.setAttribute('tabindex', '0');
+    contenitore.title = 'Clicca per ritentare la sincronizzazione';
+    const ritenta = async () => {
+      if (!navigator.onLine) return;
+      testo.textContent = 'Sincronizzazione in corso…';
+      await sync.sincronizzaCompleto();
+      aggiorna();
+    };
+    contenitore.addEventListener('click', ritenta);
+    contenitore.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        ritenta();
+      }
+    });
   }
 
   return { init };
