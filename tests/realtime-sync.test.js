@@ -36,6 +36,7 @@ function setup(initial = []) {
   const context={console:{warn(){},error(){}},navigator:{onLine:true},window:{addEventListener(){}},document:{visibilityState:'visible',addEventListener(){}},
     setTimeout:(fn,ms)=>{const t=setTimeout(fn,ms);t.unref();return t;},clearTimeout,
     firebase:{apps:[{}],firestore},firebaseConfig:{},
+    appIdentity:{current:()=>({uid:'USER-A',username:'user.a',nome:'User',cognome:'A'})},
     db:{onCambiamento:fn=>hook=fn,elencaTuttiSopralluoghi:async()=>[...local.values()].map(copy),
       leggiSopralluogo:async id=>copy(local.get(id)),elencaFotoSenzaUrl:async()=>[],
       unisciSopralluogoRemoto:async(r,merge)=>{
@@ -191,4 +192,50 @@ test('explicit sync re-verifies the server even while the realtime listener is a
   const gets=s.counts().gets;
   await s.api.sincronizzaTutto();
   assert.equal(s.counts().gets,gets+1);
+});
+
+
+test('stale cross-user revision with no operational changes is cleared without cloud write',async()=>{
+  const server={...legacy,
+    creato_da_uid:'USER-B',creato_da_username:'user.b',creato_da_nome:'User B',
+    ultimo_aggiornamento_da_uid:'USER-B',ultimo_aggiornamento_da_username:'user.b',ultimo_aggiornamento_da_nome:'User B',
+    aggiornato_il:'2026-09-30T20:00:00Z',campi_aggiornati:{punto_vendita:'2026-09-30T20:00:00Z'},
+    risposte:{12:{domanda_id:12,risposta:'C',note:'server',aggiornato_il:'2026-09-30T20:00:00Z'}}
+  };
+  const stale={...structuredClone(server),_sync_rev:'old-device-rev',
+    ultimo_aggiornamento_da_uid:'USER-C',ultimo_aggiornamento_da_username:'user.c',ultimo_aggiornamento_da_nome:'User C',
+    risposte:Object.values(server.risposte)
+  };
+  const s=setup([stale]);
+  s.remote.set('MISDO',structuredClone(server));
+  const before=s.counts().writes;
+  await s.api.sincronizzaCompleto();
+  assert.equal(s.counts().writes,before,'metadata-only stale revision must not be echoed');
+  assert.equal(s.local.get('MISDO')._sync_rev,undefined);
+  assert.equal(s.api.dettaglioInAttesa().dati,0);
+});
+
+test('real edit on another technician record is attributed to the current user before upload',async()=>{
+  const server={...legacy,punto_vendita:'Sede server',
+    creato_da_uid:'USER-B',creato_da_username:'user.b',creato_da_nome:'User B',
+    ultimo_aggiornamento_da_uid:'USER-B',ultimo_aggiornamento_da_username:'user.b',ultimo_aggiornamento_da_nome:'User B',
+    aggiornato_il:'2026-09-30T20:00:00Z',
+    campi_aggiornati:{punto_vendita:'2026-09-30T20:00:00Z'},
+    risposte:{12:{domanda_id:12,risposta:'C',note:'server',aggiornato_il:'2026-09-30T20:00:00Z'}}
+  };
+  const local={...structuredClone(server),punto_vendita:'Sede corretta',_sync_rev:'local-edit',
+    aggiornato_il:'2026-09-30T22:00:00Z',
+    campi_aggiornati:{...server.campi_aggiornati,punto_vendita:'2026-09-30T22:00:00Z'},
+    risposte:Object.values(server.risposte)
+  };
+  const s=setup([local]);
+  s.remote.set('MISDO',structuredClone(server));
+  await s.api.sincronizzaCompleto();
+  const remoto=s.remote.get('MISDO');
+  assert.equal(remoto.punto_vendita,'Sede corretta');
+  assert.equal(remoto.creato_da_uid,'USER-B');
+  assert.equal(remoto.ultimo_aggiornamento_da_uid,'USER-A');
+  assert.equal(remoto.ultimo_aggiornamento_da_username,'user.a');
+  assert.equal(s.local.get('MISDO')._sync_rev,undefined);
+  assert.equal(s.api.dettaglioInAttesa().dati,0);
 });
