@@ -252,7 +252,13 @@ const sync = (() => {
   const invii = new Map();
   let codaSnapshot = Promise.resolve();
 
-  function elementiInAttesa() { return pendenti.size + attesaFoto + (erroreDati ? 1 : 0); }
+  function dettaglioInAttesa() {
+    return { dati: pendenti.size, foto: attesaFoto, erroreCloud: erroreDati ? 1 : 0 };
+  }
+  function elementiInAttesa() {
+    const dettaglio = dettaglioInAttesa();
+    return dettaglio.dati + dettaglio.foto + dettaglio.erroreCloud;
+  }
   function aggiornaStato() {
     impostaStato(!online() ? 'offline' : completoInCorso || sincronizzazioneInCorso || invii.size ? 'sincronizzando'
       : elementiInAttesa() || !datiVerificati ? 'parziale' : 'sincronizzato');
@@ -266,9 +272,47 @@ const sync = (() => {
     return Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Timeout sincronizzazione')), ms); })]).finally(() => clearTimeout(timer));
   }
 
+  function remotoNormalizzato(remoto) {
+    return { ...remoto, risposte: mappaRisposteInArray(arrayRisposteInMappa(remoto.risposte)) };
+  }
+
+  function preparaCreazioneCloud(record) {
+    const identita = typeof appIdentity !== 'undefined' ? appIdentity.current() : null;
+    if (!identita) return record;
+    const adesso = new Date().toISOString();
+    const risultato = { ...record, campi_aggiornati: { ...(record.campi_aggiornati || {}) } };
+
+    // Se un record locale sopravvive ma il documento cloud manca, deve poter essere recuperato
+    // anche se era stato creato prima dell'introduzione degli account o da un altro dispositivo.
+    // Conserviamo l'attribuzione precedente come origine e attribuiamo la "ricreazione cloud"
+    // all'utente autenticato che la sta eseguendo, così le Rules non bloccano il recupero.
+    if (risultato.creato_da_uid && risultato.creato_da_uid !== identita.uid) {
+      risultato.origine_creato_da_uid ||= risultato.creato_da_uid;
+      risultato.origine_creato_da_username ||= risultato.creato_da_username || '';
+      risultato.origine_creato_da_nome ||= risultato.creato_da_nome || '';
+    }
+    risultato.creato_da_uid = identita.uid;
+    risultato.creato_da_username = identita.username;
+    risultato.creato_da_nome = `${identita.nome} ${identita.cognome}`;
+    risultato.creato_il ||= risultato.data || risultato.aggiornato_il || adesso;
+    risultato.ultimo_aggiornamento_da_uid = identita.uid;
+    risultato.ultimo_aggiornamento_da_username = identita.username;
+    risultato.ultimo_aggiornamento_da_nome = `${identita.nome} ${identita.cognome}`;
+    ['creato_da_uid','creato_da_username','creato_da_nome','creato_il',
+     'ultimo_aggiornamento_da_uid','ultimo_aggiornamento_da_username','ultimo_aggiornamento_da_nome']
+      .forEach((campo) => { risultato.campi_aggiornati[campo] = adesso; });
+    risultato.aggiornato_il ||= adesso;
+    risultato.campi_aggiornati.aggiornato_il ||= risultato.aggiornato_il;
+    return risultato;
+  }
+
   async function applicaRemoto(remoto) {
-    // Read + conservative merge + put share one IDB transaction, including concurrent edits.
-    const esito = await db.unisciSopralluogoRemoto(remoto, unisciDocumenti);
+    // Se non esiste una revisione locale esplicitamente pendente, il server è autorevole.
+    // Questo evita che differenze di normalizzazione/cache di un dispositivo passivo vengano
+    // rispedite al cloud come false modifiche (e poi rifiutate dalle Rules multiutente).
+    const esito = await db.unisciSopralluogoRemoto(remoto, (locale, server) =>
+      locale?._sync_rev ? unisciDocumenti(locale, server) : remotoNormalizzato(server)
+    );
     if (esito.cambiato) notificaDatiAggiornati();
     return esito.record;
   }
@@ -287,8 +331,20 @@ const sync = (() => {
           const unito = await conScadenza(firestoreDb.runTransaction(async tx => {
             const snap = await tx.get(ref);
             const remoto = snap.exists ? { ...snap.data(), id } : null;
-            const record = unisciDocumenti(locale, remoto);
-            const { patch, campi } = differenze(record, remoto);
+            const haRevisioneLocale = !!locale._sync_rev;
+            let record;
+            if (!remoto) {
+              record = preparaCreazioneCloud(unisciDocumenti(locale, null));
+            } else if (haRevisioneLocale) {
+              record = unisciDocumenti(locale, remoto);
+            } else {
+              // Record solo in cache, nessuna modifica locale tracciata: non deve mai tentare
+              // una scrittura con l'identità dell'ultimo tecnico che lo aveva modificato.
+              record = remotoNormalizzato(remoto);
+            }
+            const { patch, campi } = (!remoto || haRevisioneLocale)
+              ? differenze(record, remoto)
+              : { patch: {}, campi: [] };
             if (campi.length) tx.set(ref, patch, { mergeFields: campi });
             return record;
           }));
@@ -408,10 +464,14 @@ const sync = (() => {
         for (const locale of locali) {
           try {
             const corrente = await db.leggiSopralluogo(locale.id);
-            if (corrente && (!remoti.has(locale.id) || corrente._sync_rev || differenze(corrente, remoti.get(locale.id)).campi.length)) {
+            if (corrente && (!remoti.has(locale.id) || corrente._sync_rev)) {
               pendenti.set(locale.id, true);
               esiti.push(invia(locale.id));
               if (esiti.length % 8 === 0) await Promise.all(esiti);
+            } else if (corrente && remoti.has(locale.id)) {
+              // Pulisce eventuali "pendenti" rimasti in memoria da un tentativo precedente:
+              // senza _sync_rev non c'è nulla da inviare da questo dispositivo.
+              pendenti.delete(locale.id);
             }
           } catch (errore) {
             // Never skip the remaining records; this one stays pending and is retried.
@@ -487,7 +547,7 @@ const sync = (() => {
 
   return {
     init, sincronizzaTutto, sincronizzaCompleto, onCambioStato, onDatiAggiornati,
-    elementiInAttesa, statoAttuale: () => statoAttuale,
+    elementiInAttesa, dettaglioInAttesa, statoAttuale: () => statoAttuale,
     _test: { arrayRisposteInMappa, mappaRisposteInArray, unisciRisposte, unisciFotoUrl, estraiMetadati, timestampDi, unisciDocumenti, stabile }
   };
 })();

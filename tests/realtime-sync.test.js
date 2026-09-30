@@ -167,6 +167,25 @@ test('remote realtime change is applied locally without echoing a write back',as
   assert.equal(s.counts().writes,before);
 });
 
+test('passive cached differences are refreshed from server and never echoed as writes',async()=>{
+  const s=setup([{...legacy,punto_vendita:'Cache vecchia'}]);
+  s.remote.set('MISDO',{...legacy,punto_vendita:'Valore server',risposte:{12:{domanda_id:12,risposta:'C',note:'server'}}});
+  const before=s.counts().writes;
+  await s.api.sincronizzaTutto();
+  assert.equal(s.counts().writes,before,'a passive cache must not write to Firestore');
+  assert.equal(s.local.get('MISDO').punto_vendita,'Valore server');
+  assert.equal(s.api.elementiInAttesa(),0);
+});
+
+test('pending map is cleared when a record has no tracked local revision',async()=>{
+  const s=setup([legacy]);await s.api.init();
+  const cached=s.local.get('MISDO');
+  delete cached._sync_rev;
+  s.local.set('MISDO',cached);
+  await s.api.sincronizzaCompleto();
+  assert.equal(s.api.dettaglioInAttesa().dati,0);
+});
+
 test('explicit sync re-verifies the server even while the realtime listener is aligned',async()=>{
   const s=setup([legacy]);await s.api.init();
   const gets=s.counts().gets;
