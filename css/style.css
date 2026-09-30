@@ -79,6 +79,8 @@ body[data-authenticated="false"] #banner-aggiornamento { display: none !importan
   flex: none;
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  user-select: none;
 }
 
 .stato-connessione-pallino {
