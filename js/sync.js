@@ -317,11 +317,30 @@ const sync = (() => {
     'origine_creato_da_uid', 'origine_creato_da_username', 'origine_creato_da_nome'
   ];
 
+  const CAMPI_SOLO_TRACCIAMENTO = new Set([
+    'aggiornato_il', 'campi_aggiornati', ...CAMPI_ATTORE, ...CAMPI_CREAZIONE
+  ]);
+
+  function pulisciContenutoOperativo(value) {
+    if (value == null || value === '') return undefined;
+    if (Array.isArray(value)) {
+      const array = value.map(pulisciContenutoOperativo).filter((item) => item !== undefined);
+      return array.length ? array : undefined;
+    }
+    if (typeof value === 'object') {
+      const oggetto = {};
+      Object.entries(value).forEach(([chiave, contenuto]) => {
+        if (CAMPI_SOLO_TRACCIAMENTO.has(chiave)) return;
+        const pulito = pulisciContenutoOperativo(contenuto);
+        if (pulito !== undefined) oggetto[chiave] = pulito;
+      });
+      return Object.keys(oggetto).length ? oggetto : undefined;
+    }
+    return value;
+  }
+
   function contenutoOperativo(sopralluogo) {
-    const record = datiCloud(sopralluogo || {});
-    ['aggiornato_il', 'campi_aggiornati', ...CAMPI_ATTORE, ...CAMPI_CREAZIONE]
-      .forEach((campo) => delete record[campo]);
-    return record;
+    return pulisciContenutoOperativo(datiCloud(sopralluogo || {})) || {};
   }
 
   function haDifferenzeOperative(unito, remoto) {
