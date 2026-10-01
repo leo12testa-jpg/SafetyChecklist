@@ -259,13 +259,23 @@ const sync = (() => {
     const dettaglio = dettaglioInAttesa();
     return dettaglio.dati + dettaglio.foto + dettaglio.erroreCloud;
   }
+
+  function riconciliaPendentiLocali(locali) {
+    const perId = new Map((locali || []).map((record) => [record.id, record]));
+    for (const id of Array.from(pendenti.keys())) {
+      const record = perId.get(id);
+      if (!record || !record._sync_rev) pendenti.delete(id);
+    }
+    (locali || []).filter((record) => record._sync_rev).forEach((record) => pendenti.set(record.id, true));
+  }
+
   function aggiornaStato() {
     impostaStato(!online() ? 'offline' : completoInCorso || sincronizzazioneInCorso || invii.size ? 'sincronizzando'
       : elementiInAttesa() || !datiVerificati ? 'parziale' : 'sincronizzato');
   }
   function riprovaDopo() {
     if (retry || !online()) return;
-    retry = setTimeout(() => { retry = null; sincronizzaCompleto(); }, 15000);
+    retry = setTimeout(() => { retry = null; sincronizzaCompleto(); }, 10000);
   }
   function conScadenza(promise, ms = 12000) {
     let timer;
@@ -386,7 +396,10 @@ const sync = (() => {
         let ancora;
         do {
           const locale = await db.leggiSopralluogo(id);
-          if (!locale) return true;
+          if (!locale) {
+            pendenti.delete(id);
+            return true;
+          }
           const rev = locale._sync_rev;
           const ref = firestoreDb.collection(COLLECTION).doc(id);
           const esitoTx = await conScadenza(firestoreDb.runTransaction(async tx => {
@@ -441,9 +454,18 @@ const sync = (() => {
     })();
     invii.set(id, lavoro);
     aggiornaStato();
-    lavoro.then(ok => {
-      invii.delete(id); aggiornaStato();
-      if (ok && pendenti.has(id)) invia(id);
+    lavoro.then(async (ok) => {
+      invii.delete(id);
+      if (ok && pendenti.has(id)) {
+        try {
+          const corrente = await db.leggiSopralluogo(id);
+          if (corrente?._sync_rev) invia(id);
+          else pendenti.delete(id);
+        } catch (_) {
+          riprovaDopo();
+        }
+      }
+      aggiornaStato();
     });
     return lavoro;
   }
@@ -522,7 +544,7 @@ const sync = (() => {
       try {
         // ALL local records first, including legacy entries and the trash.
         const locali = await db.elencaTuttiSopralluoghi();
-        locali.filter(s => s._sync_rev).forEach(s => pendenti.set(s.id, true));
+        riconciliaPendentiLocali(locali);
         let remoti, nonApplicati = 0;
         if (!verificaServer && realtimeAllineato && unsubscribe) {
           // The listener already applied every server document it delivered.
@@ -576,10 +598,30 @@ const sync = (() => {
     if (completoInCorso) return completoInCorso;
     completoInCorso = (async () => {
       const primo = await sincronizzaTutto();
-      if (typeof fotoSync !== 'undefined') await conScadenza(fotoSync.riprovaInSospeso());
+
+      // Su rete mobile più foto possono richiedere più di 12 secondi: ogni richiesta Supabase
+      // ha già il proprio timeout, quindi non troncare l'intero ciclo di sincronizzazione.
+      if (typeof fotoSync !== 'undefined') {
+        try {
+          await fotoSync.riprovaInSospeso();
+        } catch (erroreFoto) {
+          console.warn('Sync foto: upload da ritentare automaticamente', erroreFoto);
+        }
+      }
+
+      // L'upload foto aggiorna foto_url e crea una revisione locale: questo secondo passaggio
+      // porta i riferimenti appena creati su Firestore.
       const secondo = await sincronizzaTutto({ verificaServer: false });
-      if (typeof fotoSync !== 'undefined') await conScadenza(fotoSync.recuperaFotoMancanti());
       attesaFoto = (await db.elencaFotoSenzaUrl()).length;
+
+      // Scaricare foto già presenti sul cloud serve solo a scaldare la cache locale e non deve
+      // lasciare la sincronizzazione bloccata/parziale.
+      if (typeof fotoSync !== 'undefined' && online()) {
+        fotoSync.recuperaFotoMancanti().catch((erroreFoto) => {
+          console.warn('Sync foto: cache remota non ancora completa', erroreFoto);
+        });
+      }
+
       return primo && secondo && !elementiInAttesa();
     })().catch(errore => {
       erroreDati = true;
@@ -589,6 +631,7 @@ const sync = (() => {
       completoInCorso = null;
       aggiornaStato();
       if (elementiInAttesa()) riprovaDopo();
+      else if (retry) { clearTimeout(retry); retry = null; }
     });
     aggiornaStato();
     return completoInCorso;
@@ -614,6 +657,9 @@ const sync = (() => {
       if (event.persisted && firestoreDb) firestoreDb.enableNetwork().then(riprendi).catch(() => riprovaDopo());
     });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') riprendi(); });
+    window.setInterval(() => {
+      if (online() && (statoAttuale === 'parziale' || elementiInAttesa() > 0)) sincronizzaCompleto();
+    }, 30000);
     if (typeof fotoSync !== 'undefined') fotoSync.onCambioStato(async () => {
       attesaFoto = (await db.elencaFotoSenzaUrl()).length;
       aggiornaStato();
@@ -625,6 +671,6 @@ const sync = (() => {
   return {
     init, sincronizzaTutto, sincronizzaCompleto, onCambioStato, onDatiAggiornati,
     elementiInAttesa, dettaglioInAttesa, statoAttuale: () => statoAttuale,
-    _test: { arrayRisposteInMappa, mappaRisposteInArray, unisciRisposte, unisciFotoUrl, estraiMetadati, timestampDi, unisciDocumenti, stabile, contenutoOperativo, haDifferenzeOperative, preparaAggiornamentoCloud }
+    _test: { arrayRisposteInMappa, mappaRisposteInArray, unisciRisposte, unisciFotoUrl, estraiMetadati, timestampDi, unisciDocumenti, stabile, contenutoOperativo, haDifferenzeOperative, preparaAggiornamentoCloud, riconciliaPendentiLocali }
   };
 })();
