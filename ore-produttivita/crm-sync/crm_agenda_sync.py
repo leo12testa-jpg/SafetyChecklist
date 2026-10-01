@@ -328,6 +328,7 @@ async def main():
         }
 
         all_events = []
+        scanned_sigle = set()
         seq = 0
 
         if candidates:
@@ -340,6 +341,7 @@ async def main():
                 try:
                     await select_resource(page, candidate, item["option"])
                     current = await snapshot_all(page)
+                    scanned_sigle.add(str(resource.get("sigla_crm") or "").strip().upper())
                     events, seq = events_from_snapshot(current, wanted, resource, seq)
                     all_events.extend(events)
                     debug["resourceRuns"].append({
@@ -363,6 +365,7 @@ async def main():
                     if not resource:
                         continue
                     found_resources[resource["sigla_crm"]] = resource
+                    scanned_sigle.add(str(resource.get("sigla_crm") or "").strip().upper())
                     ev = event_from_text(row.get("text", ""), wanted, seq, resource)
                     seq += 1
                     if ev and ev["date"] == wanted:
@@ -388,9 +391,14 @@ async def main():
         for sigla, item in sorted(by_resource.items(), key=lambda kv: kv[1]["nome"]):
             print(f"  {sigla:>4} · {item['nome']}: {item['count']} attività")
 
-        scanned = len(by_resource)
-        print(f"\nAgende con attività riconosciute: {scanned} / {len(resources)}")
+        scanned = len(scanned_sigle)
+        print(f"\nAgende effettivamente scorse: {scanned} / {len(resources)}")
+        print(f"Agende con almeno un'attività riconosciuta: {len(by_resource)}")
         print(f"Attività totali trovate: {len(events)}")
+        if scanned < len(resources):
+            missing = [r.get("nome_crm") or r.get("sigla_crm") for r in resources if str(r.get("sigla_crm") or "").strip().upper() not in scanned_sigle]
+            print("\nATTENZIONE: non risultano scorse tutte le agende.")
+            print("Mancano: " + ", ".join(missing))
 
         if not events:
             print(f"\nNessuna attività riconosciuta. Diagnostica: {DEBUG_FILE}")
@@ -406,7 +414,12 @@ async def main():
         cleaned = [{k: v for k, v in e.items() if not k.startswith("_")} for e in events]
         status, result = post_json(
             APP_API,
-            {"action": "ingestAgendaCompany", "date": wanted, "events": cleaned},
+            {
+                "action": "ingestAgendaCompany",
+                "date": wanted,
+                "events": cleaned,
+                "scannedResources": sorted(scanned_sigle)
+            },
             token
         )
         print("\nRisultato:", json.dumps(result, ensure_ascii=False, indent=2))
@@ -417,7 +430,7 @@ async def main():
             f"\nSalvate: {result.get('saved', 0)} · "
             f"Da abbinare: {result.get('unmatched', 0)} · "
             f"Ambigue: {result.get('ambiguous', 0)} · "
-            f"Risorse lette: {result.get('resources', 0)}"
+            f"Agende scorse: {result.get('scannedResources', 0)}"
         )
         print(f"Diagnostica tecnica: {DEBUG_FILE}")
         await browser.close()
