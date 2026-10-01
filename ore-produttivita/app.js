@@ -27,7 +27,61 @@ $("#confirmDay").addEventListener("click",async()=>{const b=$("#confirmDay");b.d
 function setTab(which){const day=which==="day";$("#dayPanel").hidden=!day;$("#adminPanel").hidden=day;$("#tabDay").classList.toggle("active",day);$("#tabAdmin").classList.toggle("active",!day)}
 $("#tabDay").addEventListener("click",()=>setTab("day"));$("#tabAdmin").addEventListener("click",()=>setTab("admin"));
 $("#loadAdmin").addEventListener("click",loadAdmin);
-async function loadAdmin(){if(!profile||profile.ruolo!=="admin")return;try{const j=await api("adminSummary",{from:$("#adminFrom").value,to:$("#adminTo").value});$("#kpiHours").textContent=(j.totalMinutes/60).toLocaleString("it-IT",{maximumFractionDigits:1});$("#kpiSessions").textContent=j.sessions;$("#kpiTechs").textContent=j.technicians;$("#kpiJobs").textContent=j.jobs;const tb=$("#adminRows");tb.innerHTML="";$("#adminEmpty").hidden=j.rows.length>0;j.rows.slice(0,100).forEach(r=>{const c=r.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};const tr=document.createElement("tr");tr.innerHTML=`<td>${new Date(r.data_lavoro+"T12:00:00").toLocaleDateString("it-IT")}</td><td>${r.tecnico_nome||r.tecnico_uid}</td><td><b>${cl.ragione_sociale||"—"}</b><br><span class="muted">${c.descrizione||"—"}</span></td><td>${tp.nome||"—"}</td><td>${fmtMinutes(r.minuti_effettivi)}</td>`;tb.appendChild(tr)})}catch(e){console.error(e)}}
+async function loadAdmin(){
+  if(!profile||profile.ruolo!=="admin")return;
+  try{
+    const j=await api("adminSummary",{from:$("#adminFrom").value,to:$("#adminTo").value});
+    $("#kpiHours").textContent=(j.totalMinutes/60).toLocaleString("it-IT",{maximumFractionDigits:1});
+    $("#kpiSessions").textContent=j.sessions;
+    $("#kpiTechs").textContent=j.technicians;
+    $("#kpiJobs").textContent=j.jobs;
+
+    const tb=$("#adminRows");tb.innerHTML="";
+    $("#adminEmpty").hidden=j.rows.length>0;
+    j.rows.slice(0,100).forEach(r=>{
+      const c=r.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td>${new Date(r.data_lavoro+"T12:00:00").toLocaleDateString("it-IT")}</td><td>${r.tecnico_nome||r.tecnico_uid}</td><td><b>${cl.ragione_sociale||"—"}</b><br><span class="muted">${c.descrizione||"—"}</span></td><td>${tp.nome||"—"}</td><td>${fmtMinutes(r.minuti_effettivi)}</td>`;
+      tb.appendChild(tr);
+    });
+
+    const clients=new Map(),jobs=new Map();
+    for(const r of j.rows){
+      const c=r.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
+      const clientKey=cl.ragione_sociale||"Non classificato";
+      const cv=clients.get(clientKey)||{minutes:0,sessions:0};
+      cv.minutes+=Number(r.minuti_effettivi||0);cv.sessions++;clients.set(clientKey,cv);
+
+      const jobKey=c.codice_breve||r.commessa_id;
+      if(jobKey){
+        const v=jobs.get(jobKey)||{minutes:0,type:tp.nome||"Altro",status:c.stato||"",desc:c.descrizione||""};
+        v.minutes+=Number(r.minuti_effettivi||0);jobs.set(jobKey,v);
+      }
+    }
+
+    const clientBody=$("#clientRows");clientBody.innerHTML="";
+    [...clients.entries()].sort((a,b)=>b[1].minutes-a[1].minutes).slice(0,12).forEach(([name,v])=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td><b>${name}</b></td><td>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})}</td><td>${v.sessions}</td>`;
+      clientBody.appendChild(tr);
+    });
+    $("#clientEmpty").hidden=clients.size>0;
+
+    const types=new Map();
+    for(const job of jobs.values()){
+      if(job.status!=="completata"||job.type==="Altro")continue;
+      const v=types.get(job.type)||{minutes:0,jobs:0};
+      v.minutes+=job.minutes;v.jobs++;types.set(job.type,v);
+    }
+    const prodBody=$("#productivityRows");prodBody.innerHTML="";
+    [...types.entries()].sort((a,b)=>(b[1].minutes/b[1].jobs)-(a[1].minutes/a[1].jobs)).forEach(([name,v])=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td><b>${name}</b></td><td>${v.jobs}</td><td>${(v.minutes/v.jobs/60).toLocaleString("it-IT",{maximumFractionDigits:1})} h</td><td>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})} h</td>`;
+      prodBody.appendChild(tr);
+    });
+    $("#productivityEmpty").hidden=types.size>0;
+  }catch(e){console.error(e)}
+}
 
 
 function plannerDataFromXml(xmlText){
