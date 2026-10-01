@@ -3747,23 +3747,6 @@ const connessioneIndicatore = (() => {
     window.addEventListener('online', aggiorna);
     window.addEventListener('offline', aggiorna);
     sync.onCambioStato(aggiorna);
-
-    contenitore.setAttribute('role', 'button');
-    contenitore.setAttribute('tabindex', '0');
-    contenitore.title = 'Clicca per ritentare la sincronizzazione';
-    const ritenta = async () => {
-      if (!navigator.onLine) return;
-      testo.textContent = 'Sincronizzazione in corso…';
-      await sync.sincronizzaCompleto();
-      aggiorna();
-    };
-    contenitore.addEventListener('click', ritenta);
-    contenitore.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        ritenta();
-      }
-    });
   }
 
   return { init };
