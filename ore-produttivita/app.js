@@ -95,8 +95,4 @@ $("#importPlanner")?.addEventListener("click",async()=>{
   }catch(e){msg.textContent=e.message||"Import non riuscito."}
   finally{btn.disabled=false}
 });
-    msg.textContent=`Import completato: ${r.received} commesse lette · ${r.createdClients} nuovi clienti · ${r.createdJobs} nuove commesse · ${r.updatedJobs} aggiornate.`;
-    await loadAdmin();
-  }catch(e){msg.textContent=e.message||"Import non riuscito."}
-  finally{btn.disabled=false}
-});
+
