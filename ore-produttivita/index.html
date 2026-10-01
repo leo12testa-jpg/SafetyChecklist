@@ -3,236 +3,283 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#173a67">
+  <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
-  <link rel="stylesheet" href="./style.css">
+  <link rel="icon" href="../assets/icon-192.png">
+  <link rel="stylesheet" href="./style.css?v=20261001-5">
 </head>
 <body>
-  <main class="shell">
-    <section id="loginView" class="auth-card">
-      <div class="brand-mark">C</div>
-      <p class="eyebrow">COLLIGO INGEGNERIA</p>
-      <h1>Ore & Produttività</h1>
-      <p class="muted">Accedi con le stesse credenziali della Safety Checklist.</p>
-      <form id="loginForm" class="stack">
-        <label>Username<input id="username" autocomplete="username" required></label>
-        <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
-        <button id="loginBtn" class="primary" type="submit">Accedi</button>
-        <p id="loginError" class="error" hidden></p>
-      </form>
+  <main id="loginView" class="login-shell">
+    <section class="login-brand-panel" aria-hidden="true">
+      <div class="login-brand-mark">
+        <img src="../assets/icon-192.png" alt="">
+        <div><strong>Colligo Ingegneria</strong><span>Suite interna</span></div>
+      </div>
+      <div class="login-brand-content">
+        <span class="eyebrow light">TEMPI • COMMESSE • PRODUTTIVITÀ</span>
+        <h1>Il lavoro tecnico,<br>misurato bene.</h1>
+        <p>Ore ricavate dall’agenda CRM, pratiche sempre distinte e dati utili alla direzione per analisi e preventivazione.</p>
+      </div>
+      <div class="login-feature-row">
+        <span>✓ Stesso account Checklist</span>
+        <span>✓ Agenda CRM</span>
+        <span>✓ Storico 2026</span>
+      </div>
     </section>
-
-    <section id="appView" hidden>
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">COLLIGO</p>
-          <h1>Ore & Produttività</h1>
-        </div>
-        <div class="session">
-          <div>
-            <strong id="userName">—</strong>
-            <span id="userRole">—</span>
-          </div>
-          <button id="logoutBtn" class="ghost" type="button">Esci</button>
-        </div>
-      </header>
-
-      <nav class="tabs" aria-label="Sezioni">
-        <button id="tabDay" class="tab active" type="button">La mia giornata</button>
-        <button id="tabAdmin" class="tab" type="button" hidden>Direzione</button>
-      </nav>
-
-      <section id="dayPanel">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">CONSUNTIVO</p>
-            <h2>Attività della giornata</h2>
-            <p class="muted">Le durate arrivano dall’agenda CRM. Correggi solo ciò che non corrisponde al lavoro reale.</p>
-          </div>
-          <label class="date-control">Data<input id="dayDate" type="date"></label>
-        </div>
-
-        <div class="status-strip">
-          <div><span>Totale</span><strong id="dayTotal">0h 00m</strong></div>
-          <div><span>Stato</span><strong id="dayStatus">Da verificare</strong></div>
-          <div><span>CRM</span><strong id="crmSyncStatus">Non sincronizzato</strong></div>
-          <button id="manualToggle" class="ghost" type="button">+ Aggiungi</button>
-          <button id="refreshDay" class="ghost" type="button">Aggiorna</button>
-        </div>
-
-        <div id="dayMessage" class="notice" hidden></div>
-
-        <div id="manualCard" class="card" style="margin-bottom:14px" hidden>
-          <div class="card-head">
-            <div>
-              <strong>Aggiungi attività manuale</strong>
-              <div class="muted">Usala solo se l’attività non è presente nell’agenda CRM.</div>
-            </div>
-            <button id="manualClose" class="ghost" type="button">Chiudi</button>
-          </div>
-          <div class="range" style="align-items:end;flex-wrap:wrap">
-            <label style="min-width:220px;flex:1">Cliente
-              <select id="manualClient" style="min-height:43px;border:1px solid var(--line);border-radius:12px;padding:9px;background:#fff"></select>
-            </label>
-            <label style="min-width:280px;flex:2">Commessa
-              <select id="manualJob" style="min-height:43px;border:1px solid var(--line);border-radius:12px;padding:9px;background:#fff"></select>
-            </label>
-            <label style="width:130px">Durata
-              <input id="manualDuration" placeholder="2h30m">
-            </label>
-          </div>
-          <label style="margin-top:10px">Nota
-            <input id="manualNote" placeholder="Attività non presente in agenda">
-          </label>
-          <div style="display:flex;justify-content:flex-end;margin-top:12px">
-            <button id="manualSave" class="primary" type="button">Aggiungi attività</button>
-          </div>
-        </div>
-
-        <div id="syncIssuesCard" class="card" style="margin-bottom:14px" hidden>
-          <div class="card-head">
-            <div>
-              <strong>Attività da verificare</strong>
-              <div id="syncIssuesSubtitle" class="muted">L’agenda contiene attività che richiedono un abbinamento.</div>
-            </div>
-            <span id="syncIssueCount" class="badge">0</span>
-          </div>
-          <div id="syncIssues" class="session-list"></div>
-        </div>
-
-        <div id="sessions" class="session-list"></div>
-
-
-        <div class="card" style="margin-top:14px">
-          <div class="card-head">
-            <div>
-              <strong>Legenda codici lavoro</strong>
-              <div class="muted">Numero = cliente · lettera = tipo attività</div>
-            </div>
-          </div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:13px">
-            <span class="badge">A · DVR generale</span>
-            <span class="badge">B · Agg. DVR</span>
-            <span class="badge">C · MMC</span>
-            <span class="badge">D · Chimico</span>
-            <span class="badge">E · Rumore</span>
-            <span class="badge">F · Vibrazioni</span>
-            <span class="badge">G · DUVRI / Art.26</span>
-            <span class="badge">H · PEM</span>
-            <span class="badge">I · Planimetrie</span>
-            <span class="badge">L · Sopralluogo</span>
-            <span class="badge">M · Formazione</span>
-            <span class="badge">N · Segreteria formazione</span>
-            <span class="badge">O · Forfait / Consulenza</span>
-            <span class="badge">P · Altro</span>
-          </div>
-        </div>
-        <div class="confirm-box">
-          <div>
-            <strong>Giornata corretta?</strong>
-            <p class="muted">Confermando, le ore diventano disponibili alla direzione per le analisi di produttività.</p>
-          </div>
-          <button id="confirmDay" class="primary" type="button">Conferma giornata</button>
-        </div>
-      </section>
-
-      <section id="adminPanel" hidden>
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">DIREZIONE</p>
-            <h2>Produttività aziendale</h2>
-            <p class="muted">Prima base dati per tempi reali, documenti, clienti e futura preventivazione.</p>
-          </div>
-          <div class="range">
-            <label>Dal<input id="adminFrom" type="date"></label>
-            <label>Al<input id="adminTo" type="date"></label>
-            <button id="loadAdmin" class="ghost" type="button">Aggiorna</button>
-          </div>
-        </div>
-
-        <div class="kpis">
-          <article><span>Ore</span><strong id="kpiHours">0</strong></article>
-          <article><span>Sessioni</span><strong id="kpiSessions">0</strong></article>
-          <article><span>Tecnici</span><strong id="kpiTechs">0</strong></article>
-          <article><span>Commesse</span><strong id="kpiJobs">0</strong></article>
-        </div>
-
-
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:14px">
-          <div class="card">
-            <div class="card-head">
-              <div><strong>Tempo medio per documento</strong><div class="muted">Solo commesse completate nel periodo</div></div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Tipo</th><th>Chiuse</th><th>Media</th><th>Mediana</th><th>Range</th></tr></thead>
-                <tbody id="productivityRows"></tbody>
-              </table>
-            </div>
-            <div id="productivityEmpty" class="empty" hidden>Nessun documento completato classificato.</div>
-          </div>
-          <div class="card">
-            <div class="card-head">
-              <div><strong>Ore per cliente</strong><div class="muted">Dove stiamo impiegando il tempo</div></div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Cliente</th><th>Ore</th><th>Sessioni</th></tr></thead>
-                <tbody id="clientRows"></tbody>
-              </table>
-            </div>
-            <div id="clientEmpty" class="empty" hidden>Nessun dato nel periodo.</div>
-          </div>
-          <div class="card">
-            <div class="card-head">
-              <div><strong>Ore per tecnico</strong><div class="muted">Carico registrato nel periodo</div></div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Tecnico</th><th>Ore</th><th>Sessioni</th><th>Commesse</th></tr></thead>
-                <tbody id="technicianRows"></tbody>
-              </table>
-            </div>
-            <div id="technicianEmpty" class="empty" hidden>Nessun dato nel periodo.</div>
-          </div>
-        </div>
-
-        <div class="card" style="margin-bottom:14px">
-          <div class="card-head">
-            <div>
-              <strong>Importa Planner CRM</strong>
-              <div class="muted">Aggiorna clienti e commesse mantenendo i codici già assegnati.</div>
-            </div>
-          </div>
-          <div class="range" style="align-items:center">
-            <label style="flex:1;min-width:240px">File .xls del Planner
-              <input id="plannerFile" type="file" accept=".xls,.xml,application/vnd.ms-excel,text/xml,application/xml">
-            </label>
-            <button id="importPlanner" class="primary" type="button">Importa planner</button>
-          </div>
-          <div id="plannerImportMessage" class="notice" hidden style="margin-top:12px"></div>
-        </div>
-
-        <div class="card">
-          <div class="card-head">
-            <strong>Dettaglio attività</strong>
-            <span class="muted">prime registrazioni del periodo</span>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Data</th><th>Tecnico</th><th>Cliente / commessa</th><th>Tipo</th><th>Ore</th></tr></thead>
-              <tbody id="adminRows"></tbody>
-            </table>
-          </div>
-          <div id="adminEmpty" class="empty" hidden>Nessuna sessione nel periodo selezionato.</div>
-        </div>
-      </section>
+    <section class="login-card">
+      <div class="login-card-logo">
+        <img src="../assets/icon-192.png" alt="">
+        <div><strong>Ore & Produttività</strong><span>Accesso riservato</span></div>
+      </div>
+      <div class="login-card-heading">
+        <h2>Accedi al tuo account</h2>
+        <p>Usa le stesse credenziali della Safety Checklist.</p>
+      </div>
+      <form id="loginForm" class="login-form">
+        <label>Username<input id="username" autocomplete="username" placeholder="nome.cognome" required></label>
+        <label>Password<input id="password" type="password" autocomplete="current-password" placeholder="Inserisci la password" required></label>
+        <p id="loginError" class="error" hidden></p>
+        <button id="loginBtn" class="btn btn-primary" type="submit">Accedi <span>→</span></button>
+      </form>
+      <a class="back-link" href="../">← Torna a Safety Checklist</a>
     </section>
   </main>
+
+  <section id="appView" class="app-frame" hidden>
+    <header class="app-header">
+      <div class="header-brand">
+        <img src="../assets/icon-192.png" alt="">
+        <div>
+          <strong>Ore & Produttività</strong>
+          <span>Colligo Ingegneria</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="header-user">
+          <strong id="userName">—</strong>
+          <span id="userRole">—</span>
+        </div>
+        <button id="logoutBtn" class="header-btn" type="button">Esci</button>
+      </div>
+    </header>
+
+    <div class="app-shell">
+      <aside class="app-sidebar">
+        <nav class="side-nav" aria-label="Navigazione">
+          <button id="tabDay" class="side-nav-item active" type="button">
+            <span class="nav-icon">◷</span><span>La mia giornata</span>
+          </button>
+          <button id="tabAdmin" class="side-nav-item" type="button" hidden>
+            <span class="nav-icon">▥</span><span>Direzione</span>
+          </button>
+          <div class="side-separator"></div>
+          <a class="side-nav-item side-link" href="../">
+            <span class="nav-icon">✓</span><span>Safety Checklist</span>
+          </a>
+        </nav>
+        <div class="sidebar-foot">
+          <span class="sidebar-dot"></span>
+          <div><strong>Suite Colligo</strong><small>Ambiente aziendale</small></div>
+        </div>
+      </aside>
+
+      <div class="app-content">
+        <section id="dayPanel" class="screen">
+          <div class="page-heading">
+            <div>
+              <span class="eyebrow">CONSUNTIVO PERSONALE</span>
+              <h1>La mia giornata</h1>
+              <p>Controlla ciò che arriva dal CRM. Intervieni solo quando qualcosa non corrisponde al lavoro reale.</p>
+            </div>
+            <label class="date-field">Data<input id="dayDate" type="date"></label>
+          </div>
+
+          <div class="summary-grid">
+            <article class="summary-card">
+              <span class="summary-icon">◷</span>
+              <div><small>Ore della giornata</small><strong id="dayTotal">0h 00m</strong><span>Somma delle attività registrate</span></div>
+            </article>
+            <article class="summary-card">
+              <span class="summary-icon">✓</span>
+              <div><small>Stato giornata</small><strong id="dayStatus">Da verificare</strong><span>Diventa confermata dopo il controllo</span></div>
+            </article>
+            <article class="summary-card">
+              <span class="summary-icon">↻</span>
+              <div><small>Sincronizzazione CRM</small><strong id="crmSyncStatus">Non sincronizzato</strong><span>Ultima lettura dell’agenda</span></div>
+            </article>
+          </div>
+
+          <div class="toolbar">
+            <div class="toolbar-copy">
+              <strong>Attività del giorno</strong>
+              <span>Ogni riga corrisponde a una singola sessione di lavoro.</span>
+            </div>
+            <div class="toolbar-actions">
+              <button id="manualToggle" class="btn btn-secondary" type="button">＋ Aggiungi manualmente</button>
+              <button id="refreshDay" class="btn btn-secondary" type="button">↻ Aggiorna</button>
+            </div>
+          </div>
+
+          <div id="dayMessage" class="notice" hidden></div>
+
+          <div id="manualCard" class="panel" hidden>
+            <div class="panel-heading">
+              <div><span class="eyebrow">ECCEZIONE</span><h2>Aggiungi attività manuale</h2><p>Usala soltanto se l’attività non compare nell’agenda CRM.</p></div>
+              <button id="manualClose" class="icon-btn" type="button">×</button>
+            </div>
+            <div class="form-grid">
+              <label>Cliente
+                <select id="manualClient"></select>
+              </label>
+              <label class="wide">Commessa / pratica
+                <select id="manualJob"></select>
+              </label>
+              <label>Durata
+                <input id="manualDuration" placeholder="es. 2h30m">
+              </label>
+            </div>
+            <label>Nota
+              <input id="manualNote" placeholder="Perché non era presente nell’agenda?">
+            </label>
+            <div class="panel-actions"><button id="manualSave" class="btn btn-primary" type="button">Aggiungi attività</button></div>
+          </div>
+
+          <div id="syncIssuesCard" class="panel warning-panel" hidden>
+            <div class="panel-heading">
+              <div>
+                <span class="eyebrow warning">ATTENZIONE</span>
+                <h2>Attività da verificare</h2>
+                <p id="syncIssuesSubtitle">Il CRM contiene attività che non possono essere abbinate automaticamente.</p>
+              </div>
+              <span id="syncIssueCount" class="count-badge">0</span>
+            </div>
+            <div id="syncIssues" class="entry-list"></div>
+          </div>
+
+          <section class="explain-panel">
+            <div class="explain-heading">
+              <div><span class="eyebrow">COME LEGGERE LE RIGHE</span><h2>Ogni informazione ha un significato preciso</h2></div>
+            </div>
+            <div class="explain-grid">
+              <div><b>Codice lavoro</b><span><strong>1B</strong> = cliente 1 (PAM) + tipo B (Aggiornamento DVR).</span></div>
+              <div><b>Cliente</b><span>L’azienda a cui appartiene la pratica.</span></div>
+              <div><b>Pratica / commessa</b><span>Il singolo lavoro reale: es. “AGG DVR PAM OSTIA”. È il faldone che accumula le ore.</span></div>
+              <div><b>Tipo</b><span>La famiglia usata per confrontare lavori omogenei: DVR, MMC, Chimico, PEM, Planimetrie…</span></div>
+              <div><b>Origine</b><span><strong>CRM</strong> = calcolata dall’agenda; <strong>Manuale</strong> = aggiunta dal tecnico; <strong>Modificata</strong> = durata corretta.</span></div>
+              <div><b>Durata effettiva</b><span>È l’ora che entra nelle analisi della direzione e nel totale della pratica.</span></div>
+            </div>
+          </section>
+
+          <div id="sessions" class="entry-list"></div>
+
+          <section class="code-legend">
+            <div class="code-legend-title"><span class="eyebrow">LEGENDA</span><h2>Tipologie di lavoro</h2></div>
+            <div class="legend-grid">
+              <span><b>A</b>DVR generale</span><span><b>B</b>Agg. DVR</span><span><b>C</b>MMC</span>
+              <span><b>D</b>Chimico</span><span><b>E</b>Rumore</span><span><b>F</b>Vibrazioni</span>
+              <span><b>G</b>DUVRI / Art.26</span><span><b>H</b>PEM</span><span><b>I</b>Planimetrie</span>
+              <span><b>L</b>Sopralluogo</span><span><b>M</b>Formazione</span><span><b>N</b>Segreteria formazione</span>
+              <span><b>O</b>Forfait / Consulenza</span><span><b>P</b>Altro / da classificare</span>
+            </div>
+          </section>
+
+          <div class="confirm-bar">
+            <div><strong>Hai controllato tutto?</strong><span>Conferma solo quando le attività e le durate sono corrette.</span></div>
+            <button id="confirmDay" class="btn btn-primary" type="button">Conferma giornata</button>
+          </div>
+        </section>
+
+        <section id="adminPanel" class="screen" hidden>
+          <div class="page-heading">
+            <div>
+              <span class="eyebrow">DIREZIONE</span>
+              <h1>Produttività tecnica</h1>
+              <p>Analisi delle ore reali per cliente, tecnico, commessa e tipologia di lavoro.</p>
+            </div>
+            <div class="date-range">
+              <label>Dal<input id="adminFrom" type="date"></label>
+              <label>Al<input id="adminTo" type="date"></label>
+              <button id="loadAdmin" class="btn btn-secondary" type="button">Aggiorna</button>
+            </div>
+          </div>
+
+          <div class="summary-grid four">
+            <article class="summary-card"><span class="summary-icon">◷</span><div><small>Ore</small><strong id="kpiHours">0</strong><span>Somma delle ore effettive nel periodo</span></div></article>
+            <article class="summary-card"><span class="summary-icon">▤</span><div><small>Sessioni</small><strong id="kpiSessions">0</strong><span>Singole registrazioni di lavoro</span></div></article>
+            <article class="summary-card"><span class="summary-icon">◎</span><div><small>Tecnici</small><strong id="kpiTechs">0</strong><span>Persone con almeno una registrazione</span></div></article>
+            <article class="summary-card"><span class="summary-icon">▣</span><div><small>Commesse</small><strong id="kpiJobs">0</strong><span>Pratiche distinte su cui si è lavorato</span></div></article>
+          </div>
+
+          <section class="explain-panel admin-guide">
+            <div class="explain-heading"><div><span class="eyebrow">COME LEGGERE I DATI</span><h2>Cosa significa ogni indicatore</h2></div></div>
+            <div class="explain-grid">
+              <div><b>Media</b><span>Ore totali delle commesse chiuse ÷ numero di commesse. Può essere influenzata dai casi anomali.</span></div>
+              <div><b>Mediana</b><span>Il valore centrale: metà dei lavori impiega meno, metà impiega più. È molto utile per preventivare.</span></div>
+              <div><b>Range</b><span>Dal lavoro più veloce al più lungo della stessa tipologia.</span></div>
+              <div><b>Ore per cliente</b><span>Quanto tempo tecnico assorbe ogni cliente nel periodo selezionato.</span></div>
+              <div><b>Ore per tecnico</b><span>Carico registrato dalla persona. Non è una classifica di “bravura”: dipende dal tipo di lavoro assegnato.</span></div>
+              <div><b>Commessa</b><span>La singola pratica reale. Tutte le sessioni di giorni diversi si sommano nello stesso faldone.</span></div>
+            </div>
+          </section>
+
+          <div class="analytics-grid">
+            <div class="panel">
+              <div class="panel-heading compact"><div><span class="eyebrow">PREVENTIVAZIONE</span><h2>Tempo per tipologia</h2><p>Solo pratiche completate e già classificate.</p></div></div>
+              <div class="table-wrap">
+                <table><thead><tr><th>Tipo</th><th>Chiuse</th><th>Media</th><th>Mediana</th><th>Range</th></tr></thead><tbody id="productivityRows"></tbody></table>
+              </div>
+              <div id="productivityEmpty" class="empty" hidden>Nessun documento completato classificato.</div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-heading compact"><div><span class="eyebrow">CLIENTI</span><h2>Ore assorbite</h2><p>Dove viene impiegato il tempo tecnico.</p></div></div>
+              <div class="table-wrap">
+                <table><thead><tr><th>Cliente</th><th>Ore</th><th>Sessioni</th></tr></thead><tbody id="clientRows"></tbody></table>
+              </div>
+              <div id="clientEmpty" class="empty" hidden>Nessun dato nel periodo.</div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-heading compact"><div><span class="eyebrow">RISORSE</span><h2>Ore per tecnico</h2><p>Carico registrato nel periodo selezionato.</p></div></div>
+              <div class="table-wrap">
+                <table><thead><tr><th>Tecnico</th><th>Ore</th><th>Sessioni</th><th>Commesse</th></tr></thead><tbody id="technicianRows"></tbody></table>
+              </div>
+              <div id="technicianEmpty" class="empty" hidden>Nessun dato nel periodo.</div>
+            </div>
+          </div>
+
+          <details class="panel import-panel">
+            <summary><strong>Aggiornamento anagrafiche dal Planner CRM</strong><span>Import amministrativo</span></summary>
+            <div class="import-content">
+              <p>Serve per aggiornare clienti, commesse e storico da un export Excel XML del Planner. Non è un’operazione quotidiana dei tecnici.</p>
+              <div class="import-row">
+                <label>File .xls del Planner<input id="plannerFile" type="file" accept=".xls,.xml,application/vnd.ms-excel,text/xml,application/xml"></label>
+                <button id="importPlanner" class="btn btn-primary" type="button">Importa planner</button>
+              </div>
+              <div id="plannerImportMessage" class="notice" hidden></div>
+            </div>
+          </details>
+
+          <div class="panel detail-panel">
+            <div class="panel-heading compact">
+              <div><span class="eyebrow">DETTAGLIO</span><h2>Registrazioni del periodo</h2><p>Ogni riga è una sessione: chi ha lavorato, su quale pratica e per quanto tempo.</p></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Data</th><th>Tecnico</th><th>Codice</th><th>Cliente</th><th>Pratica / commessa</th><th>Tipo</th><th>Origine</th><th>Ore</th></tr></thead>
+                <tbody id="adminRows"></tbody>
+              </table>
+            </div>
+            <div id="adminEmpty" class="empty" hidden>Nessuna sessione nel periodo selezionato.</div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
 
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261001-4"></script>
+  <script src="./app.js?v=20261001-5"></script>
 </body>
 </html>
