@@ -19,7 +19,7 @@ function app(risposte, missing = false, synced = true) {
     fotoSync: { riprovaInSospeso: async () => calls.push('upload'), risolviFoto: async (id) => missing ? null : { id, blob: new Blob(['jpg']) } },
     db: { leggiSopralluogo: async () => { calls.push('read'); return record; },
       aggiornaSopralluogo: async () => calls.push('complete'), salvaPdfReport: async r => calls.push(r) },
-    pdf: { generaReport: async (_, r) => {
+    pdf: { versioneLayout: '20261001-area-manager-v1', generaReport: async (_, r) => {
       assert.ok(r.foto_url); calls.push('generate');
       if (missing) throw new Error('2 foto mancanti');
       return new Blob(['%PDF-']);
@@ -37,6 +37,7 @@ for (const legacy of [false, true]) test(`Genera PDF riepilogo: scope reale e ri
   await nodes.get('btn-genera-pdf').click();
   assert.deepEqual(calls.slice(0, 3), ['sync', 'read', 'generate']);
   assert.equal(calls.at(-1).firma_foto, 'complete-v2:a|b');
+  assert.equal(calls.at(-1).versione_layout, '20261001-area-manager-v1');
   assert.equal(vm.runInContext('typeof preparaDatiPdfCrossDevice', context), 'function');
   assert.equal(vm.runInContext('typeof firmaFotoSopralluogo', context), 'function');
 });
@@ -61,11 +62,12 @@ test('cache: firma precedente non certifica un PDF completo, firma nuova consent
   const start = source.indexOf('  function pdfSalvatoAncoraValido(');
   const end = source.indexOf('\n  /**', start);
   vm.runInContext(source.slice(start, end), context);
-  assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: '' }, { checklist_id: 'melluso_sopralluogo', risposte: [] })", context), false);
-  assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'melluso-layout-2:' }, { checklist_id: 'melluso_sopralluogo', risposte: [] })", context), false);
-  assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'melluso-layout-3:' }, { checklist_id: 'melluso_sopralluogo', risposte: [] })", context), true);
-  assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'a|b' }, { risposte: [{ foto: ['a','b'] }] })", context), false);
-  assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'complete-v2:a|b' }, { risposte: [{ foto: ['a','b'] }] })", context), true);
+  assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: '', versione_layout: '20261001-area-manager-v1' }, { checklist_id: 'melluso_sopralluogo', risposte: [] })", context), false);
+  assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'melluso-layout-2:', versione_layout: '20261001-area-manager-v1' }, { checklist_id: 'melluso_sopralluogo', risposte: [] })", context), false);
+  assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'melluso-layout-3:', versione_layout: '20261001-area-manager-v1' }, { checklist_id: 'melluso_sopralluogo', risposte: [] })", context), true);
+  assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'complete-v2:a|b', versione_layout: 'vecchio' }, { risposte: [{ foto: ['a','b'] }] })", context), false);
+  assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'a|b', versione_layout: '20261001-area-manager-v1' }, { risposte: [{ foto: ['a','b'] }] })", context), false);
+  assert.equal(vm.runInContext("pdfSalvatoAncoraValido({ blob: true, firma_foto: 'complete-v2:a|b', versione_layout: '20261001-area-manager-v1' }, { risposte: [{ foto: ['a','b'] }] })", context), true);
 });
 
 
