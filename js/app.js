@@ -2285,7 +2285,8 @@ const riepilogoScreen = (() => {
         blob: pdfBlob,
         filename: pdfFilename,
         firma_foto: firmaFotoSopralluogo(sopralluogoAggiornato || sopralluogo),
-        foto_incomplete: fotoMancanti > 0
+        foto_incomplete: fotoMancanti > 0,
+        versione_layout: pdf.versioneLayout
       });
 
       pdfEsito.hidden = false;
@@ -2580,6 +2581,7 @@ const storicoScreen = (() => {
    */
   function pdfSalvatoAncoraValido(salvato, sopralluogo) {
     if (!salvato || !salvato.blob || !sopralluogo) return false;
+    if (salvato.versione_layout !== pdf.versioneLayout) return false;
     if (salvato.generato_il && sopralluogo.aggiornato_il && salvato.generato_il < sopralluogo.aggiornato_il) {
       return false;
     }
@@ -2626,7 +2628,8 @@ const storicoScreen = (() => {
       blob,
       filename,
       firma_foto: firmaFotoSopralluogo(sopralluogo),
-      foto_incomplete: fotoMancanti > 0
+      foto_incomplete: fotoMancanti > 0,
+      versione_layout: pdf.versioneLayout
     });
 
     return { blob, filename, rigenerato: true, fotoMancanti };
