@@ -277,7 +277,7 @@ const sync = (() => {
     if (retry || !online()) return;
     retry = setTimeout(() => { retry = null; sincronizzaCompleto(); }, 10000);
   }
-  function conScadenza(promise, ms = 12000) {
+  function conScadenza(promise, ms = 30000) {
     let timer;
     return Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Timeout sincronizzazione')), ms); })]).finally(() => clearTimeout(timer));
   }
