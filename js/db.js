@@ -537,14 +537,33 @@ const db = (() => {
     await transazioneCompletata(tx);
   }
 
+  function idFotoReferenziati(sopralluoghi) {
+    const ids = new Set();
+    (sopralluoghi || []).forEach((sopralluogo) => {
+      if (!sopralluogo || sopralluogo.eliminato_definitivamente) return;
+      normalizzaRisposte(sopralluogo.risposte).forEach((risposta) => {
+        (risposta.foto || []).forEach((fotoId) => ids.add(String(fotoId)));
+      });
+      (sopralluogo.altri_aspetti_foto || []).forEach((fotoId) => ids.add(String(fotoId)));
+    });
+    return ids;
+  }
+
   /**
-   * Foto salvate in locale ma non ancora caricate su Supabase (nessun campo "url"): usata da
-   * js/foto-sync.js per ritentare gli upload rimasti in sospeso al ritorno della connessione.
+   * Conta e ritenta solo foto ancora realmente referenziate. Vecchi blob orfani (foto rimossa,
+   * import interrotto o sopralluogo eliminato definitivamente) non devono lasciare per sempre
+   * il badge "elementi in attesa".
    */
   async function elencaFotoSenzaUrl() {
-    const store = await transazione('foto', 'readonly');
-    const tutte = await richiesta(store.getAll());
-    return tutte.filter((foto) => !foto.url);
+    const storeFoto = await transazione('foto', 'readonly');
+    const tutte = await richiesta(storeFoto.getAll());
+    const senzaUrl = tutte.filter((foto) => !foto.url);
+    if (!senzaUrl.length) return [];
+
+    const storeSopralluoghi = await transazione('sopralluoghi', 'readonly');
+    const sopralluoghi = (await richiesta(storeSopralluoghi.getAll())).map(normalizzaSopralluogo);
+    const referenziate = idFotoReferenziati(sopralluoghi);
+    return senzaUrl.filter((foto) => referenziate.has(String(foto.id)));
   }
 
   /** Legge un sopralluogo completo, con l'elenco delle foto collegate (indice sopralluogo_id). */
@@ -842,6 +861,7 @@ const db = (() => {
     elencaChecklistCache,
     salvaPdfReport,
     leggiPdfReport,
-    _normalizzaRisposte: normalizzaRisposte
+    _normalizzaRisposte: normalizzaRisposte,
+    _idFotoReferenziati: idFotoReferenziati
   };
 })();
