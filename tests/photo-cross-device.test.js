@@ -93,7 +93,8 @@ test('PDF cross-device: un PDF rigenerato sul telefono viene salvato con la firm
   const source = fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8');
   assert.match(source, /await db\.salvaPdfReport\(\{[\s\S]*firma_foto: firmaFotoSopralluogo\(sopralluogo\)[\s\S]*\}\)/);
   const dbSource = fs.readFileSync(path.join(__dirname, '../js/db.js'), 'utf8');
-  assert.match(dbSource, /async function salvaPdfReport\(\{ sopralluogo_id, blob, filename, firma_foto = '', foto_incomplete = false \}\)/);
+  assert.match(dbSource, /async function salvaPdfReport\(\{ sopralluogo_id, blob, filename, firma_foto = '', foto_incomplete = false, versione_layout = '' \}\)/);
+  assert.match(source, /versione_layout: pdf\.versioneLayout/);
 });
 
 test('nuove foto: online si attende il tentativo di upload remoto prima di proseguire', () => {
