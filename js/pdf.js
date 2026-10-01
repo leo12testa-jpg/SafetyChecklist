@@ -24,6 +24,7 @@
  *   responsabilità, nessuna duplicazione di logica.
  */
 const pdf = (() => {
+  const VERSIONE_LAYOUT_REPORT = '20261001-area-manager-v1';
   /**
    * Configurazione di un cliente: logo di intestazione, colore della bandiera dei macro-gruppi,
    * ed eventuali proprietà PDF specifiche future (oggi vuoto per tutti: nessun override esiste
@@ -1301,7 +1302,7 @@ const pdf = (() => {
     await scarica(blob, filename);
   }
 
-  return { generaReport, nomeFile, salvaOCondividi, apri, scarica, prenotaFinestra, leggiArrayBuffer, descriviErrore, calcolaPuntoDivisioneGruppi,
+  return { generaReport, nomeFile, salvaOCondividi, apri, scarica, prenotaFinestra, leggiArrayBuffer, descriviErrore, calcolaPuntoDivisioneGruppi, versioneLayout: VERSIONE_LAYOUT_REPORT,
     _test: {
       raccogliFotoConDidascalia,
       costruisciMappaFotoPerDomanda,
