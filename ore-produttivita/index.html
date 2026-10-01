@@ -55,10 +55,23 @@
         <div class="status-strip">
           <div><span>Totale</span><strong id="dayTotal">0h 00m</strong></div>
           <div><span>Stato</span><strong id="dayStatus">Da verificare</strong></div>
+          <div><span>CRM</span><strong id="crmSyncStatus">Non sincronizzato</strong></div>
           <button id="refreshDay" class="ghost" type="button">Aggiorna</button>
         </div>
 
         <div id="dayMessage" class="notice" hidden></div>
+
+        <div id="syncIssuesCard" class="card" style="margin-bottom:14px" hidden>
+          <div class="card-head">
+            <div>
+              <strong>Attività da verificare</strong>
+              <div id="syncIssuesSubtitle" class="muted">L’agenda contiene attività che richiedono un abbinamento.</div>
+            </div>
+            <span id="syncIssueCount" class="badge">0</span>
+          </div>
+          <div id="syncIssues" class="session-list"></div>
+        </div>
+
         <div id="sessions" class="session-list"></div>
 
 
@@ -192,6 +205,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261001-2"></script>
+  <script src="./app.js?v=20261001-3"></script>
 </body>
 </html>
