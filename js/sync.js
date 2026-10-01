@@ -447,6 +447,15 @@ const sync = (() => {
         return !ancora;
       } catch (errore) {
         pendenti.set(id, true);
+        const codice = String(errore && (errore.code || errore.message) || '');
+        if (/permission-denied|unauthenticated/i.test(codice)) {
+          try {
+            const utente = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
+            if (utente) await utente.getIdToken(true);
+          } catch (erroreToken) {
+            console.warn('Sync: refresh sessione non riuscito, ritento automaticamente', erroreToken);
+          }
+        }
         console.warn('Sync: dati conservati sul dispositivo, invio da ritentare', id, errore);
         riprovaDopo();
         return false;
