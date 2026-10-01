@@ -657,9 +657,11 @@ const sync = (() => {
       if (event.persisted && firestoreDb) firestoreDb.enableNetwork().then(riprendi).catch(() => riprovaDopo());
     });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') riprendi(); });
-    setInterval(() => {
-      if (online() && (statoAttuale === 'parziale' || elementiInAttesa() > 0)) sincronizzaCompleto();
-    }, 30000);
+    if (typeof setInterval === 'function') {
+      setInterval(() => {
+        if (online() && (statoAttuale === 'parziale' || elementiInAttesa() > 0)) sincronizzaCompleto();
+      }, 30000);
+    }
     if (typeof fotoSync !== 'undefined') fotoSync.onCambioStato(async () => {
       attesaFoto = (await db.elencaFotoSenzaUrl()).length;
       aggiornaStato();
