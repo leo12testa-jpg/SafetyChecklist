@@ -115,3 +115,7 @@ input:focus,select:focus{border-color:#6f91b5;box-shadow:0 0 0 3px rgba(30,58,95
   .job-economics-form .job-picker,.job-economics-form .job-note{grid-column:auto}
   .job-economics-form .btn{width:100%}
 }
+
+.cost-detail-panel summary{cursor:pointer;display:flex;justify-content:space-between;gap:14px;list-style:none}
+.cost-detail-panel summary span{color:var(--muted);font-size:.76rem}
+.cost-detail-table{min-width:980px}
