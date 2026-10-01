@@ -92,7 +92,7 @@ def event_from_text(text, fallback_day, idx):
         "end": end,
         "minutes": minutes,
         "title": compact[:500],
-        "shortCode": short.group(0).upper() if short else "",
+        "shortCode": work.group(1).upper() if work else (old_short.group(0).upper() if old_short else ""),
         "codiceComm": comm.group(1).upper() if comm else "",
         "_sourceIndex": idx
     }
@@ -205,7 +205,7 @@ async def main():
         if status >= 300:
             raise RuntimeError(result.get("error", "Errore durante la sincronizzazione."))
 
-        print(f"\\nSalvate: {result.get('saved', 0)} · Non abbinate: {result.get('unmatched', 0)}")
+        print(f"\\nSalvate: {result.get('saved', 0)} · Da abbinare: {result.get('unmatched', 0)} · Ambigue: {result.get('ambiguous', 0)}")
         if result.get("unmatched"):
             print("Le voci non abbinate resteranno visibili nel risultato: assegneremo il codice corretto una sola volta.")
         await browser.close()
