@@ -22,6 +22,42 @@ $("#logoutBtn").addEventListener("click",()=>firebase.auth().signOut());
 firebase.auth().onAuthStateChanged(async user=>{if(!user){showLogin();return}try{showApp(await loadProfile(user))}catch(e){await firebase.auth().signOut().catch(()=>{});showLogin(e.message)}});
 $("#dayDate").value=localDate();$("#adminFrom").value=monthStart();$("#adminTo").value=localDate();
 $("#dayDate").addEventListener("change",loadDay);$("#refreshDay").addEventListener("click",loadDay);
+let manualCatalogLoaded=false;
+async function loadManualCatalog(){
+  const client=$("#manualClient"),job=$("#manualJob");
+  if(!manualCatalogLoaded){
+    const j=await api("catalog");
+    client.innerHTML='<option value="">Seleziona cliente…</option>'+j.clienti.map(c=>`<option value="${c.id}">${String(Number(c.codice_breve))} · ${c.ragione_sociale}</option>`).join("");
+    manualCatalogLoaded=true;
+  }
+  if(!client.value){job.innerHTML='<option value="">Seleziona prima il cliente…</option>';return}
+  const j=await api("commesse",{clienteId:client.value});
+  job.innerHTML='<option value="">Seleziona commessa…</option>'+j.commesse.map(c=>`<option value="${c.id}">${c.codice_lavoro||""} · ${c.descrizione}</option>`).join("");
+}
+$("#manualToggle").addEventListener("click",async()=>{
+  $("#manualCard").hidden=false;
+  try{await loadManualCatalog()}catch(e){alert(e.message)}
+});
+$("#manualClose").addEventListener("click",()=>{$("#manualCard").hidden=true});
+$("#manualClient").addEventListener("change",()=>loadManualCatalog().catch(e=>alert(e.message)));
+$("#manualSave").addEventListener("click",async()=>{
+  const btn=$("#manualSave"),m=inputMinutes($("#manualDuration").value),commessaId=$("#manualJob").value;
+  if(!commessaId){alert("Seleziona una commessa.");return}
+  if(m==null||m<=0){alert("Inserisci una durata valida, ad esempio 2h30m.");return}
+  btn.disabled=true;
+  try{
+    await api("addManual",{
+      date:$("#dayDate").value,
+      commessaId,
+      minutiEffettivi:m,
+      oggetto:$("#manualNote").value||"Attività aggiunta manualmente"
+    });
+    $("#manualDuration").value="";$("#manualNote").value="";$("#manualCard").hidden=true;
+    await loadDay();
+  }catch(e){alert(e.message)}
+  finally{btn.disabled=false}
+});
+
 function fmtClock(v){if(!v)return "—";return new Date(v).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}
 function fmtSyncTime(v){if(!v)return "Non sincronizzato";return new Date(v).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}
 async function loadSyncStatus(){
