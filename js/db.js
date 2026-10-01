@@ -806,7 +806,7 @@ const db = (() => {
    * sopralluogo (es. dopo una modifica ai soli dati anagrafici) per capire se il PDF salvato è
    * ancora aggiornato o andrebbe rigenerato (vedi riepilogoScreen in app.js).
    */
-  async function salvaPdfReport({ sopralluogo_id, blob, filename, firma_foto = '', foto_incomplete = false }) {
+  async function salvaPdfReport({ sopralluogo_id, blob, filename, firma_foto = '', foto_incomplete = false, versione_layout = '' }) {
     const store = await transazione('pdf_report', 'readwrite');
     await richiesta(store.put({
       sopralluogo_id,
@@ -814,6 +814,7 @@ const db = (() => {
       filename,
       firma_foto,
       foto_incomplete,
+      versione_layout,
       generato_il: new Date().toISOString()
     }));
     registraAudit(sopralluogo_id, 'generazione_pdf');
