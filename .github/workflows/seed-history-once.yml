@@ -8,4 +8,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Importa storico compresso in Supabase
-        run: curl --show-error --silent "https://twznfiygzzbqdgudpwav.supabase.co/functions/v1/ore-history-seed"
+        run: curl --show-error --silent "https://twznfiygzzbqdgudpwav.supabase.co/functions/v1/ore-history-debug"
