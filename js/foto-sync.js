@@ -37,7 +37,7 @@ const fotoSync = (() => {
     client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { fetch: async (url, options = {}) => {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 8000);
+        const timer = setTimeout(() => controller.abort(), 25000);
         try { return await fetch(url, { ...options, signal: controller.signal }); }
         finally { clearTimeout(timer); }
       } }
@@ -94,7 +94,12 @@ const fotoSync = (() => {
     const supa = inizializzaClient();
     if (!supa || !online()) {
       impostaStato(fotoId, 'fallito');
-      return;
+      return false;
+    }
+    if (!blob || !blob.size) {
+      console.warn('FotoSync: blob locale mancante o vuoto, upload rinviato', fotoId);
+      impostaStato(fotoId, 'fallito');
+      return false;
     }
 
     impostaStato(fotoId, 'in-corso');
@@ -117,9 +122,11 @@ const fotoSync = (() => {
       await db.impostaUrlFoto(fotoId, { url, storage_path: path });
 
       impostaStato(fotoId, 'completato');
+      return true;
     } catch (errore) {
       console.warn('FotoSync: upload della foto su Supabase fallito, resta salvata solo in locale', fotoId, errore);
       impostaStato(fotoId, 'fallito');
+      return false;
     }
   }
 
@@ -142,14 +149,20 @@ const fotoSync = (() => {
       return;
     }
     const inSospeso = await db.elencaFotoSenzaUrl();
-    for (const foto of inSospeso) {
-      await caricaFoto({
-        fotoId: foto.id,
-        sopralluogo_id: foto.sopralluogo_id,
-        domanda_id: foto.domanda_id,
-        blob: foto.blob
-      });
-    }
+    const coda = inSospeso.slice();
+    const lavoratori = Array.from({ length: Math.min(3, coda.length) }, async () => {
+      while (coda.length) {
+        const foto = coda.shift();
+        if (!foto) return;
+        await caricaFoto({
+          fotoId: foto.id,
+          sopralluogo_id: foto.sopralluogo_id,
+          domanda_id: foto.domanda_id,
+          blob: foto.blob
+        });
+      }
+    });
+    await Promise.all(lavoratori);
   }
 
   /**
