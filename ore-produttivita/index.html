@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261001-5">
+  <link rel="stylesheet" href="./style.css?v=20261001-6">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -71,6 +71,9 @@
           </button>
           <button id="tabAdmin" class="side-nav-item" type="button" hidden>
             <span class="nav-icon">▥</span><span>Direzione</span>
+          </button>
+          <button id="tabEconomics" class="side-nav-item" type="button" hidden>
+            <span class="nav-icon">€</span><span>Economia & Margini</span>
           </button>
           <div class="side-separator"></div>
           <a class="side-nav-item side-link" href="../">
@@ -273,6 +276,100 @@
             <div id="adminEmpty" class="empty" hidden>Nessuna sessione nel periodo selezionato.</div>
           </div>
         </section>
+
+
+        <section id="economicsPanel" class="screen" hidden>
+          <div class="page-heading">
+            <div>
+              <span class="eyebrow">CONTROLLO DI GESTIONE</span>
+              <h1>Economia & Margini</h1>
+              <p>Trasforma le ore registrate in costo di produzione, marginalità di commessa e supporto alla preventivazione.</p>
+            </div>
+            <button id="reloadEconomics" class="btn btn-secondary" type="button">↻ Aggiorna dati</button>
+          </div>
+
+          <div class="summary-grid four">
+            <article class="summary-card"><span class="summary-icon">%</span><div><small>Copertura costi</small><strong id="econCoverage">0%</strong><span>Ore con un costo orario valorizzato</span></div></article>
+            <article class="summary-card"><span class="summary-icon">€</span><div><small>Costo tecnico noto</small><strong id="econInternalCost">€ 0</strong><span>Solo ore con tariffa interna disponibile</span></div></article>
+            <article class="summary-card"><span class="summary-icon">↗</span><div><small>Ricavi confrontabili</small><strong id="econRevenue">€ 0</strong><span>Commesse con prezzo e costi completi</span></div></article>
+            <article class="summary-card"><span class="summary-icon">◎</span><div><small>Margine lordo</small><strong id="econMargin">—</strong><span id="econMarginMeta">Non ancora calcolabile</span></div></article>
+          </div>
+
+          <section class="explain-panel">
+            <div class="explain-heading"><div><span class="eyebrow">COME LEGGERE I COSTI</span><h2>Ogni euro ha un’origine precisa</h2></div></div>
+            <div class="explain-grid">
+              <div><b>Costo orario tecnico</b><span>Valore interno €/h assegnato al tecnico per un periodo. Non è la paga netta: è il costo interno che Colligo decide di usare per il controllo di gestione.</span></div>
+              <div><b>Costo tecnico commessa</b><span>Somma di ogni sessione: ore effettive × costo orario applicabile al tecnico in quella data.</span></div>
+              <div><b>Costi esterni</b><span>Spese direttamente attribuibili alla pratica: consulenti, trasferte specifiche, prove o altri costi imputabili che inserite voi.</span></div>
+              <div><b>Costo totale</b><span>Costo tecnico + costi esterni. Viene mostrato solo quando tutte le ore della pratica hanno un costo valorizzato.</span></div>
+              <div><b>Valore venduto</b><span>Prezzo netto della commessa che inserisce la direzione. Non viene ricavato automaticamente.</span></div>
+              <div><b>Margine lordo di commessa</b><span>Valore venduto − costo totale. Non è utile netto aziendale: non comprende costi generali, imposte e altre voci non imputate.</span></div>
+            </div>
+          </section>
+
+          <div class="economics-layout">
+            <div class="panel">
+              <div class="panel-heading compact">
+                <div><span class="eyebrow">RISORSE</span><h2>Costi orari tecnici</h2><p>Imposta il costo interno utilizzato per valorizzare le ore. Il periodo evita di sovrascrivere la storia quando il costo cambia.</p></div>
+              </div>
+              <div class="table-wrap">
+                <table class="economics-rate-table">
+                  <thead><tr><th>Tecnico</th><th>€/h</th><th>Valido dal</th><th>Valido al</th><th></th></tr></thead>
+                  <tbody id="costRateRows"></tbody>
+                </table>
+              </div>
+              <div id="costRateEmpty" class="empty" hidden>Nessun tecnico presente nello storico.</div>
+            </div>
+
+            <div class="panel estimator-panel">
+              <div class="panel-heading compact">
+                <div><span class="eyebrow">NUOVO PREVENTIVO</span><h2>Simulatore prezzo</h2><p>Usa la mediana storica delle ore come base modificabile. Il risultato è un supporto, non un listino automatico.</p></div>
+              </div>
+              <div class="estimator-form">
+                <label>Tipo di lavoro<select id="estimateType"></select></label>
+                <label>Ore previste<input id="estimateHours" inputmode="decimal" placeholder="—"></label>
+                <label>Costi esterni previsti (€)<input id="estimateExternal" inputmode="decimal" placeholder="0"></label>
+                <label>Margine lordo obiettivo (%)<input id="estimateMargin" inputmode="decimal" placeholder="es. 30"></label>
+              </div>
+              <div class="estimate-breakdown">
+                <div><span>Costo orario medio valorizzato</span><strong id="estimateHourlyCost">—</strong></div>
+                <div><span>Costo tecnico previsto</span><strong id="estimateTechnicalCost">—</strong></div>
+                <div><span>Costo totale previsto</span><strong id="estimateTotalCost">—</strong></div>
+                <div class="estimate-result"><span>Prezzo indicativo</span><strong id="estimatePrice">—</strong></div>
+              </div>
+              <p id="estimateNote" class="helper-text">Inserisci prima almeno un costo orario tecnico per ottenere una stima economica.</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-heading compact">
+              <div><span class="eyebrow">COMMESSA</span><h2>Dati economici della pratica</h2><p>Budget, costi esterni e prezzo venduto vengono inseriti dalla direzione sulla singola pratica.</p></div>
+            </div>
+            <div class="job-economics-form">
+              <label class="job-picker">Pratica / commessa<select id="economicsJob"></select></label>
+              <label>Budget ore<input id="jobBudgetHours" inputmode="decimal" placeholder="—"></label>
+              <label>Costi esterni (€)<input id="jobExternalCosts" inputmode="decimal" placeholder="0"></label>
+              <label>Valore venduto (€)<input id="jobSaleValue" inputmode="decimal" placeholder="—"></label>
+              <label class="job-note">Nota economica<input id="jobEconomicNote" placeholder="Facoltativa"></label>
+              <button id="saveJobEconomics" class="btn btn-primary" type="button">Salva dati commessa</button>
+            </div>
+            <div id="jobEconomicsMessage" class="notice" hidden></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-heading compact">
+              <div><span class="eyebrow">MARGINALITÀ</span><h2>Commesse valorizzate</h2><p>Il trattino indica che manca un dato necessario: nessun margine viene inventato.</p></div>
+            </div>
+            <div class="table-wrap">
+              <table class="margin-table">
+                <thead><tr><th>Codice</th><th>Cliente / pratica</th><th>Ore</th><th>Budget</th><th>Costo tecnico</th><th>Esterni</th><th>Costo totale</th><th>Venduto</th><th>Margine</th></tr></thead>
+                <tbody id="economicsRows"></tbody>
+              </table>
+            </div>
+            <div id="economicsEmpty" class="empty" hidden>Nessuna commessa con ore registrate.</div>
+          </div>
+        </section>
+
       </div>
     </div>
   </section>
@@ -280,6 +377,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261001-5"></script>
+  <script src="./app.js?v=20261001-6"></script>
 </body>
 </html>
