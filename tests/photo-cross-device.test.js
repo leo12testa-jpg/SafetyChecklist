@@ -113,3 +113,62 @@ test('foto UX: annullare il selettore non genera errore e la miniatura apre ante
   assert.match(cssSource, /\.foto-lightbox\s*\{/);
   assert.match(cssSource, /\.foto-stato-upload\.is-locale/);
 });
+
+
+test('foto pending: gli upload vengono ritentati automaticamente in parallelo limitato', async () => {
+  let active = 0;
+  let maxActive = 0;
+  const pending = Array.from({ length: 6 }, (_, i) => ({
+    id: 'p-' + i, sopralluogo_id: 's-1', domanda_id: i + 1, blob: new Blob(['foto-' + i])
+  }));
+  const db = {
+    leggiFoto: async () => null,
+    salvaFotoRemota: async foto => foto,
+    elencaFotoSenzaUrl: async () => pending,
+    impostaUrlFoto: async () => {},
+    impostaUrlFotoSopralluogo: async () => {},
+    elencaTuttiSopralluoghi: async () => []
+  };
+  const storage = {
+    upload: async () => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise(resolve => setTimeout(resolve, 15));
+      active -= 1;
+      return { error: null };
+    },
+    getPublicUrl: () => ({ data: { publicUrl: 'https://example.test/foto' } }),
+    download: async () => ({ data: new Blob(['x']), error: null }),
+    remove: async () => ({ error: null })
+  };
+  const context = {
+    console, Blob, AbortController, setTimeout, clearTimeout,
+    navigator:{onLine:true}, window:{addEventListener(){}}, db,
+    SUPABASE_URL:'https://example.supabase.co', SUPABASE_ANON_KEY:'anon', SUPABASE_BUCKET:'foto-sopralluoghi',
+    supabase:{createClient:()=>({storage:{from:()=>storage}})}
+  };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/foto-sync.js'),'utf8'), context);
+  const api = vm.runInContext('fotoSync', context);
+  await api.riprovaInSospeso();
+  assert.ok(maxActive >= 2, 'gli upload non devono restare strettamente seriali');
+  assert.ok(maxActive <= 3, 'la concorrenza resta limitata');
+});
+
+test('foto pending: il DB considera solo foto ancora referenziate e ignora gli orfani', () => {
+  const context = { console, crypto:{randomUUID:()=> 'x'} };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/db.js'),'utf8'), context);
+  const api = vm.runInContext('db', context);
+  const ids = api._idFotoReferenziati([
+    { risposte:[{domanda_id:1,foto:['keep-1']}], altri_aspetti_foto:['keep-2'] },
+    { eliminato_definitivamente:true, risposte:[{domanda_id:2,foto:['orphan']}], altri_aspetti_foto:[] }
+  ]);
+  assert.deepEqual(Array.from(ids).sort(), ['keep-1','keep-2']);
+});
+
+test('sync indicator has no manual retry click behavior', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../js/app.js'),'utf8');
+  assert.doesNotMatch(source, /Clicca per ritentare la sincronizzazione/);
+  assert.doesNotMatch(source, /contenitore\.addEventListener\('click', ritenta\)/);
+});
