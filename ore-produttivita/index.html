@@ -56,10 +56,38 @@
           <div><span>Totale</span><strong id="dayTotal">0h 00m</strong></div>
           <div><span>Stato</span><strong id="dayStatus">Da verificare</strong></div>
           <div><span>CRM</span><strong id="crmSyncStatus">Non sincronizzato</strong></div>
+          <button id="manualToggle" class="ghost" type="button">+ Aggiungi</button>
           <button id="refreshDay" class="ghost" type="button">Aggiorna</button>
         </div>
 
         <div id="dayMessage" class="notice" hidden></div>
+
+        <div id="manualCard" class="card" style="margin-bottom:14px" hidden>
+          <div class="card-head">
+            <div>
+              <strong>Aggiungi attività manuale</strong>
+              <div class="muted">Usala solo se l’attività non è presente nell’agenda CRM.</div>
+            </div>
+            <button id="manualClose" class="ghost" type="button">Chiudi</button>
+          </div>
+          <div class="range" style="align-items:end;flex-wrap:wrap">
+            <label style="min-width:220px;flex:1">Cliente
+              <select id="manualClient" style="min-height:43px;border:1px solid var(--line);border-radius:12px;padding:9px;background:#fff"></select>
+            </label>
+            <label style="min-width:280px;flex:2">Commessa
+              <select id="manualJob" style="min-height:43px;border:1px solid var(--line);border-radius:12px;padding:9px;background:#fff"></select>
+            </label>
+            <label style="width:130px">Durata
+              <input id="manualDuration" placeholder="2h30m">
+            </label>
+          </div>
+          <label style="margin-top:10px">Nota
+            <input id="manualNote" placeholder="Attività non presente in agenda">
+          </label>
+          <div style="display:flex;justify-content:flex-end;margin-top:12px">
+            <button id="manualSave" class="primary" type="button">Aggiungi attività</button>
+          </div>
+        </div>
 
         <div id="syncIssuesCard" class="card" style="margin-bottom:14px" hidden>
           <div class="card-head">
@@ -205,6 +233,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261001-3"></script>
+  <script src="./app.js?v=20261001-4"></script>
 </body>
 </html>
