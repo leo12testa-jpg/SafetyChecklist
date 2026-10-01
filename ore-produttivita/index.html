@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261001-6">
+  <link rel="stylesheet" href="./style.css?v=20261001-7">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -368,6 +368,20 @@
             </div>
             <div id="economicsEmpty" class="empty" hidden>Nessuna commessa con ore registrate.</div>
           </div>
+
+          <details class="panel cost-detail-panel">
+            <summary><strong>Dettaglio costo riga per riga</strong><span>Come si forma il costo tecnico</span></summary>
+            <div class="import-content">
+              <p>Ogni riga è una sessione reale. Il costo della riga è <strong>ore effettive × costo orario del tecnico valido in quella data</strong>. Le righe senza costo orario restano “Da valorizzare”.</p>
+              <div class="table-wrap">
+                <table class="cost-detail-table">
+                  <thead><tr><th>Data</th><th>Tecnico</th><th>Codice</th><th>Cliente / pratica</th><th>Ore</th><th>Costo €/h</th><th>Costo riga</th></tr></thead>
+                  <tbody id="costDetailRows"></tbody>
+                </table>
+              </div>
+              <div id="costDetailEmpty" class="empty" hidden>Nessuna sessione disponibile.</div>
+            </div>
+          </details>
         </section>
 
       </div>
@@ -377,6 +391,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261001-6"></script>
+  <script src="./app.js?v=20261001-7"></script>
 </body>
 </html>
