@@ -91,6 +91,34 @@
           <article><span>Commesse</span><strong id="kpiJobs">0</strong></article>
         </div>
 
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:14px">
+          <div class="card">
+            <div class="card-head">
+              <div><strong>Tempo medio per documento</strong><div class="muted">Solo commesse completate nel periodo</div></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Tipo</th><th>Commesse</th><th>Ore medie</th><th>Ore totali</th></tr></thead>
+                <tbody id="productivityRows"></tbody>
+              </table>
+            </div>
+            <div id="productivityEmpty" class="empty" hidden>Nessun documento completato classificato.</div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <div><strong>Ore per cliente</strong><div class="muted">Dove stiamo impiegando il tempo</div></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Cliente</th><th>Ore</th><th>Sessioni</th></tr></thead>
+                <tbody id="clientRows"></tbody>
+              </table>
+            </div>
+            <div id="clientEmpty" class="empty" hidden>Nessun dato nel periodo.</div>
+          </div>
+        </div>
+
         <div class="card" style="margin-bottom:14px">
           <div class="card-head">
             <div>
