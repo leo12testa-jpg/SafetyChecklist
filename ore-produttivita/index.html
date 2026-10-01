@@ -124,7 +124,7 @@
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Tipo</th><th>Commesse</th><th>Ore medie</th><th>Ore totali</th></tr></thead>
+                <thead><tr><th>Tipo</th><th>Chiuse</th><th>Media</th><th>Mediana</th><th>Range</th></tr></thead>
                 <tbody id="productivityRows"></tbody>
               </table>
             </div>
@@ -141,6 +141,18 @@
               </table>
             </div>
             <div id="clientEmpty" class="empty" hidden>Nessun dato nel periodo.</div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <div><strong>Ore per tecnico</strong><div class="muted">Carico registrato nel periodo</div></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Tecnico</th><th>Ore</th><th>Sessioni</th><th>Commesse</th></tr></thead>
+                <tbody id="technicianRows"></tbody>
+              </table>
+            </div>
+            <div id="technicianEmpty" class="empty" hidden>Nessun dato nel periodo.</div>
           </div>
         </div>
 
@@ -180,6 +192,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js"></script>
+  <script src="./app.js?v=20261001-2"></script>
 </body>
 </html>
