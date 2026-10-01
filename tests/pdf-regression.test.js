@@ -277,6 +277,7 @@ function costruisciSopralluogoDiProva(checklist, puntoVendita) {
     tecnico_2: 'Anna Verdi',
     data_sopralluogo: '2026-09-08',
     responsabile_punto_vendita: 'Luca Bianchi',
+    area_manager: 'Area Manager Test',
     presenza_responsabile: 'Si',
     presenza_rls: 'No',
     risposte,
@@ -324,6 +325,12 @@ for (const cliente of CLIENTI) {
     assert.ok(testoCompleto.includes(normalizza(cliente.nome)), 'nome/punto vendita cliente non trovato nel PDF');
     assert.ok(testoCompleto.includes('Mario Rossi'), 'primo tecnico non trovato nel PDF');
     assert.ok(testoCompleto.includes('Anna Verdi'), 'secondo tecnico non trovato nel PDF');
+    if (cliente.chiave === 'interparking') {
+      assert.ok(!testoCompleto.includes('Area Manager Test'), 'Interparking non deve mostrare Area Manager');
+    } else {
+      assert.ok(testoCompleto.includes('Area Manager'), 'etichetta Area Manager non trovata nel PDF');
+      assert.ok(testoCompleto.includes('Area Manager Test'), 'valore Area Manager non trovato nel PDF');
+    }
 
     // Nessuna perdita delle risposte: ogni domanda della checklist deve comparire nel testo
     // estratto (prima riga, per gestire gli a-capo interni al testo della domanda).
