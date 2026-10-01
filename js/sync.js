@@ -657,7 +657,7 @@ const sync = (() => {
       if (event.persisted && firestoreDb) firestoreDb.enableNetwork().then(riprendi).catch(() => riprovaDopo());
     });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') riprendi(); });
-    window.setInterval(() => {
+    setInterval(() => {
       if (online() && (statoAttuale === 'parziale' || elementiInAttesa() > 0)) sincronizzaCompleto();
     }, 30000);
     if (typeof fotoSync !== 'undefined') fotoSync.onCambioStato(async () => {
