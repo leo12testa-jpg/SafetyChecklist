@@ -91,6 +91,22 @@
           <article><span>Commesse</span><strong id="kpiJobs">0</strong></article>
         </div>
 
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-head">
+            <div>
+              <strong>Importa Planner CRM</strong>
+              <div class="muted">Aggiorna clienti e commesse mantenendo i codici già assegnati.</div>
+            </div>
+          </div>
+          <div class="range" style="align-items:center">
+            <label style="flex:1;min-width:240px">File .xls del Planner
+              <input id="plannerFile" type="file" accept=".xls,.xml,application/vnd.ms-excel,text/xml,application/xml">
+            </label>
+            <button id="importPlanner" class="primary" type="button">Importa planner</button>
+          </div>
+          <div id="plannerImportMessage" class="notice" hidden style="margin-top:12px"></div>
+        </div>
+
         <div class="card">
           <div class="card-head">
             <strong>Dettaglio attività</strong>
