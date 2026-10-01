@@ -9,7 +9,7 @@ let profile=null;
 function internalEmail(v){const u=String(v||"").trim().toLowerCase();if(!/^[a-z0-9][a-z0-9._-]{1,38}[a-z0-9]$/.test(u)||u.includes(".."))throw new Error("Username non valido.");return u+"@safetychecklist.local"}
 function localDate(d=new Date()){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");return `${y}-${m}-${day}`}
 function monthStart(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`}
-function fmtMinutes(m){m=Number(m||0);return `${Math.floor(m/60)}h ${String(m%60).padStart(2,"0")}m`}
+function fmtMinutes(m){m=Number(m||0);return `${Math.floor(m/60)}h ${String(m%60).padStart(2,"0")}m`}\nfunction median(values){const a=[...values].sort((x,y)=>x-y),n=a.length;if(!n)return 0;const m=Math.floor(n/2);return n%2?a[m]:(a[m-1]+a[m])/2}
 function inputMinutes(v){const s=String(v||"").trim().toLowerCase().replace(/\s+/g,"");if(/^\d+$/.test(s))return Number(s);const h=(s.match(/(\d+)h/)||[])[1];const m=(s.match(/(\d+)m/)||[])[1];if(h==null&&m==null)return null;const n=Number(h||0)*60+Number(m||0);return Number.isFinite(n)&&n<=1440?n:null}
 async function token(){const u=firebase.auth().currentUser;if(!u)throw new Error("Sessione scaduta.");return u.getIdToken()}
 async function api(action,body={}){const r=await fetch(API,{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${await token()}`},body:JSON.stringify({action,...body})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"Richiesta non riuscita.");return j}
@@ -40,22 +40,28 @@ async function loadAdmin(){
     $("#adminEmpty").hidden=j.rows.length>0;
     j.rows.slice(0,100).forEach(r=>{
       const c=r.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
+      const code=(cl.codice_breve&&tp.codice)?String(Number(cl.codice_breve))+tp.codice:"";
       const tr=document.createElement("tr");
-      tr.innerHTML=`<td>${new Date(r.data_lavoro+"T12:00:00").toLocaleDateString("it-IT")}</td><td>${r.tecnico_nome||r.tecnico_uid}</td><td><b>${cl.ragione_sociale||"—"}</b><br><span class="muted">${c.descrizione||"—"}</span></td><td>${tp.nome||"—"}</td><td>${fmtMinutes(r.minuti_effettivi)}</td>`;
+      tr.innerHTML=`<td>${new Date(r.data_lavoro+"T12:00:00").toLocaleDateString("it-IT")}</td><td>${r.tecnico_nome||r.tecnico_uid}</td><td><b>${code?code+" · ":""}${cl.ragione_sociale||"—"}</b><br><span class="muted">${c.descrizione||"—"}</span></td><td>${tp.nome||"—"}</td><td>${fmtMinutes(r.minuti_effettivi)}</td>`;
       tb.appendChild(tr);
     });
 
-    const clients=new Map(),jobs=new Map();
+    const clients=new Map(),techs=new Map(),jobs=new Map();
     for(const r of j.rows){
       const c=r.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
+      const mins=Number(r.minuti_effettivi||0);
       const clientKey=cl.ragione_sociale||"Non classificato";
       const cv=clients.get(clientKey)||{minutes:0,sessions:0};
-      cv.minutes+=Number(r.minuti_effettivi||0);cv.sessions++;clients.set(clientKey,cv);
+      cv.minutes+=mins;cv.sessions++;clients.set(clientKey,cv);
 
-      const jobKey=c.codice_breve||r.commessa_id;
+      const techKey=r.tecnico_nome||r.tecnico_uid||"—";
+      const tv=techs.get(techKey)||{minutes:0,sessions:0,jobs:new Set()};
+      tv.minutes+=mins;tv.sessions++;if(r.commessa_id)tv.jobs.add(r.commessa_id);techs.set(techKey,tv);
+
+      const jobKey=r.commessa_id||c.codice_breve;
       if(jobKey){
-        const v=jobs.get(jobKey)||{minutes:0,type:tp.nome||"Altro",status:c.stato||"",desc:c.descrizione||""};
-        v.minutes+=Number(r.minuti_effettivi||0);jobs.set(jobKey,v);
+        const v=jobs.get(jobKey)||{minutes:0,type:tp.nome||"Altro",typeCode:tp.codice||"P",status:c.stato||"",desc:c.descrizione||"",client:clientKey};
+        v.minutes+=mins;jobs.set(jobKey,v);
       }
     }
 
@@ -67,20 +73,32 @@ async function loadAdmin(){
     });
     $("#clientEmpty").hidden=clients.size>0;
 
+    const techBody=$("#technicianRows");techBody.innerHTML="";
+    [...techs.entries()].sort((a,b)=>b[1].minutes-a[1].minutes).slice(0,15).forEach(([name,v])=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td><b>${name}</b></td><td>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})}</td><td>${v.sessions}</td><td>${v.jobs.size}</td>`;
+      techBody.appendChild(tr);
+    });
+    $("#technicianEmpty").hidden=techs.size>0;
+
     const types=new Map();
     for(const job of jobs.values()){
-      if(job.status!=="completata"||job.type==="Altro")continue;
-      const v=types.get(job.type)||{minutes:0,jobs:0};
-      v.minutes+=job.minutes;v.jobs++;types.set(job.type,v);
+      if(job.status!=="completata"||job.typeCode==="P")continue;
+      const v=types.get(job.typeCode)||{name:job.type,values:[]};
+      v.values.push(job.minutes/60);types.set(job.typeCode,v);
     }
     const prodBody=$("#productivityRows");prodBody.innerHTML="";
-    [...types.entries()].sort((a,b)=>(b[1].minutes/b[1].jobs)-(a[1].minutes/a[1].jobs)).forEach(([name,v])=>{
+    [...types.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([code,v])=>{
+      const vals=v.values,avg=vals.reduce((s,x)=>s+x,0)/vals.length,med=median(vals),min=Math.min(...vals),max=Math.max(...vals);
       const tr=document.createElement("tr");
-      tr.innerHTML=`<td><b>${name}</b></td><td>${v.jobs}</td><td>${(v.minutes/v.jobs/60).toLocaleString("it-IT",{maximumFractionDigits:1})} h</td><td>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})} h</td>`;
+      tr.innerHTML=`<td><b>${code} · ${v.name}</b></td><td>${vals.length}</td><td>${avg.toLocaleString("it-IT",{maximumFractionDigits:1})} h</td><td><b>${med.toLocaleString("it-IT",{maximumFractionDigits:1})} h</b></td><td>${min.toLocaleString("it-IT",{maximumFractionDigits:1})}–${max.toLocaleString("it-IT",{maximumFractionDigits:1})} h</td>`;
       prodBody.appendChild(tr);
     });
     $("#productivityEmpty").hidden=types.size>0;
-  }catch(e){console.error(e)}
+  }catch(e){
+    console.error(e);
+    const box=$("#adminEmpty");if(box){box.textContent="Impossibile caricare i dati della direzione.";box.hidden=false}
+  }
 }
 
 
