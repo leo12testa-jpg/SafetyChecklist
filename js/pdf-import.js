@@ -452,9 +452,15 @@ const pdfImport = (() => {
     );
 
     const risultato = {};
-    // I nuovi PDF Melluso omettono la riga dipendenti: non spostare i campi successivi.
+    // Dipendenti e Area Manager sono righe opzionali: ricostruisci l'ordine reale
+    // guardando le etichette presenti, così vecchi PDF e nuovi PDF restano entrambi importabili.
     const contieneDipendenti = zonaTabella.some(it => /numero.*dipendenti/i.test(it.testo));
-    const etichette = contieneDipendenti ? ETICHETTE_DATI_GENERALI : ETICHETTE_DATI_GENERALI.filter(chiave => chiave !== 'numero_dipendenti');
+    const contieneAreaManager = zonaTabella.some(it => /^area manager$/i.test(it.testo.trim()));
+    const etichette = ETICHETTE_DATI_GENERALI.filter((chiave) => {
+      if (chiave === 'numero_dipendenti') return contieneDipendenti;
+      if (chiave === 'area_manager') return contieneAreaManager;
+      return true;
+    });
     etichette.forEach((chiave, indice) => {
       const riga = righeValore[indice];
       if (!riga) {
