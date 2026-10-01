@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261001-7">
+  <link rel="stylesheet" href="./style.css?v=20261001-8">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -213,6 +213,24 @@
             <article class="summary-card"><span class="summary-icon">▣</span><div><small>Commesse</small><strong id="kpiJobs">0</strong><span>Pratiche distinte su cui si è lavorato</span></div></article>
           </div>
 
+          <div class="panel company-sync-panel">
+            <div class="panel-heading compact">
+              <div>
+                <span class="eyebrow">SINCRONIZZAZIONE AZIENDALE</span>
+                <h2>Agende CRM di tutti i tecnici</h2>
+                <p>La direzione deve poter verificare che la lettura non riguardi una sola persona.</p>
+              </div>
+              <span id="crmResourceCount" class="count-badge">0</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Sigla</th><th>Tecnico</th><th>Ultima agenda letta</th><th>Stato</th></tr></thead>
+                <tbody id="crmResourceRows"></tbody>
+              </table>
+            </div>
+            <div id="crmResourceEmpty" class="empty" hidden>Nessuna risorsa CRM configurata.</div>
+          </div>
+
           <section class="explain-panel admin-guide">
             <div class="explain-heading"><div><span class="eyebrow">COME LEGGERE I DATI</span><h2>Cosa significa ogni indicatore</h2></div></div>
             <div class="explain-grid">
@@ -391,6 +409,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261001-7"></script>
+  <script src="./app.js?v=20261001-8"></script>
 </body>
 </html>
