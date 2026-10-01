@@ -1,6 +1,6 @@
 @echo off
 setlocal
-title Colligo - Sincronizza Agenda CRM
+title Colligo - Sincronizza TUTTE le Agende CRM
 cd /d "%~dp0"
 
 where py >nul 2>nul
@@ -22,7 +22,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo Avvio sincronizzazione agenda CRM...
+echo Avvio sincronizzazione AZIENDALE di tutte le agende CRM...
 echo.
 py crm_agenda_sync.py
 goto :fine
