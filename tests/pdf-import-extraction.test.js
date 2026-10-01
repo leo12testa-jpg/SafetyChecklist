@@ -173,6 +173,26 @@ test('DATI GENERALI: riga "Tecnico" su 1-2 righe (Coin/Restage/Melluso) resta al
   assert.equal(anagrafica.presenza_rls, 'No');
 });
 
+test('DATI GENERALI: Area Manager opzionale viene estratto senza disallineare i campi Coin', () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const pagina = [
+    it('DATI GENERALI', 20, 430),
+    it('Punto vendita', 20, 420), it('Coin Test', 120, 420), it('Via Roma 1', 120, 412),
+    it('Numero di dipendenti in forza al momento del sopralluogo', 20, 388), it('42', 120, 388),
+    it('Tecnico', 20, 364), it('Mario Rossi', 120, 364),
+    it('Data del sopralluogo', 20, 340), it('08/09/2026', 120, 340),
+    it('Responsabile del punto vendita', 20, 316), it('Luca Bianchi', 120, 316),
+    it('Area Manager', 20, 292), it('Giulia Verdi', 120, 292),
+    it('Sopralluogo alla presenza del responsabile', 20, 268), it('Si', 120, 268),
+    it("Sopralluogo alla presenza dell'R.L.S.", 20, 244), it('No', 120, 244),
+    it('n.', 20, 220), it('Descrizione attività', 40, 220)
+  ];
+  const anagrafica = pdfImportPerTest._test.estraiDatiGeneraliNostro(pagina);
+  assert.equal(anagrafica.area_manager, 'Giulia Verdi');
+  assert.equal(anagrafica.presenza_responsabile, 'Si');
+  assert.equal(anagrafica.presenza_rls, 'No');
+});
+
 test('DATI GENERALI: riga "Tecnico" su 4 righe (Interparking) NON disallinea i campi successivi', () => {
   const pdfImportPerTest = caricaPdfImport();
   const anagrafica = pdfImportPerTest._test.estraiDatiGeneraliNostro(
