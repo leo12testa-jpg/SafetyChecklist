@@ -82,6 +82,7 @@
           <button type="button" class="side-nav-item" data-nav="home"><span class="nav-icon" aria-hidden="true">⌂</span><span>Dashboard</span></button>
           <button type="button" class="side-nav-item" data-nav="new-inspection"><span class="nav-icon" aria-hidden="true">＋</span><span>Nuovo sopralluogo</span></button>
           <button type="button" class="side-nav-item" data-nav="history"><span class="nav-icon" aria-hidden="true">▤</span><span>Storico</span></button>
+          <button type="button" class="side-nav-item" data-external-app="ore-produttivita" onclick="window.location.href='ore-produttivita/'"><span class="nav-icon" aria-hidden="true">◷</span><span>Ore & Produttività</span></button>
           <div class="side-nav-separator" data-admin-only hidden></div>
           <span class="side-nav-label" data-admin-only hidden>AMMINISTRAZIONE</span>
           <button type="button" class="side-nav-item" data-nav="my-work" data-admin-only hidden><span class="nav-icon" aria-hidden="true">✓</span><span>Il mio lavoro</span></button>
@@ -154,6 +155,9 @@
           </button>
           <button type="button" class="dashboard-action-card" data-nav="history">
             <span class="action-card-icon">▤</span><span class="action-card-copy"><strong>Storico</strong><small>Apri, modifica e scarica i sopralluoghi</small></span><span class="action-arrow">→</span>
+          </button>
+          <button type="button" class="dashboard-action-card" data-external-app="ore-produttivita" onclick="window.location.href='ore-produttivita/'">
+            <span class="action-card-icon">◷</span><span class="action-card-copy"><strong>Ore & Produttività</strong><small>Consuntivi, commesse e analisi della produttività tecnica</small></span><span class="action-arrow">→</span>
           </button>
           <button type="button" class="dashboard-action-card dashboard-install-card" id="dashboard-install-card" hidden>
             <span class="action-card-icon">↓</span><span class="action-card-copy"><strong id="dashboard-install-title">Installa l'app</strong><small id="dashboard-install-copy">Aggiungila al dispositivo per aprirla come un'app.</small></span><span class="action-arrow">→</span>
