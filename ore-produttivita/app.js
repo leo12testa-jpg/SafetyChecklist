@@ -353,6 +353,22 @@ function renderEconomicsSummary(){
       <td class="${marginClass}">${j.margine===null?"—":fmtMoney(j.margine)+" ("+j.margine_pct+"%)"}</td>`;
     body.appendChild(tr);
   }
+
+  const detail=$("#costDetailRows");
+  detail.innerHTML="";
+  const costRows=e.costRows||[];
+  $("#costDetailEmpty").hidden=costRows.length>0;
+  for(const r of costRows){
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${new Date(r.data_lavoro+"T12:00:00").toLocaleDateString("it-IT")}</td>
+      <td><b>${r.tecnico_nome||"—"}</b></td>
+      <td><b>${r.codice_lavoro||"—"}</b><br><span class="muted">${r.codice_commessa_crm||""}</span></td>
+      <td><b>${r.cliente||"—"}</b><br><span class="muted">${r.descrizione||"—"}</span></td>
+      <td>${(Number(r.minuti||0)/60).toLocaleString("it-IT",{maximumFractionDigits:2})} h</td>
+      <td>${r.costo_orario===null?'<span class="coverage-warning">Da valorizzare</span>':fmtMoney(r.costo_orario)+"/h"}</td>
+      <td><b>${r.costo_sessione===null?"—":fmtMoney(r.costo_sessione)}</b></td>`;
+    detail.appendChild(tr);
+  }
 }
 
 function renderEstimator(){
