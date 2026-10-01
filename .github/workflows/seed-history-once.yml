@@ -1,4 +1,4 @@
-name: Import storico Ore una tantum
+name: Import storico Ore una tantum #2
 on:
   push:
     paths:
