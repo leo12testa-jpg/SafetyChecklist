@@ -30,52 +30,71 @@ $("#loadAdmin").addEventListener("click",loadAdmin);
 async function loadAdmin(){if(!profile||profile.ruolo!=="admin")return;try{const j=await api("adminSummary",{from:$("#adminFrom").value,to:$("#adminTo").value});$("#kpiHours").textContent=(j.totalMinutes/60).toLocaleString("it-IT",{maximumFractionDigits:1});$("#kpiSessions").textContent=j.sessions;$("#kpiTechs").textContent=j.technicians;$("#kpiJobs").textContent=j.jobs;const tb=$("#adminRows");tb.innerHTML="";$("#adminEmpty").hidden=j.rows.length>0;j.rows.slice(0,100).forEach(r=>{const c=r.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};const tr=document.createElement("tr");tr.innerHTML=`<td>${new Date(r.data_lavoro+"T12:00:00").toLocaleDateString("it-IT")}</td><td>${r.tecnico_nome||r.tecnico_uid}</td><td><b>${cl.ragione_sociale||"—"}</b><br><span class="muted">${c.descrizione||"—"}</span></td><td>${tp.nome||"—"}</td><td>${fmtMinutes(r.minuti_effettivi)}</td>`;tb.appendChild(tr)})}catch(e){console.error(e)}}
 
 
-function plannerRowsFromXml(xmlText){
+function plannerDataFromXml(xmlText){
   const doc=new DOMParser().parseFromString(xmlText,"application/xml");
   if(doc.querySelector("parsererror")) throw new Error("Il file Planner non è un XML Excel valido.");
   const rows=[...doc.getElementsByTagNameNS("urn:schemas-microsoft-com:office:spreadsheet","Row")];
   if(rows.length<2) throw new Error("Nessuna riga trovata nel Planner.");
   const readRow=row=>{
-    const out=[]; let pos=1;
+    const out=[];let pos=1;
     const cells=[...row.getElementsByTagNameNS("urn:schemas-microsoft-com:office:spreadsheet","Cell")];
     for(const cell of cells){
       const idx=cell.getAttributeNS("urn:schemas-microsoft-com:office:spreadsheet","Index");
       if(idx){const n=Number(idx);while(pos<n){out.push("");pos++}}
       const data=cell.getElementsByTagNameNS("urn:schemas-microsoft-com:office:spreadsheet","Data")[0];
-      out.push(data?.textContent||""); pos++;
+      out.push(data?.textContent||"");pos++;
     }
     return out;
   };
-  const headers=readRow(rows[0]);
-  const ix=name=>headers.indexOf(name);
-  const needed=["Data","CodiceComm","DescrizioneComm","StatoComm","CodiceCliente","RagioneSociale"];
+  const headers=readRow(rows[0]),ix=name=>headers.indexOf(name);
+  const needed=["Data","CodiceComm","DescrizioneComm","StatoComm","CodiceCliente","RagioneSociale","NomeRisorsa","SiglaRisorsa","OreCaricate"];
   for(const name of needed) if(ix(name)<0) throw new Error("Colonna mancante nel Planner: "+name);
-  const map=new Map();
-  for(const row of rows.slice(1)){
-    const v=readRow(row);
-    const codiceComm=(v[ix("CodiceComm")]||"").trim();
-    const codiceCliente=(v[ix("CodiceCliente")]||"").trim();
-    if(!codiceComm||!codiceCliente) continue;
-    const key=codiceCliente+"|"+codiceComm;
-    if(!map.has(key)) map.set(key,{
-      data:(v[ix("Data")]||"").slice(0,10),
-      codiceComm,
-      descrizioneComm:(v[ix("DescrizioneComm")]||"").trim(),
-      statoComm:(v[ix("StatoComm")]||"").trim(),
-      codiceCliente,
-      ragioneSociale:(v[ix("RagioneSociale")]||"").trim()
-    });
-  }
-  return [...map.values()];
+  const jobs=new Map(),history=[];
+  rows.slice(1).forEach((row,rowIndex)=>{
+    const v=readRow(row),get=n=>(v[ix(n)]||"").trim();
+    const codiceComm=get("CodiceComm"),codiceCliente=get("CodiceCliente"),data=get("Data").slice(0,10);
+    if(!codiceComm||!codiceCliente||!data)return;
+    const jobKey=codiceCliente+"|"+codiceComm;
+    const job={data,codiceComm,descrizioneComm:get("DescrizioneComm"),statoComm:get("StatoComm"),codiceCliente,ragioneSociale:get("RagioneSociale")};
+    if(!jobs.has(jobKey))jobs.set(jobKey,job);
+    const hours=Number(get("OreCaricate").replace(",","."));
+    if(Number.isFinite(hours)&&hours>0){
+      history.push({
+        eventId:"planner-"+String(rowIndex+1).padStart(6,"0")+"-"+data+"-"+codiceComm+"-"+get("SiglaRisorsa"),
+        data,codiceComm,
+        nomeRisorsa:get("NomeRisorsa"),
+        siglaRisorsa:get("SiglaRisorsa"),
+        minuti:Math.round(hours*60),
+        oggetto:get("Oggetto"),
+        descrizioneRiga:get("DescrizioneRiga")
+      });
+    }
+  });
+  return {commesse:[...jobs.values()],history};
 }
 $("#importPlanner")?.addEventListener("click",async()=>{
-  const file=$("#plannerFile")?.files?.[0], msg=$("#plannerImportMessage"), btn=$("#importPlanner");
+  const file=$("#plannerFile")?.files?.[0],msg=$("#plannerImportMessage"),btn=$("#importPlanner");
   if(!file){msg.textContent="Seleziona prima il file .xls del Planner.";msg.hidden=false;return}
   btn.disabled=true;msg.hidden=false;msg.textContent="Lettura del Planner in corso…";
   try{
-    const rows=plannerRowsFromXml(await file.text());
-    msg.textContent=`Trovate ${rows.length} commesse uniche. Aggiornamento database…`;
-    const r=await api("importPlanner",{commesse:rows});
+    const parsed=plannerDataFromXml(await file.text());
+    msg.textContent=`Trovate ${parsed.commesse.length} commesse e ${parsed.history.length} righe storiche. Aggiornamento anagrafiche…`;
+    const r=await api("importPlanner",{commesse:parsed.commesse});
+    let imported=0,skipped=0;
+    const batchSize=400;
+    for(let i=0;i<parsed.history.length;i+=batchSize){
+      const part=parsed.history.slice(i,i+batchSize);
+      msg.textContent=`Anagrafiche aggiornate. Import storico ${Math.min(i+part.length,parsed.history.length)}/${parsed.history.length}…`;
+      const h=await api("importHistoryBatch",{rows:part});
+      imported+=h.saved||0;skipped+=h.skipped||0;
+    }
+    msg.textContent=`Import completato: ${r.received} commesse · ${imported} righe storiche salvate · ${skipped} saltate · ${r.createdClients} nuovi clienti · ${r.createdJobs} nuove commesse · ${r.updatedJobs} commesse aggiornate.`;
+    $("#adminFrom").value="2026-01-01";
+    $("#adminTo").value=localDate();
+    await loadAdmin();
+  }catch(e){msg.textContent=e.message||"Import non riuscito."}
+  finally{btn.disabled=false}
+});
     msg.textContent=`Import completato: ${r.received} commesse lette · ${r.createdClients} nuovi clienti · ${r.createdJobs} nuove commesse · ${r.updatedJobs} aggiornate.`;
     await loadAdmin();
   }catch(e){msg.textContent=e.message||"Import non riuscito."}
