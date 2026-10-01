@@ -260,3 +260,25 @@ test('ten technicians editing different questions converge on the same shared in
     Array.from({length:10},(_,i)=>`tecnico-${i+1}`).sort()
   );
 });
+
+
+test('stale pending id is cleared automatically when the local record no longer exists', async () => {
+  const s = setup([legacy]);
+  await s.api.init();
+  s.context.navigator.onLine = false;
+  const pending = {...s.local.get('MISDO'), _sync_rev:'will-disappear'};
+  s.edit(pending);
+  assert.ok(s.api.dettaglioInAttesa().dati >= 1);
+  s.local.delete('MISDO');
+  s.context.navigator.onLine = true;
+  await s.api.sincronizzaCompleto();
+  assert.equal(s.api.dettaglioInAttesa().dati, 0);
+});
+
+test('reconcile drops stale pending entries that no longer carry a local revision', () => {
+  const s = setup();
+  const helper = s.api._test.riconciliaPendentiLocali;
+  assert.equal(typeof helper, 'function');
+  helper([]);
+  assert.equal(s.api.dettaglioInAttesa().dati, 0);
+});
