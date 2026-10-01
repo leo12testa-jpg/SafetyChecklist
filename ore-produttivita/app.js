@@ -9,7 +9,10 @@ let profile=null;
 function internalEmail(v){const u=String(v||"").trim().toLowerCase();if(!/^[a-z0-9][a-z0-9._-]{1,38}[a-z0-9]$/.test(u)||u.includes(".."))throw new Error("Username non valido.");return u+"@safetychecklist.local"}
 function localDate(d=new Date()){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");return `${y}-${m}-${day}`}
 function monthStart(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`}
-function fmtMinutes(m){m=Number(m||0);return `${Math.floor(m/60)}h ${String(m%60).padStart(2,"0")}m`}\nconst moneyFmt=new Intl.NumberFormat("it-IT",{style:"currency",currency:"EUR",minimumFractionDigits:0,maximumFractionDigits:2});\nfunction fmtMoney(v){return v===null||v===undefined||!Number.isFinite(Number(v))?"—":moneyFmt.format(Number(v))}\nfunction numberInput(v){if(v===null||v===undefined||String(v).trim()==="")return null;const n=Number(String(v).replace(",",".").trim());return Number.isFinite(n)?n:null}
+function fmtMinutes(m){m=Number(m||0);return `${Math.floor(m/60)}h ${String(m%60).padStart(2,"0")}m`}
+const moneyFmt=new Intl.NumberFormat("it-IT",{style:"currency",currency:"EUR",minimumFractionDigits:0,maximumFractionDigits:2});
+function fmtMoney(v){return v===null||v===undefined||!Number.isFinite(Number(v))?"—":moneyFmt.format(Number(v))}
+function numberInput(v){if(v===null||v===undefined||String(v).trim()==="")return null;const n=Number(String(v).replace(",",".").trim());return Number.isFinite(n)?n:null}
 function median(values){const a=[...values].sort((x,y)=>x-y),n=a.length;if(!n)return 0;const m=Math.floor(n/2);return n%2?a[m]:(a[m-1]+a[m])/2}
 function inputMinutes(v){const s=String(v||"").trim().toLowerCase().replace(/\s+/g,"");if(/^\d+$/.test(s))return Number(s);const h=(s.match(/(\d+)h/)||[])[1];const m=(s.match(/(\d+)m/)||[])[1];if(h==null&&m==null)return null;const n=Number(h||0)*60+Number(m||0);return Number.isFinite(n)&&n<=1440?n:null}
 async function token(){const u=firebase.auth().currentUser;if(!u)throw new Error("Sessione scaduta.");return u.getIdToken()}
