@@ -5,8 +5,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/final-v1-check.yml"
-      - "tests/final-ui-smoke.cjs"
-      - "tests/final-security-smoke.mjs"
+      - "tests/**"
       - "index.html"
       - "css/**"
       - "js/**"
@@ -42,6 +41,9 @@ jobs:
           grep -q "safety-checklist-shell-${BUILD}" service-worker.js
           grep -q "css/style.css?v=${BUILD}" index.html
           grep -q "js/aggiornamento.js?v=${BUILD}" index.html
+          grep -q "js/pdf.js?v=${BUILD}" index.html
+          grep -q "js/pdf-import.js?v=${BUILD}" index.html
+          grep -q "js/sync.js?v=${BUILD}" index.html
           grep -q 'data-admin-only' index.html
           grep -q "value.ruolo !== 'admin'" js/auth.js
           grep -q "if (!appIdentity.isAdmin())" js/account-screens.js
