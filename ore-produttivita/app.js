@@ -9,14 +9,14 @@ let profile=null;
 function internalEmail(v){const u=String(v||"").trim().toLowerCase();if(!/^[a-z0-9][a-z0-9._-]{1,38}[a-z0-9]$/.test(u)||u.includes(".."))throw new Error("Username non valido.");return u+"@safetychecklist.local"}
 function localDate(d=new Date()){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");return `${y}-${m}-${day}`}
 function monthStart(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`}
-function fmtMinutes(m){m=Number(m||0);return `${Math.floor(m/60)}h ${String(m%60).padStart(2,"0")}m`}
+function fmtMinutes(m){m=Number(m||0);return `${Math.floor(m/60)}h ${String(m%60).padStart(2,"0")}m`}\nconst moneyFmt=new Intl.NumberFormat("it-IT",{style:"currency",currency:"EUR",minimumFractionDigits:0,maximumFractionDigits:2});\nfunction fmtMoney(v){return v===null||v===undefined||!Number.isFinite(Number(v))?"—":moneyFmt.format(Number(v))}\nfunction numberInput(v){if(v===null||v===undefined||String(v).trim()==="")return null;const n=Number(String(v).replace(",",".").trim());return Number.isFinite(n)?n:null}
 function median(values){const a=[...values].sort((x,y)=>x-y),n=a.length;if(!n)return 0;const m=Math.floor(n/2);return n%2?a[m]:(a[m-1]+a[m])/2}
 function inputMinutes(v){const s=String(v||"").trim().toLowerCase().replace(/\s+/g,"");if(/^\d+$/.test(s))return Number(s);const h=(s.match(/(\d+)h/)||[])[1];const m=(s.match(/(\d+)m/)||[])[1];if(h==null&&m==null)return null;const n=Number(h||0)*60+Number(m||0);return Number.isFinite(n)&&n<=1440?n:null}
 async function token(){const u=firebase.auth().currentUser;if(!u)throw new Error("Sessione scaduta.");return u.getIdToken()}
 async function api(action,body={}){const r=await fetch(API,{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${await token()}`},body:JSON.stringify({action,...body})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"Richiesta non riuscita.");return j}
 async function loadProfile(user){const snap=await db.collection("utenti").doc(user.uid).get({source:"server"});if(!snap.exists)throw new Error("Profilo utente non disponibile.");const p=snap.data();if(p.attivo!==true||!["admin","tecnico"].includes(p.ruolo))throw new Error("Account non attivo.");return {...p,uid:user.uid}}
 function showLogin(msg=""){profile=null;loginView.hidden=false;appView.hidden=true;loginError.textContent=msg;loginError.hidden=!msg}
-async function showApp(p){profile=p;loginView.hidden=true;appView.hidden=false;$("#userName").textContent=[p.nome,p.cognome].filter(Boolean).join(" ")||p.username;$("#userRole").textContent=p.ruolo==="admin"?"Amministratore":"Tecnico";$("#tabAdmin").hidden=p.ruolo!=="admin";await loadDay();if(p.ruolo==="admin")await loadAdmin()}
+async function showApp(p){profile=p;loginView.hidden=true;appView.hidden=false;$("#userName").textContent=[p.nome,p.cognome].filter(Boolean).join(" ")||p.username;$("#userRole").textContent=p.ruolo==="admin"?"Amministratore":"Tecnico";$("#tabAdmin").hidden=p.ruolo!=="admin";$("#tabEconomics").hidden=p.ruolo!=="admin";await loadDay();if(p.ruolo==="admin")await loadAdmin()}
 loginForm.addEventListener("submit",async e=>{e.preventDefault();loginBtn.disabled=true;loginError.hidden=true;try{await firebase.auth().signInWithEmailAndPassword(internalEmail($("#username").value),$("#password").value)}catch(err){showLogin(["auth/invalid-credential","auth/user-not-found","auth/wrong-password"].includes(err.code)?"Credenziali non valide.":err.message)}finally{loginBtn.disabled=false;$("#password").value=""}});
 $("#logoutBtn").addEventListener("click",()=>firebase.auth().signOut());
 firebase.auth().onAuthStateChanged(async user=>{if(!user){showLogin();return}try{showApp(await loadProfile(user))}catch(e){await firebase.auth().signOut().catch(()=>{});showLogin(e.message)}});
@@ -156,8 +156,20 @@ async function loadDay(){if(!profile)return;$("#dayMessage").hidden=true;try{con
 });
 await loadSyncStatus()}catch(e){$("#dayMessage").textContent=e.message;$("#dayMessage").hidden=false;renderEmpty()}}
 $("#confirmDay").addEventListener("click",async()=>{const b=$("#confirmDay");b.disabled=true;try{const j=await api("confirmDay",{date:$("#dayDate").value});$("#dayMessage").textContent=`Giornata confermata: ${fmtMinutes(j.totalMinutes)}.`;$("#dayMessage").hidden=false;await loadDay()}catch(e){alert(e.message)}finally{b.disabled=false}});
-function setTab(which){const day=which==="day";$("#dayPanel").hidden=!day;$("#adminPanel").hidden=day;$("#tabDay").classList.toggle("active",day);$("#tabAdmin").classList.toggle("active",!day)}
-$("#tabDay").addEventListener("click",()=>setTab("day"));$("#tabAdmin").addEventListener("click",()=>setTab("admin"));
+function setTab(which){
+  const day=which==="day",admin=which==="admin",economics=which==="economics";
+  $("#dayPanel").hidden=!day;
+  $("#adminPanel").hidden=!admin;
+  $("#economicsPanel").hidden=!economics;
+  $("#tabDay").classList.toggle("active",day);
+  $("#tabAdmin").classList.toggle("active",admin);
+  $("#tabEconomics").classList.toggle("active",economics);
+  if(admin)loadAdmin();
+  if(economics)loadEconomics();
+}
+$("#tabDay").addEventListener("click",()=>setTab("day"));
+$("#tabAdmin").addEventListener("click",()=>setTab("admin"));
+$("#tabEconomics").addEventListener("click",()=>setTab("economics"));
 $("#loadAdmin").addEventListener("click",loadAdmin);
 async function loadAdmin(){
   if(!profile||profile.ruolo!=="admin")return;
@@ -241,6 +253,188 @@ async function loadAdmin(){
   }
 }
 
+
+
+let economicsCatalog=null;
+let economicsSummary=null;
+
+function latestRateForTech(tech,rates){
+  const name=String(tech.tecnico_nome||"").trim().toLocaleLowerCase("it-IT");
+  return (rates||[]).find(r=>String(r.tecnico_uid||"")===String(tech.tecnico_uid||"")) ||
+         (rates||[]).find(r=>String(r.tecnico_nome||"").trim().toLocaleLowerCase("it-IT")===name) || null;
+}
+
+function renderCostRates(){
+  const body=$("#costRateRows");
+  body.innerHTML="";
+  const techs=economicsCatalog?.technicians||[];
+  $("#costRateEmpty").hidden=techs.length>0;
+  const defaultFrom=new Date().getFullYear()+"-01-01";
+  for(const tech of techs){
+    const rate=latestRateForTech(tech,economicsCatalog.rates);
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td><b>${tech.tecnico_nome||tech.tecnico_uid}</b><br><span class="muted">${String(tech.tecnico_uid||"").startsWith("legacy:")?"Storico CRM":"Account attuale"}</span></td>
+      <td><input class="rate-value" inputmode="decimal" value="${rate?.costo_orario??""}" placeholder="€/h"></td>
+      <td><input class="rate-from" type="date" value="${rate?.valido_dal||defaultFrom}"></td>
+      <td><input class="rate-to" type="date" value="${rate?.valido_al||""}"></td>
+      <td><button class="save rate-save" type="button">Salva</button></td>`;
+    const btn=tr.querySelector(".rate-save");
+    btn.addEventListener("click",async()=>{
+      const cost=numberInput(tr.querySelector(".rate-value").value);
+      if(cost===null||cost<0){alert("Inserisci un costo orario valido.");return}
+      btn.disabled=true;
+      try{
+        await api("saveTechnicianCost",{
+          tecnicoUid:tech.tecnico_uid,
+          tecnicoNome:tech.tecnico_nome,
+          costoOrario:cost,
+          validoDal:tr.querySelector(".rate-from").value,
+          validoAl:tr.querySelector(".rate-to").value||null
+        });
+        await loadEconomics();
+      }catch(e){alert(e.message)}
+      finally{btn.disabled=false}
+    });
+    body.appendChild(tr);
+  }
+}
+
+function populateEconomicsJobs(){
+  const select=$("#economicsJob");
+  const jobs=economicsCatalog?.jobs||[];
+  const previous=select.value;
+  select.innerHTML='<option value="">Seleziona una pratica…</option>'+jobs.map(j=>{
+    const cl=j.ore_clienti||{};
+    return `<option value="${j.id}">${j.codice_lavoro||"—"} · ${cl.ragione_sociale||"Cliente"} · ${j.descrizione}</option>`;
+  }).join("");
+  if(previous&&jobs.some(j=>j.id===previous))select.value=previous;
+  fillJobEconomicsForm();
+}
+
+function fillJobEconomicsForm(){
+  const id=$("#economicsJob").value;
+  const job=(economicsCatalog?.jobs||[]).find(j=>j.id===id);
+  $("#jobBudgetHours").value=job?.budget_ore??"";
+  $("#jobExternalCosts").value=job?.costi_esterni??0;
+  $("#jobSaleValue").value=job?.valore_vendita??"";
+  $("#jobEconomicNote").value=job?.note_economiche??"";
+}
+
+function renderEconomicsSummary(){
+  const e=economicsSummary;
+  if(!e)return;
+  $("#econCoverage").textContent=Number(e.coverage?.percent||0).toLocaleString("it-IT",{maximumFractionDigits:1})+"%";
+  $("#econInternalCost").textContent=fmtMoney(e.knownInternalCost||0);
+  $("#econRevenue").textContent=fmtMoney(e.comparable?.revenue||0);
+  $("#econMargin").textContent=e.comparable?.jobs?fmtMoney(e.comparable.margin):"—";
+  $("#econMarginMeta").textContent=e.comparable?.jobs
+    ? `${e.comparable.jobs} commesse confrontabili · ${e.comparable.marginPct??"—"}% sui ricavi`
+    : "Inserisci costi orari e valori venduti";
+
+  const body=$("#economicsRows");
+  body.innerHTML="";
+  const rows=e.jobs||[];
+  $("#economicsEmpty").hidden=rows.length>0;
+  for(const j of rows){
+    const complete=Boolean(j.copertura_completa);
+    const marginClass=j.margine===null?"":(Number(j.margine)>=0?"money-positive":"money-negative");
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td><b>${j.codice_lavoro||"—"}</b><br><span class="muted">${j.codice_commessa_crm||""}</span></td>
+      <td><b>${j.cliente||"—"}</b><br><span class="muted">${j.descrizione||"—"}</span></td>
+      <td>${Number(j.ore||0).toLocaleString("it-IT",{maximumFractionDigits:2})} h</td>
+      <td>${j.budget_ore===null?"—":Number(j.budget_ore).toLocaleString("it-IT",{maximumFractionDigits:2})+" h"}</td>
+      <td>${fmtMoney(j.costo_tecnico)}${complete?"":'<br><span class="coverage-warning">parziale</span>'}</td>
+      <td>${fmtMoney(j.costi_esterni||0)}</td>
+      <td>${complete?fmtMoney(j.costo_totale):"—"}</td>
+      <td>${j.valore_vendita===null?"—":fmtMoney(j.valore_vendita)}</td>
+      <td class="${marginClass}">${j.margine===null?"—":fmtMoney(j.margine)+" ("+j.margine_pct+"%)"}</td>`;
+    body.appendChild(tr);
+  }
+}
+
+function renderEstimator(){
+  const e=economicsSummary;
+  const types=e?.typeStats||[];
+  const sel=$("#estimateType"),old=sel.value;
+  sel.innerHTML='<option value="">Seleziona tipologia…</option>'+types.map(t=>`<option value="${t.codice}">${t.codice} · ${t.nome} · mediana ${t.mediana_ore} h (${t.n} casi)</option>`).join("");
+  if(old&&types.some(t=>t.codice===old))sel.value=old;
+  updateEstimator(false);
+}
+
+function updateEstimator(setHistoricalHours=false){
+  const e=economicsSummary;
+  if(!e)return;
+  const type=(e.typeStats||[]).find(t=>t.codice===$("#estimateType").value);
+  if(setHistoricalHours&&type)$("#estimateHours").value=type.mediana_ore;
+  const hours=numberInput($("#estimateHours").value);
+  const external=numberInput($("#estimateExternal").value)??0;
+  const target=numberInput($("#estimateMargin").value);
+  const rate=e.blendedHourlyCost;
+
+  $("#estimateHourlyCost").textContent=rate===null?"—":fmtMoney(rate)+"/h";
+  if(rate===null||hours===null||hours<0){
+    $("#estimateTechnicalCost").textContent="—";
+    $("#estimateTotalCost").textContent="—";
+    $("#estimatePrice").textContent="—";
+    $("#estimateNote").textContent=rate===null
+      ?"Inserisci prima almeno un costo orario tecnico per ottenere una stima economica."
+      :"Inserisci le ore previste.";
+    return;
+  }
+  const tech=hours*rate,total=tech+external;
+  $("#estimateTechnicalCost").textContent=fmtMoney(tech);
+  $("#estimateTotalCost").textContent=fmtMoney(total);
+
+  if(target===null||target<0||target>=100){
+    $("#estimatePrice").textContent="—";
+    $("#estimateNote").textContent="Inserisci un margine lordo obiettivo tra 0 e 99,9%.";
+    return;
+  }
+  const price=total/(1-target/100);
+  $("#estimatePrice").textContent=fmtMoney(price);
+  $("#estimateNote").textContent=type
+    ? `Base storica: ${type.n} pratiche chiuse, mediana ${type.mediana_ore} h. Il prezzo usa il costo orario medio delle ore già valorizzate.`
+    :"La stima usa le ore inserite e il costo orario medio delle ore già valorizzate.";
+}
+
+async function loadEconomics(){
+  if(!profile||profile.ruolo!=="admin")return;
+  try{
+    const [catalog,summary]=await Promise.all([api("economicsCatalog"),api("adminEconomics")]);
+    economicsCatalog=catalog;
+    economicsSummary=summary;
+    renderCostRates();
+    populateEconomicsJobs();
+    renderEconomicsSummary();
+    renderEstimator();
+  }catch(e){
+    console.error(e);
+    alert("Impossibile caricare Economia & Margini: "+e.message);
+  }
+}
+
+$("#reloadEconomics")?.addEventListener("click",loadEconomics);
+$("#economicsJob")?.addEventListener("change",fillJobEconomicsForm);
+$("#saveJobEconomics")?.addEventListener("click",async()=>{
+  const id=$("#economicsJob").value;
+  if(!id){alert("Seleziona una pratica.");return}
+  const btn=$("#saveJobEconomics"),msg=$("#jobEconomicsMessage");
+  btn.disabled=true;msg.hidden=true;
+  try{
+    await api("saveJobEconomics",{
+      commessaId:id,
+      budgetOre:$("#jobBudgetHours").value,
+      costiEsterni:$("#jobExternalCosts").value,
+      valoreVendita:$("#jobSaleValue").value,
+      noteEconomiche:$("#jobEconomicNote").value
+    });
+    msg.textContent="Dati economici della commessa salvati.";msg.hidden=false;
+    await loadEconomics();
+  }catch(e){msg.textContent=e.message;msg.hidden=false}
+  finally{btn.disabled=false}
+});
+$("#estimateType")?.addEventListener("change",()=>updateEstimator(true));
+["#estimateHours","#estimateExternal","#estimateMargin"].forEach(s=>$(s)?.addEventListener("input",()=>updateEstimator(false)));
 
 function plannerDataFromXml(xmlText){
   const doc=new DOMParser().parseFromString(xmlText,"application/xml");
