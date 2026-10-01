@@ -72,18 +72,27 @@ async function loadSyncStatus(){
     box.innerHTML="";
     for(const issue of issues){
       const row=document.createElement("article");
-      row.className="work-row";
+      row.className="work-entry";
       const candidates=Array.isArray(issue.candidati)?issue.candidati:[];
       const code=issue.codice_lavoro||issue.codice_commessa_crm||"Senza codice";
       const reason=issue.motivo==="ambiguous"?"Più pratiche compatibili":"Codice non riconosciuto";
-      row.innerHTML=`<div class="time">${fmtClock(issue.inizio)}–${fmtClock(issue.fine)}</div>
-        <div class="job">
-          <strong>${issue.titolo||"Attività CRM"}</strong>
-          <small>${code} · ${reason} · ${fmtMinutes(issue.minuti)}</small>
-          <span class="badge">Da verificare</span>
+      row.innerHTML=`<div class="entry-head">
+          <div class="entry-code">${code}</div>
+          <div class="entry-copy">
+            <div class="entry-client">Attività CRM da verificare</div>
+            <div class="entry-title">${issue.titolo||"Attività CRM"}</div>
+            <div class="entry-meta">
+              <span>${reason}</span>
+              <span class="entry-origin">Da verificare</span>
+              <span>${fmtMinutes(issue.minuti)}</span>
+            </div>
+          </div>
         </div>
-        <div class="duration issue-action"></div>
-        <div class="issue-save"></div>`;
+        <div class="entry-side">
+          <div class="entry-time"><strong>${fmtClock(issue.inizio)}–${fmtClock(issue.fine)}</strong><span>Orario agenda</span></div>
+          <div class="issue-action"></div>
+          <div class="issue-save"></div>
+        </div>`;
       const action=row.querySelector(".issue-action"),save=row.querySelector(".issue-save");
       if(candidates.length){
         const select=document.createElement("select");
@@ -109,7 +118,43 @@ async function loadSyncStatus(){
   }
 }
 function renderEmpty(){const box=$("#sessions");box.innerHTML='<div class="empty">Nessuna attività presente per questa giornata. Quando colleghiamo l’agenda CRM, qui compariranno automaticamente gli appuntamenti con le ore già calcolate.</div>'}
-async function loadDay(){if(!profile)return;$("#dayMessage").hidden=true;try{const j=await api("day",{date:$("#dayDate").value});$("#dayTotal").textContent=fmtMinutes(j.totalMinutes);$("#dayStatus").textContent=j.dayStatus?.stato==="confermata"?"Confermata":"Da verificare";const box=$("#sessions");box.innerHTML="";if(!j.sessions.length){renderEmpty();await loadSyncStatus();return}j.sessions.forEach(s=>{const c=s.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};const displayCode=((cl.codice_breve?String(Number(cl.codice_breve)):"")+(tp.codice||"P"));const row=document.createElement("article");row.className="work-row";const start=s.inizio?new Date(s.inizio).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):"—";const end=s.fine?new Date(s.fine).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):"—";row.innerHTML=`<div class="time">${start}–${end}</div><div class="job"><strong>${cl.ragione_sociale||"Cliente"} · ${c.descrizione||s.crm_oggetto||"Attività"}</strong><small>${displayCode} ${tp.nome?"· "+tp.nome:""}</small><span class="badge">${s.origine==="crm_agenda"?"Da agenda CRM":s.origine==="import_storico"?"Storico":"Manuale"}${s.modificata_manualmente?" · modificata":""}</span></div><div class="duration"><input aria-label="Durata effettiva" value="${fmtMinutes(s.minuti_effettivi).replace(" ","")}"></div><button class="save" type="button">Salva</button>`;const inp=row.querySelector("input"),btn=row.querySelector(".save");btn.addEventListener("click",async()=>{const m=inputMinutes(inp.value);if(m==null){alert("Inserisci una durata come 2h30m.");return}btn.disabled=true;try{await api("saveSession",{id:s.id,minutiEffettivi:m});await loadDay()}catch(e){alert(e.message)}finally{btn.disabled=false}});box.appendChild(row)});await loadSyncStatus()}catch(e){$("#dayMessage").textContent=e.message;$("#dayMessage").hidden=false;renderEmpty()}}
+async function loadDay(){if(!profile)return;$("#dayMessage").hidden=true;try{const j=await api("day",{date:$("#dayDate").value});$("#dayTotal").textContent=fmtMinutes(j.totalMinutes);$("#dayStatus").textContent=j.dayStatus?.stato==="confermata"?"Confermata":"Da verificare";const box=$("#sessions");box.innerHTML="";if(!j.sessions.length){renderEmpty();await loadSyncStatus();return}j.sessions.forEach(s=>{
+  const c=s.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
+  const displayCode=((cl.codice_breve?String(Number(cl.codice_breve)):"")+(tp.codice||"P"));
+  const origin=s.origine==="crm_agenda"?"CRM":s.origine==="import_storico"?"Storico":"Manuale";
+  const row=document.createElement("article");
+  row.className="work-entry";
+  const start=s.inizio?new Date(s.inizio).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):"—";
+  const end=s.fine?new Date(s.fine).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):"—";
+  row.innerHTML=`<div class="entry-head">
+    <div class="entry-code">${displayCode||"—"}</div>
+    <div class="entry-copy">
+      <div class="entry-client">${cl.ragione_sociale||"Cliente non disponibile"}</div>
+      <div class="entry-title">${c.descrizione||s.crm_oggetto||"Attività"}</div>
+      <div class="entry-meta">
+        <span><b>Tipo:</b> ${tp.nome||"Altro"}</span>
+        <span><b>Commessa CRM:</b> ${c.codice_commessa_crm||"—"}</span>
+        <span class="entry-origin">${origin}${s.modificata_manualmente?" · modificata":""}</span>
+      </div>
+    </div>
+  </div>
+  <div class="entry-side">
+    <div class="entry-time"><strong>${start}–${end}</strong><span>${s.inizio&&s.fine?"Orario agenda":"Senza fascia oraria"}</span></div>
+    <div class="entry-duration"><input aria-label="Durata effettiva" value="${fmtMinutes(s.minuti_effettivi).replace(" ","")}"></div>
+    <button class="save" type="button">Salva</button>
+  </div>`;
+  const inp=row.querySelector("input"),btn=row.querySelector(".save");
+  btn.addEventListener("click",async()=>{
+    const m=inputMinutes(inp.value);
+    if(m==null){alert("Inserisci una durata come 2h30m.");return}
+    btn.disabled=true;
+    try{await api("saveSession",{id:s.id,minutiEffettivi:m});await loadDay()}
+    catch(e){alert(e.message)}
+    finally{btn.disabled=false}
+  });
+  box.appendChild(row)
+});
+await loadSyncStatus()}catch(e){$("#dayMessage").textContent=e.message;$("#dayMessage").hidden=false;renderEmpty()}}
 $("#confirmDay").addEventListener("click",async()=>{const b=$("#confirmDay");b.disabled=true;try{const j=await api("confirmDay",{date:$("#dayDate").value});$("#dayMessage").textContent=`Giornata confermata: ${fmtMinutes(j.totalMinutes)}.`;$("#dayMessage").hidden=false;await loadDay()}catch(e){alert(e.message)}finally{b.disabled=false}});
 function setTab(which){const day=which==="day";$("#dayPanel").hidden=!day;$("#adminPanel").hidden=day;$("#tabDay").classList.toggle("active",day);$("#tabAdmin").classList.toggle("active",!day)}
 $("#tabDay").addEventListener("click",()=>setTab("day"));$("#tabAdmin").addEventListener("click",()=>setTab("admin"));
@@ -129,7 +174,15 @@ async function loadAdmin(){
       const c=r.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
       const code=(cl.codice_breve&&tp.codice)?String(Number(cl.codice_breve))+tp.codice:"";
       const tr=document.createElement("tr");
-      tr.innerHTML=`<td>${new Date(r.data_lavoro+"T12:00:00").toLocaleDateString("it-IT")}</td><td>${r.tecnico_nome||r.tecnico_uid}</td><td><b>${code?code+" · ":""}${cl.ragione_sociale||"—"}</b><br><span class="muted">${c.descrizione||"—"}</span></td><td>${tp.nome||"—"}</td><td>${fmtMinutes(r.minuti_effettivi)}</td>`;
+      const origin=r.origine==="crm_agenda"?"CRM":r.origine==="import_storico"?"Storico":"Manuale";
+      tr.innerHTML=`<td>${new Date(r.data_lavoro+"T12:00:00").toLocaleDateString("it-IT")}</td>
+        <td><b>${r.tecnico_nome||r.tecnico_uid}</b></td>
+        <td><b>${code||"—"}</b></td>
+        <td>${cl.ragione_sociale||"—"}</td>
+        <td><b>${c.descrizione||"—"}</b><br><span class="muted">${c.codice_commessa_crm||""}</span></td>
+        <td>${tp.nome||"—"}</td>
+        <td>${origin}</td>
+        <td><b>${fmtMinutes(r.minuti_effettivi)}</b></td>`;
       tb.appendChild(tr);
     });
 
