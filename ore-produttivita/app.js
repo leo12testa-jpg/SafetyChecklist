@@ -177,11 +177,26 @@ $("#loadAdmin").addEventListener("click",loadAdmin);
 async function loadAdmin(){
   if(!profile||profile.ruolo!=="admin")return;
   try{
-    const j=await api("adminSummary",{from:$("#adminFrom").value,to:$("#adminTo").value});
+    const [j,crm]=await Promise.all([api("adminSummary",{from:$("#adminFrom").value,to:$("#adminTo").value}),api("crmResources")]);
     $("#kpiHours").textContent=(j.totalMinutes/60).toLocaleString("it-IT",{maximumFractionDigits:1});
     $("#kpiSessions").textContent=j.sessions;
     $("#kpiTechs").textContent=j.technicians;
     $("#kpiJobs").textContent=j.jobs;
+
+    const resources=crm.resources||[];
+    $("#crmResourceCount").textContent=String(resources.length);
+    $("#crmResourceEmpty").hidden=resources.length>0;
+    const crmBody=$("#crmResourceRows");
+    crmBody.innerHTML="";
+    for(const r of resources){
+      const last=r.ultima_sync?new Date(r.ultima_sync).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"Mai";
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td><b>${r.sigla_crm||"—"}</b></td>
+        <td>${r.tecnico_nome||r.nome_crm||"—"}</td>
+        <td>${last}</td>
+        <td>${r.ultima_sync?'<span class="entry-origin">Letta</span>':'<span class="coverage-warning">Da sincronizzare</span>'}</td>`;
+      crmBody.appendChild(tr);
+    }
 
     const tb=$("#adminRows");tb.innerHTML="";
     $("#adminEmpty").hidden=j.rows.length>0;
