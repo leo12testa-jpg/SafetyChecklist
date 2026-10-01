@@ -75,6 +75,7 @@ const pdfImport = (() => {
     'tecnico',
     'data_sopralluogo',
     'responsabile_punto_vendita',
+    'area_manager',
     'presenza_responsabile',
     'presenza_rls'
   ];
