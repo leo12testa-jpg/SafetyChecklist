@@ -28,3 +28,56 @@ function setTab(which){const day=which==="day";$("#dayPanel").hidden=!day;$("#ad
 $("#tabDay").addEventListener("click",()=>setTab("day"));$("#tabAdmin").addEventListener("click",()=>setTab("admin"));
 $("#loadAdmin").addEventListener("click",loadAdmin);
 async function loadAdmin(){if(!profile||profile.ruolo!=="admin")return;try{const j=await api("adminSummary",{from:$("#adminFrom").value,to:$("#adminTo").value});$("#kpiHours").textContent=(j.totalMinutes/60).toLocaleString("it-IT",{maximumFractionDigits:1});$("#kpiSessions").textContent=j.sessions;$("#kpiTechs").textContent=j.technicians;$("#kpiJobs").textContent=j.jobs;const tb=$("#adminRows");tb.innerHTML="";$("#adminEmpty").hidden=j.rows.length>0;j.rows.slice(0,100).forEach(r=>{const c=r.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};const tr=document.createElement("tr");tr.innerHTML=`<td>${new Date(r.data_lavoro+"T12:00:00").toLocaleDateString("it-IT")}</td><td>${r.tecnico_nome||r.tecnico_uid}</td><td><b>${cl.ragione_sociale||"—"}</b><br><span class="muted">${c.descrizione||"—"}</span></td><td>${tp.nome||"—"}</td><td>${fmtMinutes(r.minuti_effettivi)}</td>`;tb.appendChild(tr)})}catch(e){console.error(e)}}
+
+
+function plannerRowsFromXml(xmlText){
+  const doc=new DOMParser().parseFromString(xmlText,"application/xml");
+  if(doc.querySelector("parsererror")) throw new Error("Il file Planner non è un XML Excel valido.");
+  const rows=[...doc.getElementsByTagNameNS("urn:schemas-microsoft-com:office:spreadsheet","Row")];
+  if(rows.length<2) throw new Error("Nessuna riga trovata nel Planner.");
+  const readRow=row=>{
+    const out=[]; let pos=1;
+    const cells=[...row.getElementsByTagNameNS("urn:schemas-microsoft-com:office:spreadsheet","Cell")];
+    for(const cell of cells){
+      const idx=cell.getAttributeNS("urn:schemas-microsoft-com:office:spreadsheet","Index");
+      if(idx){const n=Number(idx);while(pos<n){out.push("");pos++}}
+      const data=cell.getElementsByTagNameNS("urn:schemas-microsoft-com:office:spreadsheet","Data")[0];
+      out.push(data?.textContent||""); pos++;
+    }
+    return out;
+  };
+  const headers=readRow(rows[0]);
+  const ix=name=>headers.indexOf(name);
+  const needed=["Data","CodiceComm","DescrizioneComm","StatoComm","CodiceCliente","RagioneSociale"];
+  for(const name of needed) if(ix(name)<0) throw new Error("Colonna mancante nel Planner: "+name);
+  const map=new Map();
+  for(const row of rows.slice(1)){
+    const v=readRow(row);
+    const codiceComm=(v[ix("CodiceComm")]||"").trim();
+    const codiceCliente=(v[ix("CodiceCliente")]||"").trim();
+    if(!codiceComm||!codiceCliente) continue;
+    const key=codiceCliente+"|"+codiceComm;
+    if(!map.has(key)) map.set(key,{
+      data:(v[ix("Data")]||"").slice(0,10),
+      codiceComm,
+      descrizioneComm:(v[ix("DescrizioneComm")]||"").trim(),
+      statoComm:(v[ix("StatoComm")]||"").trim(),
+      codiceCliente,
+      ragioneSociale:(v[ix("RagioneSociale")]||"").trim()
+    });
+  }
+  return [...map.values()];
+}
+$("#importPlanner")?.addEventListener("click",async()=>{
+  const file=$("#plannerFile")?.files?.[0], msg=$("#plannerImportMessage"), btn=$("#importPlanner");
+  if(!file){msg.textContent="Seleziona prima il file .xls del Planner.";msg.hidden=false;return}
+  btn.disabled=true;msg.hidden=false;msg.textContent="Lettura del Planner in corso…";
+  try{
+    const rows=plannerRowsFromXml(await file.text());
+    msg.textContent=`Trovate ${rows.length} commesse uniche. Aggiornamento database…`;
+    const r=await api("importPlanner",{commesse:rows});
+    msg.textContent=`Import completato: ${r.received} commesse lette · ${r.createdClients} nuovi clienti · ${r.createdJobs} nuove commesse · ${r.updatedJobs} aggiornate.`;
+    await loadAdmin();
+  }catch(e){msg.textContent=e.message||"Import non riuscito."}
+  finally{btn.disabled=false}
+});
