@@ -21,8 +21,58 @@ $("#logoutBtn").addEventListener("click",()=>firebase.auth().signOut());
 firebase.auth().onAuthStateChanged(async user=>{if(!user){showLogin();return}try{showApp(await loadProfile(user))}catch(e){await firebase.auth().signOut().catch(()=>{});showLogin(e.message)}});
 $("#dayDate").value=localDate();$("#adminFrom").value=monthStart();$("#adminTo").value=localDate();
 $("#dayDate").addEventListener("change",loadDay);$("#refreshDay").addEventListener("click",loadDay);
+function fmtClock(v){if(!v)return "—";return new Date(v).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}
+function fmtSyncTime(v){if(!v)return "Non sincronizzato";return new Date(v).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}
+async function loadSyncStatus(){
+  if(!profile)return;
+  try{
+    const j=await api("syncStatus",{date:$("#dayDate").value});
+    $("#crmSyncStatus").textContent=j.lastSync?.created_at?fmtSyncTime(j.lastSync.created_at):"Non sincronizzato";
+    const issues=j.openIssues||[];
+    const card=$("#syncIssuesCard"),box=$("#syncIssues"),count=$("#syncIssueCount");
+    count.textContent=String(issues.length);
+    card.hidden=issues.length===0;
+    box.innerHTML="";
+    for(const issue of issues){
+      const row=document.createElement("article");
+      row.className="work-row";
+      const candidates=Array.isArray(issue.candidati)?issue.candidati:[];
+      const code=issue.codice_lavoro||issue.codice_commessa_crm||"Senza codice";
+      const reason=issue.motivo==="ambiguous"?"Più pratiche compatibili":"Codice non riconosciuto";
+      row.innerHTML=`<div class="time">${fmtClock(issue.inizio)}–${fmtClock(issue.fine)}</div>
+        <div class="job">
+          <strong>${issue.titolo||"Attività CRM"}</strong>
+          <small>${code} · ${reason} · ${fmtMinutes(issue.minuti)}</small>
+          <span class="badge">Da verificare</span>
+        </div>
+        <div class="duration issue-action"></div>
+        <div class="issue-save"></div>`;
+      const action=row.querySelector(".issue-action"),save=row.querySelector(".issue-save");
+      if(candidates.length){
+        const select=document.createElement("select");
+        select.style.width="100%";select.style.minHeight="40px";select.style.border="1px solid var(--line)";select.style.borderRadius="10px";select.style.padding="8px";
+        select.innerHTML='<option value="">Scegli pratica…</option>'+candidates.map(c=>`<option value="${c.id}">${c.codiceComm||""} · ${c.descrizione||"Commessa"}</option>`).join("");
+        const btn=document.createElement("button");btn.type="button";btn.className="save";btn.textContent="Abbina";
+        btn.addEventListener("click",async()=>{
+          if(!select.value){alert("Seleziona la pratica corretta.");return}
+          btn.disabled=true;
+          try{await api("resolveSyncIssue",{issueId:issue.id,commessaId:select.value});await loadDay()}
+          catch(e){alert(e.message)}
+          finally{btn.disabled=false}
+        });
+        action.appendChild(select);save.appendChild(btn);
+      }else{
+        action.innerHTML='<span class="muted" style="font-size:12px">Correggi il codice nell’agenda CRM e sincronizza di nuovo.</span>';
+      }
+      box.appendChild(row);
+    }
+  }catch(e){
+    console.error("sync status",e);
+    $("#crmSyncStatus").textContent="Errore sync";
+  }
+}
 function renderEmpty(){const box=$("#sessions");box.innerHTML='<div class="empty">Nessuna attività presente per questa giornata. Quando colleghiamo l’agenda CRM, qui compariranno automaticamente gli appuntamenti con le ore già calcolate.</div>'}
-async function loadDay(){if(!profile)return;$("#dayMessage").hidden=true;try{const j=await api("day",{date:$("#dayDate").value});$("#dayTotal").textContent=fmtMinutes(j.totalMinutes);$("#dayStatus").textContent=j.dayStatus?.stato==="confermata"?"Confermata":"Da verificare";const box=$("#sessions");box.innerHTML="";if(!j.sessions.length){renderEmpty();return}j.sessions.forEach(s=>{const c=s.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};const displayCode=((cl.codice_breve?String(Number(cl.codice_breve)):"")+(tp.codice||"P"));const row=document.createElement("article");row.className="work-row";const start=s.inizio?new Date(s.inizio).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):"—";const end=s.fine?new Date(s.fine).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):"—";row.innerHTML=`<div class="time">${start}–${end}</div><div class="job"><strong>${cl.ragione_sociale||"Cliente"} · ${c.descrizione||s.crm_oggetto||"Attività"}</strong><small>${displayCode} ${tp.nome?"· "+tp.nome:""}</small><span class="badge">${s.origine==="crm_agenda"?"Da agenda CRM":s.origine==="import_storico"?"Storico":"Manuale"}${s.modificata_manualmente?" · modificata":""}</span></div><div class="duration"><input aria-label="Durata effettiva" value="${fmtMinutes(s.minuti_effettivi).replace(" ","")}"></div><button class="save" type="button">Salva</button>`;const inp=row.querySelector("input"),btn=row.querySelector(".save");btn.addEventListener("click",async()=>{const m=inputMinutes(inp.value);if(m==null){alert("Inserisci una durata come 2h30m.");return}btn.disabled=true;try{await api("saveSession",{id:s.id,minutiEffettivi:m});await loadDay()}catch(e){alert(e.message)}finally{btn.disabled=false}});box.appendChild(row)})}catch(e){$("#dayMessage").textContent=e.message;$("#dayMessage").hidden=false;renderEmpty()}}
+async function loadDay(){if(!profile)return;$("#dayMessage").hidden=true;try{const j=await api("day",{date:$("#dayDate").value});$("#dayTotal").textContent=fmtMinutes(j.totalMinutes);$("#dayStatus").textContent=j.dayStatus?.stato==="confermata"?"Confermata":"Da verificare";const box=$("#sessions");box.innerHTML="";if(!j.sessions.length){renderEmpty();await loadSyncStatus();return}j.sessions.forEach(s=>{const c=s.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};const displayCode=((cl.codice_breve?String(Number(cl.codice_breve)):"")+(tp.codice||"P"));const row=document.createElement("article");row.className="work-row";const start=s.inizio?new Date(s.inizio).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):"—";const end=s.fine?new Date(s.fine).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):"—";row.innerHTML=`<div class="time">${start}–${end}</div><div class="job"><strong>${cl.ragione_sociale||"Cliente"} · ${c.descrizione||s.crm_oggetto||"Attività"}</strong><small>${displayCode} ${tp.nome?"· "+tp.nome:""}</small><span class="badge">${s.origine==="crm_agenda"?"Da agenda CRM":s.origine==="import_storico"?"Storico":"Manuale"}${s.modificata_manualmente?" · modificata":""}</span></div><div class="duration"><input aria-label="Durata effettiva" value="${fmtMinutes(s.minuti_effettivi).replace(" ","")}"></div><button class="save" type="button">Salva</button>`;const inp=row.querySelector("input"),btn=row.querySelector(".save");btn.addEventListener("click",async()=>{const m=inputMinutes(inp.value);if(m==null){alert("Inserisci una durata come 2h30m.");return}btn.disabled=true;try{await api("saveSession",{id:s.id,minutiEffettivi:m});await loadDay()}catch(e){alert(e.message)}finally{btn.disabled=false}});box.appendChild(row)});await loadSyncStatus()}catch(e){$("#dayMessage").textContent=e.message;$("#dayMessage").hidden=false;renderEmpty()}}
 $("#confirmDay").addEventListener("click",async()=>{const b=$("#confirmDay");b.disabled=true;try{const j=await api("confirmDay",{date:$("#dayDate").value});$("#dayMessage").textContent=`Giornata confermata: ${fmtMinutes(j.totalMinutes)}.`;$("#dayMessage").hidden=false;await loadDay()}catch(e){alert(e.message)}finally{b.disabled=false}});
 function setTab(which){const day=which==="day";$("#dayPanel").hidden=!day;$("#adminPanel").hidden=day;$("#tabDay").classList.toggle("active",day);$("#tabAdmin").classList.toggle("active",!day)}
 $("#tabDay").addEventListener("click",()=>setTab("day"));$("#tabAdmin").addEventListener("click",()=>setTab("admin"));
