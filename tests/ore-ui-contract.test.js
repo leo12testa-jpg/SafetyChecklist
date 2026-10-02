@@ -7,8 +7,8 @@ const app=fs.readFileSync('ore-produttivita/app.js','utf8');
 const updater=fs.readFileSync('ore-produttivita/aggiornamento.js','utf8');
 
 function hasListener(id){
-  const escaped=id.replace(/[.*+?^$\\{\\}()|[\\]\\\\]/g,'\\\\$&');
-  return new RegExp('\\\\$\\\\(\"#'+escaped+'\"\\\\)\\\\??\\\\.addEventListener').test(app);
+  return app.includes(`$("#${id}").addEventListener`) ||
+         app.includes(`$("#${id}")?.addEventListener`);
 }
 
 test('frontend never launches CRM/browser protocol',()=>{
