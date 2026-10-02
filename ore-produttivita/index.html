@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261002-5">
+  <link rel="stylesheet" href="./style.css?v=20261002-6">
 </head>
 <body>
   <main id="loginView" class="login-shell">
     <section class="login-brand-panel" aria-hidden="true">
       <div class="login-brand-mark">
         <img src="../assets/icon-192.png" alt="">
-        <div><strong>Colligo Ingegneria</strong><span>Suite interna</span></div>
+        <div><strong>Colligo Ingegneria</strong><span>Piattaforma interna</span></div>
       </div>
       <div class="login-brand-content">
         <span class="eyebrow light">TEMPI • COMMESSE • PRODUTTIVITÀ</span>
@@ -65,16 +65,16 @@
       <aside class="app-sidebar">
         <nav class="side-nav" aria-label="Navigazione">
           <button id="tabDay" class="side-nav-item active" type="button">
-            <span class="nav-icon">◷</span><span>La mia giornata</span>
+            <span class="nav-icon">⌂</span><span>Oggi</span>
           </button>
           <button id="tabAdmin" class="side-nav-item" type="button" hidden>
-            <span class="nav-icon">▥</span><span>Direzione</span>
+            <span class="nav-icon">▦</span><span>Dashboard</span>
           </button>
           <button id="tabArchive" class="side-nav-item" type="button" hidden>
-            <span class="nav-icon">☷</span><span>Archivio completo</span>
+            <span class="nav-icon">▤</span><span>Attività</span>
           </button>
           <button id="tabEconomics" class="side-nav-item" type="button" hidden>
-            <span class="nav-icon">€</span><span>Economia & Margini</span>
+            <span class="nav-icon">€</span><span>Preventivi & Margini</span>
           </button>
         </nav>
         <div class="sidebar-foot">
@@ -187,15 +187,23 @@
         <section id="adminPanel" class="screen" hidden>
           <div class="page-heading">
             <div>
-              <span class="eyebrow">DIREZIONE</span>
-              <h1>Produttività tecnica</h1>
-              <p>Analisi delle ore reali per cliente, tecnico, commessa e tipologia di lavoro.</p>
+              <span class="eyebrow">DASHBOARD</span>
+              <h1>Report, produttività e analisi</h1>
+              <p>Decisioni strategiche basate su ore reali, documenti, clienti e tecnici.</p>
             </div>
             <div class="date-range">
               <label>Dal<input id="adminFrom" type="date"></label>
               <label>Al<input id="adminTo" type="date"></label>
               <button id="loadAdmin" class="btn btn-secondary" type="button">Aggiorna</button>
             </div>
+          </div>
+
+          <div class="admin-shortcuts">
+            <button type="button" data-admin-jump="productivityRows">Produttività</button>
+            <button type="button" data-admin-jump="techBars">Tecnici</button>
+            <button type="button" data-admin-jump="clientBars">Clienti</button>
+            <button type="button" data-admin-tab="archive">Documenti</button>
+            <button type="button" data-admin-tab="economics">Preventivi</button>
           </div>
 
           <div class="summary-grid four">
@@ -506,6 +514,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261002-5"></script>
+  <script src="./app.js?v=20261002-6"></script>
 </body>
 </html>
