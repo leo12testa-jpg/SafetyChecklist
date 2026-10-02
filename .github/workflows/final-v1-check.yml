@@ -60,7 +60,7 @@ jobs:
           grep -q 'id="archivePanel"' ore-produttivita/index.html
           grep -q 'id="archiveRows"' ore-produttivita/index.html
           grep -q 'id="crmResourceRows"' ore-produttivita/index.html
-          grep -q 'Agenda CRM del giorno' ore-produttivita/index.html
+          grep -q '<h2>Agenda CRM</h2>' ore-produttivita/index.html
           grep -q 'id="syncCrmNow"' ore-produttivita/index.html
           grep -q 'colligoore://sync' ore-produttivita/app.js
 
