@@ -112,7 +112,7 @@ def event_from_text(text, fallback_day):
 
 
 async def snapshot_frame(frame, frame_index):
-    return await frame.evaluate("""(frameIndex) => {
+    return await frame.evaluate(r"""(frameIndex) => {
       const rows = [];
       const add = (kind, index, text) => {
         text = (text || '').replace(/\s+/g, ' ').trim();
