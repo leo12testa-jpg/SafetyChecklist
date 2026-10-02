@@ -151,6 +151,25 @@ async def snapshot_frame(frame, frame_index):
     return await frame.evaluate(r"""(frameIndex) => {
       const rows = [];
 
+      const attrsText = (el) => {
+        const parts = [];
+        const add = (k, v) => {
+          v = (v || '').toString().replace(/\s+/g, ' ').trim();
+          if (v) parts.push(k + '=' + v);
+        };
+        add('id', el.id);
+        add('class', el.className);
+        add('onclick', el.getAttribute?.('onclick'));
+        add('ondblclick', el.getAttribute?.('ondblclick'));
+        add('href', el.getAttribute?.('href'));
+        add('style', el.getAttribute?.('style'));
+        add('value', el.value);
+        for (const a of [...(el.attributes || [])]) {
+          if (/^(data-|aria-)/i.test(a.name)) add(a.name, a.value);
+        }
+        return parts.join(' | ').slice(0, 4500);
+      };
+
       const richText = (el) => {
         const parts = [];
         const addPart = (v) => {
@@ -181,13 +200,14 @@ async def snapshot_frame(frame, frame_index):
 
       const add = (kind, index, el) => {
         const text = richText(el);
-        if (text && text.length <= 2500) rows.push({kind, index, text});
+        const attrs = attrsText(el);
+        if ((text || attrs) && (text.length + attrs.length) <= 7000) rows.push({kind, index, text, attrs});
       };
 
       document.querySelectorAll('tr').forEach((el, i) => add('tr', i, el));
 
       document.querySelectorAll(
-        '[onclick], [ondblclick], [title], [aria-label], [data-title], [data-original-title], [data-tooltip], a, td, div, span'
+        '[onclick], [ondblclick], [href], [data-start], [data-end], [data-date], [data-time], [data-begin], [data-duration], [class*="event"], [class*="Event"], [class*="appoint"], [class*="calendar"], [title], [aria-label], [data-title], [data-original-title], [data-tooltip], a, td, div, span'
       ).forEach((el, i) => {
         let t = richText(el);
         if (!/\b\d{1,2}[:.]\d{2}\b/.test(t)) {
@@ -197,8 +217,13 @@ async def snapshot_frame(frame, frame_index):
             if (p) t = p + (t ? ' | ' + t : '');
           }
         }
-        if (/\b\d{1,2}[:.]\d{2}\b/.test(t) && t.length < 2200) {
-          rows.push({kind: 'timed', index: i, text: t});
+        const attrs = attrsText(el);
+        const combined = (t + ' | ' + attrs).trim();
+        if (/\b\d{1,2}[:.]\d{2}\b/.test(combined) && combined.length < 7000) {
+          rows.push({kind: 'timed', index: i, text: t, attrs});
+        }
+        if (/(CM\d{4,}|\d{1,2}[A-IL-P]\b|data-start|data-end|onclick|ondblclick)/i.test(combined) && combined.length < 7000) {
+          rows.push({kind: 'candidate', index: i, text: t, attrs});
         }
       });
 
@@ -222,30 +247,88 @@ async def snapshot_all(page):
     return data
 
 
-def parse_visible_agenda(frames_data, wanted):
+def candidate_windows(raw):
+    text = html.unescape(str(raw or ""))
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\\s+", " ", text).strip()
+    if not text:
+        return []
+    times = list(TIME_RE.finditer(text))
+    windows = []
+    if len(times) >= 2:
+        for i in range(len(times) - 1):
+            a, b = times[i], times[i + 1]
+            if b.start() - a.start() <= 1200:
+                windows.append(text[max(0, a.start() - 280):min(len(text), b.end() + 650)])
+    return windows[:80]
+
+
+def parse_visible_agenda(frames_data, wanted, network_texts=None):
     events = []
-    for preferred_kind in ("tr", "timed"):
+
+    # 1) Elementi del calendario e attributi nascosti / onclick.
+    for preferred_kind in ("candidate", "tr", "timed"):
         current = []
         for snap in frames_data:
             for row in snap.get("rows", []):
                 if row.get("kind") != preferred_kind:
                     continue
-                ev = event_from_text(row.get("text", ""), wanted)
+                source = " | ".join([
+                    str(row.get("text", "")),
+                    str(row.get("attrs", ""))
+                ])
+                ev = event_from_text(source, wanted)
                 if ev and ev["date"] == wanted:
                     current.append(ev)
         if current:
-            events = current
-            break
+            events.extend(current)
+
+    # 2) Fallback: finestre di righe vicine nel testo visibile della pagina.
+    for snap in frames_data:
+        body = str(snap.get("body", ""))
+        lines = [re.sub(r"\\s+", " ", x).strip() for x in body.splitlines() if x.strip()]
+        for width in (2, 3, 4, 5):
+            for i in range(max(0, len(lines) - width + 1)):
+                ev = event_from_text(" | ".join(lines[i:i + width]), wanted)
+                if ev and ev["date"] == wanted:
+                    events.append(ev)
+
+    # 3) Fallback CRM: contenuti caricati via XHR/fetch durante l'apertura agenda.
+    for raw in network_texts or []:
+        for piece in candidate_windows(raw):
+            ev = event_from_text(piece, wanted)
+            if ev and ev["date"] == wanted:
+                events.append(ev)
 
     seen = set()
     out = []
     for e in events:
-        key = (e["date"], e["start"], e["end"], e["title"])
+        key = (e["date"], e["start"], e["end"], re.sub(r"\\s+", " ", e["title"]).strip())
         if key in seen:
             continue
         seen.add(key)
         out.append(e)
+    out.sort(key=lambda x: (x["start"], x["end"], x["title"]))
     return out
+
+
+async def capture_crm_response(response, bucket):
+    try:
+        url = str(response.url or "")
+        if "crm.colligoingegneria.it" not in url:
+            return
+        ctype = str(response.headers.get("content-type", "")).lower()
+        if not any(x in ctype for x in ("json", "text", "html", "javascript", "xml")):
+            return
+        raw = await response.text()
+        if not raw or len(raw) > 1500000:
+            return
+        if TIME_RE.search(raw) or COMM_RE.search(raw):
+            bucket.append(raw[:1500000])
+            if len(bucket) > 25:
+                del bucket[:-25]
+    except Exception:
+        pass
 
 
 async def main():
@@ -273,6 +356,8 @@ async def main():
             viewport={"width": 1440, "height": 950},
         )
         page = browser.pages[0] if browser.pages else await browser.new_page()
+        network_texts = []
+        page.on("response", lambda response: asyncio.create_task(capture_crm_response(response, network_texts)))
         await page.goto(AGENDA_URL, wait_until="domcontentloaded", timeout=60000)
 
         print("\nAgenda CRM aperta nel profilo personale di questo utente.")
@@ -311,14 +396,14 @@ async def main():
                 pass
 
         frames = await snapshot_all(page)
-        events = parse_visible_agenda(frames, wanted)
+        events = parse_visible_agenda(frames, wanted, network_texts)
 
         if not events:
             print(f"\nNon riesco ancora a leggere automaticamente la giornata {wanted}.")
             print("Porta la TUA agenda a quella data; poi premi INVIO.")
             input()
             frames = await snapshot_all(page)
-            events = parse_visible_agenda(frames, wanted)
+            events = parse_visible_agenda(frames, wanted, network_texts)
 
         DEBUG_FILE.write_text(
             json.dumps({"date": wanted, "frames": frames}, ensure_ascii=False, indent=2),
