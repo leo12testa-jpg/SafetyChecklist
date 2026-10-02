@@ -19,7 +19,7 @@ async function token(){const u=firebase.auth().currentUser;if(!u)throw new Error
 async function api(action,body={}){const r=await fetch(API,{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${await token()}`},body:JSON.stringify({action,...body})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"Richiesta non riuscita.");return j}
 async function loadProfile(user){const snap=await db.collection("utenti").doc(user.uid).get({source:"server"});if(!snap.exists)throw new Error("Profilo utente non disponibile.");const p=snap.data();if(p.attivo!==true||!["admin","tecnico"].includes(p.ruolo))throw new Error("Account non attivo.");return {...p,uid:user.uid}}
 function showLogin(msg=""){profile=null;loginView.hidden=false;appView.hidden=true;loginError.textContent=msg;loginError.hidden=!msg}
-async function showApp(p){profile=p;loginView.hidden=true;appView.hidden=false;$("#userName").textContent=[p.nome,p.cognome].filter(Boolean).join(" ")||p.username;$("#userRole").textContent=p.ruolo==="admin"?"Amministratore":"Tecnico";$("#tabAdmin").hidden=p.ruolo!=="admin";$("#tabArchive").hidden=p.ruolo!=="admin";$("#tabEconomics").hidden=p.ruolo!=="admin";await loadDay();if(p.ruolo==="admin")await loadAdmin()}
+async function showApp(p){profile=p;loginView.hidden=true;appView.hidden=false;$("#userName").textContent=[p.nome,p.cognome].filter(Boolean).join(" ")||p.username;$("#userRole").textContent=p.ruolo==="admin"?"Amministratore":"Tecnico";$("#tabAdmin").hidden=p.ruolo!=="admin";$("#tabArchive").hidden=p.ruolo!=="admin";$("#tabEconomics").hidden=p.ruolo!=="admin";$("#panelTitle").textContent=p.ruolo==="admin"?"Pannello Amministratore":"Pannello Tecnico";$("#panelSubtitle").textContent=p.ruolo==="admin"?"Report, produttività e analisi per decisioni strategiche":"Inserisci le tue ore in pochi secondi";await loadDay();if(p.ruolo==="admin")await loadAdmin()}
 loginForm.addEventListener("submit",async e=>{e.preventDefault();loginBtn.disabled=true;loginError.hidden=true;try{await firebase.auth().signInWithEmailAndPassword(internalEmail($("#username").value),$("#password").value)}catch(err){showLogin(["auth/invalid-credential","auth/user-not-found","auth/wrong-password"].includes(err.code)?"Credenziali non valide.":err.message)}finally{loginBtn.disabled=false;$("#password").value=""}});
 $("#logoutBtn").addEventListener("click",()=>firebase.auth().signOut());
 firebase.auth().onAuthStateChanged(async user=>{if(!user){showLogin();return}try{showApp(await loadProfile(user))}catch(e){await firebase.auth().signOut().catch(()=>{});showLogin(e.message)}});
@@ -37,10 +37,10 @@ async function loadManualCatalog(){
   const j=await api("commesse",{clienteId:client.value});
   job.innerHTML='<option value="">Seleziona commessa…</option>'+j.commesse.map(c=>`<option value="${c.id}">${c.codice_lavoro||""} · ${c.descrizione}</option>`).join("");
 }
-$("#manualToggle").addEventListener("click",async()=>{
-  $("#manualCard").hidden=false;
-  try{await loadManualCatalog()}catch(e){alert(e.message)}
-});
+async function openManualCard(){$("#manualCard").hidden=false;try{await loadManualCatalog()}catch(e){alert(e.message)}$("#manualCard").scrollIntoView({behavior:"smooth",block:"nearest"})}
+$("#manualToggle").addEventListener("click",openManualCard);
+$("#manualToggleBottom")?.addEventListener("click",openManualCard);
+document.querySelectorAll("[data-quick-minutes]").forEach(btn=>btn.addEventListener("click",()=>{const m=Number(btn.dataset.quickMinutes||0);if(m)$("#manualDuration").value=m>=60&&m%60===0?(m/60)+"h":m+"m"}));
 $("#manualClose").addEventListener("click",()=>{$("#manualCard").hidden=true});
 $("#manualClient").addEventListener("change",()=>loadManualCatalog().catch(e=>alert(e.message)));
 $("#manualSave").addEventListener("click",async()=>{
@@ -111,7 +111,7 @@ async function loadSyncStatus(){
         });
         action.appendChild(select);save.appendChild(btn);
       }else{
-        action.innerHTML='<span class="muted" style="font-size:12px">Correggi il codice nell’agenda CRM e sincronizza di nuovo.</span>';
+        action.innerHTML='<span class="muted" style="font-size:12px">Aggiungi nella nota cliente, sede o pratica e sincronizza di nuovo: il codice non è obbligatorio.</span>';
       }
       box.appendChild(row);
     }
