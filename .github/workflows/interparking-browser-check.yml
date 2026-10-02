@@ -1,0 +1,35 @@
+name: Interparking browser regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/interparking-browser-check.yml"
+      - "tests/interparking-marker-cross-browser.cjs"
+      - "js/app.js"
+      - "js/checklist.js"
+      - "js/db.js"
+      - "js/sync.js"
+      - "index.html"
+      - "service-worker.js"
+      - "version.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  marker-cross-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium firefox webkit
+      - name: Test Interparking markers on Chromium Firefox WebKit
+        run: node tests/interparking-marker-cross-browser.cjs
