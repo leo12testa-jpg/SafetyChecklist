@@ -120,44 +120,74 @@ async function loadSyncStatus(){
     $("#crmSyncStatus").textContent="Errore sync";
   }
 }
-function renderEmpty(){const box=$("#sessions");box.innerHTML='<div class="empty">Nessuna attività presente per questa giornata. Quando colleghiamo l’agenda CRM, qui compariranno automaticamente gli appuntamenti con le ore già calcolate.</div>'}
-async function loadDay(){if(!profile)return;$("#dayMessage").hidden=true;try{const j=await api("day",{date:$("#dayDate").value});$("#dayTotal").textContent=fmtMinutes(j.totalMinutes);$("#dayStatus").textContent=j.dayStatus?.stato==="confermata"?"Confermata":"Da verificare";const box=$("#sessions");box.innerHTML="";if(!j.sessions.length){renderEmpty();await loadSyncStatus();return}j.sessions.forEach(s=>{
-  const c=s.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
-  const displayCode=((cl.codice_breve?String(Number(cl.codice_breve)):"")+(tp.codice||"P"));
-  const origin=s.origine==="crm_agenda"?"CRM":s.origine==="import_storico"?"Storico":"Manuale";
-  const row=document.createElement("article");
-  row.className="work-entry";
-  const start=s.inizio?new Date(s.inizio).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):"—";
-  const end=s.fine?new Date(s.fine).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):"—";
-  row.innerHTML=`<div class="entry-head">
-    <div class="entry-code">${displayCode||"—"}</div>
-    <div class="entry-copy">
-      <div class="entry-client">${cl.ragione_sociale||"Cliente non disponibile"}</div>
-      <div class="entry-title">${c.descrizione||s.crm_oggetto||"Attività"}</div>
-      <div class="entry-meta">
-        <span><b>Tipo:</b> ${tp.nome||"Altro"}</span>
-        <span><b>Commessa CRM:</b> ${c.codice_commessa_crm||"—"}</span>
-        <span class="entry-origin">${origin}${s.modificata_manualmente?" · modificata":""}</span>
-      </div>
-    </div>
-  </div>
-  <div class="entry-side">
-    <div class="entry-time"><strong>${start}–${end}</strong><span>${s.inizio&&s.fine?"Orario agenda":"Senza fascia oraria"}</span></div>
-    <div class="entry-duration"><input aria-label="Durata effettiva" value="${fmtMinutes(s.minuti_effettivi).replace(" ","")}"></div>
-    <button class="save" type="button">Salva</button>
-  </div>`;
-  const inp=row.querySelector("input"),btn=row.querySelector(".save");
-  btn.addEventListener("click",async()=>{
-    const m=inputMinutes(inp.value);
-    if(m==null){alert("Inserisci una durata come 2h30m.");return}
-    btn.disabled=true;
-    try{await api("saveSession",{id:s.id,minutiEffettivi:m});await loadDay()}
-    catch(e){alert(e.message)}
-    finally{btn.disabled=false}
+function renderEmpty(){
+  $("#sessions").innerHTML='<div class="empty">Nessuna attività per questa giornata.</div>';
+  $("#crmDetected").innerHTML='<div class="crm-empty">Nessuna attività CRM rilevata per la data selezionata.</div>';
+}
+function renderCrmDetected(sessions){
+  const box=$("#crmDetected");box.innerHTML="";
+  const rows=(sessions||[]).filter(s=>s.origine==="crm_agenda");
+  if(!rows.length){box.innerHTML='<div class="crm-empty">Nessuna attività CRM rilevata per oggi.</div>';return}
+  rows.slice(0,6).forEach(s=>{
+    const c=s.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
+    const code=(cl.codice_breve?String(Number(cl.codice_breve)):"")+(tp.codice||"P");
+    const card=document.createElement("div");card.className="crm-detected-item";
+    card.innerHTML=`<span class="mini-code">${code||"—"}</span><div><strong>${cl.ragione_sociale||"Cliente"}</strong><small>${s.attivita_rilevata||tp.nome||"Attività"}</small></div>`;
+    box.appendChild(card);
   });
-  box.appendChild(row)
-});
-await loadSyncStatus()}catch(e){$("#dayMessage").textContent=e.message;$("#dayMessage").hidden=false;renderEmpty()}}
+}
+async function renderRecentActivities(){
+  const box=$("#recentActivities");box.innerHTML="";
+  try{
+    const j=await api("recentPersonal");
+    const rows=j.rows||[];
+    if(!rows.length){box.innerHTML='<div class="crm-empty">Nessuna attività recente.</div>';return}
+    rows.slice(0,3).forEach(s=>{
+      const c=s.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
+      const code=(cl.codice_breve?String(Number(cl.codice_breve)):"")+(tp.codice||"P");
+      const card=document.createElement("article");card.className="recent-card";
+      card.innerHTML=`<div><span class="mini-code">${code||"—"}</span><strong>${cl.ragione_sociale||"Cliente"} · ${tp.nome||"Attività"}</strong></div><small>${c.descrizione||"—"}</small><button type="button">＋ Aggiungi ore</button>`;
+      card.querySelector("button").addEventListener("click",async()=>{
+        await openManualCard();
+        if(c.cliente_id){$("#manualClient").value=String(c.cliente_id);await loadManualCatalog();$("#manualJob").value=String(s.commessa_id||"")}
+      });
+      box.appendChild(card);
+    });
+  }catch(e){console.error("recent activities",e)}
+}
+async function loadDay(){
+  if(!profile)return;
+  $("#dayMessage").hidden=true;
+  try{
+    const j=await api("day",{date:$("#dayDate").value});
+    const total=Number(j.totalMinutes||0),totalText=fmtMinutes(total),pct=Math.max(0,Math.min(100,Math.round(total/480*100)));
+    $("#dayTotal").textContent=`${totalText} / 8h 00m`;
+    $("#dayTotalBottom").textContent=totalText;
+    $("#dayProgressBar").style.width=pct+"%";
+    $("#dayProgressText").textContent=pct+"%";
+    const confirmed=j.dayStatus?.stato==="confermata";
+    $("#dayStatus").textContent=confirmed?"Confermata":"Da verificare";
+    $("#dayCompleteBadge").textContent=confirmed?"Completata":"Da completare";
+    $("#dayCompleteBadge").classList.toggle("done",confirmed);
+    renderCrmDetected(j.sessions||[]);
+    const box=$("#sessions");box.innerHTML="";
+    if(!j.sessions.length){renderEmpty();await Promise.all([loadSyncStatus(),renderRecentActivities()]);return}
+    j.sessions.forEach(s=>{
+      const c=s.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
+      const displayCode=(cl.codice_breve?String(Number(cl.codice_breve)):"")+(tp.codice||"P");
+      const origin=s.origine==="crm_agenda"?"CRM":s.origine==="import_storico"?"Storico":"Manuale";
+      const row=document.createElement("div");row.className="proto-hour-row";
+      const note=s.crm_oggetto||c.descrizione||"";
+      const activity=s.attivita_rilevata||tp.nome||"Attività";
+      row.innerHTML=`<div><span class="proto-code">${displayCode||"—"}</span></div><div class="proto-desc"><strong>${cl.ragione_sociale||"Cliente"} · ${c.descrizione||"Attività"}</strong><small>${c.codice_commessa_crm||""} · ${origin}</small></div><div class="proto-hours"><input aria-label="Durata effettiva" value="${fmtMinutes(s.minuti_effettivi).replace(" ","")}"></div><div class="proto-note"><span class="activity-chip">${activity}</span><small></small></div><div class="proto-actions"><button class="save" type="button">Salva</button></div>`;
+      row.querySelector(".proto-note small").textContent=note;
+      const inp=row.querySelector("input"),btn=row.querySelector(".save");
+      btn.addEventListener("click",async()=>{const m=inputMinutes(inp.value);if(m==null){alert("Inserisci una durata come 2h30m.");return}btn.disabled=true;try{await api("saveSession",{id:s.id,minutiEffettivi:m});await loadDay()}catch(e){alert(e.message)}finally{btn.disabled=false}});
+      box.appendChild(row);
+    });
+    await Promise.all([loadSyncStatus(),renderRecentActivities()]);
+  }catch(e){$("#dayMessage").textContent=e.message;$("#dayMessage").hidden=false;renderEmpty()}
+}
 $("#confirmDay").addEventListener("click",async()=>{const b=$("#confirmDay");b.disabled=true;try{const j=await api("confirmDay",{date:$("#dayDate").value});$("#dayMessage").textContent=`Giornata confermata: ${fmtMinutes(j.totalMinutes)}.`;$("#dayMessage").hidden=false;await loadDay()}catch(e){alert(e.message)}finally{b.disabled=false}});
 function setTab(which){
   const day=which==="day",admin=which==="admin",archive=which==="archive",economics=which==="economics";
