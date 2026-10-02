@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261002-6">
+  <link rel="stylesheet" href="./style.css?v=20261002-7">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -206,11 +206,12 @@
             <button type="button" data-admin-tab="economics">Preventivi</button>
           </div>
 
-          <div class="summary-grid four">
-            <article class="summary-card"><span class="summary-icon">◷</span><div><small>Ore</small><strong id="kpiHours">0</strong><span>Somma delle ore effettive nel periodo</span></div></article>
-            <article class="summary-card"><span class="summary-icon">▤</span><div><small>Sessioni</small><strong id="kpiSessions">0</strong><span>Singole registrazioni di lavoro</span></div></article>
-            <article class="summary-card"><span class="summary-icon">◎</span><div><small>Tecnici</small><strong id="kpiTechs">0</strong><span>Persone con almeno una registrazione</span></div></article>
-            <article class="summary-card"><span class="summary-icon">▣</span><div><small>Commesse</small><strong id="kpiJobs">0</strong><span>Pratiche distinte su cui si è lavorato</span></div></article>
+          <div class="summary-grid five admin-kpis">
+            <article class="summary-card"><span class="summary-icon">◷</span><div><small>Ore totali</small><strong id="kpiHours">0</strong><span>Ore effettive registrate</span></div></article>
+            <article class="summary-card"><span class="summary-icon">▣</span><div><small>Documenti / commesse</small><strong id="kpiJobs">0</strong><span>Pratiche lavorate nel periodo</span></div></article>
+            <article class="summary-card"><span class="summary-icon">≈</span><div><small>Ore medie / pratica</small><strong id="kpiAvgJob">0</strong><span>Ore totali ÷ commesse</span></div></article>
+            <article class="summary-card"><span class="summary-icon">◎</span><div><small>Tecnici</small><strong id="kpiTechs">0</strong><span>Risorse attive nel periodo</span></div></article>
+            <article class="summary-card"><span class="summary-icon">◆</span><div><small>Clienti attivi</small><strong id="kpiClients">0</strong><span>Clienti con almeno un’attività</span></div></article>
           </div>
 
           <div class="admin-visual-grid">
@@ -514,6 +515,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261002-6"></script>
+  <script src="./app.js?v=20261002-7"></script>
 </body>
 </html>
