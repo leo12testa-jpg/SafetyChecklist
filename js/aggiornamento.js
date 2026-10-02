@@ -2,7 +2,7 @@
  * A controller change alone is not an update. Never reload unsaved input automatically.
  */
 const aggiornamentoApp = (() => {
-  const BUILD_ID = '20261002-124000';
+  const BUILD_ID = '20261002-125500';
   let buildServer = null;
   // "import-preview" (anteprima importazione PDF, vedi js/pdf-import.js + js/import-matching.js
   // in app.js) esiste SOLO in memoria finchÃ© non si preme "Conferma importazione": un reload lÃ¬
@@ -19,6 +19,25 @@ const aggiornamentoApp = (() => {
     if (typeof anteprimaImportazionePendente !== 'undefined' && anteprimaImportazionePendente) return true;
     const schermata = document.querySelector('.screen:not([hidden])');
     return !!(schermata && SCHERMATE_A_RISCHIO.has(schermata.dataset.screen));
+  }
+
+  function schermataHomeSicura() {
+    if (document.body.dataset.authenticated !== 'true') return false;
+    const home = document.querySelector('[data-screen="home"]');
+    const dialogAperto = document.querySelector('dialog[open]');
+    return !!home && !home.hidden && !dialogAperto && !schermataARischioAttiva();
+  }
+
+  async function provaAggiornamentoAutomatico() {
+    if (!buildServer || buildServer === BUILD_ID || !schermataHomeSicura()) return false;
+    const chiave = `safety-auto-update:${BUILD_ID}->${buildServer}`;
+    try {
+      if (sessionStorage.getItem(chiave)) return false;
+      sessionStorage.setItem(chiave, '1');
+    } catch (_) {}
+    await attendiNuovoServiceWorker(10000);
+    location.reload();
+    return true;
   }
 
   function mostraBannerAggiornamento() {
@@ -88,6 +107,7 @@ const aggiornamentoApp = (() => {
       if (!risposta.ok) return;
       buildServer = (await risposta.json()).buildId;
       mostraBannerAggiornamento();
+      await provaAggiornamentoAutomatico();
     } catch (errore) {
       console.warn('Impossibile verificare la nuova versione:', errore);
     }

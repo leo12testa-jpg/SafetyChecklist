@@ -3750,7 +3750,32 @@ const connessioneIndicatore = (() => {
     }
   }
 
+  async function ritentaSincronizzazione() {
+    if (!navigator.onLine) {
+      aggiorna();
+      return;
+    }
+    contenitore.classList.add('is-retrying');
+    testo.textContent = 'Riprovo la sincronizzazione…';
+    try {
+      await sync.sincronizzaCompleto();
+    } finally {
+      contenitore.classList.remove('is-retrying');
+      aggiorna();
+    }
+  }
+
   function init() {
+    contenitore.setAttribute('role', 'button');
+    contenitore.setAttribute('tabindex', '0');
+    contenitore.title = 'Clicca per riprovare la sincronizzazione';
+    contenitore.addEventListener('click', ritentaSincronizzazione);
+    contenitore.addEventListener('keydown', (evento) => {
+      if (evento.key === 'Enter' || evento.key === ' ') {
+        evento.preventDefault();
+        ritentaSincronizzazione();
+      }
+    });
     aggiorna();
     window.addEventListener('online', aggiorna);
     window.addEventListener('offline', aggiorna);

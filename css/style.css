@@ -2479,3 +2479,12 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
   .foto-stato-testo { display: inline; }
   .foto-lightbox { width: 100vw; height: 100dvh; max-width: none; border-radius: 0; }
 }
+
+
+/* Stato sync interattivo: consente un nuovo tentativo manuale senza ricaricare la pagina. */
+.stato-connessione[role="button"] { cursor: pointer; user-select: none; }
+.stato-connessione[role="button"]:focus-visible {
+  outline: 3px solid rgba(7,94,230,.18);
+  outline-offset: 2px;
+}
+.stato-connessione.is-retrying { opacity: .78; }
