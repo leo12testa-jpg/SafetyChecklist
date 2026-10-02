@@ -202,6 +202,22 @@ $("#tabAdmin").addEventListener("click",()=>setTab("admin"));
 $("#tabArchive").addEventListener("click",()=>setTab("archive"));
 $("#tabEconomics").addEventListener("click",()=>setTab("economics"));
 $("#loadAdmin").addEventListener("click",loadAdmin);
+function renderRankBars(selector,entries,limit=6){
+  const box=$(selector);if(!box)return;box.innerHTML="";
+  const rows=[...entries].sort((a,b)=>b[1].minutes-a[1].minutes).slice(0,limit);
+  const max=Math.max(1,...rows.map(x=>x[1].minutes));
+  rows.forEach(([name,v],idx)=>{const row=document.createElement("div");row.className="rank-bar-row";const pct=Math.max(4,Math.round(v.minutes/max*100));row.innerHTML=`<span>${name}</span><div><i style="width:${pct}%"></i></div><b>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})} h</b>`;box.appendChild(row)});
+  if(!rows.length)box.innerHTML='<div class="crm-empty">Nessun dato.</div>';
+}
+function renderAdminVisuals(rows,clients,techs){
+  const palette=["#2e8df4","#52c9a5","#f5b64b","#8d6be8","#e97878","#59b8c8","#93c95b","#9aa9b8"];
+  const typeMap=new Map(),monthMap=new Map();
+  for(const r of rows||[]){const c=r.ore_commesse||{},tp=c.ore_tipologie||{},mins=Number(r.minuti_effettivi||0);const key=tp.nome||"Altro";typeMap.set(key,(typeMap.get(key)||0)+mins);const m=String(r.data_lavoro||"").slice(0,7);if(m)monthMap.set(m,(monthMap.get(m)||0)+mins)}
+  const types=[...typeMap.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8),total=types.reduce((s,x)=>s+x[1],0);
+  const donut=$("#typeDonut"),legend=$("#typeLegend");if(donut&&legend){let acc=0;const seg=[];types.forEach(([name,mins],i)=>{const start=total?acc/total*360:0;acc+=mins;const end=total?acc/total*360:0;seg.push(`${palette[i%palette.length]} ${start}deg ${end}deg`)});donut.style.background=seg.length?`conic-gradient(${seg.join(",")})`:"#e8edf2";$("#typeDonutTotal").textContent=(total/60).toLocaleString("it-IT",{maximumFractionDigits:0})+"h";legend.innerHTML="";types.forEach(([name,mins],i)=>{const el=document.createElement("div");const pct=total?Math.round(mins/total*100):0;el.innerHTML=`<i style="background:${palette[i%palette.length]}"></i><span>${name}</span><b>${pct}%</b>`;legend.appendChild(el)})}
+  const months=[...monthMap.entries()].sort((a,b)=>a[0].localeCompare(b[0]));const mb=$("#monthlyBars");if(mb){mb.innerHTML="";const max=Math.max(1,...months.map(x=>x[1]));months.forEach(([m,mins])=>{const col=document.createElement("div");col.className="month-col";const h=Math.max(6,Math.round(mins/max*100));const d=new Date(m+"-01T12:00:00");col.innerHTML=`<b>${(mins/60).toLocaleString("it-IT",{maximumFractionDigits:0})}</b><div><i style="height:${h}%"></i></div><span>${d.toLocaleDateString("it-IT",{month:"short"})}</span>`;mb.appendChild(col)});if(!months.length)mb.innerHTML='<div class="crm-empty">Nessun dato.</div>'}
+  renderRankBars("#techBars",techs,6);renderRankBars("#clientBars",clients,6);
+}
 async function loadAdmin(){
   if(!profile||profile.ruolo!=="admin")return;
   try{
@@ -262,6 +278,8 @@ async function loadAdmin(){
         v.minutes+=mins;jobs.set(jobKey,v);
       }
     }
+
+    renderAdminVisuals(j.rows,clients,techs);
 
     const clientBody=$("#clientRows");clientBody.innerHTML="";
     [...clients.entries()].sort((a,b)=>b[1].minutes-a[1].minutes).slice(0,12).forEach(([name,v])=>{
