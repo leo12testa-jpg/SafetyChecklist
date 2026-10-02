@@ -19,7 +19,7 @@ async function token(){const u=firebase.auth().currentUser;if(!u)throw new Error
 async function api(action,body={}){const r=await fetch(API,{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${await token()}`},body:JSON.stringify({action,...body})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"Richiesta non riuscita.");return j}
 async function loadProfile(user){const snap=await db.collection("utenti").doc(user.uid).get({source:"server"});if(!snap.exists)throw new Error("Profilo utente non disponibile.");const p=snap.data();if(p.attivo!==true||!["admin","tecnico"].includes(p.ruolo))throw new Error("Account non attivo.");return {...p,uid:user.uid}}
 function showLogin(msg=""){profile=null;loginView.hidden=false;appView.hidden=true;loginError.textContent=msg;loginError.hidden=!msg}
-async function showApp(p){profile=p;loginView.hidden=true;appView.hidden=false;$("#userName").textContent=[p.nome,p.cognome].filter(Boolean).join(" ")||p.username;$("#userRole").textContent=p.ruolo==="admin"?"Amministratore":"Tecnico";$("#tabAdmin").hidden=p.ruolo!=="admin";$("#tabEconomics").hidden=p.ruolo!=="admin";await loadDay();if(p.ruolo==="admin")await loadAdmin()}
+async function showApp(p){profile=p;loginView.hidden=true;appView.hidden=false;$("#userName").textContent=[p.nome,p.cognome].filter(Boolean).join(" ")||p.username;$("#userRole").textContent=p.ruolo==="admin"?"Amministratore":"Tecnico";$("#tabAdmin").hidden=p.ruolo!=="admin";$("#tabArchive").hidden=p.ruolo!=="admin";$("#tabEconomics").hidden=p.ruolo!=="admin";await loadDay();if(p.ruolo==="admin")await loadAdmin()}
 loginForm.addEventListener("submit",async e=>{e.preventDefault();loginBtn.disabled=true;loginError.hidden=true;try{await firebase.auth().signInWithEmailAndPassword(internalEmail($("#username").value),$("#password").value)}catch(err){showLogin(["auth/invalid-credential","auth/user-not-found","auth/wrong-password"].includes(err.code)?"Credenziali non valide.":err.message)}finally{loginBtn.disabled=false;$("#password").value=""}});
 $("#logoutBtn").addEventListener("click",()=>firebase.auth().signOut());
 firebase.auth().onAuthStateChanged(async user=>{if(!user){showLogin();return}try{showApp(await loadProfile(user))}catch(e){await firebase.auth().signOut().catch(()=>{});showLogin(e.message)}});
@@ -160,18 +160,22 @@ async function loadDay(){if(!profile)return;$("#dayMessage").hidden=true;try{con
 await loadSyncStatus()}catch(e){$("#dayMessage").textContent=e.message;$("#dayMessage").hidden=false;renderEmpty()}}
 $("#confirmDay").addEventListener("click",async()=>{const b=$("#confirmDay");b.disabled=true;try{const j=await api("confirmDay",{date:$("#dayDate").value});$("#dayMessage").textContent=`Giornata confermata: ${fmtMinutes(j.totalMinutes)}.`;$("#dayMessage").hidden=false;await loadDay()}catch(e){alert(e.message)}finally{b.disabled=false}});
 function setTab(which){
-  const day=which==="day",admin=which==="admin",economics=which==="economics";
+  const day=which==="day",admin=which==="admin",archive=which==="archive",economics=which==="economics";
   $("#dayPanel").hidden=!day;
   $("#adminPanel").hidden=!admin;
+  $("#archivePanel").hidden=!archive;
   $("#economicsPanel").hidden=!economics;
   $("#tabDay").classList.toggle("active",day);
   $("#tabAdmin").classList.toggle("active",admin);
+  $("#tabArchive").classList.toggle("active",archive);
   $("#tabEconomics").classList.toggle("active",economics);
   if(admin)loadAdmin();
+  if(archive)loadArchive();
   if(economics)loadEconomics();
 }
 $("#tabDay").addEventListener("click",()=>setTab("day"));
 $("#tabAdmin").addEventListener("click",()=>setTab("admin"));
+$("#tabArchive").addEventListener("click",()=>setTab("archive"));
 $("#tabEconomics").addEventListener("click",()=>setTab("economics"));
 $("#loadAdmin").addEventListener("click",loadAdmin);
 async function loadAdmin(){
@@ -272,6 +276,159 @@ async function loadAdmin(){
 }
 
 
+
+
+let archiveData=null;
+
+function archiveStatusLabel(v){
+  if(v==="completata")return "Completata";
+  if(v==="in_lavorazione")return "In lavorazione";
+  if(v==="archiviata")return "Archiviata";
+  return v||"—";
+}
+function archiveDate(v){
+  return v?new Date(v+"T12:00:00").toLocaleDateString("it-IT"):"—";
+}
+function archiveOrigin(v){
+  if(v==="crm_agenda")return "CRM";
+  if(v==="import_storico")return "Storico";
+  if(v==="manuale")return "Manuale";
+  return v||"—";
+}
+function archiveClock(v){
+  return v?new Date(v).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):"—";
+}
+function populateArchiveFilters(){
+  const rows=archiveData?.rows||[];
+  const clients=[...new Map(rows.map(r=>[r.cliente?.id||r.cliente?.ragione_sociale,r.cliente?.ragione_sociale]).filter(x=>x[0]&&x[1])).entries()]
+    .sort((a,b)=>String(a[1]).localeCompare(String(b[1]),"it"));
+  const types=[...new Map(rows.map(r=>[r.tipologia?.codice,r.tipologia?.nome]).filter(x=>x[0]&&x[1])).entries()]
+    .sort((a,b)=>String(a[0]).localeCompare(String(b[0]),"it"));
+  const client=$("#archiveClient"),type=$("#archiveType");
+  const prevClient=client.value,prevType=type.value;
+  client.innerHTML='<option value="">Tutti</option>'+clients.map(([id,name])=>`<option value="${id}">${name}</option>`).join("");
+  type.innerHTML='<option value="">Tutti</option>'+types.map(([code,name])=>`<option value="${code}">${code} · ${name}</option>`).join("");
+  if(prevClient&&clients.some(x=>String(x[0])===prevClient))client.value=prevClient;
+  if(prevType&&types.some(x=>String(x[0])===prevType))type.value=prevType;
+}
+function renderArchive(){
+  const all=archiveData?.rows||[];
+  const q=String($("#archiveSearch").value||"").trim().toLocaleLowerCase("it-IT");
+  const client=$("#archiveClient").value;
+  const type=$("#archiveType").value;
+  const status=$("#archiveStatus").value;
+  const rows=all.filter(r=>{
+    if(client&&String(r.cliente?.id||r.cliente?.ragione_sociale)!==client)return false;
+    if(type&&String(r.tipologia?.codice||"")!==type)return false;
+    if(status&&String(r.stato||"")!==status)return false;
+    if(q){
+      const hay=[
+        r.codice_lavoro,r.codice_breve,r.codice_commessa_crm,r.descrizione,
+        r.cliente?.ragione_sociale,r.tipologia?.nome,r.tipologia?.codice
+      ].filter(Boolean).join(" ").toLocaleLowerCase("it-IT");
+      if(!hay.includes(q))return false;
+    }
+    return true;
+  }).sort((a,b)=>{
+    const ca=String(a.cliente?.ragione_sociale||""),cb=String(b.cliente?.ragione_sociale||"");
+    const c=ca.localeCompare(cb,"it");if(c)return c;
+    return String(a.descrizione||"").localeCompare(String(b.descrizione||""),"it");
+  });
+
+  $("#archiveVisibleCount").textContent=`${rows.length} commesse visualizzate su ${all.length}`;
+  $("#archiveEmpty").hidden=rows.length>0;
+  const body=$("#archiveRows");body.innerHTML="";
+  for(const r of rows){
+    const statusClass=r.stato==="completata"?" completed":"";
+    const period=r.prima_attivita||r.ultima_attivita
+      ? `${archiveDate(r.prima_attivita)} – ${archiveDate(r.ultima_attivita)}`:"—";
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td><span class="archive-code">${r.codice_lavoro||"—"}</span><br><span class="muted">${r.codice_commessa_crm||""}</span></td>
+      <td><b>${r.cliente?.ragione_sociale||"—"}</b></td>
+      <td><b>${r.descrizione||"—"}</b></td>
+      <td>${r.tipologia?.nome||"Altro"}</td>
+      <td><span class="archive-status${statusClass}">${archiveStatusLabel(r.stato)}</span></td>
+      <td><b>${Number(r.ore||0).toLocaleString("it-IT",{maximumFractionDigits:2})} h</b></td>
+      <td>${r.attivita||0}</td>
+      <td>${r.tecnici||0}</td>
+      <td>${period}</td>
+      <td><button class="archive-open" type="button" data-id="${r.id}">Apri</button></td>`;
+    tr.querySelector(".archive-open").addEventListener("click",()=>openArchiveJob(r.id));
+    body.appendChild(tr);
+  }
+}
+async function openArchiveJob(id){
+  const box=$("#archiveDetail");
+  box.hidden=false;
+  $("#archiveDetailTitle").textContent="Caricamento…";
+  $("#archiveDetailSubtitle").textContent="";
+  $("#archiveSessionRows").innerHTML="";
+  try{
+    const j=await api("archiveJobDetail",{commessaId:id});
+    const job=j.job||{},cl=job.ore_clienti||{},tp=job.ore_tipologie||{};
+    $("#archiveDetailTitle").textContent=`${job.codice_lavoro||"—"} · ${cl.ragione_sociale||"Cliente"} · ${job.descrizione||"Commessa"}`;
+    $("#archiveDetailSubtitle").textContent=`${tp.nome||"Altro"} · ${archiveStatusLabel(job.stato)} · ${job.anno||"—"}`;
+    $("#archiveDetailHours").textContent=Number(j.totals?.ore||0).toLocaleString("it-IT",{maximumFractionDigits:2})+" h";
+    $("#archiveDetailSessions").textContent=String(j.totals?.attivita||0);
+    $("#archiveDetailTechs").textContent=String(j.totals?.tecnici||0);
+    $("#archiveDetailCrm").textContent=job.codice_commessa_crm||"—";
+
+    const chips=$("#archiveTechSummary");chips.innerHTML="";
+    for(const t of j.technicians||[]){
+      const span=document.createElement("span");
+      span.innerHTML=`<b>${t.nome}</b> ${Number(t.ore||0).toLocaleString("it-IT",{maximumFractionDigits:2})} h · ${t.attivita} attività`;
+      chips.appendChild(span);
+    }
+
+    const body=$("#archiveSessionRows");body.innerHTML="";
+    for(const s of j.sessions||[]){
+      const edited=s.modificata_manualmente?" · modificata":"";
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td>${archiveDate(s.data_lavoro)}</td>
+        <td><b>${s.tecnico_nome||s.tecnico_uid||"—"}</b></td>
+        <td>${s.inizio||s.fine?`${archiveClock(s.inizio)}–${archiveClock(s.fine)}`:"—"}</td>
+        <td><b>${s.crm_oggetto||"Attività"}</b>${s.motivo_modifica?`<br><span class="muted">${s.motivo_modifica}</span>`:""}</td>
+        <td><span class="archive-origin">${archiveOrigin(s.origine)}${edited}</span></td>
+        <td><b>${fmtMinutes(s.minuti_effettivi)}</b></td>
+        <td>${s.confermata?"Confermata":"Da confermare"}</td>`;
+      body.appendChild(tr);
+    }
+    box.scrollIntoView({behavior:"smooth",block:"start"});
+  }catch(e){
+    $("#archiveDetailTitle").textContent="Errore";
+    $("#archiveDetailSubtitle").textContent=e.message;
+  }
+}
+async function loadArchive(){
+  if(!profile||profile.ruolo!=="admin")return;
+  try{
+    archiveData=await api("archiveJobs");
+    $("#archiveJobsCount").textContent=String(archiveData.totals?.commesse||0);
+    $("#archiveSessionsCount").textContent=Number(archiveData.totals?.attivita||0).toLocaleString("it-IT");
+    $("#archiveHoursCount").textContent=Number(archiveData.totals?.ore||0).toLocaleString("it-IT",{maximumFractionDigits:2});
+    $("#archiveTechCount").textContent=String(archiveData.totals?.tecnici||0);
+    populateArchiveFilters();
+    renderArchive();
+  }catch(e){
+    console.error(e);
+    $("#archiveRows").innerHTML="";
+    $("#archiveEmpty").textContent="Impossibile caricare l’archivio: "+e.message;
+    $("#archiveEmpty").hidden=false;
+  }
+}
+$("#reloadArchive")?.addEventListener("click",loadArchive);
+["#archiveSearch","#archiveClient","#archiveType","#archiveStatus"].forEach(s=>{
+  const el=$(s);if(!el)return;
+  el.addEventListener(s==="#archiveSearch"?"input":"change",renderArchive);
+});
+$("#archiveReset")?.addEventListener("click",()=>{
+  $("#archiveSearch").value="";
+  $("#archiveClient").value="";
+  $("#archiveType").value="";
+  $("#archiveStatus").value="";
+  renderArchive();
+});
+$("#archiveDetailClose")?.addEventListener("click",()=>{$("#archiveDetail").hidden=true});
 
 let economicsCatalog=null;
 let economicsSummary=null;
