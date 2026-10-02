@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261002-3">
+  <link rel="stylesheet" href="./style.css?v=20261002-4">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -47,10 +47,9 @@
   <section id="appView" class="app-frame" hidden>
     <header class="app-header">
       <div class="header-brand">
-        <img src="../assets/icon-192.png" alt="">
         <div>
-          <strong>Ore & Produttività</strong>
-          <span>Colligo Ingegneria</span>
+          <strong id="panelTitle">Pannello Tecnico</strong>
+          <span id="panelSubtitle">Inserisci le tue ore in pochi secondi</span>
         </div>
       </div>
       <div class="header-actions">
@@ -85,114 +84,103 @@
       </aside>
 
       <div class="app-content">
-        <section id="dayPanel" class="screen prototype-day">
-          <div class="prototype-topline">
-            <div>
-              <span class="prototype-brand">COLLIGO</span>
-              <h1>Le mie attività</h1>
-              <p>La tua giornata di lavoro, già compilata dall’agenda CRM.</p>
+        <section id="dayPanel" class="screen tech-dashboard">
+          <div class="tech-daybar">
+            <label class="tech-date-box">
+              <span>Data</span>
+              <input id="dayDate" type="date">
+            </label>
+            <div class="tech-progress">
+              <div class="tech-progress-copy">
+                <span>Ore inserite oggi</span>
+                <strong id="dayTotal">0h 00m / 8h 00m</strong>
+              </div>
+              <div class="tech-progress-track"><i id="dayProgressBar"></i></div>
+              <small id="dayProgressText">0%</small>
             </div>
-            <label class="prototype-date">Data<input id="dayDate" type="date"></label>
+            <div class="tech-day-status">
+              <span>Stato</span>
+              <strong id="dayStatus">Da verificare</strong>
+            </div>
           </div>
 
-          <div class="prototype-overview">
-            <article class="prototype-total-card">
-              <div class="prototype-total-copy">
-                <span>ORE INSERITE</span>
-                <strong id="dayTotal">0h 00m</strong>
-                <small>Totale della giornata selezionata</small>
-              </div>
-              <div class="prototype-state">
-                <div>
-                  <span>STATO</span>
-                  <strong id="dayStatus">Da verificare</strong>
-                </div>
-                <div>
-                  <span>AGENDA CRM</span>
-                  <strong id="crmSyncStatus">Non sincronizzato</strong>
-                </div>
-              </div>
-            </article>
-
-            <article class="prototype-sync-card">
-              <div class="prototype-sync-icon">↻</div>
+          <section class="proto-card crm-detected-card">
+            <div class="proto-card-head">
               <div>
-                <span>AGENDA PERSONALE</span>
-                <strong>Sincronizza il tuo CRM</strong>
-                <p>L’app importa esclusivamente l’agenda visibile con il tuo account CRM.</p>
+                <span class="proto-kicker">AGENDA CRM</span>
+                <h2>Attività rilevate per oggi</h2>
               </div>
-              <button id="refreshDay" class="prototype-icon-button" type="button" title="Aggiorna">↻</button>
-            </article>
-          </div>
+              <div class="crm-sync-pill"><span id="crmSyncStatus">Non sincronizzato</span><button id="refreshDay" type="button">↻</button></div>
+            </div>
+            <div id="crmDetected" class="crm-detected-grid"></div>
+          </section>
 
           <div id="dayMessage" class="notice" hidden></div>
 
-          <div id="manualCard" class="prototype-form-card" hidden>
-            <div class="prototype-card-head">
+          <div id="manualCard" class="proto-card quick-entry-card" hidden>
+            <div class="proto-card-head">
               <div>
-                <span class="prototype-kicker">NUOVA ATTIVITÀ</span>
-                <h2>Aggiungi manualmente</h2>
-                <p>Solo se l’attività non è presente nell’agenda CRM.</p>
+                <span class="proto-kicker">INSERIMENTO MANUALE</span>
+                <h2>Aggiungi attività</h2>
               </div>
-              <button id="manualClose" class="prototype-close" type="button">×</button>
+              <button id="manualClose" class="proto-close" type="button">×</button>
             </div>
             <div class="form-grid">
-              <label>Cliente
-                <select id="manualClient"></select>
-              </label>
-              <label class="wide">Commessa / pratica
-                <select id="manualJob"></select>
-              </label>
-              <label>Durata
-                <input id="manualDuration" placeholder="es. 2h30m">
-              </label>
+              <label>Cliente<select id="manualClient"></select></label>
+              <label class="wide">Commessa / pratica<select id="manualJob"></select></label>
+              <label>Durata<input id="manualDuration" placeholder="es. 2h30m"></label>
             </div>
-            <label>Nota
-              <input id="manualNote" placeholder="Attività svolta">
-            </label>
-            <div class="panel-actions"><button id="manualSave" class="prototype-primary" type="button">Aggiungi attività</button></div>
+            <label>Nota<input id="manualNote" placeholder="Es. aggiornamento sede Roma"></label>
+            <div class="quick-duration-row">
+              <span>Durata rapida</span>
+              <button type="button" data-quick-minutes="15">15m</button>
+              <button type="button" data-quick-minutes="30">30m</button>
+              <button type="button" data-quick-minutes="60">1h</button>
+              <button type="button" data-quick-minutes="120">2h</button>
+              <button type="button" data-quick-minutes="180">3h</button>
+            </div>
+            <div class="panel-actions"><button id="manualSave" class="proto-primary" type="button">Aggiungi</button></div>
           </div>
 
-          <div id="syncIssuesCard" class="prototype-form-card prototype-warning" hidden>
-            <div class="prototype-card-head">
+          <div id="syncIssuesCard" class="proto-card proto-warning" hidden>
+            <div class="proto-card-head">
               <div>
-                <span class="prototype-kicker warning">DA VERIFICARE</span>
+                <span class="proto-kicker">DA VERIFICARE</span>
                 <h2>Attività non abbinate</h2>
-                <p id="syncIssuesSubtitle">Controlla queste righe prima di confermare la giornata.</p>
+                <p id="syncIssuesSubtitle">Il testo è stato letto, ma la pratica specifica non è abbastanza chiara.</p>
               </div>
               <span id="syncIssueCount" class="prototype-count">0</span>
             </div>
             <div id="syncIssues" class="entry-list"></div>
           </div>
 
-          <section class="prototype-activity-card">
-            <div class="prototype-card-head activity-head">
+          <section class="proto-card hours-card">
+            <div class="proto-card-head hours-head">
               <div>
-                <span class="prototype-kicker">OGGI</span>
-                <h2>Attività recenti</h2>
-                <p>Cliente, pratica, orario e durata sempre visibili.</p>
+                <span class="proto-kicker">ORE DEL GIORNO</span>
+                <h2>Attività</h2>
               </div>
-              <button id="manualToggle" class="prototype-add" type="button">＋ NUOVA ATTIVITÀ</button>
+              <button id="manualToggle" class="proto-outline" type="button">＋ Aggiungi attività</button>
             </div>
-            <div id="sessions" class="entry-list prototype-entry-list"></div>
+            <div class="hours-table-head">
+              <span>Codice</span><span>Descrizione</span><span>Ore</span><span>Note / tipo attività</span><span>Azioni</span>
+            </div>
+            <div id="sessions" class="entry-list proto-hours-list"></div>
+            <div class="hours-card-footer">
+              <button id="manualToggleBottom" class="proto-outline" type="button">＋ Aggiungi attività</button>
+              <div><span>Totale giornata</span><strong id="dayTotalBottom">0h 00m</strong></div>
+              <span id="dayCompleteBadge" class="complete-badge">Da completare</span>
+            </div>
           </section>
 
-          <details class="prototype-help">
-            <summary>Come leggere una riga</summary>
-            <div class="prototype-help-grid">
-              <div><b>Codice</b><span>1B = cliente 1 + tipologia B.</span></div>
-              <div><b>Pratica</b><span>È il singolo faldone su cui si accumulano le ore.</span></div>
-              <div><b>CRM</b><span>Attività calcolata automaticamente dalla tua agenda.</span></div>
-              <div><b>Durata</b><span>È il tempo che entra nelle analisi della Direzione.</span></div>
-            </div>
-          </details>
+          <section class="recent-section">
+            <div class="recent-head"><strong>Attività recenti</strong><span>Le più usate negli ultimi giorni</span></div>
+            <div id="recentActivities" class="recent-grid"></div>
+          </section>
 
-          <div class="prototype-confirm">
-            <div>
-              <span>GIORNATA PRONTA?</span>
-              <strong>Controlla le attività e conferma.</strong>
-            </div>
-            <button id="confirmDay" class="prototype-primary prototype-confirm-btn" type="button">Conferma giornata</button>
+          <div class="tech-confirm-row">
+            <span>Controlla le righe prima di chiudere la giornata.</span>
+            <button id="confirmDay" class="proto-primary" type="button">Conferma giornata</button>
           </div>
         </section>
 
@@ -493,6 +481,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261002-3"></script>
+  <script src="./app.js?v=20261002-4"></script>
 </body>
 </html>
