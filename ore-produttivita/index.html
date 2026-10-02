@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261002-7">
+  <link rel="stylesheet" href="./style.css?v=20261002-8">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -110,7 +110,7 @@
                 <span class="proto-kicker">AGENDA CRM</span>
                 <h2>Attività rilevate per oggi</h2>
               </div>
-              <div class="crm-sync-pill"><span id="crmSyncStatus">Non sincronizzato</span><button id="refreshDay" type="button">↻</button></div>
+              <div class="crm-sync-pill"><span id="crmSyncStatus">Non sincronizzato</span><button id="syncCrmNow" class="crm-launch-btn" type="button">Sincronizza CRM</button><button id="refreshDay" type="button" title="Aggiorna dati">↻</button></div>
             </div>
             <div id="crmDetected" class="crm-detected-grid"></div>
           </section>
@@ -515,6 +515,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261002-7"></script>
+  <script src="./app.js?v=20261002-8"></script>
 </body>
 </html>
