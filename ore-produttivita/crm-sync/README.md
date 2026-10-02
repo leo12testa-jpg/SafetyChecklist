@@ -1,19 +1,51 @@
 # Colligo Ore & Produttività — ponte Agenda CRM
 
-Questo componente legge l'agenda Innova CRM dal PC del tecnico e invia le attività alla nuova app.
+Questo componente collega l'agenda Innova CRM personale alla schermata giornaliera di Ore & Produttività.
 
-## Prima installazione
-Eseguire `SETUP_CRM_SYNC.bat`.
+## Prima configurazione sul PC
 
-## Sincronizzazione
-Eseguire `SINCRONIZZA_AGENDA.bat`.
+Eseguire una sola volta `SETUP_CRM_SYNC.bat`.
 
-- usa la stessa utenza Ore & Produttività per autenticare l'invio;
-- apre Edge con un profilo persistente dedicato, quindi la sessione CRM può rimanere memorizzata;
-- legge data, ora inizio/fine, codice breve (es. 01.17-B) o CodiceComm (es. CM002568);
-- calcola automaticamente la durata;
-- invia le sessioni all'API `ore-produttivita-api`;
-- una nuova sincronizzazione della stessa voce non deve duplicare la sessione.
+La configurazione:
+- installa/aggiorna Playwright;
+- registra il collegamento locale `colligoore://`;
+- abilita il pulsante **Sincronizza CRM** presente nell'app.
 
-Al primo collaudo il programma salva anche `%LOCALAPPDATA%\ColligoOreProduttivita\agenda_debug.json`.
-Se l'agenda CRM usa strutture HTML particolari, questo file permette di affinare i selettori senza modificare a caso il resto dell'app.
+## Uso quotidiano
+
+1. Accedi a Ore & Produttività con il tuo account.
+2. Seleziona il giorno.
+3. Premi **Sincronizza CRM**.
+4. Il ponte apre Edge usando un profilo CRM separato per il tuo username.
+5. Se il CRM richiede il login, accedi con il tuo account CRM personale.
+6. Il programma prova a portare automaticamente l'agenda alla data selezionata.
+7. Le attività riconosciute vengono inviate soltanto al tuo account Ore & Produttività.
+
+Il collegamento account viene verificato lato server contro la risorsa CRM associata (es. LT · Leonardo Testa). Se l'account non è associato a una risorsa CRM, la sincronizzazione viene bloccata.
+
+## Dati letti
+
+Per ogni voce vengono cercati:
+- data;
+- ora inizio e fine;
+- codice lavoro breve, quando presente;
+- CodiceComm CRM, quando presente;
+- testo/oggetto dell'attività.
+
+La durata viene calcolata automaticamente. Se cliente o pratica sono riconoscibili dal testo, il codice non è obbligatorio.
+
+## Sicurezza e separazione utenti
+
+Ogni username Ore & Produttività usa una cartella browser CRM distinta sotto:
+
+`%LOCALAPPDATA%\ColligoOreProduttivita\crm-browser\<username>`
+
+In questo modo sessioni CRM di utenti diversi non vengono condivise nello stesso profilo del ponte.
+
+## Diagnostica
+
+Se una giornata non viene letta correttamente, viene salvato:
+
+`%LOCALAPPDATA%\ColligoOreProduttivita\agenda_personale_debug.json`
+
+Le sincronizzazioni della stessa voce usano un identificativo stabile per evitare duplicati.
