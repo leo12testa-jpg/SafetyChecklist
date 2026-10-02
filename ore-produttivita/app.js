@@ -204,7 +204,7 @@ async function loadAdmin(){
 
     const tb=$("#adminRows");tb.innerHTML="";
     $("#adminEmpty").hidden=j.rows.length>0;
-    j.rows.slice(0,100).forEach(r=>{
+    j.rows.forEach(r=>{
       const c=r.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
       const code=(cl.codice_breve&&tp.codice)?String(Number(cl.codice_breve))+tp.codice:"";
       const tr=document.createElement("tr");
