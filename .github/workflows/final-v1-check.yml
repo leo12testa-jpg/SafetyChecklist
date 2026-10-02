@@ -60,7 +60,7 @@ jobs:
           grep -q 'id="archivePanel"' ore-produttivita/index.html
           grep -q 'id="archiveRows"' ore-produttivita/index.html
           grep -q 'id="crmResourceRows"' ore-produttivita/index.html
-          grep -q 'Le mie attività' ore-produttivita/index.html
+          grep -q 'Attività rilevate per oggi' ore-produttivita/index.html
 
       - name: Install Playwright driver only
         run: npm install --no-save playwright-core@1.55.0
