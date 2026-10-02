@@ -8,7 +8,7 @@ Eseguire `SETUP_CRM_SYNC.bat`.
 ## Sincronizzazione
 Eseguire `SINCRONIZZA_AGENDA.bat`.
 
-- usa la stessa utenza SafetyChecklist per autenticare l'invio;
+- usa la stessa utenza Ore & Produttività per autenticare l'invio;
 - apre Edge con un profilo persistente dedicato, quindi la sessione CRM può rimanere memorizzata;
 - legge data, ora inizio/fine, codice breve (es. 01.17-B) o CodiceComm (es. CM002568);
 - calcola automaticamente la durata;
