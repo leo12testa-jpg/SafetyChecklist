@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261002-4">
+  <link rel="stylesheet" href="./style.css?v=20261002-5">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -203,6 +203,31 @@
             <article class="summary-card"><span class="summary-icon">▤</span><div><small>Sessioni</small><strong id="kpiSessions">0</strong><span>Singole registrazioni di lavoro</span></div></article>
             <article class="summary-card"><span class="summary-icon">◎</span><div><small>Tecnici</small><strong id="kpiTechs">0</strong><span>Persone con almeno una registrazione</span></div></article>
             <article class="summary-card"><span class="summary-icon">▣</span><div><small>Commesse</small><strong id="kpiJobs">0</strong><span>Pratiche distinte su cui si è lavorato</span></div></article>
+          </div>
+
+          <div class="admin-visual-grid">
+            <div class="panel admin-chart-card">
+              <div class="panel-heading compact"><div><span class="eyebrow">DOCUMENTI</span><h2>Ore per tipo di documento</h2></div></div>
+              <div class="donut-layout">
+                <div id="typeDonut" class="type-donut"><div><strong id="typeDonutTotal">0h</strong><span>totali</span></div></div>
+                <div id="typeLegend" class="type-legend"></div>
+              </div>
+            </div>
+            <div class="panel admin-chart-card">
+              <div class="panel-heading compact"><div><span class="eyebrow">TREND</span><h2>Andamento ore mensili</h2></div></div>
+              <div id="monthlyBars" class="monthly-bars"></div>
+            </div>
+          </div>
+
+          <div class="admin-mini-grid">
+            <div class="panel">
+              <div class="panel-heading compact"><div><span class="eyebrow">RISORSE</span><h2>Ore per tecnico</h2></div></div>
+              <div id="techBars" class="tech-bars"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-heading compact"><div><span class="eyebrow">CLIENTI</span><h2>Top clienti per ore</h2></div></div>
+              <div id="clientBars" class="tech-bars"></div>
+            </div>
           </div>
 
           <div class="panel company-sync-panel">
@@ -481,6 +506,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261002-4"></script>
+  <script src="./app.js?v=20261002-5"></script>
 </body>
 </html>
