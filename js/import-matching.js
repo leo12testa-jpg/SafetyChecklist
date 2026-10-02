@@ -3,7 +3,8 @@
  * testo dal file). Riceve righe GIA' estratte (posizione, testo, stato, nota così come letti dal
  * PDF, mai modificati qui) e le abbina alle domande della checklist target, in ordine di priorità:
  *
- * 1. id stabile letto dal PDF (solo formato "nostro": la colonna "n." è l'id vero della domanda).
+ * 1. riferimento numerico letto dal PDF. Nei PDF legacy è l'id stabile; nei PDF nuovi è il numero
+ *    progressivo visibile. Il testo della domanda decide in modo conservativo quale interpretazione usare.
  * 2. sezione + numero locale (solo formato "storico": l'unico dato posizionale disponibile è il
  *    numero "N)" che riparte da 1 a ogni macro-sezione) — SEMPRE confermato da una verifica di
  *    similarità testuale indipendente, mai accettato alla cieca.
@@ -152,17 +153,23 @@ const importMatching = (() => {
    * vede tutte le righe insieme): questa funzione ragiona su una riga alla volta.
    */
   function abbinaRiga(riga, domande, idValidi, risolutoreStorico) {
-    // 1. id stabile (solo formato "nostro")
+    // 1. PDF dell'app: il numero può essere un vecchio id stabile oppure il nuovo progressivo
+    // visibile 1..N. Se collide con un altro id corrente, il testo esatto corregge l'ambiguità.
     if (riga.id_originale != null && idValidi.has(riga.id_originale)) {
       const domandaTarget = domande.find((voce) => voce.domanda.id === riga.id_originale);
       const sim = similarita(riga.testo_originale, domandaTarget.domanda.testo);
+      const perTesto = abbinaPerTesto(riga.testo_originale, domande);
+      const testoIndicaAltraDomanda = perTesto && perTesto.automatico &&
+        perTesto.domandaId !== riga.id_originale &&
+        perTesto.confidenza >= sim + MARGINE_AMBIGUITA;
+      if (testoIndicaAltraDomanda) return { ...perTesto, avviso: null };
       if (sim < SOGLIA_SANITA) {
         return {
           domandaId: riga.id_originale,
           metodo: 'id',
           confidenza: sim,
           automatico: false,
-          avviso: `id ${riga.id_originale} trovato nel PDF, ma il testo della domanda corrispondente in questa checklist è molto diverso da quello letto (somiglianza ${Math.round(sim * 100)}%): probabile domanda cambiata, verificare.`
+          avviso: `numero ${riga.id_originale} trovato nel PDF, ma il testo della domanda corrispondente in questa checklist è molto diverso da quello letto (somiglianza ${Math.round(sim * 100)}%): verificare.`
         };
       }
       return { domandaId: riga.id_originale, metodo: 'id', confidenza: CONFIDENZA_ID, automatico: true, avviso: null };
@@ -332,12 +339,15 @@ const importMatching = (() => {
       let metodo;
       if (usaId) {
         const domandaPerId = new Map(domande.map((voce) => [voce.domanda.id, voce.domanda]));
-        const punteggi = righeConId.map((r) => {
+        const punteggiId = righeConId.map((r) => {
           const domandaTarget = domandaPerId.get(r.id_originale);
           return domandaTarget ? similarita(r.testo_originale, domandaTarget.testo) : 0;
         });
-        confidenza = punteggi.length ? punteggi.reduce((somma, p) => somma + p, 0) / punteggi.length : 0;
-        metodo = 'id';
+        const confidenzaId = punteggiId.length ? punteggiId.reduce((somma, p) => somma + p, 0) / punteggiId.length : 0;
+        const punteggiTesto = campioneTesto.map((r) => candidatiTesto(r.testo_originale, domande)[0]?.punteggio || 0);
+        const confidenzaTesto = punteggiTesto.length ? punteggiTesto.reduce((somma, p) => somma + p, 0) / punteggiTesto.length : 0;
+        if (confidenzaTesto > confidenzaId) { confidenza = confidenzaTesto; metodo = 'testo'; }
+        else { confidenza = confidenzaId; metodo = 'id'; }
       } else {
         const punteggi = campioneTesto.map((r) => candidatiTesto(r.testo_originale, domande)[0]?.punteggio || 0);
         confidenza = punteggi.length ? punteggi.reduce((somma, p) => somma + p, 0) / punteggi.length : 0;

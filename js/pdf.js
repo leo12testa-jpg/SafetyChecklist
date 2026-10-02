@@ -24,7 +24,7 @@
  *   responsabilità, nessuna duplicazione di logica.
  */
 const pdf = (() => {
-  const VERSIONE_LAYOUT_REPORT = '20261001-area-manager-v1';
+  const VERSIONE_LAYOUT_REPORT = '20261002-numerazione-progressiva-v2';
   /**
    * Configurazione di un cliente: logo di intestazione, colore della bandiera dei macro-gruppi,
    * ed eventuali proprietà PDF specifiche future (oggi vuoto per tutti: nessun override esiste
@@ -533,6 +533,22 @@ const pdf = (() => {
     return pezzi.join(', ');
   }
 
+  /** Numero visibile nel PDF: progressivo 1..N nell'ordine reale della checklist.
+   * Gli id delle domande restano invariati e continuano a essere usati internamente per
+   * risposte, sincronizzazione e compatibilità con i sopralluoghi storici.
+   */
+  function costruisciMappaNumeroDomanda(checklist) {
+    const mappa = new Map();
+    let numero = 1;
+    (checklist.sezioni || []).forEach((sezione) => {
+      (sezione.domande || []).forEach((domanda) => {
+        mappa.set(domanda.id, numero);
+        numero += 1;
+      });
+    });
+    return mappa;
+  }
+
   /**
    * Suffisso "(Vedi Foto N)" per una domanda con foto associate, numerazione coerente con la
    * pagina Allegati (stesso ordine, stesso indice+1 di raccogliFotoConDidascalia).
@@ -553,7 +569,7 @@ const pdf = (() => {
    * il default), mantenendo il contesto nelle pagine di continuazione.
    * Il guard willDrawPage riserva titolo, header e prima riga completa prima del disegno.
    */
-  function disegnaTabellaSezione(doc, layout, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda, gruppo) {
+  function disegnaTabellaSezione(doc, layout, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda, gruppo, mappaNumeroDomanda = null) {
     const coloreGruppo = gruppo && ((gruppo.configCliente && gruppo.configCliente.coloreBanner) || COLORE_BANNER_DEFAULT);
     const corpo = sezione.domande.map((domanda) => {
       const risposta = risposteComeArray(sopralluogo.risposte).find((r) => r.domanda_id === domanda.id);
@@ -561,7 +577,7 @@ const pdf = (() => {
       const nota = (risposta && risposta.note) || '';
       const vediFoto = suffissoVediFoto(domanda.id, mappaFotoPerDomanda);
       return [
-        domanda.id,
+        (mappaNumeroDomanda && mappaNumeroDomanda.get(domanda.id)) || domanda.id,
         domanda.testo,
         segnoRisposta(valore, 'C'),
         segnoRisposta(valore, 'PC'),
@@ -675,7 +691,7 @@ const pdf = (() => {
   }
 
   /** Disegna tutti i macro-gruppi di sezioni (con relative tabelle), coprendo sempre tutte le sezioni della checklist. */
-  function disegnaGruppiSezioni(doc, layout, checklist, sopralluogo, y, mappaFotoPerDomanda, hookLegenda, configCliente) {
+  function disegnaGruppiSezioni(doc, layout, checklist, sopralluogo, y, mappaFotoPerDomanda, hookLegenda, configCliente, mappaNumeroDomanda) {
     const puntoDivisione = calcolaPuntoDivisioneGruppi(checklist);
     const gruppi = [
       { titolo: TITOLI_GRUPPI_SEZIONI[0], sezioni: checklist.sezioni.slice(0, puntoDivisione) },
@@ -687,7 +703,7 @@ const pdf = (() => {
         return;
       }
       gruppo.sezioni.forEach((sezione, indice) => {
-        y = disegnaTabellaSezione(doc, layout, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda, indice === 0 ? { titolo: gruppo.titolo, configCliente } : null);
+        y = disegnaTabellaSezione(doc, layout, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda, indice === 0 ? { titolo: gruppo.titolo, configCliente } : null, mappaNumeroDomanda);
       });
     });
 
@@ -755,6 +771,7 @@ const pdf = (() => {
    * prime ricevono la numerazione progressiva usata dai riferimenti incrociati nelle tabelle.
    */
   function raccogliFotoConDidascalia(checklist, sopralluogo) {
+    const mappaNumeroDomanda = costruisciMappaNumeroDomanda(checklist);
     const domandeComplete = [];
     checklist.sezioni.forEach((sezione) => {
       sezione.domande.forEach((domanda) => {
@@ -772,6 +789,7 @@ const pdf = (() => {
         fotoDomande.push({
           fotoId,
           domandaId: risposta.domanda_id,
+          domandaNumero: mappaNumeroDomanda.get(risposta.domanda_id) || risposta.domanda_id,
           stato: risposta.risposta || null,
           domandaTesto: info ? info.domanda.testo : ''
         });
@@ -915,7 +933,7 @@ const pdf = (() => {
           } while (didascalia.length > MASSIMO_RIGHE_DIDASCALIA && lunghezzaMassima > 0);
         }
       } else {
-        const prefisso = `Foto ${indice + 1} — Domanda ${voce.domandaId}${voce.stato ? ` [${voce.stato}]` : ''}: `;
+        const prefisso = `Foto ${indice + 1} — Domanda ${voce.domandaNumero || voce.domandaId}${voce.stato ? ` [${voce.stato}]` : ''}: `;
         didascalia = avvolgiTesto(doc, `${prefisso}${voce.domandaTesto}`, LARGHEZZA_CELLA);
         if (didascalia.length > MASSIMO_RIGHE_DIDASCALIA) {
           let lunghezzaMassima = String(voce.domandaTesto || '').length;
@@ -1048,11 +1066,12 @@ const pdf = (() => {
 
     const { fotoDomande, allegatiNote } = await preparaFotoReport(checklist, sopralluogo);
     const mappaFotoPerDomanda = costruisciMappaFotoPerDomanda(fotoDomande);
+    const mappaNumeroDomanda = costruisciMappaNumeroDomanda(checklist);
     const tracciatoreFooter = creaTracciatoreFooter(doc, layout);
 
     let y = disegnaHeader(doc, layout, logoCliente, logoColligoURL, checklist.id);
     y = disegnaTabellaDatiGenerali(doc, layout, checklist, sopralluogo, y, tracciatoreFooter.hookDidDrawPage);
-    disegnaGruppiSezioni(doc, layout, checklist, sopralluogo, y, mappaFotoPerDomanda, tracciatoreFooter.hookDidDrawPage, configCliente);
+    disegnaGruppiSezioni(doc, layout, checklist, sopralluogo, y, mappaFotoPerDomanda, tracciatoreFooter.hookDidDrawPage, configCliente, mappaNumeroDomanda);
 
     await disegnaSezioniFinali(doc, sopralluogo, fotoDomande, allegatiNote);
 
@@ -1305,6 +1324,7 @@ const pdf = (() => {
   return { generaReport, nomeFile, salvaOCondividi, apri, scarica, prenotaFinestra, leggiArrayBuffer, descriviErrore, calcolaPuntoDivisioneGruppi, versioneLayout: VERSIONE_LAYOUT_REPORT,
     _test: {
       raccogliFotoConDidascalia,
+      costruisciMappaNumeroDomanda,
       costruisciMappaFotoPerDomanda,
       suffissoVediFoto,
       filtraFotoEsistenti,
