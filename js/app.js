@@ -1503,9 +1503,13 @@ const compilazioneScreen = (() => {
   }
 
   function renderIndicatori(totale, indiceCorrente) {
+    // Qualsiasi risposta effettivamente valorizzata (C / PC / NC / NA oppure i valori delle
+    // checklist raccolta-dati) rende il pallino BIANCO. Normalizziamo gli id a stringa perché
+    // importazioni/record legacy possono avere domanda_id "12" mentre la checklist usa 12:
+    // sono la stessa domanda e non deve restare rossa.
     const compilate = new Set(risposteComeArray(checklistEngine.sopralluogoCorrente().risposte)
       .filter((risposta) => checklistEngine.rispostaCompilata(risposta))
-      .map((risposta) => risposta.domanda_id));
+      .map((risposta) => String(risposta.domanda_id)));
     const checklist = checklistEngine.getChecklist();
     const ids = [];
     (checklist.sezioni || []).forEach((sezione) => {
@@ -1513,13 +1517,14 @@ const compilazioneScreen = (() => {
     });
     progressMarkers.innerHTML = '';
     ids.forEach((id, indice) => {
+      const compilata = compilate.has(String(id));
       const marker = document.createElement('span');
-      marker.className = `progress-marker${compilate.has(id) ? ' is-completed' : ' is-incomplete'}${indice === indiceCorrente ? ' is-current' : ''}`;
-      marker.dataset.stato = compilate.has(id) ? 'completa' : 'da-completare';
+      marker.className = `progress-marker${compilata ? ' is-completed' : ' is-incomplete'}${indice === indiceCorrente ? ' is-current' : ''}`;
+      marker.dataset.stato = compilata ? 'completa' : 'da-completare';
       progressMarkers.appendChild(marker);
     });
     // Le risposte storiche a domande rimosse restano salvate, ma non fanno parte del progresso attuale.
-    progressBar.title = `${ids.filter((id) => compilate.has(id)).length} domande compilate su ${totale}`;
+    progressBar.title = `${ids.filter((id) => compilate.has(String(id))).length} domande compilate su ${totale}`;
   }
 
   // --- Rendering dinamico dei controlli per checklist "stile": "raccolta-dati" ---

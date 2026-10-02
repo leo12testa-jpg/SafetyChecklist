@@ -227,7 +227,8 @@ async function bodyFits(page) {
       const fake = {
         id:'marker-smoke',
         risposte:[
-          { domanda_id:1, risposta:'Sì', note:null, foto:[] },
+          // domanda_id stringa apposta: deve combaciare con l'id numerico della checklist.
+          { domanda_id:'1', risposta:'C', note:null, foto:[] },
           { domanda_id:2, risposta:'', note:null, foto:[] },
           { domanda_id:3, risposta:[], note:null, foto:[] },
           { domanda_id:4, risposta:{ Campo:'' }, note:null, foto:[] },
