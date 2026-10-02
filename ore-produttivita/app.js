@@ -260,54 +260,8 @@ async function loadSyncStatus(){
     $("#crmSyncStatus").textContent="Errore sync";
   }
 }
-let crmSyncPoll=null;
-function appUsername(){
-  const fromProfile=String(profile?.username||"").trim();
-  if(fromProfile)return fromProfile;
-  const email=String(firebase.auth().currentUser?.email||"");
-  return email.includes("@")?email.split("@")[0]:email;
-}
-async function launchCrmSync(){
-  if(!profile)return;
-  const btn=$("#syncCrmNow"),day=$("#dayDate").value;
-  btn.disabled=true;
-  try{
-    const [before,link]=await Promise.all([
-      api("syncStatus",{date:day}),
-      api("myCrmResource")
-    ]);
-    const resource=link.resource;
-    if(!resource)throw new Error("Il tuo account Ore & Produttività non è ancora collegato a una risorsa CRM.");
-    const previous=before.lastSync?.created_at||"";
-    $("#crmSyncStatus").textContent="Apro il CRM…";
-    const uri="colligoore://sync?date="+encodeURIComponent(day)+"&username="+encodeURIComponent(appUsername());
-    window.location.href=uri;
-
-    if(crmSyncPoll)clearInterval(crmSyncPoll);
-    let checks=0;
-    crmSyncPoll=setInterval(async()=>{
-      checks++;
-      try{
-        const now=await api("syncStatus",{date:day});
-        const stamp=now.lastSync?.created_at||"";
-        if(stamp&&stamp!==previous){
-          clearInterval(crmSyncPoll);crmSyncPoll=null;btn.disabled=false;
-          await loadDay();
-          return;
-        }
-      }catch(e){console.error("crm poll",e)}
-      if(checks>=45){
-        clearInterval(crmSyncPoll);crmSyncPoll=null;btn.disabled=false;
-        await loadSyncStatus();
-      }
-    },2000);
-  }catch(e){
-    btn.disabled=false;
-    alert(e.message);
-    await loadSyncStatus();
-  }
-}
-$("#syncCrmNow")?.addEventListener("click",launchCrmSync);
+// Il frontend non apre mai il CRM. L'agenda viene sincronizzata in background
+// dall'agente aziendale; qui ricarichiamo soltanto i dati già presenti nel backend.
 document.addEventListener("visibilitychange",()=>{
   if(!document.hidden&&profile)setTimeout(()=>loadDay().catch(()=>{}),500);
 });
