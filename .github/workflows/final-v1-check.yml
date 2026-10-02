@@ -57,6 +57,8 @@ jobs:
           python -m py_compile ore-produttivita/crm-sync/crm_agenda_sync.py
           grep -q 'id="dayPanel"' ore-produttivita/index.html
           grep -q 'id="adminPanel"' ore-produttivita/index.html
+          grep -q 'id="archivePanel"' ore-produttivita/index.html
+          grep -q 'id="archiveRows"' ore-produttivita/index.html
           grep -q 'id="crmResourceRows"' ore-produttivita/index.html
           grep -q 'COME LEGGERE LE RIGHE' ore-produttivita/index.html
           grep -q 'Safety Checklist' ore-produttivita/index.html
