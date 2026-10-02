@@ -294,3 +294,17 @@ test('legacy Firestore answer whose id exists only as map key keeps its question
   assert.equal(array[0].risposta, 'C');
   assert.equal(String(array[1].domanda_id), '13');
 });
+
+
+test('final reconciliation clears phantom pending entries but preserves real local revisions', async () => {
+  const s = setup();
+  const reconcile = s.api._test.riconciliaPendentiLocali;
+  reconcile([{id:'GHOST',risposte:[]}]);
+  assert.equal(s.api.dettaglioInAttesa().dati,0);
+
+  reconcile([{id:'REAL',_sync_rev:'r1',risposte:[]}]);
+  assert.equal(s.api.dettaglioInAttesa().dati,1);
+
+  reconcile([{id:'REAL',risposte:[]}]);
+  assert.equal(s.api.dettaglioInAttesa().dati,0);
+});

@@ -276,6 +276,15 @@ const sync = (() => {
     (locali || []).filter((record) => record._sync_rev).forEach((record) => pendenti.set(record.id, true));
   }
 
+  async function riconciliaAtteseFinali() {
+    // Riconta sempre dal dato persistito reale. In questo modo un vecchio elemento rimasto
+    // soltanto nella mappa in memoria non può lasciare il badge "in attesa" per tutta la sessione.
+    const locali = await db.elencaTuttiSopralluoghi();
+    riconciliaPendentiLocali(locali);
+    attesaFoto = (await db.elencaFotoSenzaUrl()).length;
+    return dettaglioInAttesa();
+  }
+
   function aggiornaStato() {
     impostaStato(!online() ? 'offline' : completoInCorso || sincronizzazioneInCorso || invii.size ? 'sincronizzando'
       : elementiInAttesa() || !datiVerificati ? 'parziale' : 'sincronizzato');
@@ -628,7 +637,22 @@ const sync = (() => {
       // L'upload foto aggiorna foto_url e crea una revisione locale: questo secondo passaggio
       // porta i riferimenti appena creati su Firestore.
       const secondo = await sincronizzaTutto({ verificaServer: false });
-      attesaFoto = (await db.elencaFotoSenzaUrl()).length;
+      await riconciliaAtteseFinali();
+
+      // Se una revisione era rimasta pendente per una sessione/token appena rinnovato, facciamo
+      // un solo secondo tentativo immediato. Non cancelliamo mai una _sync_rev ancora reale:
+      // invia() la rimuove esclusivamente dopo conferma/riconciliazione col server.
+      if (pendenti.size && online()) {
+        try {
+          const utente = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
+          if (utente) await utente.getIdToken(true);
+        } catch (_) {}
+        const daRitentare = Array.from(pendenti.keys());
+        for (const id of daRitentare) {
+          if (!invii.has(id)) await invia(id);
+        }
+        await riconciliaAtteseFinali();
+      }
 
       // Scaricare foto già presenti sul cloud serve solo a scaldare la cache locale e non deve
       // lasciare la sincronizzazione bloccata/parziale.
@@ -689,6 +713,6 @@ const sync = (() => {
   return {
     init, sincronizzaTutto, sincronizzaCompleto, onCambioStato, onDatiAggiornati,
     elementiInAttesa, dettaglioInAttesa, statoAttuale: () => statoAttuale,
-    _test: { arrayRisposteInMappa, mappaRisposteInArray, unisciRisposte, unisciFotoUrl, estraiMetadati, timestampDi, unisciDocumenti, stabile, contenutoOperativo, haDifferenzeOperative, preparaAggiornamentoCloud, riconciliaPendentiLocali }
+    _test: { arrayRisposteInMappa, mappaRisposteInArray, unisciRisposte, unisciFotoUrl, estraiMetadati, timestampDi, unisciDocumenti, stabile, contenutoOperativo, haDifferenzeOperative, preparaAggiornamentoCloud, riconciliaPendentiLocali, riconciliaAtteseFinali }
   };
 })();
