@@ -583,3 +583,37 @@ test('PDF Coin: nome_rls non viene mai mostrato (campo esclusivo Interparking)',
   assert.ok(!testoCompleto.includes('Nome RLS'), 'Coin non deve mai mostrare "Nome RLS"');
   assert.ok(!testoCompleto.includes('Non dovrebbe comparire'));
 });
+
+
+test('numerazione PDF: sempre progressiva 1..N senza cambiare gli id interni', () => {
+  const motore = creaMotorePdf({});
+  const casi = [
+    ['coin_sopralluogo.json', 60],
+    ['interparking_sopralluogo.json', 73],
+    ['restage_sopralluogo.json', 55],
+    ['melluso_sopralluogo.json', 57]
+  ];
+  casi.forEach(([file, totale]) => {
+    const checklist = caricaChecklist(file);
+    const mappa = motore._test.costruisciMappaNumeroDomanda(checklist);
+    const numeri = checklist.sezioni.flatMap(s => s.domande.map(d => mappa.get(d.id)));
+    assert.deepEqual(numeri, Array.from({ length: totale }, (_, i) => i + 1), file + ': numerazione non progressiva');
+  });
+  const interparking = caricaChecklist('interparking_sopralluogo.json');
+  assert.equal(motore._test.costruisciMappaNumeroDomanda(interparking).get(77), 43);
+  const melluso = caricaChecklist('melluso_sopralluogo.json');
+  assert.equal(motore._test.costruisciMappaNumeroDomanda(melluso).get(41), 40);
+});
+
+test('tabella PDF stampa il numero progressivo e non l id interno', () => {
+  const motore = creaMotorePdf({});
+  let opzioniTabella = null;
+  const doc = {
+    autoTable(opzioni) { opzioniTabella = opzioni; this.lastAutoTable = { finalY:20 }; },
+    lastAutoTable: { finalY:20 }
+  };
+  const layout = { margine:15, altezzaPagina:297, gapDopoTabellaSezione:4, bannerGruppo:{ altezza:9, altezzaAccento:1.2 } };
+  const sezione = { titolo:'TEST', domande:[{ id:77, testo:'Domanda con id interno 77' }] };
+  motore._test.disegnaTabellaSezione(doc, layout, sezione, { risposte:[] }, 20, new Map(), () => {}, null, new Map([[77,43]]));
+  assert.equal(opzioniTabella.body[0][0], 43);
+});
