@@ -174,7 +174,7 @@ def norm(v):
 
 
 async def select_resource(page, name, sigla):
-    targets = [x for x in [norm(name), norm(sigla)] if x]
+    targets = {"name": norm(name), "sigla": norm(sigla)}
     for frame in page.frames:
         try:
             hit = await frame.evaluate(r"""(targets) => {
@@ -184,6 +184,7 @@ async def select_resource(page, name, sigla):
                 const s=getComputedStyle(el), r=el.getBoundingClientRect();
                 return s.display!=='none' && s.visibility!=='hidden' && r.width>0 && r.height>0;
               };
+              const nameTarget=norm(targets.name), siglaTarget=norm(targets.sigla);
               const nodes=[...document.querySelectorAll('a,button,[onclick],[ondblclick],[role="button"],li,td,div,span')];
               let best=null, bestScore=-1;
               for(const node of nodes){
@@ -191,9 +192,13 @@ async def select_resource(page, name, sigla):
                 const text=norm(node.innerText||node.textContent||'');
                 if(!text || text.length>160) continue;
                 let score=-1;
-                for(const t of targets){
-                  if(text===t) score=Math.max(score,100);
-                  else if(t.length>=3 && text.includes(t)) score=Math.max(score,60);
+                if(nameTarget){
+                  if(text===nameTarget) score=Math.max(score,120);
+                  else if(nameTarget.length>=5 && text.includes(nameTarget)) score=Math.max(score,90);
+                }
+                if(siglaTarget){
+                  if(text===siglaTarget) score=Math.max(score,80);
+                  else if(siglaTarget.length>=2 && text.split(/[^a-z0-9]+/).includes(siglaTarget)) score=Math.max(score,55);
                 }
                 if(score<0) continue;
                 const clicker=node.closest('a,button,[onclick],[ondblclick],[role="button"],li,td')||node;
