@@ -260,7 +260,7 @@ input:focus,select:focus{border-color:#6f91b5;box-shadow:0 0 0 3px rgba(30,58,95
 .proto-card-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 15px 10px}
 .proto-card-head h2{font-size:.91rem;margin:1px 0 0;color:#253b53}.proto-kicker{display:block;font-size:.65rem;font-weight:900;letter-spacing:.075em;color:#78899a}
 .crm-detected-card{padding-bottom:12px;background:#eef7ff;border-color:#d5e9fb}
-.crm-sync-pill{display:flex;align-items:center;gap:7px;color:#55718d;font-size:.71rem;font-weight:700}.crm-sync-pill button{width:30px;height:30px;border:1px solid #c8dbe9;border-radius:7px;background:#fff;color:#217bc8;cursor:pointer}
+.crm-sync-pill{display:flex;align-items:center;gap:7px;color:#55718d;font-size:.71rem;font-weight:700}.crm-sync-pill button{width:30px;height:30px;border:1px solid #c8dbe9;border-radius:7px;background:#fff;color:#217bc8;cursor:pointer}.crm-sync-pill .crm-launch-btn{width:auto;padding:0 10px;font-weight:800;white-space:nowrap}.crm-sync-pill .crm-launch-btn:disabled{opacity:.55;cursor:wait}
 .crm-detected-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:0 13px}
 .crm-detected-item{background:#fff;border:1px solid #deebf5;border-radius:8px;padding:9px;display:flex;align-items:center;gap:9px;min-width:0}
 .crm-detected-item div{min-width:0}.crm-detected-item strong,.crm-detected-item small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
