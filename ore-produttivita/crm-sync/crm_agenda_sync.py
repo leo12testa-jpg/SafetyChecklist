@@ -56,7 +56,7 @@ def firebase_login(username, password):
         "returnSecureToken": True
     })
     if status >= 300 or not body.get("idToken"):
-        raise RuntimeError("Credenziali SafetyChecklist non valide.")
+        raise RuntimeError("Credenziali non valide.")
     return body["idToken"]
 
 
