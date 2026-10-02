@@ -282,3 +282,15 @@ test('reconcile drops stale pending entries that no longer carry a local revisio
   helper([]);
   assert.equal(s.api.dettaglioInAttesa().dati, 0);
 });
+
+
+test('legacy Firestore answer whose id exists only as map key keeps its question id locally', () => {
+  const { mappaRisposteInArray } = setup().api._test;
+  const array = mappaRisposteInArray({
+    '12': { risposta: 'C', note: 'legacy senza domanda_id' },
+    '13': { domanda_id: '13', risposta: 'NC' }
+  });
+  assert.equal(array[0].domanda_id, 12);
+  assert.equal(array[0].risposta, 'C');
+  assert.equal(String(array[1].domanda_id), '13');
+});
