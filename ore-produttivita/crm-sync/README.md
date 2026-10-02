@@ -1,51 +1,59 @@
-# Colligo Ore & Produttività — ponte Agenda CRM
+# Colligo Ore & Produttività — sincronizzazione Agenda CRM
 
-Questo componente collega l'agenda Innova CRM personale alla schermata giornaliera di Ore & Produttività.
+La sincronizzazione standard è **aziendale e automatica**: la web app non apre Edge, non avvia il CRM e non richiede credenziali CRM agli utenti.
 
-## Prima configurazione sul PC
+## Configurazione consigliata
 
-Eseguire una sola volta `SETUP_CRM_SYNC.bat`.
+Su un solo PC aziendale che rimane normalmente acceso eseguire una volta:
+
+`SETUP_SYNC_BACKGROUND.bat`
 
 La configurazione:
-- installa/aggiorna Playwright;
-- registra il collegamento locale `colligoore://`;
-- abilita il pulsante **Sincronizza CRM** presente nell'app.
+- installa/aggiorna Playwright e il gestore credenziali Windows;
+- memorizza in modo protetto il refresh token dell'account amministratore Ore & Produttività;
+- crea un profilo Edge dedicato alla sessione CRM aziendale;
+- richiede il login CRM soltanto nella configurazione iniziale o quando Innova fa realmente scadere la sessione;
+- registra l'attività pianificata **Colligo Ore CRM Background**, eseguita ogni 5 minuti senza finestre visibili.
 
 ## Uso quotidiano
 
-1. Accedi a Ore & Produttività con il tuo account.
-2. Seleziona il giorno.
-3. Premi **Sincronizza CRM**.
-4. Il ponte apre Edge usando un profilo CRM separato per il tuo username.
-5. Se il CRM richiede il login, accedi con il tuo account CRM personale.
-6. Il programma prova a portare automaticamente l'agenda alla data selezionata.
-7. Le attività riconosciute vengono inviate soltanto al tuo account Ore & Produttività.
+Nessuna operazione CRM è richiesta nella web app.
 
-Il collegamento account viene verificato lato server contro la risorsa CRM associata (es. LT · Leonardo Testa). Se l'account non è associato a una risorsa CRM, la sincronizzazione viene bloccata.
+La web app:
+- mostra i dati già sincronizzati;
+- mostra l'ultima sincronizzazione;
+- permette di correggere cliente, tipologia, pratica e ore;
+- il pulsante ↻ ricarica soltanto i dati dal backend e **non apre il CRM**.
 
-## Dati letti
+L'agente aziendale:
+- legge le risorse CRM attive;
+- prova a selezionare ciascun tecnico nell'agenda Innova;
+- legge le attività del mese corrente;
+- invia gli eventi al backend con sigla e nome della risorsa;
+- usa identificativi stabili per evitare duplicati;
+- blocca letture anomale con troppi eventi.
 
-Per ogni voce vengono cercati:
-- data;
-- ora inizio e fine;
-- codice lavoro breve, quando presente;
-- CodiceComm CRM, quando presente;
-- testo/oggetto dell'attività.
+## File principali
 
-La durata viene calcolata automaticamente. Se cliente o pratica sono riconoscibili dal testo, il codice non è obbligatorio.
+- `crm_company_agent.py` — agente aziendale invisibile.
+- `RUN_COMPANY_SYNC.vbs` — avvio senza finestra.
+- `SETUP_SYNC_BACKGROUND.bat` — installazione/configurazione una tantum.
+- `crm_agenda_sync.py` — sincronizzazione personale manuale, mantenuta solo come fallback tecnico.
+- `SETUP_CRM_SYNC.bat` — vecchio setup personale, non necessario per il flusso standard.
 
-## Sicurezza e separazione utenti
+## Stato locale
 
-Ogni username Ore & Produttività usa una cartella browser CRM distinta sotto:
+Cartella:
 
-`%LOCALAPPDATA%\ColligoOreProduttivita\crm-browser\<username>`
+`%LOCALAPPDATA%\ColligoOreProduttivita`
 
-In questo modo sessioni CRM di utenti diversi non vengono condivise nello stesso profilo del ponte.
+File utili:
+- `company-agent-status.json` — ultimo stato dell'agente;
+- `company-sync.log` — log tecnico;
+- `crm-company-browser` — profilo CRM persistente.
 
-## Diagnostica
+## Sicurezza
 
-Se una giornata non viene letta correttamente, viene salvato:
+Le password CRM non vengono salvate nel codice o nel database dell'app. La sessione CRM resta nel profilo browser dedicato sul PC aziendale. Il token dell'app viene conservato tramite il gestore credenziali di Windows.
 
-`%LOCALAPPDATA%\ColligoOreProduttivita\agenda_personale_debug.json`
-
-Le sincronizzazioni della stessa voce usano un identificativo stabile per evitare duplicati.
+Se la sessione CRM scade, l'agente non apre finestre agli utenti: si ferma e richiede una nuova esecuzione di `SETUP_SYNC_BACKGROUND.bat` sul PC aziendale.
