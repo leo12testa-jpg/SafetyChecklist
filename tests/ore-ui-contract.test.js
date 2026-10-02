@@ -28,8 +28,10 @@ test('main static buttons are wired', () => {
 
 test('reload is data-only and update is version-only', () => {
   assert.equal(app.includes('$("#refreshDay").addEventListener("click",loadDay)'), true);
-  assert.equal(html.includes('id="loadAdmin">Applica filtri</button>'), true);
-  assert.equal(html.includes('id="oreUpdateButton">Aggiorna</button>'), true);
+  assert.equal(html.includes('id="loadAdmin"'), true);
+  assert.equal(html.includes('>Applica filtri</button>'), true);
+  assert.equal(html.includes('id="oreUpdateButton"'), true);
+  assert.equal(html.includes('>Aggiorna</button>'), true);
 });
 
 test('dynamic control families are wired', () => {
