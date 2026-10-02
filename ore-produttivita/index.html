@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261002-14">
+  <link rel="stylesheet" href="./style.css?v=20261002-1410">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -45,6 +45,13 @@
   </main>
 
   <section id="appView" class="app-frame" hidden>
+    <div id="oreUpdateBanner" class="ore-update-banner" hidden>
+      <div>
+        <strong>Nuova versione disponibile</strong>
+        <span>Le tue ore restano salvate. Aggiorna per usare le ultime correzioni.</span>
+      </div>
+      <button id="oreUpdateButton" type="button">Aggiorna</button>
+    </div>
     <header class="app-header">
       <div class="header-brand">
         <div>
@@ -78,6 +85,7 @@
           </button>
         </nav>
         <div class="sidebar-foot">
+          <span id="oreVersion" class="ore-version">Versione —</span>
           <span class="sidebar-dot"></span>
           <div><strong>Ore & Produttività</strong><small>Ambiente riservato</small></div>
         </div>
@@ -110,7 +118,7 @@
                 <span class="proto-kicker">AGENDA CRM</span>
                 <h2>Agenda CRM</h2>
               </div>
-              <div class="crm-sync-pill"><span id="crmSyncStatus">CRM non sincronizzato</span><button id="syncCrmNow" class="crm-launch-btn" type="button">Sincronizza CRM</button><button id="refreshDay" type="button" title="Aggiorna dati">↻</button></div>
+              <div class="crm-sync-pill"><span id="crmSyncStatus">CRM non sincronizzato</span><button id="syncCrmNow" class="crm-launch-btn" type="button">Sincronizza CRM</button><button id="refreshDay" type="button" title="Ricarica dati" aria-label="Ricarica dati">↻</button></div>
             </div>
             <div id="crmDetected" class="crm-day-summary"></div>
           </section>
@@ -194,7 +202,7 @@
             <div class="date-range">
               <label>Dal<input id="adminFrom" type="date"></label>
               <label>Al<input id="adminTo" type="date"></label>
-              <button id="loadAdmin" class="btn btn-secondary" type="button">Aggiorna</button>
+              <button id="loadAdmin" class="btn btn-secondary" type="button">Applica filtri</button>
             </div>
           </div>
 
@@ -515,6 +523,7 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261002-14"></script>
+  <script src="./aggiornamento.js?v=20261002-1410"></script>
+  <script src="./app.js?v=20261002-1410"></script>
 </body>
 </html>
