@@ -63,10 +63,77 @@ $("#manualSave").addEventListener("click",async()=>{
 
 function fmtClock(v){if(!v)return "—";return new Date(v).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}
 function fmtSyncTime(v){if(!v)return "Non sincronizzato";return new Date(v).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}
+
+let assignmentDataPromise=null;
+async function getAssignmentData(){
+  if(!assignmentDataPromise){
+    assignmentDataPromise=Promise.all([api("catalog"),api("commesse")]).then(([catalog,jobs])=>({
+      catalog,
+      jobs:jobs.commesse||[]
+    })).catch(e=>{assignmentDataPromise=null;throw e});
+  }
+  return assignmentDataPromise;
+}
+function addSelectOption(select,value,label){
+  const o=document.createElement("option");o.value=value||"";o.textContent=label;select.appendChild(o);
+}
+function inferIssueMeta(issue,data){
+  const m=String(issue.codice_lavoro||"").trim().toUpperCase().match(/^(\d{1,2})([A-Z])$/);
+  if(!m)return {client:null,type:null};
+  const client=(data.catalog.clienti||[]).find(x=>Number(x.codice_breve)===Number(m[1]))||null;
+  const type=(data.catalog.tipologie||[]).find(x=>String(x.codice||"").toUpperCase()===m[2])||null;
+  return {client,type};
+}
+function fillAssignmentClients(select,data,selectedId=""){
+  select.innerHTML="";addSelectOption(select,"","Cliente…");
+  (data.catalog.clienti||[]).forEach(x=>addSelectOption(select,x.id,`${Number(x.codice_breve)} · ${x.ragione_sociale}`));
+  if(selectedId)select.value=selectedId;
+}
+function fillAssignmentTypes(select,data,selectedId=""){
+  select.innerHTML="";addSelectOption(select,"","Tutte le tipologie");
+  (data.catalog.tipologie||[]).forEach(x=>addSelectOption(select,x.id,`${x.codice} · ${x.nome}`));
+  if(selectedId)select.value=selectedId;
+}
+function fillAssignmentJobs(select,data,clientId,typeId,selectedId=""){
+  let rows=(data.jobs||[]).filter(x=>!clientId||String(x.cliente_id)===String(clientId));
+  if(typeId)rows=rows.filter(x=>String(x.tipologia_id||"")===String(typeId));
+  rows.sort((a,b)=>String(a.descrizione||"").localeCompare(String(b.descrizione||""),"it"));
+  select.innerHTML="";addSelectOption(select,"",rows.length?"Commessa / pratica…":"Nessuna commessa con questi filtri");
+  rows.forEach(x=>addSelectOption(select,x.id,`${x.codice_lavoro||x.codice_commessa_crm||"—"} · ${x.descrizione||"Commessa"}`));
+  if(selectedId&&rows.some(x=>String(x.id)===String(selectedId)))select.value=selectedId;
+}
+function buildAssignmentEditor({host,data,clientId="",typeId="",jobId="",minutes=0,title="",onSave,onCancel}){
+  host.innerHTML="";
+  const editor=document.createElement("div");editor.className="assignment-editor";
+  const client=document.createElement("select"),type=document.createElement("select"),job=document.createElement("select");
+  const dur=document.createElement("input"),note=document.createElement("input");
+  client.className=type.className=job.className="assignment-select";
+  dur.className="assignment-input";note.className="assignment-input assignment-note";
+  dur.placeholder="Ore effettive";dur.value=fmtMinutes(minutes).replace(" ","");
+  note.placeholder="Descrizione / nota";note.value=title||"";
+  fillAssignmentClients(client,data,clientId);fillAssignmentTypes(type,data,typeId);fillAssignmentJobs(job,data,client.value,type.value,jobId);
+  const refresh=()=>fillAssignmentJobs(job,data,client.value,type.value,"");
+  client.addEventListener("change",refresh);type.addEventListener("change",refresh);
+  const hint=document.createElement("small");hint.className="assignment-hint";hint.textContent="Se non trovi la pratica, cambia la tipologia su “Tutte le tipologie”.";
+  const actions=document.createElement("div");actions.className="assignment-buttons";
+  const save=document.createElement("button");save.type="button";save.className="save";save.textContent="Salva modifiche";
+  const cancel=document.createElement("button");cancel.type="button";cancel.className="assignment-cancel";cancel.textContent="Annulla";
+  save.addEventListener("click",async()=>{
+    const m=inputMinutes(dur.value);
+    if(!job.value){alert("Seleziona una commessa/pratica.");return}
+    if(m==null||m<=0){alert("Inserisci una durata valida, ad esempio 2h30m.");return}
+    save.disabled=true;cancel.disabled=true;
+    try{await onSave({commessaId:job.value,minutiEffettivi:m,oggetto:note.value});}
+    catch(e){alert(e.message);save.disabled=false;cancel.disabled=false}
+  });
+  cancel.addEventListener("click",()=>onCancel?.());
+  actions.append(save,cancel);
+  editor.append(client,type,job,dur,note,hint,actions);host.appendChild(editor);
+}
 async function loadSyncStatus(){
   if(!profile)return;
   try{
-    const j=await api("syncStatus",{date:$("#dayDate").value});
+    const [j,data]=await Promise.all([api("syncStatus",{date:$("#dayDate").value}),getAssignmentData()]);
     const who=j.resource?.sigla?`${j.resource.sigla} · `:"";$("#crmSyncStatus").textContent=j.lastSync?.created_at?`${who}${fmtSyncTime(j.lastSync.created_at)}`:`${who}Da sincronizzare`;
     const issues=j.openIssues||[];
     const card=$("#syncIssuesCard"),box=$("#syncIssues"),count=$("#syncIssueCount");
@@ -78,12 +145,15 @@ async function loadSyncStatus(){
       row.className="work-entry";
       const candidates=Array.isArray(issue.candidati)?issue.candidati:[];
       const code=issue.codice_lavoro||issue.codice_commessa_crm||"Senza codice";
-      const reason=issue.motivo==="ambiguous"?"Più pratiche compatibili":"Codice non riconosciuto";
+      const meta=inferIssueMeta(issue,data);
+      const clientLabel=meta.client?.ragione_sociale||"Cliente non riconosciuto";
+      const typeLabel=meta.type?.nome||"Tipologia da verificare";
+      const reason=meta.client||meta.type?"Cliente/tipo rilevati, pratica da scegliere":issue.motivo==="ambiguous"?"Più pratiche compatibili":"Da classificare";
       row.innerHTML=`<div class="entry-head">
           <div class="entry-code">${code}</div>
           <div class="entry-copy">
-            <div class="entry-client">Attività CRM da verificare</div>
-            <div class="entry-title">${issue.titolo||"Attività CRM"}</div>
+            <div class="entry-client"></div>
+            <div class="entry-title"></div>
             <div class="entry-meta">
               <span>${reason}</span>
               <span class="entry-origin">Da verificare</span>
@@ -96,23 +166,33 @@ async function loadSyncStatus(){
           <div class="issue-action"></div>
           <div class="issue-save"></div>
         </div>`;
+      row.querySelector(".entry-client").textContent=`${clientLabel} · ${typeLabel}`;
+      row.querySelector(".entry-title").textContent=issue.titolo||"Attività CRM";
       const action=row.querySelector(".issue-action"),save=row.querySelector(".issue-save");
+      const edit=document.createElement("button");edit.type="button";edit.className="assignment-edit";edit.textContent="Modifica / abbina";
       if(candidates.length){
-        const select=document.createElement("select");
-        select.style.width="100%";select.style.minHeight="40px";select.style.border="1px solid var(--line)";select.style.borderRadius="10px";select.style.padding="8px";
-        select.innerHTML='<option value="">Scegli pratica…</option>'+candidates.map(c=>`<option value="${c.id}">${c.codiceComm||""} · ${c.descrizione||"Commessa"}</option>`).join("");
-        const btn=document.createElement("button");btn.type="button";btn.className="save";btn.textContent="Abbina";
-        btn.addEventListener("click",async()=>{
-          if(!select.value){alert("Seleziona la pratica corretta.");return}
-          btn.disabled=true;
-          try{await api("resolveSyncIssue",{issueId:issue.id,commessaId:select.value});await loadDay()}
-          catch(e){alert(e.message)}
-          finally{btn.disabled=false}
-        });
-        action.appendChild(select);save.appendChild(btn);
+        const q=document.createElement("span");q.className="muted";q.textContent=`${candidates.length} pratiche suggerite`;action.appendChild(q);
       }else{
-        action.innerHTML='<span class="muted" style="font-size:12px">Aggiungi nella nota cliente, sede o pratica e sincronizza di nuovo: il codice non è obbligatorio.</span>';
+        const q=document.createElement("span");q.className="muted";q.textContent="Scegli cliente e pratica";action.appendChild(q);
       }
+      save.appendChild(edit);
+      edit.addEventListener("click",()=>{
+        row.classList.add("editing");
+        buildAssignmentEditor({
+          host:action,data,
+          clientId:meta.client?.id||"",
+          typeId:meta.type?.id||"",
+          jobId:candidates.length===1?candidates[0].id:"",
+          minutes:issue.minuti,
+          title:issue.titolo||"",
+          onSave:async values=>{
+            await api("resolveSyncIssue",{issueId:issue.id,...values});
+            await loadDay();
+          },
+          onCancel:()=>loadSyncStatus()
+        });
+        save.innerHTML="";
+      });
       box.appendChild(row);
     }
   }catch(e){
@@ -235,10 +315,27 @@ async function loadDay(){
         <div class="proto-desc"><strong><span class="inline-code code-${(tp.codice||"P").toLowerCase()}">${displayCode||"—"}</span> ${cl.ragione_sociale||"Cliente"} · ${c.descrizione||"Attività"}</strong><small>${c.codice_commessa_crm||""} · ${activity} · ${origin}</small><small class="agenda-object"></small></div>
         <div class="agenda-duration"><strong>${agenda}</strong><small>${isCrm?"da CRM":"inserimento"}</small></div>
         <div class="proto-hours"><input aria-label="Ore effettive" value="${fmtMinutes(s.minuti_effettivi).replace(" ","")}"></div>
-        <div class="proto-actions"><span class="row-state ${s.confermata?"done":""}">${s.confermata?"Confermata":"Da verificare"}</span><button class="save" type="button">Salva</button></div>`;
+        <div class="proto-actions"><span class="row-state ${s.confermata?"done":""}">${s.confermata?"Confermata":"Da verificare"}</span><button class="save" type="button">Salva</button><button class="assignment-edit session-edit" type="button">Modifica</button></div><div class="session-edit-panel" hidden></div>`;
       row.querySelector(".agenda-object").textContent=note;
-      const inp=row.querySelector("input"),btn=row.querySelector(".save");
+      const inp=row.querySelector("input"),btn=row.querySelector(".save"),editBtn=row.querySelector(".session-edit"),editPanel=row.querySelector(".session-edit-panel");
       btn.addEventListener("click",async()=>{const m=inputMinutes(inp.value);if(m==null){alert("Inserisci una durata come 2h30m.");return}btn.disabled=true;try{await api("saveSession",{id:s.id,minutiEffettivi:m});await loadDay()}catch(e){alert(e.message)}finally{btn.disabled=false}});
+      editBtn.addEventListener("click",async()=>{
+        try{
+          const data=await getAssignmentData();
+          const currentJob=(data.jobs||[]).find(x=>String(x.id)===String(s.commessa_id))||{};
+          editPanel.hidden=false;row.classList.add("editing");
+          buildAssignmentEditor({
+            host:editPanel,data,
+            clientId:currentJob.cliente_id||"",
+            typeId:currentJob.tipologia_id||"",
+            jobId:s.commessa_id||"",
+            minutes:s.minuti_effettivi,
+            title:s.crm_oggetto||"",
+            onSave:async values=>{await api("saveSession",{id:s.id,...values,motivo:"Correzione manuale attività importata"});await loadDay();},
+            onCancel:()=>{editPanel.hidden=true;row.classList.remove("editing")}
+          });
+        }catch(e){alert(e.message)}
+      });
       box.appendChild(row);
     });
     await Promise.all([loadSyncStatus(),renderRecentActivities()]);
