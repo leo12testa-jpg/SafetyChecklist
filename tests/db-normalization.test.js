@@ -29,3 +29,14 @@ test('DB: null e formati inattesi diventano array vuoto senza .reduce/.find su o
   assert.deepEqual(Array.from(db._normalizzaRisposte(null)), []);
   assert.deepEqual(Array.from(db._normalizzaRisposte('non valido')), []);
 });
+
+
+test('DB: domanda_id numerico salvato come stringa viene canonicalizzato', () => {
+  const db = caricaDb();
+  const risultato = db._normalizzaRisposte([
+    { domanda_id: '12', risposta: 'C' },
+    { domanda_id: 13, risposta: 'NC' }
+  ]);
+  assert.equal(risultato[0].domanda_id, 12);
+  assert.equal(risultato[1].domanda_id, 13);
+});
