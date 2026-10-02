@@ -4,8 +4,9 @@
  *
  * 1. "nostro" — il PDF generato da questa stessa app (js/pdf.js): tabella "DATI GENERALI" +
  *    tabelle sezione con colonne n./Descrizione attività/C/P.C/N.C/N.P/Note (vedi
- *    disegnaTabellaDatiGenerali e disegnaTabellaSezione). La colonna "n." è l'id VERO della
- *    domanda (non un numero di riga), quindi ogni riga porta con sé un identificatore stabile.
+ *    disegnaTabellaDatiGenerali e disegnaTabellaSezione). Nei PDF legacy la colonna "n." era
+ *    l'id stabile; nei PDF attuali è il numero progressivo visibile 1..N. Il matching conserva
+ *    il numero letto e lo valida con il testo, quindi entrambi i formati restano importabili.
  * 2. "storico" — un vecchio formato Coin (non generato da questa app): intestazione a tabella
  *    Negozio/Data del sopralluogo/Area Manager/Tecnico (2 righe x 2 coppie etichetta-valore),
  *    macro-sezioni "AUDIT DOCUMENTALE"/"SOPRALLUOGO AMBIENTI DI LAVORO" con numerazione delle
