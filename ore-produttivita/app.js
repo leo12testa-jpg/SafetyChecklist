@@ -191,17 +191,11 @@ async function loadDay(){
 $("#confirmDay").addEventListener("click",async()=>{const b=$("#confirmDay");b.disabled=true;try{const j=await api("confirmDay",{date:$("#dayDate").value});$("#dayMessage").textContent=`Giornata confermata: ${fmtMinutes(j.totalMinutes)}.`;$("#dayMessage").hidden=false;await loadDay()}catch(e){alert(e.message)}finally{b.disabled=false}});
 function setTab(which){
   const day=which==="day",admin=which==="admin",archive=which==="archive",economics=which==="economics";
-  $("#dayPanel").hidden=!day;
-  $("#adminPanel").hidden=!admin;
-  $("#archivePanel").hidden=!archive;
-  $("#economicsPanel").hidden=!economics;
-  $("#tabDay").classList.toggle("active",day);
-  $("#tabAdmin").classList.toggle("active",admin);
-  $("#tabArchive").classList.toggle("active",archive);
-  $("#tabEconomics").classList.toggle("active",economics);
-  if(admin)loadAdmin();
-  if(archive)loadArchive();
-  if(economics)loadEconomics();
+  $("#dayPanel").hidden=!day;$("#adminPanel").hidden=!admin;$("#archivePanel").hidden=!archive;$("#economicsPanel").hidden=!economics;
+  $("#tabDay").classList.toggle("active",day);$("#tabAdmin").classList.toggle("active",admin);$("#tabArchive").classList.toggle("active",archive);$("#tabEconomics").classList.toggle("active",economics);
+  $("#panelTitle").textContent=day?"Pannello Tecnico":"Pannello Amministratore";
+  $("#panelSubtitle").textContent=day?"Inserisci le tue ore in pochi secondi":"Report, produttività e analisi per decisioni strategiche";
+  if(admin)loadAdmin();if(archive)loadArchive();if(economics)loadEconomics();
 }
 $("#tabDay").addEventListener("click",()=>setTab("day"));
 $("#tabAdmin").addEventListener("click",()=>setTab("admin"));
