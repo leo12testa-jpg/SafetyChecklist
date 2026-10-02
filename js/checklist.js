@@ -20,7 +20,12 @@ const checklistEngine = (() => {
   }
 
   function trovaRisposta(domandaId) {
-    return (sopralluogo.risposte || []).find((r) => r.domanda_id === domandaId);
+    // Firestore usa chiavi stringa: "12" e 12 identificano la stessa domanda della checklist.
+    if (domandaId === null || domandaId === undefined) return undefined;
+    const id = String(domandaId);
+    return (sopralluogo.risposte || []).find((r) =>
+      r && r.domanda_id !== null && r.domanda_id !== undefined && String(r.domanda_id) === id
+    );
   }
 
   /**
