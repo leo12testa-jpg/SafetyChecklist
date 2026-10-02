@@ -67,7 +67,7 @@ async function loadSyncStatus(){
   if(!profile)return;
   try{
     const j=await api("syncStatus",{date:$("#dayDate").value});
-    $("#crmSyncStatus").textContent=j.lastSync?.created_at?fmtSyncTime(j.lastSync.created_at):"Non sincronizzato";
+    const who=j.resource?.sigla?`${j.resource.sigla} · `:"";$("#crmSyncStatus").textContent=j.lastSync?.created_at?`${who}${fmtSyncTime(j.lastSync.created_at)}`:`${who}Da sincronizzare`;
     const issues=j.openIssues||[];
     const card=$("#syncIssuesCard"),box=$("#syncIssues"),count=$("#syncIssueCount");
     count.textContent=String(issues.length);
