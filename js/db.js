@@ -84,15 +84,29 @@ const db = (() => {
    * istante nel formato mappa. Tutto il resto dell'app deve vedere SEMPRE un array: normalizziamo
    * qui, al confine del DB, invece di lasciare che `.find/.filter/.reduce` esplodano su mobile.
    */
+  function normalizzaDomandaId(valore) {
+    if (typeof valore === 'string') {
+      const pulito = valore.trim();
+      if (pulito !== '' && !Number.isNaN(Number(pulito))) return Number(pulito);
+    }
+    return valore;
+  }
+
   function normalizzaRisposte(risposte) {
     if (Array.isArray(risposte)) {
-      return risposte;
+      return risposte.map((risposta) => {
+        if (!risposta || typeof risposta !== 'object') return risposta;
+        return risposta.domanda_id == null
+          ? risposta
+          : { ...risposta, domanda_id: normalizzaDomandaId(risposta.domanda_id) };
+      });
     }
     if (risposte && typeof risposte === 'object') {
       return Object.keys(risposte).map((chiave) => {
         const valore = risposte[chiave];
         if (!valore || typeof valore !== 'object') return null;
-        return valore.domanda_id == null ? { ...valore, domanda_id: Number.isNaN(Number(chiave)) ? chiave : Number(chiave) } : valore;
+        const domandaId = valore.domanda_id == null ? chiave : valore.domanda_id;
+        return { ...valore, domanda_id: normalizzaDomandaId(domandaId) };
       }).filter(Boolean);
     }
     return [];
