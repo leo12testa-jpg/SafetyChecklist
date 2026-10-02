@@ -24,7 +24,7 @@ if errorlevel 1 (
 echo.
 echo Avvio sincronizzazione della TUA agenda CRM...
 echo.
-py crm_agenda_sync.py
+py crm_agenda_sync.py %*
 goto :fine
 
 :errore
