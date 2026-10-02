@@ -174,19 +174,16 @@ document.addEventListener("visibilitychange",()=>{
 
 function renderEmpty(){
   $("#sessions").innerHTML='<div class="empty">Nessuna attività per questa giornata.</div>';
-  $("#crmDetected").innerHTML='<div class="crm-empty">Nessuna attività CRM rilevata per la data selezionata.</div>';
+  $("#crmDetected").innerHTML='<div class="crm-empty">Nessun appuntamento CRM importato per questa data.</div>';
 }
 function renderCrmDetected(sessions){
   const box=$("#crmDetected");box.innerHTML="";
   const rows=(sessions||[]).filter(s=>s.origine==="crm_agenda");
-  if(!rows.length){box.innerHTML='<div class="crm-empty">Nessuna attività CRM rilevata per oggi.</div>';return}
-  rows.slice(0,6).forEach(s=>{
-    const c=s.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
-    const code=(cl.codice_breve?String(Number(cl.codice_breve)):"")+(tp.codice||"P");
-    const card=document.createElement("div");card.className="crm-detected-item";
-    card.innerHTML=`<span class="mini-code code-${(tp.codice||"P").toLowerCase()}">${code||"—"}</span><div><strong>${cl.ragione_sociale||"Cliente"}</strong><small>${s.attivita_rilevata||tp.nome||"Attività"}</small></div>`;
-    box.appendChild(card);
-  });
+  const planned=rows.reduce((sum,s)=>sum+Number(s.minuti_agenda||0),0);
+  const effective=rows.reduce((sum,s)=>sum+Number(s.minuti_effettivi||0),0);
+  box.innerHTML=`<div class="crm-summary-item"><span>Appuntamenti</span><strong>${rows.length}</strong></div>
+    <div class="crm-summary-item"><span>Ore da agenda</span><strong>${fmtMinutes(planned)}</strong></div>
+    <div class="crm-summary-item"><span>Ore rendicontate</span><strong>${fmtMinutes(effective)}</strong></div>`;
 }
 async function renderRecentActivities(){
   const box=$("#recentActivities");box.innerHTML="";
@@ -228,11 +225,18 @@ async function loadDay(){
       const c=s.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
       const displayCode=(cl.codice_breve?String(Number(cl.codice_breve)):"")+(tp.codice||"P");
       const origin=s.origine==="crm_agenda"?"CRM":s.origine==="import_storico"?"Storico":"Manuale";
-      const row=document.createElement("div");row.className="proto-hour-row";
+      const isCrm=s.origine==="crm_agenda";
+      const row=document.createElement("div");row.className="proto-hour-row agenda-hour-row";
       const note=s.crm_oggetto||c.descrizione||"";
       const activity=s.attivita_rilevata||tp.nome||"Attività";
-      row.innerHTML=`<div><span class="proto-code code-${(tp.codice||"P").toLowerCase()}">${displayCode||"—"}</span></div><div class="proto-desc"><strong>${cl.ragione_sociale||"Cliente"} · ${c.descrizione||"Attività"}</strong><small>${c.codice_commessa_crm||""} · ${origin}</small></div><div class="proto-hours"><input aria-label="Durata effettiva" value="${fmtMinutes(s.minuti_effettivi).replace(" ","")}"></div><div class="proto-note"><span class="activity-chip">${activity}</span><small></small></div><div class="proto-actions"><button class="save" type="button">Salva</button></div>`;
-      row.querySelector(".proto-note small").textContent=note;
+      const clock=isCrm&&s.inizio&&s.fine?`${fmtClock(s.inizio)}<small>– ${fmtClock(s.fine)}</small>`:"<span>Manuale</span>";
+      const agenda=isCrm?fmtMinutes(s.minuti_agenda):"—";
+      row.innerHTML=`<div class="proto-time">${clock}</div>
+        <div class="proto-desc"><strong><span class="inline-code code-${(tp.codice||"P").toLowerCase()}">${displayCode||"—"}</span> ${cl.ragione_sociale||"Cliente"} · ${c.descrizione||"Attività"}</strong><small>${c.codice_commessa_crm||""} · ${activity} · ${origin}</small><small class="agenda-object"></small></div>
+        <div class="agenda-duration"><strong>${agenda}</strong><small>${isCrm?"da CRM":"inserimento"}</small></div>
+        <div class="proto-hours"><input aria-label="Ore effettive" value="${fmtMinutes(s.minuti_effettivi).replace(" ","")}"></div>
+        <div class="proto-actions"><span class="row-state ${s.confermata?"done":""}">${s.confermata?"Confermata":"Da verificare"}</span><button class="save" type="button">Salva</button></div>`;
+      row.querySelector(".agenda-object").textContent=note;
       const inp=row.querySelector("input"),btn=row.querySelector(".save");
       btn.addEventListener("click",async()=>{const m=inputMinutes(inp.value);if(m==null){alert("Inserisci una durata come 2h30m.");return}btn.disabled=true;try{await api("saveSession",{id:s.id,minutiEffettivi:m});await loadDay()}catch(e){alert(e.message)}finally{btn.disabled=false}});
       box.appendChild(row);
