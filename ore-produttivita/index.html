@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261002-1410">
+  <link rel="stylesheet" href="./style.css?v=20261002-1415">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -118,7 +118,7 @@
                 <span class="proto-kicker">AGENDA CRM</span>
                 <h2>Agenda CRM</h2>
               </div>
-              <div class="crm-sync-pill"><span id="crmSyncStatus">CRM non sincronizzato</span><button id="syncCrmNow" class="crm-launch-btn" type="button">Sincronizza CRM</button><button id="refreshDay" type="button" title="Ricarica dati" aria-label="Ricarica dati">↻</button></div>
+              <div class="crm-sync-pill"><span class="crm-auto-label">AUTO</span><span id="crmSyncStatus">In attesa della prima sincronizzazione</span><button id="refreshDay" type="button" title="Ricarica i dati già sincronizzati" aria-label="Ricarica dati">↻</button></div>
             </div>
             <div id="crmDetected" class="crm-day-summary"></div>
           </section>
@@ -250,9 +250,9 @@
           <div class="panel company-sync-panel">
             <div class="panel-heading compact">
               <div>
-                <span class="eyebrow">SINCRONIZZAZIONE PERSONALE</span>
+                <span class="eyebrow">SINCRONIZZAZIONE AUTOMATICA</span>
                 <h2>Stato agenda dei tecnici</h2>
-                <p>Ogni tecnico sincronizza la propria agenda con il proprio account CRM; qui la Direzione vede chi ha già sincronizzato.</p>
+                <p>Le agende vengono lette in background dall’agente aziendale. Gli utenti non devono aprire il CRM.</p>
               </div>
               <span id="crmResourceCount" class="count-badge">0</span>
             </div>
@@ -523,7 +523,7 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./aggiornamento.js?v=20261002-1410"></script>
-  <script src="./app.js?v=20261002-1410"></script>
+  <script src="./aggiornamento.js?v=20261002-1415"></script>
+  <script src="./app.js?v=20261002-1415"></script>
 </body>
 </html>
