@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261002-1">
+  <link rel="stylesheet" href="./style.css?v=20261002-2">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -90,48 +90,56 @@
       </aside>
 
       <div class="app-content">
-        <section id="dayPanel" class="screen">
-          <div class="page-heading">
+        <section id="dayPanel" class="screen prototype-day">
+          <div class="prototype-topline">
             <div>
-              <span class="eyebrow">CONSUNTIVO PERSONALE</span>
-              <h1>La mia giornata</h1>
-              <p>Controlla ciò che arriva dal CRM. Intervieni solo quando qualcosa non corrisponde al lavoro reale.</p>
+              <span class="prototype-brand">COLLIGO</span>
+              <h1>Le mie attività</h1>
+              <p>La tua giornata di lavoro, già compilata dall’agenda CRM.</p>
             </div>
-            <label class="date-field">Data<input id="dayDate" type="date"></label>
+            <label class="prototype-date">Data<input id="dayDate" type="date"></label>
           </div>
 
-          <div class="summary-grid">
-            <article class="summary-card">
-              <span class="summary-icon">◷</span>
-              <div><small>Ore della giornata</small><strong id="dayTotal">0h 00m</strong><span>Somma delle attività registrate</span></div>
+          <div class="prototype-overview">
+            <article class="prototype-total-card">
+              <div class="prototype-total-copy">
+                <span>ORE INSERITE</span>
+                <strong id="dayTotal">0h 00m</strong>
+                <small>Totale della giornata selezionata</small>
+              </div>
+              <div class="prototype-state">
+                <div>
+                  <span>STATO</span>
+                  <strong id="dayStatus">Da verificare</strong>
+                </div>
+                <div>
+                  <span>AGENDA CRM</span>
+                  <strong id="crmSyncStatus">Non sincronizzato</strong>
+                </div>
+              </div>
             </article>
-            <article class="summary-card">
-              <span class="summary-icon">✓</span>
-              <div><small>Stato giornata</small><strong id="dayStatus">Da verificare</strong><span>Diventa confermata dopo il controllo</span></div>
-            </article>
-            <article class="summary-card">
-              <span class="summary-icon">↻</span>
-              <div><small>Sincronizzazione CRM</small><strong id="crmSyncStatus">Non sincronizzato</strong><span>Ultima lettura dell’agenda</span></div>
-            </article>
-          </div>
 
-          <div class="toolbar">
-            <div class="toolbar-copy">
-              <strong>Attività del giorno</strong>
-              <span>Ogni riga corrisponde a una singola sessione di lavoro.</span>
-            </div>
-            <div class="toolbar-actions">
-              <button id="manualToggle" class="btn btn-secondary" type="button">＋ Aggiungi manualmente</button>
-              <button id="refreshDay" class="btn btn-secondary" type="button">↻ Aggiorna</button>
-            </div>
+            <article class="prototype-sync-card">
+              <div class="prototype-sync-icon">↻</div>
+              <div>
+                <span>AGENDA PERSONALE</span>
+                <strong>Sincronizza il tuo CRM</strong>
+                <p>L’app importa esclusivamente l’agenda visibile con il tuo account CRM.</p>
+              </div>
+              <button id="refreshDay" class="prototype-icon-button" type="button" title="Aggiorna">↻</button>
+            </article>
           </div>
 
           <div id="dayMessage" class="notice" hidden></div>
 
-          <div id="manualCard" class="panel" hidden>
-            <div class="panel-heading">
-              <div><span class="eyebrow">ECCEZIONE</span><h2>Aggiungi attività manuale</h2><p>Usala soltanto se l’attività non compare nell’agenda CRM.</p></div>
-              <button id="manualClose" class="icon-btn" type="button">×</button>
+          <div id="manualCard" class="prototype-form-card" hidden>
+            <div class="prototype-card-head">
+              <div>
+                <span class="prototype-kicker">NUOVA ATTIVITÀ</span>
+                <h2>Aggiungi manualmente</h2>
+                <p>Solo se l’attività non è presente nell’agenda CRM.</p>
+              </div>
+              <button id="manualClose" class="prototype-close" type="button">×</button>
             </div>
             <div class="form-grid">
               <label>Cliente
@@ -145,53 +153,51 @@
               </label>
             </div>
             <label>Nota
-              <input id="manualNote" placeholder="Perché non era presente nell’agenda?">
+              <input id="manualNote" placeholder="Attività svolta">
             </label>
-            <div class="panel-actions"><button id="manualSave" class="btn btn-primary" type="button">Aggiungi attività</button></div>
+            <div class="panel-actions"><button id="manualSave" class="prototype-primary" type="button">Aggiungi attività</button></div>
           </div>
 
-          <div id="syncIssuesCard" class="panel warning-panel" hidden>
-            <div class="panel-heading">
+          <div id="syncIssuesCard" class="prototype-form-card prototype-warning" hidden>
+            <div class="prototype-card-head">
               <div>
-                <span class="eyebrow warning">ATTENZIONE</span>
-                <h2>Attività da verificare</h2>
-                <p id="syncIssuesSubtitle">Il CRM contiene attività che non possono essere abbinate automaticamente.</p>
+                <span class="prototype-kicker warning">DA VERIFICARE</span>
+                <h2>Attività non abbinate</h2>
+                <p id="syncIssuesSubtitle">Controlla queste righe prima di confermare la giornata.</p>
               </div>
-              <span id="syncIssueCount" class="count-badge">0</span>
+              <span id="syncIssueCount" class="prototype-count">0</span>
             </div>
             <div id="syncIssues" class="entry-list"></div>
           </div>
 
-          <section class="explain-panel">
-            <div class="explain-heading">
-              <div><span class="eyebrow">COME LEGGERE LE RIGHE</span><h2>Ogni informazione ha un significato preciso</h2></div>
+          <section class="prototype-activity-card">
+            <div class="prototype-card-head activity-head">
+              <div>
+                <span class="prototype-kicker">OGGI</span>
+                <h2>Attività recenti</h2>
+                <p>Cliente, pratica, orario e durata sempre visibili.</p>
+              </div>
+              <button id="manualToggle" class="prototype-add" type="button">＋ NUOVA ATTIVITÀ</button>
             </div>
-            <div class="explain-grid">
-              <div><b>Codice lavoro</b><span><strong>1B</strong> = cliente 1 (PAM) + tipo B (Aggiornamento DVR).</span></div>
-              <div><b>Cliente</b><span>L’azienda a cui appartiene la pratica.</span></div>
-              <div><b>Pratica / commessa</b><span>Il singolo lavoro reale: es. “AGG DVR PAM OSTIA”. È il faldone che accumula le ore.</span></div>
-              <div><b>Tipo</b><span>La famiglia usata per confrontare lavori omogenei: DVR, MMC, Chimico, PEM, Planimetrie…</span></div>
-              <div><b>Origine</b><span><strong>CRM</strong> = calcolata dall’agenda; <strong>Manuale</strong> = aggiunta dal tecnico; <strong>Modificata</strong> = durata corretta.</span></div>
-              <div><b>Durata effettiva</b><span>È l’ora che entra nelle analisi della direzione e nel totale della pratica.</span></div>
-            </div>
+            <div id="sessions" class="entry-list prototype-entry-list"></div>
           </section>
 
-          <div id="sessions" class="entry-list"></div>
-
-          <section class="code-legend">
-            <div class="code-legend-title"><span class="eyebrow">LEGENDA</span><h2>Tipologie di lavoro</h2></div>
-            <div class="legend-grid">
-              <span><b>A</b>DVR generale</span><span><b>B</b>Agg. DVR</span><span><b>C</b>MMC</span>
-              <span><b>D</b>Chimico</span><span><b>E</b>Rumore</span><span><b>F</b>Vibrazioni</span>
-              <span><b>G</b>DUVRI / Art.26</span><span><b>H</b>PEM</span><span><b>I</b>Planimetrie</span>
-              <span><b>L</b>Sopralluogo</span><span><b>M</b>Formazione</span><span><b>N</b>Segreteria formazione</span>
-              <span><b>O</b>Forfait / Consulenza</span><span><b>P</b>Altro / da classificare</span>
+          <details class="prototype-help">
+            <summary>Come leggere una riga</summary>
+            <div class="prototype-help-grid">
+              <div><b>Codice</b><span>1B = cliente 1 + tipologia B.</span></div>
+              <div><b>Pratica</b><span>È il singolo faldone su cui si accumulano le ore.</span></div>
+              <div><b>CRM</b><span>Attività calcolata automaticamente dalla tua agenda.</span></div>
+              <div><b>Durata</b><span>È il tempo che entra nelle analisi della Direzione.</span></div>
             </div>
-          </section>
+          </details>
 
-          <div class="confirm-bar">
-            <div><strong>Hai controllato tutto?</strong><span>Conferma solo quando le attività e le durate sono corrette.</span></div>
-            <button id="confirmDay" class="btn btn-primary" type="button">Conferma giornata</button>
+          <div class="prototype-confirm">
+            <div>
+              <span>GIORNATA PRONTA?</span>
+              <strong>Controlla le attività e conferma.</strong>
+            </div>
+            <button id="confirmDay" class="prototype-primary prototype-confirm-btn" type="button">Conferma giornata</button>
           </div>
         </section>
 
@@ -219,15 +225,15 @@
           <div class="panel company-sync-panel">
             <div class="panel-heading compact">
               <div>
-                <span class="eyebrow">SINCRONIZZAZIONE AZIENDALE</span>
-                <h2>Agende CRM di tutti i tecnici</h2>
-                <p>La direzione deve poter verificare che la lettura non riguardi una sola persona.</p>
+                <span class="eyebrow">SINCRONIZZAZIONE PERSONALE</span>
+                <h2>Stato agenda dei tecnici</h2>
+                <p>Ogni tecnico sincronizza la propria agenda con il proprio account CRM; qui la Direzione vede chi ha già sincronizzato.</p>
               </div>
               <span id="crmResourceCount" class="count-badge">0</span>
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Sigla</th><th>Tecnico</th><th>Ultima agenda letta</th><th>Stato</th></tr></thead>
+                <thead><tr><th>Sigla</th><th>Tecnico</th><th>Ultima sincronizzazione</th><th>Stato</th></tr></thead>
                 <tbody id="crmResourceRows"></tbody>
               </table>
             </div>
@@ -492,6 +498,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261002-1"></script>
+  <script src="./app.js?v=20261002-2"></script>
 </body>
 </html>
