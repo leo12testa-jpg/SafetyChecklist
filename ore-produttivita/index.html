@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261002-9">
+  <link rel="stylesheet" href="./style.css?v=20261002-10">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -92,7 +92,7 @@
             </label>
             <div class="tech-progress">
               <div class="tech-progress-copy">
-                <span>Ore inserite oggi</span>
+                <span>Ore rendicontate</span>
                 <strong id="dayTotal">0h 00m / 8h 00m</strong>
               </div>
               <div class="tech-progress-track"><i id="dayProgressBar"></i></div>
@@ -108,11 +108,11 @@
             <div class="proto-card-head">
               <div>
                 <span class="proto-kicker">AGENDA CRM</span>
-                <h2>Agenda CRM del giorno</h2>
+                <h2>Agenda CRM</h2>
               </div>
               <div class="crm-sync-pill"><span id="crmSyncStatus">CRM non sincronizzato</span><button id="syncCrmNow" class="crm-launch-btn" type="button">Sincronizza CRM</button><button id="refreshDay" type="button" title="Aggiorna dati">↻</button></div>
             </div>
-            <div id="crmDetected" class="crm-detected-grid"></div>
+            <div id="crmDetected" class="crm-day-summary"></div>
           </section>
 
           <div id="dayMessage" class="notice" hidden></div>
@@ -163,7 +163,7 @@
               <button id="manualToggle" class="proto-outline" type="button">＋ Aggiungi attività</button>
             </div>
             <div class="hours-table-head">
-              <span>Codice</span><span>Descrizione</span><span>Ore</span><span>Note / tipo attività</span><span>Azioni</span>
+              <span>Orario</span><span>Cliente / pratica</span><span>Agenda</span><span>Ore effettive</span><span>Stato</span>
             </div>
             <div id="sessions" class="entry-list proto-hours-list"></div>
             <div class="hours-card-footer">
@@ -179,7 +179,7 @@
           </section>
 
           <div class="tech-confirm-row">
-            <span>Controlla le righe prima di chiudere la giornata.</span>
+            <span>Controlla le ore derivate dall’agenda e conferma la giornata.</span>
             <button id="confirmDay" class="proto-primary" type="button">Conferma giornata</button>
           </div>
         </section>
@@ -515,6 +515,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261002-9"></script>
+  <script src="./app.js?v=20261002-10"></script>
 </body>
 </html>
