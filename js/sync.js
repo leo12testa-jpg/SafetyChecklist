@@ -85,7 +85,14 @@ const sync = (() => {
   }
 
   function mappaRisposteInArray(risposteMappa) {
-    return Object.values(risposteMappa || {});
+    // Nei record legacy domanda_id può esistere solo nella chiave della mappa Firestore.
+    // La reinseriamo nell'oggetto così la risposta resta associata alla domanda anche in locale.
+    return Object.entries(risposteMappa || {}).map(([chiave, risposta]) => {
+      if (!risposta || typeof risposta !== 'object') return risposta;
+      if (risposta.domanda_id !== null && risposta.domanda_id !== undefined) return risposta;
+      const numero = Number(chiave);
+      return { ...risposta, domanda_id: Number.isNaN(numero) ? chiave : numero };
+    });
   }
 
   function timestampRisposta(risposta, fallback) {
