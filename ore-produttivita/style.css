@@ -467,3 +467,55 @@ input:focus,select:focus{border-color:#6f91b5;box-shadow:0 0 0 3px rgba(30,58,95
   .agenda-duration,.agenda-hour-row .proto-hours,.agenda-hour-row .proto-actions{grid-column:2}
   .agenda-hour-row .proto-actions{justify-content:flex-start}
 }
+
+
+/* CRM classification editor */
+.assignment-edit,.assignment-cancel{
+  border:1px solid var(--line);
+  background:#fff;
+  color:var(--ink);
+  border-radius:10px;
+  min-height:36px;
+  padding:7px 11px;
+  font-weight:700;
+  cursor:pointer;
+}
+.assignment-edit:hover,.assignment-cancel:hover{background:#f5f8fb}
+.work-entry.editing{align-items:flex-start}
+.assignment-editor{
+  display:grid;
+  grid-template-columns:minmax(160px,1fr) minmax(150px,.8fr) minmax(220px,1.4fr) 100px;
+  gap:8px;
+  width:100%;
+  margin-top:8px;
+}
+.assignment-select,.assignment-input{
+  min-width:0;
+  min-height:38px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:#fff;
+  padding:7px 9px;
+  font:inherit;
+  color:var(--ink);
+}
+.assignment-note{grid-column:1/-1}
+.assignment-hint{grid-column:1/-1;color:var(--muted);font-size:12px}
+.assignment-buttons{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end}
+.session-edit-panel{
+  grid-column:1/-1;
+  border-top:1px solid var(--line);
+  margin-top:4px;
+  padding-top:8px;
+}
+.session-edit-panel[hidden]{display:none!important}
+@media(max-width:900px){
+  .assignment-editor{grid-template-columns:1fr 1fr}
+  .assignment-note,.assignment-hint,.assignment-buttons{grid-column:1/-1}
+}
+@media(max-width:620px){
+  .assignment-editor{grid-template-columns:1fr}
+  .assignment-note,.assignment-hint,.assignment-buttons{grid-column:1}
+  .assignment-buttons{justify-content:stretch}
+  .assignment-buttons button{flex:1}
+}
