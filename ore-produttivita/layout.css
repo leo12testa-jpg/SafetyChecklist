@@ -392,26 +392,34 @@ body{background:var(--layout-bg)}
 #archivePanel .summary-grid,
 #economicsPanel .summary-grid{
   display:grid!important;
+  grid-auto-flow:row!important;
   gap:10px!important;
-  margin:0 0 12px!important;
+  justify-content:start!important;
+  align-items:stretch!important;
+  margin:0 0 14px!important;
 }
-#adminPanel .admin-kpis{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+#adminPanel .admin-kpis{
+  grid-template-columns:repeat(5,minmax(180px,220px))!important;
+}
 #archivePanel .summary-grid.four,
-#economicsPanel .summary-grid.four{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+#economicsPanel .summary-grid.four{
+  grid-template-columns:repeat(4,minmax(210px,250px))!important;
+}
 #adminPanel .summary-card,
 #archivePanel .summary-card,
 #economicsPanel .summary-card{
   display:grid!important;
   grid-template-columns:38px minmax(0,1fr)!important;
   gap:11px!important;
-  align-items:start!important;
+  align-items:center!important;
   min-width:0!important;
-  min-height:104px!important;
-  padding:13px!important;
+  min-height:92px!important;
+  padding:12px 13px!important;
   border:1px solid var(--layout-border)!important;
-  border-radius:10px!important;
+  border-radius:11px!important;
   box-shadow:none!important;
   overflow:hidden!important;
+  background:#fff!important;
 }
 #adminPanel .summary-icon,
 #archivePanel .summary-icon,
@@ -428,26 +436,31 @@ body{background:var(--layout-bg)}
 #archivePanel .summary-card small,
 #economicsPanel .summary-card small{
   display:block!important;
-  min-height:16px!important;
+  min-height:14px!important;
   overflow:hidden!important;
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
-  font-size:.61rem!important;
+  font-size:.60rem!important;
+  line-height:1.15!important;
 }
 #adminPanel .summary-card strong,
 #archivePanel .summary-card strong,
 #economicsPanel .summary-card strong{
   display:block!important;
-  margin:5px 0 4px!important;
-  font-size:1.28rem!important;
+  margin:4px 0 4px!important;
+  font-size:1.38rem!important;
   line-height:1!important;
+  letter-spacing:-.025em!important;
 }
 #adminPanel .summary-card>div>span,
 #archivePanel .summary-card>div>span,
 #economicsPanel .summary-card>div>span{
   display:block!important;
-  font-size:.63rem!important;
-  line-height:1.32!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  font-size:.61rem!important;
+  line-height:1.25!important;
 }
 
 /* ---------- admin dashboard ---------- */
@@ -593,11 +606,11 @@ body{background:var(--layout-bg)}
 @media(max-width:1280px){
   :root{--layout-sidebar:174px;--layout-pad:18px}
   #appView .app-content{padding:18px 18px 38px!important}
-  #adminPanel .admin-kpis{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  #adminPanel .admin-kpis{grid-template-columns:repeat(3,minmax(180px,220px))!important}
   #adminPanel .analytics-grid{grid-template-columns:1fr 1fr!important}
   #adminPanel .analytics-grid>.panel:first-child{grid-column:1/-1}
   #archivePanel .summary-grid.four,
-  #economicsPanel .summary-grid.four{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #economicsPanel .summary-grid.four{grid-template-columns:repeat(2,minmax(210px,250px))!important}
 }
 
 /* ---------- tablet ---------- */
@@ -685,7 +698,9 @@ body{background:var(--layout-bg)}
     width:100%!important;
   }
   #adminPanel #loadAdmin{grid-column:1/-1!important}
-  #adminPanel .admin-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #adminPanel .admin-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important;justify-content:stretch!important}
+  #archivePanel .summary-grid.four,
+  #economicsPanel .summary-grid.four{grid-template-columns:repeat(2,minmax(0,1fr))!important;justify-content:stretch!important}
   #adminPanel .admin-visual-grid,
   #adminPanel .admin-mini-grid,
   #adminPanel .analytics-grid{grid-template-columns:1fr!important}
@@ -775,7 +790,10 @@ body{background:var(--layout-bg)}
 
   #adminPanel .admin-kpis,
   #archivePanel .summary-grid.four,
-  #economicsPanel .summary-grid.four{grid-template-columns:1fr!important}
+  #economicsPanel .summary-grid.four{
+    grid-template-columns:1fr!important;
+    justify-content:stretch!important;
+  }
   #adminPanel .date-range{grid-template-columns:1fr!important}
   #adminPanel #loadAdmin{grid-column:auto!important}
   #adminPanel .donut-layout{grid-template-columns:1fr!important}
