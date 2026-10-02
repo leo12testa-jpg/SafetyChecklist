@@ -23,7 +23,7 @@ APP_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "ColligoOreProdutt
 PROFILE_ROOT = APP_DIR / "crm-browser"
 DEBUG_FILE = APP_DIR / "agenda_personale_debug.json"
 
-TIME_RE = re.compile(r"\b([01]?\d|2[0-3])[:.](\d{2})\b")
+TIME_RE = re.compile(r"\b([01]?\d|2[0-3])[:.]([0-5]\d)\b")
 DATE_RE = re.compile(r"\b(\d{1,2})[/-](\d{1,2})[/-](20\d{2})\b")
 ISO_DATE_RE = re.compile(r"\b(20\d{2})-(\d{2})-(\d{2})\b")
 WORK_RE = re.compile(r"\b(\d{1,2}[A-IL-P])\b", re.I)
@@ -107,7 +107,11 @@ def parse_date(text, fallback):
 
 
 def iso_for(day, hh, mm):
-    return f"{day}T{int(hh):02d}:{int(mm):02d}:00"
+    hour = int(hh)
+    minute = int(mm)
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        raise ValueError(f"Orario non valido: {hour:02d}:{minute:02d}")
+    return f"{day}T{hour:02d}:{minute:02d}:00"
 
 
 def event_from_text(text, fallback_day):
