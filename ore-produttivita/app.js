@@ -79,9 +79,16 @@ function addSelectOption(select,value,label){
 }
 function inferIssueMeta(issue,data){
   const m=String(issue.codice_lavoro||"").trim().toUpperCase().match(/^(\d{1,2})([A-Z])$/);
-  if(!m)return {client:null,type:null};
-  const client=(data.catalog.clienti||[]).find(x=>Number(x.codice_breve)===Number(m[1]))||null;
-  const type=(data.catalog.tipologie||[]).find(x=>String(x.codice||"").toUpperCase()===m[2])||null;
+  if(m){
+    const client=(data.catalog.clienti||[]).find(x=>Number(x.codice_breve)===Number(m[1]))||null;
+    const type=(data.catalog.tipologie||[]).find(x=>String(x.codice||"").toUpperCase()===m[2])||null;
+    return {client,type};
+  }
+  const candidates=Array.isArray(issue.candidati)?issue.candidati:[];
+  const clientIds=[...new Set(candidates.map(x=>x.clienteId).filter(Boolean))];
+  const typeIds=[...new Set(candidates.map(x=>x.tipologiaId).filter(Boolean))];
+  const client=clientIds.length===1?(data.catalog.clienti||[]).find(x=>String(x.id)===String(clientIds[0]))||null:null;
+  const type=typeIds.length===1?(data.catalog.tipologie||[]).find(x=>String(x.id)===String(typeIds[0]))||null:null;
   return {client,type};
 }
 function fillAssignmentClients(select,data,selectedId=""){
