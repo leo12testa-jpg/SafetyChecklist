@@ -47,9 +47,16 @@ test('canonical layout is loaded last and owns breakpoints',()=>{
   const layout=fs.readFileSync('ore-produttivita/layout.css','utf8');
   assert.ok(html.indexOf('layout.css')>html.indexOf('style.css'),'layout.css deve essere caricato dopo style.css');
   assert.match(layout,/--layout-page:1320px/);
-  assert.match(layout,/#adminPanel \.admin-kpis\{grid-template-columns:repeat\(5,minmax\(0,1fr\)\)!important\}/);
+  assert.match(layout,/#adminPanel \.admin-kpis\{[\s\S]*grid-template-columns:repeat\(5,minmax\(180px,220px\)\)!important/);
   assert.match(layout,/@media\(max-width:900px\)/);
   assert.match(layout,/@media\(max-width:620px\)/);
   assert.match(layout,/#dayPanel \.issue-main/);
   assert.match(layout,/#economicsPanel \.economics-layout/);
+});
+
+
+test('archive KPI cards are compact, not stretched 1fr',()=>{
+  const layout=fs.readFileSync('ore-produttivita/layout.css','utf8');
+  assert.match(layout,/#archivePanel \.summary-grid\.four,[\s\S]*grid-template-columns:repeat\(4,minmax\(210px,250px\)\)!important/);
+  assert.doesNotMatch(layout,/#archivePanel \.summary-grid\.four[\s\S]{0,180}repeat\(4,minmax\(0,1fr\)\)/);
 });
