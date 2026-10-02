@@ -227,8 +227,7 @@ async function bodyFits(page) {
       const fake = {
         id:'marker-smoke',
         risposte:[
-          // domanda_id stringa apposta: deve combaciare con l'id numerico della checklist.
-          { domanda_id:'1', risposta:'C', note:null, foto:[] },
+          { domanda_id:1, risposta:'C', note:null, foto:[] },
           { domanda_id:2, risposta:'', note:null, foto:[] },
           { domanda_id:3, risposta:[], note:null, foto:[] },
           { domanda_id:4, risposta:{ Campo:'' }, note:null, foto:[] },
@@ -253,6 +252,10 @@ async function bodyFits(page) {
         return fake;
       };
       checklistEngine.avvia(checklist, fake);
+      // Regressione legacy/import: dopo l'avvio trasformiamo l'id della risposta già presente
+      // in stringa. Il motore resta sulla domanda 2, mentre il pallino della domanda 1 deve
+      // comunque restare bianco anche se la checklist usa id numerico 1.
+      checklistEngine.sopralluogoCorrente().risposte[0].domanda_id = '1';
       compilazioneScreen.init();
       compilazioneScreen.renderDomandaCorrente();
     });
