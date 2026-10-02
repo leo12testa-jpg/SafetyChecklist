@@ -519,3 +519,247 @@ input:focus,select:focus{border-color:#6f91b5;box-shadow:0 0 0 3px rgba(30,58,95
   .assignment-buttons{justify-content:stretch}
   .assignment-buttons button{flex:1}
 }
+
+
+/* CRM verification layout — desktop/tablet/mobile */
+#syncIssuesCard{overflow:hidden}
+#syncIssuesCard .entry-list{gap:10px}
+.issue-entry{
+  display:block;
+  padding:0;
+  overflow:hidden;
+  border-radius:12px;
+  box-shadow:none;
+}
+.issue-main{
+  display:grid;
+  grid-template-columns:54px minmax(0,1fr) 118px 170px;
+  gap:14px;
+  align-items:center;
+  padding:14px 16px;
+  min-width:0;
+}
+.issue-entry .entry-code{
+  width:54px;
+  min-width:54px;
+  height:42px;
+  padding:0 8px;
+  border-radius:9px;
+  font-size:.8rem;
+}
+.issue-summary{min-width:0}
+.issue-entry .entry-client{
+  font-size:.78rem;
+  line-height:1.25;
+  color:#183e65;
+  margin-bottom:3px;
+}
+.issue-entry .entry-title{
+  margin:0;
+  font-size:.87rem;
+  line-height:1.3;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.issue-entry .entry-meta{
+  margin-top:6px;
+  gap:6px 9px;
+  font-size:.65rem;
+  align-items:center;
+}
+.issue-entry .entry-origin{
+  padding:3px 7px;
+  background:#edf2f7;
+  color:#496176;
+}
+.issue-entry .entry-time{
+  width:118px;
+  text-align:right;
+  white-space:nowrap;
+}
+.issue-entry .entry-time strong{font-size:.8rem;color:#1c3855}
+.issue-entry .entry-time span{font-size:.62rem}
+.issue-cta{
+  width:170px;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:6px;
+  min-width:0;
+}
+.issue-cta small{
+  max-width:100%;
+  color:#748496;
+  font-size:.64rem;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.assignment-edit,.assignment-cancel,.assignment-save{
+  min-height:36px;
+  border-radius:8px;
+  padding:7px 11px;
+  font-size:.72rem;
+  font-weight:800;
+  cursor:pointer;
+  transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease;
+}
+.assignment-edit,.assignment-cancel{
+  border:1px solid #d4dee8;
+  background:#fff;
+  color:#183e65;
+}
+.assignment-edit:hover,.assignment-cancel:hover{
+  background:#f5f8fb;
+  border-color:#bfcfdd;
+}
+.issue-cta .assignment-edit{width:100%}
+.issue-editor{
+  border-top:1px solid #e2e9f0;
+  background:#f8fafc;
+  padding:14px 16px 16px;
+}
+.issue-editor[hidden]{display:none!important}
+.issue-entry.editing .issue-main{background:#fff}
+.issue-entry.editing .issue-editor{display:block}
+
+.assignment-editor{
+  display:grid;
+  grid-template-columns:minmax(160px,1fr) minmax(145px,.72fr) minmax(250px,1.45fr) 112px;
+  gap:11px 12px;
+  width:100%;
+  margin:0;
+  align-items:end;
+}
+.assignment-field{
+  display:grid;
+  gap:5px;
+  min-width:0;
+  margin:0;
+}
+.assignment-label{
+  color:#617387;
+  font-size:.61rem;
+  font-weight:850;
+  text-transform:uppercase;
+  letter-spacing:.045em;
+}
+.assignment-select,.assignment-input{
+  width:100%;
+  min-width:0;
+  height:38px;
+  min-height:38px;
+  padding:7px 9px;
+  border:1px solid #d5dfe8;
+  border-radius:8px;
+  background:#fff;
+  color:#1b3147;
+  font-size:.76rem;
+  outline:none;
+}
+.assignment-select:focus,.assignment-input:focus{
+  border-color:#65a8e6;
+  box-shadow:0 0 0 3px rgba(22,134,238,.09);
+}
+.assignment-select.no-options{
+  background:#f4f6f8;
+  color:#7c8995;
+  border-style:dashed;
+}
+.assignment-description{grid-column:1/-1}
+.assignment-note-input{height:40px}
+.assignment-hint{
+  grid-column:1/3;
+  align-self:center;
+  color:#738394;
+  font-size:.65rem;
+  line-height:1.35;
+  padding:2px 0;
+}
+.assignment-buttons{
+  grid-column:3/5;
+  display:flex;
+  gap:8px;
+  justify-content:flex-end;
+  align-items:center;
+}
+.assignment-save{
+  border:1px solid var(--blue);
+  background:var(--blue);
+  color:#fff;
+  box-shadow:0 2px 5px rgba(22,134,238,.14);
+}
+.assignment-save:hover{background:#0e79d9;border-color:#0e79d9}
+.assignment-save:disabled,.assignment-cancel:disabled{opacity:.55;cursor:wait}
+
+.session-edit-panel{
+  grid-column:1/-1;
+  margin:4px -13px -10px;
+  padding:13px 13px 14px;
+  border-top:1px solid #e2e9f0;
+  background:#f8fafc;
+}
+.agenda-hour-row.editing{background:#fff}
+.agenda-hour-row .session-edit-panel .assignment-editor{margin:0}
+
+@media(max-width:1100px){
+  .issue-main{grid-template-columns:52px minmax(0,1fr) 112px;gap:12px}
+  .issue-cta{
+    grid-column:2/4;
+    width:auto;
+    flex-direction:row;
+    justify-content:flex-end;
+    align-items:center;
+  }
+  .issue-cta small{margin-right:auto}
+  .issue-cta .assignment-edit{width:auto;min-width:142px}
+  .assignment-editor{grid-template-columns:1fr 1fr}
+  .assignment-job,.assignment-description{grid-column:1/-1}
+  .assignment-hint{grid-column:1}
+  .assignment-buttons{grid-column:2;justify-content:flex-end}
+}
+@media(max-width:700px){
+  .issue-main{
+    grid-template-columns:46px minmax(0,1fr);
+    gap:10px 12px;
+    padding:13px;
+  }
+  .issue-entry .entry-code{width:46px;min-width:46px;height:38px}
+  .issue-entry .entry-time{
+    grid-column:2;
+    width:auto;
+    text-align:left;
+    display:flex;
+    align-items:baseline;
+    gap:7px;
+  }
+  .issue-entry .entry-time span{margin:0}
+  .issue-cta{
+    grid-column:2;
+    justify-content:space-between;
+  }
+  .issue-cta small{white-space:normal}
+  .issue-entry .entry-title{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .issue-editor{padding:13px}
+  .assignment-editor{grid-template-columns:1fr 1fr;gap:10px}
+  .assignment-client,.assignment-type,.assignment-duration{grid-column:auto}
+  .assignment-job,.assignment-description{grid-column:1/-1}
+  .assignment-hint,.assignment-buttons{grid-column:1/-1}
+  .assignment-buttons{justify-content:flex-end}
+}
+@media(max-width:520px){
+  .issue-main{grid-template-columns:42px minmax(0,1fr);padding:12px}
+  .issue-entry .entry-code{width:42px;min-width:42px;height:36px;font-size:.72rem}
+  .issue-entry .entry-client{font-size:.74rem}
+  .issue-entry .entry-title{font-size:.82rem}
+  .issue-entry .entry-meta{font-size:.62rem}
+  .issue-cta{align-items:stretch;flex-direction:column}
+  .issue-cta .assignment-edit{width:100%}
+  .assignment-editor{grid-template-columns:1fr}
+  .assignment-client,.assignment-type,.assignment-job,.assignment-duration,.assignment-description,
+  .assignment-hint,.assignment-buttons{grid-column:1}
+  .assignment-buttons{display:grid;grid-template-columns:1fr 1fr}
+  .assignment-buttons button{width:100%}
+  .session-edit-panel{margin:5px 0 -8px;padding:12px 0 4px;background:transparent}
+}
