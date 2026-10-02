@@ -364,3 +364,72 @@ input:focus,select:focus{border-color:#6f91b5;box-shadow:0 0 0 3px rgba(30,58,95
   .app-frame{grid-template-columns:1fr;grid-template-rows:58px auto 1fr}
   .app-header{height:58px;min-height:58px}
 }
+
+
+/* 2026-10-02 — clarity pass: fewer visual distractions, stronger hierarchy */
+.tech-dashboard{max-width:1080px}
+.tech-daybar{grid-template-columns:170px minmax(0,1fr) 128px;gap:9px;align-items:stretch}
+.tech-date-box,.tech-day-status{box-shadow:none;border-color:#e1e7ed}
+.tech-progress{box-shadow:none;border:1px solid #e1e7ed;background:#fff}
+.tech-progress-copy span,.tech-day-status span,.tech-date-box span{text-transform:none;letter-spacing:0;font-size:.68rem}
+.tech-progress-copy strong{font-size:1.05rem}
+.tech-progress-track{height:7px}
+.proto-card{box-shadow:none;border-color:#e2e8ee}
+.crm-detected-card{background:#fff;border-left:4px solid #2f8df0}
+.crm-detected-card .proto-card-head{padding-left:12px}
+.crm-sync-pill{flex-wrap:wrap;justify-content:flex-end}
+.crm-sync-pill>span{font-size:.68rem;color:#60778d}
+.crm-sync-pill .crm-launch-btn{background:#eef6ff;border-color:#bfdcf5;color:#166fc0}
+.crm-detected-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.crm-detected-item{border-color:#e5ebf0;padding:8px}
+.hours-card{border-color:#d9e2ea}
+.hours-head{border-bottom:1px solid #edf1f4}
+.hours-table-head{background:#f7f9fb;color:#6c7d8e}
+.proto-hour-row{grid-template-columns:60px minmax(260px,1.6fr) 84px minmax(170px,1fr) 58px;gap:7px;padding:9px 12px}
+.proto-desc strong{font-size:.76rem}
+.proto-note small{font-size:.66rem}
+.activity-chip{background:#f4f1fb;color:#6547a4}
+.hours-card-footer{border-top:1px solid #edf1f4;background:#fff}
+.hours-card-footer strong{font-size:1.02rem}
+.tech-confirm-row{background:#f5faf7;border:1px solid #dcefe4;color:#4f6e60}
+.recent-section{margin-top:12px;padding-top:2px}
+.recent-card{box-shadow:none;background:#fbfcfd}
+.admin-kpis{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.admin-kpis .summary-card{padding:11px 12px;gap:10px;box-shadow:none;border-radius:9px}
+.admin-kpis .summary-icon{width:30px;height:30px;border-radius:7px;font-size:.82rem}
+.admin-kpis .summary-card small{font-size:.58rem;letter-spacing:.025em}
+.admin-kpis .summary-card strong{font-size:1.22rem;margin:2px 0}
+.admin-kpis .summary-card>div>span{font-size:.62rem;line-height:1.25}
+.admin-shortcuts{border-bottom:1px solid #e4e9ee;padding-bottom:8px}
+.admin-shortcuts button{border:0;border-radius:0;background:transparent;padding:5px 8px;color:#61768a}
+.admin-shortcuts button:hover{background:#f5f8fa;color:#176fb9}
+.admin-visual-grid{grid-template-columns:.85fr 1.15fr;gap:9px}
+.admin-chart-card{min-height:215px}
+.donut-layout{grid-template-columns:128px minmax(0,1fr);gap:10px}
+.type-donut{width:112px;height:112px}
+.type-donut::after{inset:21px}
+.monthly-bars{height:145px;padding-top:6px}
+.month-col{min-width:38px}
+.month-col i{width:18px;background:#2f8df0}
+.tech-bars{gap:7px}
+.rank-bar-row{grid-template-columns:96px minmax(0,1fr) 50px}
+.rank-bar-row>div{height:7px}
+.rank-bar-row i{background:#2f8df0}
+#adminPanel .panel{box-shadow:none}
+#adminPanel table th{background:#f7f9fb;color:#6d7e8f}
+#adminPanel table td{border-color:#eef1f4}
+.company-sync-panel{margin-top:9px}
+
+@media(max-width:1200px){
+  .admin-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:900px){
+  .admin-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .admin-visual-grid{grid-template-columns:1fr}
+  .crm-detected-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:620px){
+  .admin-kpis,.crm-detected-grid{grid-template-columns:1fr}
+  .crm-sync-pill{justify-content:flex-start}
+  .proto-card-head{align-items:flex-start;flex-direction:column}
+}
