@@ -331,6 +331,41 @@ async def capture_crm_response(response, bucket):
         pass
 
 
+def debug_samples(frames_data, network_texts):
+    out = []
+    for snap in frames_data:
+        for row in snap.get("rows", []):
+            source = " | ".join([
+                str(row.get("kind", "")),
+                str(row.get("text", "")),
+                str(row.get("attrs", ""))
+            ])
+            if TIME_RE.search(source) or COMM_RE.search(source) or WORK_RE.search(source):
+                out.append(re.sub(r"\\s+", " ", source).strip()[:1200])
+                if len(out) >= 20:
+                    return out
+    for raw in network_texts or []:
+        for piece in candidate_windows(raw):
+            out.append(re.sub(r"\\s+", " ", piece).strip()[:1200])
+            if len(out) >= 30:
+                return out
+    return out
+
+
+def send_debug(token, wanted, frames_data, network_texts, event_count):
+    try:
+        post_json(APP_API, {
+            "action": "crmDebug",
+            "date": wanted,
+            "eventCount": event_count,
+            "frameCount": len(frames_data or []),
+            "networkCount": len(network_texts or []),
+            "samples": debug_samples(frames_data, network_texts)
+        }, token)
+    except Exception:
+        pass
+
+
 async def main():
     APP_DIR.mkdir(parents=True, exist_ok=True)
     wanted_arg, username_arg, launched_from_app = launch_args()
@@ -406,9 +441,10 @@ async def main():
             events = parse_visible_agenda(frames, wanted, network_texts)
 
         DEBUG_FILE.write_text(
-            json.dumps({"date": wanted, "frames": frames}, ensure_ascii=False, indent=2),
+            json.dumps({"date": wanted, "frames": frames, "networkCount": len(network_texts)}, ensure_ascii=False, indent=2),
             encoding="utf-8"
         )
+        send_debug(token, wanted, frames, network_texts, len(events))
         print(f"\nAttività riconosciute nella tua agenda: {len(events)}")
         for e in events:
             print(f"  {e['start'][11:16]}–{e['end'][11:16]} · {e['shortCode'] or e['codiceComm'] or 'senza codice'} · {e['title'][:90]}")
