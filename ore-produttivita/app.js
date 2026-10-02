@@ -114,16 +114,16 @@ function buildAssignmentEditor({host,data,clientId="",typeId="",jobId="",minutes
   fillAssignmentClients(client,data,clientId);fillAssignmentTypes(type,data,typeId);fillAssignmentJobs(job,data,client.value,type.value,jobId);
   const refresh=()=>fillAssignmentJobs(job,data,client.value,type.value,"");
   client.addEventListener("change",refresh);type.addEventListener("change",refresh);
-  const hint=document.createElement("small");hint.className="assignment-hint";hint.textContent="Se non trovi la pratica, cambia la tipologia su “Tutte le tipologie”.";
+  const hint=document.createElement("small");hint.className="assignment-hint";hint.textContent="Puoi scegliere una pratica esistente oppure salvare solo Cliente + Tipo: l’app userà una voce interna di rendicontazione.";
   const actions=document.createElement("div");actions.className="assignment-buttons";
   const save=document.createElement("button");save.type="button";save.className="save";save.textContent="Salva modifiche";
   const cancel=document.createElement("button");cancel.type="button";cancel.className="assignment-cancel";cancel.textContent="Annulla";
   save.addEventListener("click",async()=>{
     const m=inputMinutes(dur.value);
-    if(!job.value){alert("Seleziona una commessa/pratica.");return}
+    if(!job.value&&!(client.value&&type.value)){alert("Seleziona una commessa oppure almeno Cliente + Tipo.");return}
     if(m==null||m<=0){alert("Inserisci una durata valida, ad esempio 2h30m.");return}
     save.disabled=true;cancel.disabled=true;
-    try{await onSave({commessaId:job.value,minutiEffettivi:m,oggetto:note.value});}
+    try{await onSave({commessaId:job.value||"",clienteId:client.value||"",tipologiaId:type.value||"",minutiEffettivi:m,oggetto:note.value});}
     catch(e){alert(e.message);save.disabled=false;cancel.disabled=false}
   });
   cancel.addEventListener("click",()=>onCancel?.());
