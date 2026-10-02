@@ -337,6 +337,7 @@ const importMatching = (() => {
       const domande = appiattisciDomande(checklist);
       let confidenza;
       let metodo;
+      let coperturaIdEspliciti = 0;
       if (usaId) {
         const domandaPerId = new Map(domande.map((voce) => [voce.domanda.id, voce.domanda]));
         const punteggiId = righeConId.map((r) => {
@@ -346,6 +347,18 @@ const importMatching = (() => {
         const confidenzaId = punteggiId.length ? punteggiId.reduce((somma, p) => somma + p, 0) / punteggiId.length : 0;
         const punteggiTesto = campioneTesto.map((r) => candidatiTesto(r.testo_originale, domande)[0]?.punteggio || 0);
         const confidenzaTesto = punteggiTesto.length ? punteggiTesto.reduce((somma, p) => somma + p, 0) / punteggiTesto.length : 0;
+
+        // Nei PDF nuovi il numero visibile è progressivo 1..N e quindi non distingue due
+        // checklist simili. Un numero FUORI da 1..N che coincide invece con un id stabile della
+        // checklist è un segnale esplicito legacy e può sciogliere un pareggio testuale senza
+        // compromettere la nuova numerazione progressiva.
+        const idEspliciti = righeConId.filter((r) =>
+          Number.isFinite(Number(r.id_originale)) &&
+          Number(r.id_originale) > domande.length &&
+          domandaPerId.has(r.id_originale)
+        ).length;
+        coperturaIdEspliciti = righeConId.length ? idEspliciti / righeConId.length : 0;
+
         if (confidenzaTesto > confidenzaId) { confidenza = confidenzaTesto; metodo = 'testo'; }
         else { confidenza = confidenzaId; metodo = 'id'; }
       } else {
@@ -353,13 +366,20 @@ const importMatching = (() => {
         confidenza = punteggi.length ? punteggi.reduce((somma, p) => somma + p, 0) / punteggi.length : 0;
         metodo = 'testo';
       }
-      return { checklistId: id, titolo, confidenza, metodo };
-    }).sort((a, b) => b.confidenza - a.confidenza);
+      return { checklistId: id, titolo, confidenza, metodo, coperturaIdEspliciti };
+    }).sort((a, b) =>
+      (b.confidenza - a.confidenza) ||
+      (b.coperturaIdEspliciti - a.coperturaIdEspliciti)
+    );
 
     const migliore = classifica[0] || null;
     const secondo = classifica[1] || null;
     const sogliaAutomatico = migliore && migliore.metodo === 'id' ? SOGLIA_RILEVAMENTO_CHECKLIST_ID : SOGLIA_RILEVAMENTO_CHECKLIST_TESTO;
-    const ambiguo = Boolean(migliore) && Boolean(secondo) && (migliore.confidenza - secondo.confidenza) < MARGINE_AMBIGUITA_CHECKLIST;
+    const idEsplicitiSciolgonoPareggio = Boolean(migliore) && Boolean(secondo) &&
+      migliore.coperturaIdEspliciti >= 0.6 && secondo.coperturaIdEspliciti === 0;
+    const ambiguo = Boolean(migliore) && Boolean(secondo) &&
+      (migliore.confidenza - secondo.confidenza) < MARGINE_AMBIGUITA_CHECKLIST &&
+      !idEsplicitiSciolgonoPareggio;
     const automatico = Boolean(migliore) && migliore.confidenza >= sogliaAutomatico && !ambiguo;
 
     return {

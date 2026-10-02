@@ -13,7 +13,7 @@ function hasListener(id){
 
 test('frontend never launches CRM/browser protocol',()=>{
   assert.doesNotMatch(html,/id=\"syncCrmNow\"/);
-  assert.doesNotMatch(app,/colligoore:\\/\\//i);
+  assert.doesNotMatch(app,/colligoore:\/\//i);
   assert.match(app,/frontend non apre mai il CRM/i);
 });
 
