@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261002-2">
+  <link rel="stylesheet" href="./style.css?v=20261002-3">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -21,7 +21,7 @@
         <p>Ore ricavate dall’agenda CRM, pratiche sempre distinte e dati utili alla direzione per analisi e preventivazione.</p>
       </div>
       <div class="login-feature-row">
-        <span>✓ Stesso account Checklist</span>
+        <span>✓ Accesso personale</span>
         <span>✓ Agenda CRM</span>
         <span>✓ Storico 2026</span>
       </div>
@@ -33,7 +33,7 @@
       </div>
       <div class="login-card-heading">
         <h2>Accedi al tuo account</h2>
-        <p>Usa le stesse credenziali della Safety Checklist.</p>
+        <p>Inserisci le tue credenziali aziendali personali.</p>
       </div>
       <form id="loginForm" class="login-form">
         <label>Username<input id="username" autocomplete="username" placeholder="nome.cognome" required></label>
@@ -41,7 +41,6 @@
         <p id="loginError" class="error" hidden></p>
         <button id="loginBtn" class="btn btn-primary" type="submit">Accedi <span>→</span></button>
       </form>
-      <a class="back-link" href="../">← Torna a Safety Checklist</a>
     </section>
   </main>
 
@@ -78,14 +77,10 @@
           <button id="tabEconomics" class="side-nav-item" type="button" hidden>
             <span class="nav-icon">€</span><span>Economia & Margini</span>
           </button>
-          <div class="side-separator"></div>
-          <a class="side-nav-item side-link" href="../">
-            <span class="nav-icon">✓</span><span>Safety Checklist</span>
-          </a>
         </nav>
         <div class="sidebar-foot">
           <span class="sidebar-dot"></span>
-          <div><strong>Suite Colligo</strong><small>Ambiente aziendale</small></div>
+          <div><strong>Ore & Produttività</strong><small>Ambiente riservato</small></div>
         </div>
       </aside>
 
@@ -498,6 +493,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261002-2"></script>
+  <script src="./app.js?v=20261002-3"></script>
 </body>
 </html>
