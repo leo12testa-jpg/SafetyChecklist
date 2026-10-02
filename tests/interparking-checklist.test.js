@@ -9,10 +9,11 @@ const checklist = JSON.parse(fs.readFileSync(path.join(root, 'checklists', 'inte
 const domande = checklist.sezioni.flatMap((sezione) => sezione.domande);
 const ids = domande.map((domanda) => domanda.id);
 
-test('Interparking rimuove gli ID 16, 17 e 27, senza rinumerare gli altri', () => {
+test('Interparking rimuove gli ID 16, 17, 27 e 50, senza rinumerare gli altri', () => {
   assert.equal(ids.includes(16), false);
   assert.equal(ids.includes(17), false);
   assert.equal(ids.includes(27), false);
+  assert.equal(ids.includes(50), false);
   assert.equal(new Set(ids).size, ids.length);
   assert.deepEqual(ids.slice(13, 17), [14, 15, 18, 19]);
   assert.ok(ids.includes(26));
@@ -24,7 +25,7 @@ test('la domanda ID 28 perde solo la parola semestrali', () => {
     'Sono Presenti le registrazioni dei controlli effettuati a: Eventuali altri impianti:');
 });
 
-test('risposte storiche agli ID 16, 17 e 27 non interrompono apertura, navigazione o riepilogo', () => {
+test('risposte storiche agli ID 16, 17, 27 e 50 non interrompono apertura, navigazione o riepilogo', () => {
   const context = vm.createContext({});
   const source = fs.readFileSync(path.join(root, 'js', 'checklist.js'), 'utf8');
   vm.runInContext(`${source}\nglobalThis.engine = checklistEngine;`, context);
@@ -34,6 +35,7 @@ test('risposte storiche agli ID 16, 17 e 27 non interrompono apertura, navigazio
       { domanda_id: 16, risposta: 'NC', note: 'Storica' },
       { domanda_id: 17, risposta: 'C' },
       { domanda_id: 27, risposta: 'NC', note: 'Sprinkler storico rimosso' },
+      { domanda_id: 50, risposta: 'PC', note: 'Planimetria duplicata storica rimossa' },
       { domanda_id: 15, risposta: 'C' },
     ],
   };
@@ -45,5 +47,12 @@ test('risposte storiche agli ID 16, 17 e 27 non interrompono apertura, navigazio
   assert.equal(riepilogo.totale, ids.length);
   assert.equal(riepilogo.conteggi.C, 1);
   assert.equal(riepilogo.conteggi.NC, 0);
-  assert.equal(storico.risposte.length, 4);
+  assert.equal(storico.risposte.length, 5);
+});
+
+
+test('Interparking mantiene una sola domanda sulle planimetrie esposte', () => {
+  const planimetrie = domande.filter((domanda) => /planimetr/i.test(domanda.testo));
+  assert.equal(planimetrie.length, 1);
+  assert.equal(planimetrie[0].id, 29);
 });
