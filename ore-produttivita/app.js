@@ -112,18 +112,44 @@ function fillAssignmentJobs(select,data,clientId,typeId,selectedId=""){
 function buildAssignmentEditor({host,data,clientId="",typeId="",jobId="",minutes=0,title="",onSave,onCancel}){
   host.innerHTML="";
   const editor=document.createElement("div");editor.className="assignment-editor";
+
+  const makeField=(labelText,control,extraClass="")=>{
+    const field=document.createElement("label");
+    field.className=("assignment-field "+extraClass).trim();
+    const cap=document.createElement("span");cap.className="assignment-label";cap.textContent=labelText;
+    field.append(cap,control);
+    return field;
+  };
+
   const client=document.createElement("select"),type=document.createElement("select"),job=document.createElement("select");
   const dur=document.createElement("input"),note=document.createElement("input");
   client.className=type.className=job.className="assignment-select";
-  dur.className="assignment-input";note.className="assignment-input assignment-note";
-  dur.placeholder="Ore effettive";dur.value=fmtMinutes(minutes).replace(" ","");
+  dur.className="assignment-input";note.className="assignment-input assignment-note-input";
+  dur.placeholder="es. 2h30m";dur.value=fmtMinutes(minutes).replace(" ","");
   note.placeholder="Descrizione / nota";note.value=title||"";
-  fillAssignmentClients(client,data,clientId);fillAssignmentTypes(type,data,typeId);fillAssignmentJobs(job,data,client.value,type.value,jobId);
-  const refresh=()=>fillAssignmentJobs(job,data,client.value,type.value,"");
-  client.addEventListener("change",refresh);type.addEventListener("change",refresh);
-  const hint=document.createElement("small");hint.className="assignment-hint";hint.textContent="Puoi scegliere una pratica esistente oppure salvare solo Cliente + Tipo: l’app userà una voce interna di rendicontazione.";
+
+  fillAssignmentClients(client,data,clientId);
+  fillAssignmentTypes(type,data,typeId);
+  fillAssignmentJobs(job,data,client.value,type.value,jobId);
+
+  const hint=document.createElement("div");hint.className="assignment-hint";
+  const refreshHint=()=>{
+    const hasJobs=[...job.options].some(o=>o.value);
+    job.classList.toggle("no-options",!hasJobs);
+    hint.textContent=hasJobs
+      ?"Seleziona la pratica corretta. Se preferisci, puoi salvare solo Cliente + Tipo."
+      :"Nessuna commessa specifica trovata. Puoi salvare comunque Cliente + Tipo.";
+  };
+  const refresh=()=>{
+    fillAssignmentJobs(job,data,client.value,type.value,"");
+    refreshHint();
+  };
+  client.addEventListener("change",refresh);
+  type.addEventListener("change",refresh);
+  refreshHint();
+
   const actions=document.createElement("div");actions.className="assignment-buttons";
-  const save=document.createElement("button");save.type="button";save.className="save";save.textContent="Salva modifiche";
+  const save=document.createElement("button");save.type="button";save.className="save assignment-save";save.textContent="Salva modifiche";
   const cancel=document.createElement("button");cancel.type="button";cancel.className="assignment-cancel";cancel.textContent="Annulla";
   save.addEventListener("click",async()=>{
     const m=inputMinutes(dur.value);
@@ -135,30 +161,48 @@ function buildAssignmentEditor({host,data,clientId="",typeId="",jobId="",minutes
   });
   cancel.addEventListener("click",()=>onCancel?.());
   actions.append(save,cancel);
-  editor.append(client,type,job,dur,note,hint,actions);host.appendChild(editor);
+
+  editor.append(
+    makeField("Cliente",client,"assignment-client"),
+    makeField("Tipologia",type,"assignment-type"),
+    makeField("Commessa / pratica",job,"assignment-job"),
+    makeField("Ore effettive",dur,"assignment-duration"),
+    makeField("Descrizione / nota",note,"assignment-description"),
+    hint,
+    actions
+  );
+  host.appendChild(editor);
 }
 async function loadSyncStatus(){
   if(!profile)return;
   try{
     const [j,data]=await Promise.all([api("syncStatus",{date:$("#dayDate").value}),getAssignmentData()]);
-    const who=j.resource?.sigla?`${j.resource.sigla} · `:"";$("#crmSyncStatus").textContent=j.lastSync?.created_at?`${who}${fmtSyncTime(j.lastSync.created_at)}`:`${who}Da sincronizzare`;
+    const who=j.resource?.sigla?`${j.resource.sigla} · `:"";
+    $("#crmSyncStatus").textContent=j.lastSync?.created_at?`${who}${fmtSyncTime(j.lastSync.created_at)}`:`${who}Da sincronizzare`;
+
     const issues=j.openIssues||[];
     const card=$("#syncIssuesCard"),box=$("#syncIssues"),count=$("#syncIssueCount");
     count.textContent=String(issues.length);
     card.hidden=issues.length===0;
     box.innerHTML="";
+
     for(const issue of issues){
       const row=document.createElement("article");
-      row.className="work-entry";
+      row.className="work-entry issue-entry";
+
       const candidates=Array.isArray(issue.candidati)?issue.candidati:[];
-      const code=issue.codice_lavoro||issue.codice_commessa_crm||"Senza codice";
+      const code=issue.codice_lavoro||issue.codice_commessa_crm||"—";
       const meta=inferIssueMeta(issue,data);
       const clientLabel=meta.client?.ragione_sociale||"Cliente non riconosciuto";
       const typeLabel=meta.type?.nome||"Tipologia da verificare";
-      const reason=meta.client||meta.type?"Cliente/tipo rilevati, pratica da scegliere":issue.motivo==="ambiguous"?"Più pratiche compatibili":"Da classificare";
-      row.innerHTML=`<div class="entry-head">
+      const reason=meta.client||meta.type
+        ?"Cliente e tipologia rilevati"
+        :issue.motivo==="ambiguous"?"Più pratiche compatibili":"Da classificare";
+
+      row.innerHTML=`
+        <div class="issue-main">
           <div class="entry-code">${code}</div>
-          <div class="entry-copy">
+          <div class="issue-summary">
             <div class="entry-client"></div>
             <div class="entry-title"></div>
             <div class="entry-meta">
@@ -167,26 +211,31 @@ async function loadSyncStatus(){
               <span>${fmtMinutes(issue.minuti)}</span>
             </div>
           </div>
+          <div class="entry-time">
+            <strong>${fmtClock(issue.inizio)}–${fmtClock(issue.fine)}</strong>
+            <span>Orario agenda</span>
+          </div>
+          <div class="issue-cta">
+            <small></small>
+            <button class="assignment-edit" type="button">Modifica / abbina</button>
+          </div>
         </div>
-        <div class="entry-side">
-          <div class="entry-time"><strong>${fmtClock(issue.inizio)}–${fmtClock(issue.fine)}</strong><span>Orario agenda</span></div>
-          <div class="issue-action"></div>
-          <div class="issue-save"></div>
-        </div>`;
+        <div class="issue-editor" hidden></div>`;
+
       row.querySelector(".entry-client").textContent=`${clientLabel} · ${typeLabel}`;
       row.querySelector(".entry-title").textContent=issue.titolo||"Attività CRM";
-      const action=row.querySelector(".issue-action"),save=row.querySelector(".issue-save");
-      const edit=document.createElement("button");edit.type="button";edit.className="assignment-edit";edit.textContent="Modifica / abbina";
-      if(candidates.length){
-        const q=document.createElement("span");q.className="muted";q.textContent=`${candidates.length} pratiche suggerite`;action.appendChild(q);
-      }else{
-        const q=document.createElement("span");q.className="muted";q.textContent="Scegli cliente e pratica";action.appendChild(q);
-      }
-      save.appendChild(edit);
+      row.querySelector(".issue-cta small").textContent=candidates.length
+        ?`${candidates.length} pratiche suggerite`
+        :(meta.client&&meta.type?"Pratica da scegliere":"Scegli cliente e pratica");
+
+      const edit=row.querySelector(".assignment-edit");
+      const editorHost=row.querySelector(".issue-editor");
       edit.addEventListener("click",()=>{
         row.classList.add("editing");
+        editorHost.hidden=false;
+        edit.hidden=true;
         buildAssignmentEditor({
-          host:action,data,
+          host:editorHost,data,
           clientId:meta.client?.id||"",
           typeId:meta.type?.id||"",
           jobId:candidates.length===1?candidates[0].id:"",
@@ -196,9 +245,13 @@ async function loadSyncStatus(){
             await api("resolveSyncIssue",{issueId:issue.id,...values});
             await loadDay();
           },
-          onCancel:()=>loadSyncStatus()
+          onCancel:()=>{
+            editorHost.hidden=true;
+            editorHost.innerHTML="";
+            row.classList.remove("editing");
+            edit.hidden=false;
+          }
         });
-        save.innerHTML="";
       });
       box.appendChild(row);
     }
