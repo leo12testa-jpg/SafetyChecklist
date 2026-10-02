@@ -222,10 +222,11 @@ async function loadAdmin(){
   if(!profile||profile.ruolo!=="admin")return;
   try{
     const [j,crm]=await Promise.all([api("adminSummary",{from:$("#adminFrom").value,to:$("#adminTo").value}),api("crmResources")]);
-    $("#kpiHours").textContent=(j.totalMinutes/60).toLocaleString("it-IT",{maximumFractionDigits:1});
-    $("#kpiSessions").textContent=j.sessions;
+    const totalHours=j.totalMinutes/60;
+    $("#kpiHours").textContent=totalHours.toLocaleString("it-IT",{maximumFractionDigits:1});
     $("#kpiTechs").textContent=j.technicians;
     $("#kpiJobs").textContent=j.jobs;
+    $("#kpiAvgJob").textContent=j.jobs?(totalHours/j.jobs).toLocaleString("it-IT",{maximumFractionDigits:1})+"h":"0h";
 
     const resources=crm.resources||[];
     $("#crmResourceCount").textContent=String(resources.length);
@@ -288,6 +289,7 @@ async function loadAdmin(){
       clientBody.appendChild(tr);
     });
     $("#clientEmpty").hidden=clients.size>0;
+    $("#kpiClients").textContent=String(clients.size);
 
     const techBody=$("#technicianRows");techBody.innerHTML="";
     [...techs.entries()].sort((a,b)=>b[1].minutes-a[1].minutes).slice(0,15).forEach(([name,v])=>{
