@@ -178,7 +178,8 @@ async function loadSyncStatus(){
   try{
     const [j,data]=await Promise.all([api("syncStatus",{date:$("#dayDate").value}),getAssignmentData()]);
     const who=j.resource?.sigla?`${j.resource.sigla} · `:"";
-    $("#crmSyncStatus").textContent=j.lastSync?.created_at?`${who}${fmtSyncTime(j.lastSync.created_at)}`:`${who}Mai sincronizzato`;
+    const syncStamp=j.resource?.ultima_sync||j.lastSync?.created_at||"";
+    $("#crmSyncStatus").textContent=syncStamp?`${who}${fmtSyncTime(syncStamp)}`:`${who}Mai sincronizzato`;
 
     const issues=j.openIssues||[];
     const card=$("#syncIssuesCard"),box=$("#syncIssues"),count=$("#syncIssueCount");
