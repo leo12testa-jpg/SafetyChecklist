@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261001-8">
+  <link rel="stylesheet" href="./style.css?v=20261002-1">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -71,6 +71,9 @@
           </button>
           <button id="tabAdmin" class="side-nav-item" type="button" hidden>
             <span class="nav-icon">▥</span><span>Direzione</span>
+          </button>
+          <button id="tabArchive" class="side-nav-item" type="button" hidden>
+            <span class="nav-icon">☷</span><span>Archivio completo</span>
           </button>
           <button id="tabEconomics" class="side-nav-item" type="button" hidden>
             <span class="nav-icon">€</span><span>Economia & Margini</span>
@@ -296,6 +299,86 @@
         </section>
 
 
+
+        <section id="archivePanel" class="screen" hidden>
+          <div class="page-heading">
+            <div>
+              <span class="eyebrow">ARCHIVIO COMPLETO</span>
+              <h1>Tutte le commesse e tutte le attività</h1>
+              <p>Questa vista non dipende dal giorno o dal mese selezionato: mostra l’intero storico presente nel database.</p>
+            </div>
+            <button id="reloadArchive" class="btn btn-secondary" type="button">↻ Aggiorna archivio</button>
+          </div>
+
+          <div class="summary-grid four">
+            <article class="summary-card"><span class="summary-icon">▣</span><div><small>Commesse totali</small><strong id="archiveJobsCount">0</strong><span>Tutte le pratiche presenti</span></div></article>
+            <article class="summary-card"><span class="summary-icon">▤</span><div><small>Attività totali</small><strong id="archiveSessionsCount">0</strong><span>Sessioni di lavoro registrate</span></div></article>
+            <article class="summary-card"><span class="summary-icon">◷</span><div><small>Ore totali</small><strong id="archiveHoursCount">0</strong><span>Somma delle ore effettive</span></div></article>
+            <article class="summary-card"><span class="summary-icon">◎</span><div><small>Tecnici</small><strong id="archiveTechCount">0</strong><span>Risorse presenti nello storico</span></div></article>
+          </div>
+
+          <div class="panel archive-filter-panel">
+            <div class="panel-heading compact">
+              <div><span class="eyebrow">RICERCA</span><h2>Trova qualsiasi pratica</h2><p>Cerca per codice lavoro, CodiceComm CRM, cliente o descrizione.</p></div>
+            </div>
+            <div class="archive-filters">
+              <label class="archive-search">Cerca
+                <input id="archiveSearch" placeholder="Es. 1B, CM002062, PAM Ostia, DVR...">
+              </label>
+              <label>Cliente<select id="archiveClient"><option value="">Tutti</option></select></label>
+              <label>Tipo<select id="archiveType"><option value="">Tutti</option></select></label>
+              <label>Stato<select id="archiveStatus"><option value="">Tutti</option><option value="in_lavorazione">In lavorazione</option><option value="completata">Completata</option><option value="archiviata">Archiviata</option></select></label>
+            </div>
+            <div class="archive-filter-foot">
+              <span id="archiveVisibleCount">0 commesse visualizzate</span>
+              <button id="archiveReset" class="btn btn-secondary" type="button">Azzera filtri</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-heading compact">
+              <div><span class="eyebrow">COMMESSE</span><h2>Elenco completo</h2><p>Apri una riga per vedere tutte le attività, i tecnici e le ore accumulate nel faldone.</p></div>
+            </div>
+            <div class="table-wrap archive-table-wrap">
+              <table class="archive-table">
+                <thead><tr><th>Codice</th><th>Cliente</th><th>Pratica / commessa</th><th>Tipo</th><th>Stato</th><th>Ore</th><th>Attività</th><th>Tecnici</th><th>Periodo</th><th></th></tr></thead>
+                <tbody id="archiveRows"></tbody>
+              </table>
+            </div>
+            <div id="archiveEmpty" class="empty" hidden>Nessuna commessa corrisponde ai filtri.</div>
+          </div>
+
+          <div id="archiveDetail" class="panel archive-detail" hidden>
+            <div class="panel-heading">
+              <div>
+                <span class="eyebrow">DETTAGLIO COMMESSA</span>
+                <h2 id="archiveDetailTitle">—</h2>
+                <p id="archiveDetailSubtitle">—</p>
+              </div>
+              <button id="archiveDetailClose" class="icon-btn" type="button">×</button>
+            </div>
+
+            <div class="summary-grid four archive-detail-kpis">
+              <article class="summary-card"><span class="summary-icon">◷</span><div><small>Ore accumulate</small><strong id="archiveDetailHours">0</strong><span>Totale della pratica</span></div></article>
+              <article class="summary-card"><span class="summary-icon">▤</span><div><small>Attività</small><strong id="archiveDetailSessions">0</strong><span>Sessioni registrate</span></div></article>
+              <article class="summary-card"><span class="summary-icon">◎</span><div><small>Tecnici</small><strong id="archiveDetailTechs">0</strong><span>Persone che ci hanno lavorato</span></div></article>
+              <article class="summary-card"><span class="summary-icon">▣</span><div><small>Codice CRM</small><strong id="archiveDetailCrm">—</strong><span>Identificativo della pratica</span></div></article>
+            </div>
+
+            <div class="archive-tech-summary">
+              <strong>Ripartizione per tecnico</strong>
+              <div id="archiveTechSummary" class="archive-tech-chips"></div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="archive-session-table">
+                <thead><tr><th>Data</th><th>Tecnico</th><th>Orario</th><th>Oggetto / attività</th><th>Origine</th><th>Ore</th><th>Stato</th></tr></thead>
+                <tbody id="archiveSessionRows"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
         <section id="economicsPanel" class="screen" hidden>
           <div class="page-heading">
             <div>
@@ -409,6 +492,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261001-8"></script>
+  <script src="./app.js?v=20261002-1"></script>
 </body>
 </html>
