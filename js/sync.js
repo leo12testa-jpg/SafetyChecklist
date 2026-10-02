@@ -637,21 +637,28 @@ const sync = (() => {
       // L'upload foto aggiorna foto_url e crea una revisione locale: questo secondo passaggio
       // porta i riferimenti appena creati su Firestore.
       const secondo = await sincronizzaTutto({ verificaServer: false });
-      await riconciliaAtteseFinali();
 
-      // Se una revisione era rimasta pendente per una sessione/token appena rinnovato, facciamo
-      // un solo secondo tentativo immediato. Non cancelliamo mai una _sync_rev ancora reale:
-      // invia() la rimuove esclusivamente dopo conferma/riconciliazione col server.
-      if (pendenti.size && online()) {
-        try {
-          const utente = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
-          if (utente) await utente.getIdToken(true);
-        } catch (_) {}
-        const daRitentare = Array.from(pendenti.keys());
-        for (const id of daRitentare) {
-          if (!invii.has(id)) await invia(id);
-        }
+      // Riconcilia il contatore soltanto dopo un passaggio dati riuscito: se un record non è
+      // leggibile/corrotto deve restare visibilmente pendente e non essere mascherato come sync OK.
+      if (secondo) {
         await riconciliaAtteseFinali();
+
+        // Se una revisione era rimasta pendente per una sessione/token appena rinnovato, facciamo
+        // un solo secondo tentativo immediato. Non cancelliamo mai una _sync_rev ancora reale:
+        // invia() la rimuove esclusivamente dopo conferma/riconciliazione col server.
+        if (pendenti.size && online()) {
+          try {
+            const utente = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
+            if (utente) await utente.getIdToken(true);
+          } catch (_) {}
+          const daRitentare = Array.from(pendenti.keys());
+          for (const id of daRitentare) {
+            if (!invii.has(id)) await invia(id);
+          }
+          await riconciliaAtteseFinali();
+        }
+      } else {
+        attesaFoto = (await db.elencaFotoSenzaUrl()).length;
       }
 
       // Scaricare foto già presenti sul cloud serve solo a scaldare la cache locale e non deve
