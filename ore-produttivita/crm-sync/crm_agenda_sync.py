@@ -128,13 +128,15 @@ async def snapshot_frame(frame, frame_index):
         addPart(el.getAttribute?.('aria-label'));
         addPart(el.getAttribute?.('data-title'));
         addPart(el.getAttribute?.('data-original-title'));
+        addPart(el.getAttribute?.('data-tooltip'));
         addPart(el.getAttribute?.('alt'));
 
-        el.querySelectorAll?.('[title],[aria-label],[data-title],[data-original-title],[alt]').forEach(child => {
+        el.querySelectorAll?.('[title],[aria-label],[data-title],[data-original-title],[data-tooltip],[alt]').forEach(child => {
           addPart(child.getAttribute('title'));
           addPart(child.getAttribute('aria-label'));
           addPart(child.getAttribute('data-title'));
           addPart(child.getAttribute('data-original-title'));
+          addPart(child.getAttribute('data-tooltip'));
           addPart(child.getAttribute('alt'));
         });
 
@@ -149,10 +151,17 @@ async def snapshot_frame(frame, frame_index):
       document.querySelectorAll('tr').forEach((el, i) => add('tr', i, el));
 
       document.querySelectorAll(
-        '[onclick], [ondblclick], [title], [aria-label], [data-title], [data-original-title], a, td, div'
+        '[onclick], [ondblclick], [title], [aria-label], [data-title], [data-original-title], [data-tooltip], a, td, div, span'
       ).forEach((el, i) => {
-        const t = richText(el);
-        if (/\b\d{1,2}[:.]\d{2}\b/.test(t) && t.length < 1800) {
+        let t = richText(el);
+        if (!/\b\d{1,2}[:.]\d{2}\b/.test(t)) {
+          const parent = el.closest?.('tr, [role="row"], .event, .appointment, .calendar-event');
+          if (parent) {
+            const p = richText(parent);
+            if (p) t = p + (t ? ' | ' + t : '');
+          }
+        }
+        if (/\b\d{1,2}[:.]\d{2}\b/.test(t) && t.length < 2200) {
           rows.push({kind: 'timed', index: i, text: t});
         }
       });
@@ -262,6 +271,7 @@ async def main():
 
         print(
             f"\nSalvate: {result.get('saved', 0)} · "
+            f"Classificate automaticamente: {result.get('autoClassified', 0)} · "
             f"Da abbinare: {result.get('unmatched', 0)} · "
             f"Ambigue: {result.get('ambiguous', 0)}"
         )
