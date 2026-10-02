@@ -72,6 +72,8 @@ jobs:
           grep -q "const BUILD_ID = \"${ORE_BUILD}\"" ore-produttivita/aggiornamento.js
           grep -q "colligo-ore-shell-${ORE_BUILD}" ore-produttivita/service-worker.js
           grep -q "style.css?v=${ORE_BUILD}" ore-produttivita/index.html
+          grep -q "layout.css?v=${ORE_BUILD}" ore-produttivita/index.html
+          grep -q "layout.css?v=${ORE_BUILD}" ore-produttivita/service-worker.js
           grep -q "aggiornamento.js?v=${ORE_BUILD}" ore-produttivita/index.html
           grep -q "app.js?v=${ORE_BUILD}" ore-produttivita/index.html
           node --test tests/ore-ui-contract.test.js
