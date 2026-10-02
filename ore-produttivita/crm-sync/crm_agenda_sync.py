@@ -114,20 +114,54 @@ def event_from_text(text, fallback_day):
 async def snapshot_frame(frame, frame_index):
     return await frame.evaluate(r"""(frameIndex) => {
       const rows = [];
-      const add = (kind, index, text) => {
-        text = (text || '').replace(/\s+/g, ' ').trim();
-        if (text && text.length <= 1500) rows.push({kind, index, text});
+
+      const richText = (el) => {
+        const parts = [];
+        const addPart = (v) => {
+          v = (v || '').replace(/\s+/g, ' ').trim();
+          if (v && !parts.includes(v)) parts.push(v);
+        };
+
+        addPart(el.innerText);
+        addPart(el.textContent);
+        addPart(el.getAttribute?.('title'));
+        addPart(el.getAttribute?.('aria-label'));
+        addPart(el.getAttribute?.('data-title'));
+        addPart(el.getAttribute?.('data-original-title'));
+        addPart(el.getAttribute?.('alt'));
+
+        el.querySelectorAll?.('[title],[aria-label],[data-title],[data-original-title],[alt]').forEach(child => {
+          addPart(child.getAttribute('title'));
+          addPart(child.getAttribute('aria-label'));
+          addPart(child.getAttribute('data-title'));
+          addPart(child.getAttribute('data-original-title'));
+          addPart(child.getAttribute('alt'));
+        });
+
+        return parts.join(' | ').replace(/\s+/g, ' ').trim();
       };
-      document.querySelectorAll('tr').forEach((el, i) => add('tr', i, el.innerText));
-      document.querySelectorAll('[onclick], [ondblclick], a, td, div').forEach((el, i) => {
-        const t = el.innerText || '';
-        if (/\b\d{1,2}[:.]\d{2}\b/.test(t) && t.length < 900) add('timed', i, t);
+
+      const add = (kind, index, el) => {
+        const text = richText(el);
+        if (text && text.length <= 2500) rows.push({kind, index, text});
+      };
+
+      document.querySelectorAll('tr').forEach((el, i) => add('tr', i, el));
+
+      document.querySelectorAll(
+        '[onclick], [ondblclick], [title], [aria-label], [data-title], [data-original-title], a, td, div'
+      ).forEach((el, i) => {
+        const t = richText(el);
+        if (/\b\d{1,2}[:.]\d{2}\b/.test(t) && t.length < 1800) {
+          rows.push({kind: 'timed', index: i, text: t});
+        }
       });
+
       return {
         frameIndex,
         url: location.href,
         title: document.title,
-        body: (document.body?.innerText || '').slice(0, 20000),
+        body: (document.body?.innerText || '').slice(0, 30000),
         rows
       };
     }""", frame_index)
