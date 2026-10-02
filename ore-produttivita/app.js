@@ -178,7 +178,7 @@ async function loadSyncStatus(){
   try{
     const [j,data]=await Promise.all([api("syncStatus",{date:$("#dayDate").value}),getAssignmentData()]);
     const who=j.resource?.sigla?`${j.resource.sigla} · `:"";
-    $("#crmSyncStatus").textContent=j.lastSync?.created_at?`${who}${fmtSyncTime(j.lastSync.created_at)}`:`${who}Da sincronizzare`;
+    $("#crmSyncStatus").textContent=j.lastSync?.created_at?`${who}${fmtSyncTime(j.lastSync.created_at)}`:`${who}Mai sincronizzato`;
 
     const issues=j.openIssues||[];
     const card=$("#syncIssuesCard"),box=$("#syncIssues"),count=$("#syncIssueCount");
@@ -401,12 +401,19 @@ async function loadAdmin(){
     const crmBody=$("#crmResourceRows");
     crmBody.innerHTML="";
     for(const r of resources){
-      const last=r.ultima_sync?new Date(r.ultima_sync).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"Mai";
+      const lastDate=r.ultima_sync?new Date(r.ultima_sync):null;
+      const last=lastDate?lastDate.toLocaleString("it-IT",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"Mai";
+      const ageMinutes=lastDate?Math.max(0,(Date.now()-lastDate.getTime())/60000):Infinity;
+      const state=!lastDate
+        ?'<span class="sync-state sync-never">Mai sincronizzato</span>'
+        :ageMinutes<=15
+          ?'<span class="sync-state sync-ok">Aggiornato</span>'
+          :'<span class="sync-state sync-late">In ritardo</span>';
       const tr=document.createElement("tr");
       tr.innerHTML=`<td><b>${r.sigla_crm||"—"}</b></td>
         <td>${r.tecnico_nome||r.nome_crm||"—"}</td>
         <td>${last}</td>
-        <td>${r.ultima_sync?'<span class="entry-origin">Letta</span>':'<span class="coverage-warning">Da sincronizzare</span>'}</td>`;
+        <td>${state}</td>`;
       crmBody.appendChild(tr);
     }
 
