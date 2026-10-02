@@ -922,3 +922,31 @@ input:focus,select:focus{border-color:#6f91b5;box-shadow:0 0 0 3px rgba(30,58,95
   .admin-kpis .summary-card{min-height:92px}
   .ore-update-banner{top:74px}
 }
+
+
+/* Automatic CRM sync status */
+.crm-auto-label{
+  display:inline-flex;
+  align-items:center;
+  min-height:22px;
+  padding:3px 7px;
+  border-radius:999px;
+  background:#e8f7ef;
+  color:#19734c;
+  font-size:.58rem;
+  font-weight:900;
+  letter-spacing:.06em;
+}
+.sync-state{
+  display:inline-flex;
+  align-items:center;
+  min-height:24px;
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:.63rem;
+  font-weight:850;
+  white-space:nowrap;
+}
+.sync-ok{background:#e5f7ed;color:#188b57}
+.sync-late{background:#fff2d9;color:#956618}
+.sync-never{background:#eef2f6;color:#657789}
