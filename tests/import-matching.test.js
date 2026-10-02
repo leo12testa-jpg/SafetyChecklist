@@ -440,3 +440,33 @@ test('foto importate senza didascalia leggibile: se i riferimenti Vedi Foto 1..N
   assert.equal(foto[1].domanda_id_collegata, 5);
   assert.equal(foto[1].associazione_domanda_metodo, 'riferimento_tabella_ordine');
 });
+
+
+test('PDF nuovo: numero progressivo che collide con un id interno viene corretto dal testo', () => {
+  const im = caricaImportMatching();
+  const checklist = { id:'gap', titolo:'Gap', sezioni:[{ titolo:'S', domande:[
+    { id:1, testo:'Prima domanda' },
+    { id:3, testo:'Domanda con id interno tre mostrata come numero due' },
+    { id:2, testo:'Altra domanda con id interno due' }
+  ]}]};
+  const { righe } = im.abbinaRighe([
+    rigaNostro({ id:2, testo:'Domanda con id interno tre mostrata come numero due', stato:'NC' })
+  ], checklist);
+  assert.equal(righe[0].domanda_id, 3);
+  assert.equal(righe[0].metodo, 'testo');
+  assert.equal(righe[0].stato_riga, 'sicuro');
+});
+
+test('PDF legacy: id stabile resta prioritario quando id e testo concordano', () => {
+  const im = caricaImportMatching();
+  const checklist = { id:'legacy', titolo:'Legacy', sezioni:[{ titolo:'S', domande:[
+    { id:10, testo:'Domanda legacy numero dieci' },
+    { id:11, testo:'Domanda legacy numero undici' }
+  ]}]};
+  const { righe } = im.abbinaRighe([
+    rigaNostro({ id:10, testo:'Domanda legacy numero dieci', stato:'C' })
+  ], checklist);
+  assert.equal(righe[0].domanda_id, 10);
+  assert.equal(righe[0].metodo, 'id');
+  assert.equal(righe[0].stato_riga, 'sicuro');
+});
