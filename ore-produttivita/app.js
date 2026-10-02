@@ -132,7 +132,7 @@ function renderCrmDetected(sessions){
     const c=s.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
     const code=(cl.codice_breve?String(Number(cl.codice_breve)):"")+(tp.codice||"P");
     const card=document.createElement("div");card.className="crm-detected-item";
-    card.innerHTML=`<span class="mini-code">${code||"—"}</span><div><strong>${cl.ragione_sociale||"Cliente"}</strong><small>${s.attivita_rilevata||tp.nome||"Attività"}</small></div>`;
+    card.innerHTML=`<span class="mini-code code-${(tp.codice||"P").toLowerCase()}">${code||"—"}</span><div><strong>${cl.ragione_sociale||"Cliente"}</strong><small>${s.attivita_rilevata||tp.nome||"Attività"}</small></div>`;
     box.appendChild(card);
   });
 }
@@ -146,7 +146,7 @@ async function renderRecentActivities(){
       const c=s.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
       const code=(cl.codice_breve?String(Number(cl.codice_breve)):"")+(tp.codice||"P");
       const card=document.createElement("article");card.className="recent-card";
-      card.innerHTML=`<div><span class="mini-code">${code||"—"}</span><strong>${cl.ragione_sociale||"Cliente"} · ${tp.nome||"Attività"}</strong></div><small>${c.descrizione||"—"}</small><button type="button">＋ Aggiungi ore</button>`;
+      card.innerHTML=`<div><span class="mini-code code-${(tp.codice||"P").toLowerCase()}">${code||"—"}</span><strong>${cl.ragione_sociale||"Cliente"} · ${tp.nome||"Attività"}</strong></div><small>${c.descrizione||"—"}</small><button type="button">＋ Aggiungi ore</button>`;
       card.querySelector("button").addEventListener("click",async()=>{
         await openManualCard();
         if(c.cliente_id){$("#manualClient").value=String(c.cliente_id);await loadManualCatalog();$("#manualJob").value=String(s.commessa_id||"")}
@@ -179,7 +179,7 @@ async function loadDay(){
       const row=document.createElement("div");row.className="proto-hour-row";
       const note=s.crm_oggetto||c.descrizione||"";
       const activity=s.attivita_rilevata||tp.nome||"Attività";
-      row.innerHTML=`<div><span class="proto-code">${displayCode||"—"}</span></div><div class="proto-desc"><strong>${cl.ragione_sociale||"Cliente"} · ${c.descrizione||"Attività"}</strong><small>${c.codice_commessa_crm||""} · ${origin}</small></div><div class="proto-hours"><input aria-label="Durata effettiva" value="${fmtMinutes(s.minuti_effettivi).replace(" ","")}"></div><div class="proto-note"><span class="activity-chip">${activity}</span><small></small></div><div class="proto-actions"><button class="save" type="button">Salva</button></div>`;
+      row.innerHTML=`<div><span class="proto-code code-${(tp.codice||"P").toLowerCase()}">${displayCode||"—"}</span></div><div class="proto-desc"><strong>${cl.ragione_sociale||"Cliente"} · ${c.descrizione||"Attività"}</strong><small>${c.codice_commessa_crm||""} · ${origin}</small></div><div class="proto-hours"><input aria-label="Durata effettiva" value="${fmtMinutes(s.minuti_effettivi).replace(" ","")}"></div><div class="proto-note"><span class="activity-chip">${activity}</span><small></small></div><div class="proto-actions"><button class="save" type="button">Salva</button></div>`;
       row.querySelector(".proto-note small").textContent=note;
       const inp=row.querySelector("input"),btn=row.querySelector(".save");
       btn.addEventListener("click",async()=>{const m=inputMinutes(inp.value);if(m==null){alert("Inserisci una durata come 2h30m.");return}btn.disabled=true;try{await api("saveSession",{id:s.id,minutiEffettivi:m});await loadDay()}catch(e){alert(e.message)}finally{btn.disabled=false}});
@@ -735,3 +735,14 @@ $("#importPlanner")?.addEventListener("click",async()=>{
   finally{btn.disabled=false}
 });
 
+
+document.querySelectorAll("[data-admin-jump]").forEach(btn=>btn.addEventListener("click",()=>{
+  const id=btn.dataset.adminJump;
+  const el=document.getElementById(id);
+  const target=el?.closest(".panel")||el;
+  if(target)target.scrollIntoView({behavior:"smooth",block:"start"});
+}));
+document.querySelectorAll("[data-admin-tab]").forEach(btn=>btn.addEventListener("click",()=>{
+  const which=btn.dataset.adminTab;
+  if(which)setTab(which);
+}));
