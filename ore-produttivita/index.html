@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261002-8">
+  <link rel="stylesheet" href="./style.css?v=20261002-9">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -108,9 +108,9 @@
             <div class="proto-card-head">
               <div>
                 <span class="proto-kicker">AGENDA CRM</span>
-                <h2>Attività rilevate per oggi</h2>
+                <h2>Agenda CRM del giorno</h2>
               </div>
-              <div class="crm-sync-pill"><span id="crmSyncStatus">Non sincronizzato</span><button id="syncCrmNow" class="crm-launch-btn" type="button">Sincronizza CRM</button><button id="refreshDay" type="button" title="Aggiorna dati">↻</button></div>
+              <div class="crm-sync-pill"><span id="crmSyncStatus">CRM non sincronizzato</span><button id="syncCrmNow" class="crm-launch-btn" type="button">Sincronizza CRM</button><button id="refreshDay" type="button" title="Aggiorna dati">↻</button></div>
             </div>
             <div id="crmDetected" class="crm-detected-grid"></div>
           </section>
@@ -188,8 +188,8 @@
           <div class="page-heading">
             <div>
               <span class="eyebrow">DASHBOARD</span>
-              <h1>Report, produttività e analisi</h1>
-              <p>Decisioni strategiche basate su ore reali, documenti, clienti e tecnici.</p>
+              <h1>Riepilogo aziendale</h1>
+              <p>Ore, commesse e carico di lavoro in una vista semplice.</p>
             </div>
             <div class="date-range">
               <label>Dal<input id="adminFrom" type="date"></label>
@@ -515,6 +515,6 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./app.js?v=20261002-8"></script>
+  <script src="./app.js?v=20261002-9"></script>
 </body>
 </html>
