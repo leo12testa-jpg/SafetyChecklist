@@ -433,3 +433,37 @@ input:focus,select:focus{border-color:#6f91b5;box-shadow:0 0 0 3px rgba(30,58,95
   .crm-sync-pill{justify-content:flex-start}
   .proto-card-head{align-items:flex-start;flex-direction:column}
 }
+
+
+/* Agenda-first daily view */
+.crm-day-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 13px}
+.crm-summary-item{background:#f8fbfe;border:1px solid #e1ebf3;border-radius:8px;padding:10px 12px}
+.crm-summary-item span,.crm-summary-item strong{display:block}
+.crm-summary-item span{font-size:.65rem;color:#7b8c9b;margin-bottom:3px}
+.crm-summary-item strong{font-size:.94rem;color:#243d55}
+.hours-table-head,.agenda-hour-row{grid-template-columns:88px minmax(300px,1.7fr) 96px 110px 126px}
+.proto-time{font-weight:850;color:#2d455d;font-size:.74rem;line-height:1.1}
+.proto-time small{display:block;color:#82909d;font-weight:700;margin-top:3px}
+.proto-time span{color:#8493a2;font-size:.69rem}
+.inline-code{display:inline-grid;place-items:center;min-width:27px;height:21px;padding:0 5px;border-radius:5px;font-size:.62rem;font-weight:900;margin-right:5px;vertical-align:middle}
+.agenda-object{margin-top:4px!important;color:#7d8d9b!important}
+.agenda-duration strong,.agenda-duration small{display:block}
+.agenda-duration strong{font-size:.76rem;color:#2e465d}
+.agenda-duration small{font-size:.61rem;color:#8b98a4;margin-top:2px}
+.agenda-hour-row .proto-hours input{width:92px}
+.agenda-hour-row .proto-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px}
+.row-state{font-size:.59rem;font-weight:850;border-radius:999px;padding:4px 7px;background:#fff2d9;color:#956618;white-space:nowrap}
+.row-state.done{background:#e5f7ed;color:#188b57}
+.agenda-hour-row .proto-actions .save{min-height:28px;padding:5px 8px}
+
+@media(max-width:980px){
+  .hours-table-head{display:none}
+  .agenda-hour-row{grid-template-columns:76px minmax(0,1fr) 90px 100px}
+  .agenda-hour-row .proto-actions{grid-column:2/5;justify-content:flex-end}
+}
+@media(max-width:700px){
+  .crm-day-summary{grid-template-columns:1fr}
+  .agenda-hour-row{grid-template-columns:64px minmax(0,1fr)}
+  .agenda-duration,.agenda-hour-row .proto-hours,.agenda-hour-row .proto-actions{grid-column:2}
+  .agenda-hour-row .proto-actions{justify-content:flex-start}
+}
