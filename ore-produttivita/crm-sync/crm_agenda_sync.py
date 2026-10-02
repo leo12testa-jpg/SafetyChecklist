@@ -9,6 +9,7 @@ import sys
 import urllib.error
 import urllib.request
 from datetime import date, datetime
+from urllib.parse import parse_qs, urlparse
 from pathlib import Path
 
 from playwright.async_api import async_playwright
@@ -19,7 +20,7 @@ APP_API = "https://twznfiygzzbqdgudpwav.supabase.co/functions/v1/ore-produttivit
 AGENDA_URL = "https://crm.colligoingegneria.it/intrasofter/intraplan/plage000.asp"
 
 APP_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "ColligoOreProduttivita"
-PROFILE_DIR = APP_DIR / "crm-browser"
+PROFILE_ROOT = APP_DIR / "crm-browser"
 DEBUG_FILE = APP_DIR / "agenda_personale_debug.json"
 
 TIME_RE = re.compile(r"\b([01]?\d|2[0-3])[:.](\d{2})\b")
@@ -46,6 +47,41 @@ def post_json(url, payload, token=None):
         except Exception:
             detail = {"error": raw}
         return exc.code, detail
+
+
+def api_me(token):
+    status, body = post_json(APP_API, {"action": "myCrmResource"}, token)
+    if status >= 300:
+        raise RuntimeError(body.get("error", "Impossibile verificare la risorsa CRM."))
+    resource = body.get("resource")
+    if not resource:
+        raise RuntimeError("Il tuo account Ore & Produttività non è collegato a una risorsa CRM.")
+    return resource
+
+
+def launch_args():
+    wanted = ""
+    username = ""
+    app_launch = False
+    raw_args = [a for a in sys.argv[1:] if a]
+    if raw_args and raw_args[0].lower().startswith("colligoore://"):
+        app_launch = True
+        u = urlparse(raw_args[0])
+        q = parse_qs(u.query)
+        wanted = (q.get("date") or [""])[0].strip()
+        username = (q.get("username") or [""])[0].strip()
+    else:
+        for i, value in enumerate(raw_args):
+            if value == "--date" and i + 1 < len(raw_args):
+                wanted = raw_args[i + 1].strip()
+            if value == "--username" and i + 1 < len(raw_args):
+                username = raw_args[i + 1].strip()
+    return wanted, username, app_launch
+
+
+def profile_dir_for(username):
+    safe = re.sub(r"[^a-z0-9._-]+", "_", username.lower()).strip("._-") or "utente"
+    return PROFILE_ROOT / safe
 
 
 def firebase_login(username, password):
@@ -214,17 +250,24 @@ def parse_visible_agenda(frames_data, wanted):
 
 async def main():
     APP_DIR.mkdir(parents=True, exist_ok=True)
-    wanted = input(f"Data da sincronizzare [{date.today().isoformat()}]: ").strip() or date.today().isoformat()
+    wanted_arg, username_arg, launched_from_app = launch_args()
+
+    wanted = wanted_arg or input(f"Data da sincronizzare [{date.today().isoformat()}]: ").strip() or date.today().isoformat()
     if not re.fullmatch(r"20\d{2}-\d{2}-\d{2}", wanted):
         raise RuntimeError("Usa il formato AAAA-MM-GG.")
 
-    username = input("Username Ore & Produttività: ").strip()
-    password = getpass.getpass("Password: ")
+    username = username_arg or input("Username Ore & Produttività: ").strip()
+    if not username:
+        raise RuntimeError("Username mancante.")
+
+    password = getpass.getpass("Password Ore & Produttività: ")
     token = firebase_login(username, password)
+    resource = api_me(token)
+    print(f"\nAccount verificato: {resource.get('nome') or resource.get('tecnico_nome') or username} · CRM {resource.get('sigla') or '—'}")
 
     async with async_playwright() as p:
         browser = await p.chromium.launch_persistent_context(
-            str(PROFILE_DIR),
+            str(profile_dir_for(username)),
             headless=False,
             channel="msedge",
             viewport={"width": 1440, "height": 950},
@@ -232,19 +275,55 @@ async def main():
         page = browser.pages[0] if browser.pages else await browser.new_page()
         await page.goto(AGENDA_URL, wait_until="domcontentloaded", timeout=60000)
 
-        print("\nAgenda CRM aperta.")
+        print("\nAgenda CRM aperta nel profilo personale di questo utente.")
         print("Accedi con IL TUO account CRM se richiesto.")
-        print(f"Porta la TUA agenda alla giornata {wanted}.")
-        print("La sincronizzazione leggerà soltanto ciò che questo account CRM può vedere.")
-        input("Quando la tua agenda è visibile, premi INVIO qui... ")
+        print(f"Giornata richiesta dall'app: {wanted}.")
+        print("Ogni account Ore & Produttività usa un profilo browser CRM separato.")
+
+        # Prova a portare automaticamente l'agenda alla data selezionata.
+        for frame in page.frames:
+            try:
+                changed = await frame.evaluate(r"""(wanted) => {
+                  const fire = (el) => {
+                    for (const name of ['input','change','blur']) el.dispatchEvent(new Event(name,{bubbles:true}));
+                  };
+                  const d = new Date(wanted + 'T12:00:00');
+                  const it = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+                  const candidates = [...document.querySelectorAll('input')].filter(el => {
+                    const key = ((el.name||'')+' '+(el.id||'')+' '+(el.placeholder||'')).toLowerCase();
+                    return el.type === 'date' || /data|date|giorno/.test(key);
+                  });
+                  for (const el of candidates) {
+                    const value = el.type === 'date' ? wanted : it;
+                    try {
+                      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')?.set;
+                      setter ? setter.call(el,value) : (el.value=value);
+                      fire(el);
+                      if ((el.value||'').includes(String(d.getFullYear()))) return true;
+                    } catch {}
+                  }
+                  return false;
+                }""", wanted)
+                if changed:
+                    await page.wait_for_timeout(1200)
+                    break
+            except Exception:
+                pass
 
         frames = await snapshot_all(page)
+        events = parse_visible_agenda(frames, wanted)
+
+        if not events:
+            print(f"\nNon riesco ancora a leggere automaticamente la giornata {wanted}.")
+            print("Porta la TUA agenda a quella data; poi premi INVIO.")
+            input()
+            frames = await snapshot_all(page)
+            events = parse_visible_agenda(frames, wanted)
+
         DEBUG_FILE.write_text(
             json.dumps({"date": wanted, "frames": frames}, ensure_ascii=False, indent=2),
             encoding="utf-8"
         )
-
-        events = parse_visible_agenda(frames, wanted)
         print(f"\nAttività riconosciute nella tua agenda: {len(events)}")
         for e in events:
             print(f"  {e['start'][11:16]}–{e['end'][11:16]} · {e['shortCode'] or e['codiceComm'] or 'senza codice'} · {e['title'][:90]}")
@@ -254,11 +333,14 @@ async def main():
             await browser.close()
             return
 
-        answer = input("\nSincronizzare queste attività nel TUO account Ore & Produttività? [S/n]: ").strip().lower()
-        if answer not in ("", "s", "si", "sì", "y", "yes"):
-            print("Sincronizzazione annullata.")
-            await browser.close()
-            return
+        if not launched_from_app:
+            answer = input("\nSincronizzare queste attività nel TUO account Ore & Produttività? [S/n]: ").strip().lower()
+            if answer not in ("", "s", "si", "sì", "y", "yes"):
+                print("Sincronizzazione annullata.")
+                await browser.close()
+                return
+        else:
+            print("\nSincronizzazione automatica richiesta dall'app…")
 
         status, result = post_json(
             APP_API,
