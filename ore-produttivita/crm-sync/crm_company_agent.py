@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import getpass
 import hashlib
 import html
@@ -8,6 +9,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
+import zlib
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlencode
@@ -172,9 +174,58 @@ def api(token, action, **payload):
     return body
 
 
+def secure_store_set(key, value):
+    raw = str(value or "").encode("utf-8")
+    packed = base64.b64encode(zlib.compress(raw, 9)).decode("ascii")
+    chunk_size = 900
+    chunks = [packed[i:i+chunk_size] for i in range(0, len(packed), chunk_size)] or [""]
+    try:
+        old_count = int(keyring.get_password(KEYRING_SERVICE, key + ":count") or "0")
+    except Exception:
+        old_count = 0
+
+    keyring.set_password(KEYRING_SERVICE, key + ":count", str(len(chunks)))
+    for i, chunk in enumerate(chunks):
+        keyring.set_password(KEYRING_SERVICE, f"{key}:{i}", chunk)
+
+    for i in range(len(chunks), old_count):
+        try:
+            keyring.delete_password(KEYRING_SERVICE, f"{key}:{i}")
+        except Exception:
+            pass
+
+    try:
+        keyring.delete_password(KEYRING_SERVICE, key)
+    except Exception:
+        pass
+
+
+def secure_store_get(key):
+    try:
+        count = int(keyring.get_password(KEYRING_SERVICE, key + ":count") or "0")
+    except Exception:
+        count = 0
+
+    if count > 0:
+        parts = []
+        for i in range(count):
+            part = keyring.get_password(KEYRING_SERVICE, f"{key}:{i}")
+            if part is None:
+                return None
+            parts.append(part)
+        try:
+            packed = "".join(parts)
+            return zlib.decompress(base64.b64decode(packed.encode("ascii"))).decode("utf-8")
+        except Exception:
+            return None
+
+    # Compatibilita con eventuali salvataggi precedenti a blocco singolo.
+    return keyring.get_password(KEYRING_SERVICE, key)
+
+
 async def save_crm_auth(context, page):
     state = await context.storage_state()
-    keyring.set_password(KEYRING_SERVICE, CRM_STATE_KEY, json.dumps(state, ensure_ascii=False))
+    secure_store_set(CRM_STATE_KEY, json.dumps(state, ensure_ascii=False))
     try:
         session_data = await page.evaluate("""() => {
           const out = {};
@@ -186,11 +237,11 @@ async def save_crm_auth(context, page):
         }""")
     except Exception:
         session_data = {}
-    keyring.set_password(KEYRING_SERVICE, CRM_SESSION_KEY, json.dumps(session_data or {}, ensure_ascii=False))
+    secure_store_set(CRM_SESSION_KEY, json.dumps(session_data or {}, ensure_ascii=False))
 
 
 def load_crm_state():
-    raw = keyring.get_password(KEYRING_SERVICE, CRM_STATE_KEY)
+    raw = secure_store_get(CRM_STATE_KEY)
     if not raw:
         return None
     try:
@@ -201,7 +252,7 @@ def load_crm_state():
 
 
 async def restore_crm_session_storage(context):
-    raw = keyring.get_password(KEYRING_SERVICE, CRM_SESSION_KEY)
+    raw = secure_store_get(CRM_SESSION_KEY)
     if not raw:
         return
     try:
