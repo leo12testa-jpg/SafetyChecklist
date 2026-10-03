@@ -480,17 +480,25 @@ async def run_once():
     failures=[]
     fingerprints={}
 
+    crm_state=load_crm_state()
+    if not crm_state:
+        api(token,"crmAgentHeartbeat",state="login_required",message="Sessione CRM background non disponibile: rieseguire la configurazione.")
+        raise LoginRequiredError("Sessione CRM background non disponibile.")
+
     async with async_playwright() as p:
-        browser=await p.chromium.launch_persistent_context(
-            str(PROFILE_DIR),headless=True,channel="msedge",viewport={"width":1440,"height":950}
+        browser=await p.chromium.launch(headless=True,channel="msedge")
+        context=await browser.new_context(
+            storage_state=crm_state,
+            viewport={"width":1440,"height":950}
         )
-        page=browser.pages[0] if browser.pages else await browser.new_page()
+        await restore_crm_session_storage(context)
+        page=await context.new_page()
         await page.goto(AGENDA_URL,wait_until="domcontentloaded",timeout=60000)
+        await page.wait_for_timeout(1200)
         if await login_visible(page):
             await browser.close()
             api(token,"crmAgentHeartbeat",state="login_required",message="Sessione CRM scaduta: serve nuova configurazione.")
-            write_status("login_required","Sessione CRM scaduta: eseguire una volta SETUP_SYNC_BACKGROUND.bat.")
-            return
+            raise LoginRequiredError("Sessione CRM scaduta: eseguire una volta SETUP_SYNC_BACKGROUND.bat.")
 
         for index, resource in enumerate(resources,1):
             sigla=str(resource.get("sigla_crm") or "").strip()
@@ -549,6 +557,7 @@ async def run_once():
                     except Exception:
                         pass
 
+        await save_crm_auth(context, page)
         await browser.close()
 
     if len(events)>1500:
@@ -601,8 +610,9 @@ if __name__=="__main__":
                 sys.exit(0)
         asyncio.run(main())
     except Exception as exc:
-        write_status("error",str(exc))
-        if "--setup" not in sys.argv:
+        login_required=isinstance(exc, LoginRequiredError)
+        write_status("login_required" if login_required else "error",str(exc))
+        if "--setup" not in sys.argv and not login_required:
             try:
                 if CONFIG_FILE.exists():
                     username=json.loads(CONFIG_FILE.read_text(encoding="utf-8")).get("username","").strip()
@@ -614,6 +624,6 @@ if __name__=="__main__":
         if "--setup" in sys.argv:
             print("\nERRORE:",exc)
             input("\nPremi INVIO per chiudere.")
-        sys.exit(1)
+        sys.exit(2 if login_required else 1)
     finally:
         release_run_mutex(mutex)
