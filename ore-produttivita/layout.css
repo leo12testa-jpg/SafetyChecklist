@@ -1,52 +1,69 @@
-/* Colligo Ore & Produttività — canonical layout
-   Questo file governa SOLO impaginazione, spaziature e responsive.
-   Viene caricato dopo style.css e prevale sui vecchi override. */
+/* Colligo Ore & Produttività — canonical UI layout v2
+   Unica fonte di verità per impaginazione e responsive.
+   style.css conserva componenti/colore; questo file decide geometria, spazi e gerarchie. */
 
 :root{
-  --layout-sidebar:184px;
-  --layout-header:62px;
-  --layout-page:1320px;
-  --layout-tech:1120px;
-  --layout-gap:12px;
-  --layout-pad:22px;
-  --layout-radius:12px;
-  --layout-border:#dce5ed;
-  --layout-bg:#f3f6f9;
+  --ui-sidebar:184px;
+  --ui-header:64px;
+  --ui-page:1280px;
+  --ui-tech:1120px;
+  --ui-gap:12px;
+  --ui-pad:24px;
+  --ui-radius:12px;
+  --ui-border:#d9e3eb;
+  --ui-bg:#f4f7fa;
+  --ui-panel:#fff;
+  --ui-muted:#718194;
+  --ui-text:#15283b;
+  --ui-navy:#0d3155;
+  --ui-blue:#1686ee;
 }
 
 *,*::before,*::after{box-sizing:border-box}
 html,body{max-width:100%;overflow-x:hidden}
-body{background:var(--layout-bg)}
+body{background:var(--ui-bg)}
 [hidden]{display:none!important}
 
-/* ---------- shell ---------- */
+/* =========================
+   APP SHELL
+   ========================= */
 #appView.app-frame{
   display:grid!important;
-  grid-template-columns:var(--layout-sidebar) minmax(0,1fr)!important;
-  grid-template-rows:var(--layout-header) minmax(0,1fr)!important;
+  grid-template-columns:var(--ui-sidebar) minmax(0,1fr)!important;
+  grid-template-rows:var(--ui-header) minmax(0,1fr)!important;
+  width:100%!important;
   height:100dvh!important;
   min-height:100dvh!important;
   overflow:hidden!important;
-  background:var(--layout-bg)!important;
+  background:var(--ui-bg)!important;
 }
 #appView .app-shell{display:contents!important}
 #appView .app-header{
   grid-column:2!important;
   grid-row:1!important;
-  height:var(--layout-header)!important;
-  min-height:var(--layout-header)!important;
+  height:var(--ui-header)!important;
+  min-height:var(--ui-header)!important;
   padding:0 24px!important;
   margin:0!important;
+  background:var(--ui-navy)!important;
+  border:0!important;
+  box-shadow:none!important;
 }
 #appView .app-sidebar{
   grid-column:1!important;
   grid-row:1/3!important;
-  width:var(--layout-sidebar)!important;
-  min-width:var(--layout-sidebar)!important;
+  width:var(--ui-sidebar)!important;
+  min-width:var(--ui-sidebar)!important;
   height:100dvh!important;
   padding:18px 10px 14px!important;
   overflow-y:auto!important;
   overflow-x:hidden!important;
+  background:var(--ui-navy)!important;
+  border:0!important;
+}
+#appView .app-sidebar::before{
+  padding:0 8px 22px!important;
+  font-size:1.18rem!important;
 }
 #appView .app-content{
   grid-column:2!important;
@@ -54,47 +71,67 @@ body{background:var(--layout-bg)}
   min-width:0!important;
   min-height:0!important;
   overflow:auto!important;
-  padding:22px 24px 44px!important;
+  padding:24px!important;
+  background:var(--ui-bg)!important;
 }
 #appView .screen{
   width:100%!important;
-  max-width:var(--layout-page)!important;
+  max-width:var(--ui-page)!important;
   min-width:0!important;
   margin:0 auto!important;
 }
-#dayPanel.tech-dashboard{max-width:var(--layout-tech)!important}
-#appView .side-nav{display:grid!important;gap:5px!important;min-width:0}
+#dayPanel.tech-dashboard{max-width:var(--ui-tech)!important}
+
+#appView .side-nav{
+  display:grid!important;
+  gap:5px!important;
+  min-width:0!important;
+}
 #appView .side-nav-item{
   width:100%!important;
   min-width:0!important;
   min-height:40px!important;
+  padding:9px 10px!important;
+  border-radius:8px!important;
   display:flex!important;
   align-items:center!important;
   gap:9px!important;
-  padding:9px 11px!important;
-  border-radius:9px!important;
 }
 #appView .side-nav-item span:last-child{
-  min-width:0;
-  white-space:normal;
-  line-height:1.2;
+  min-width:0!important;
+  white-space:normal!important;
+  line-height:1.2!important;
 }
-#appView .sidebar-foot{margin-top:auto!important;min-width:0}
-#appView .header-actions{min-width:0}
-#appView .header-user{min-width:0;text-align:right}
+#appView .sidebar-foot{margin-top:auto!important;min-width:0!important}
+#appView .header-actions{min-width:0!important}
+#appView .header-user{min-width:0!important;text-align:right!important}
 #appView .header-user strong,
-#appView .header-user span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#appView .header-user span{
+  max-width:230px!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
 
-/* ---------- shared page primitives ---------- */
+/* =========================
+   COMMON PAGE SYSTEM
+   ========================= */
 #appView .page-heading{
   display:flex!important;
   justify-content:space-between!important;
   align-items:flex-end!important;
-  gap:20px!important;
-  margin:0 0 16px!important;
+  gap:24px!important;
   min-width:0!important;
+  margin:0 0 18px!important;
 }
-#appView .page-heading>div{min-width:0}
+#appView .page-heading>div{min-width:0!important}
+#appView .page-heading .eyebrow{
+  display:block!important;
+  margin:0 0 4px!important;
+  font-size:.59rem!important;
+  line-height:1.1!important;
+  letter-spacing:.075em!important;
+}
 #appView .page-heading h1{
   margin:0!important;
   font-size:1.55rem!important;
@@ -105,79 +142,233 @@ body{background:var(--layout-bg)}
   max-width:760px!important;
   margin:5px 0 0!important;
   font-size:.76rem!important;
-  line-height:1.45!important;
+  line-height:1.42!important;
+  color:var(--ui-muted)!important;
 }
+
 #appView .panel,
 #appView .proto-card,
 #appView .explain-panel{
+  width:100%!important;
   min-width:0!important;
-  border-radius:var(--layout-radius)!important;
+  border:1px solid var(--ui-border)!important;
+  border-radius:var(--ui-radius)!important;
+  background:var(--ui-panel)!important;
   box-shadow:none!important;
 }
-#appView .panel{padding:16px!important;margin-bottom:12px!important}
-#appView .panel-heading{
-  gap:14px!important;
-  margin-bottom:12px!important;
-  min-width:0!important;
+#appView .panel{
+  padding:16px!important;
+  margin:0 0 14px!important;
 }
-#appView .panel-heading>div{min-width:0}
-#appView .panel-heading h2{font-size:.98rem!important;line-height:1.2!important}
-#appView .panel-heading p{font-size:.71rem!important;line-height:1.42!important}
+#appView .panel-heading{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:flex-start!important;
+  gap:14px!important;
+  min-width:0!important;
+  margin:0 0 12px!important;
+}
+#appView .panel-heading>div{min-width:0!important}
+#appView .panel-heading h2{
+  margin:2px 0 0!important;
+  font-size:1rem!important;
+  line-height:1.2!important;
+}
+#appView .panel-heading p{
+  margin:4px 0 0!important;
+  font-size:.71rem!important;
+  line-height:1.42!important;
+  color:var(--ui-muted)!important;
+}
 #appView .eyebrow,
 #appView .proto-kicker{
   font-size:.58rem!important;
-  line-height:1.2!important;
+  line-height:1.15!important;
   letter-spacing:.07em!important;
 }
-#appView input,
-#appView select,
-#appView button{max-width:100%}
+
 #appView input,
 #appView select{
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
   min-height:38px!important;
   border-radius:8px!important;
 }
+#appView button{max-width:100%}
 #appView .btn,
 #appView .proto-primary,
 #appView .proto-outline{
   min-height:38px!important;
-  border-radius:8px!important;
   padding:7px 12px!important;
-  white-space:nowrap;
+  border-radius:8px!important;
+  white-space:nowrap!important;
 }
+
 #appView .table-wrap{
   width:100%!important;
   max-width:100%!important;
   overflow:auto!important;
   border-radius:9px!important;
 }
-#appView table{width:100%!important}
-#appView th,
-#appView td{line-height:1.3!important}
-#appView th{white-space:nowrap!important}
-#appView td{overflow-wrap:anywhere}
+#appView table{
+  width:100%!important;
+  border-collapse:collapse!important;
+}
+#appView th{
+  white-space:nowrap!important;
+  font-size:.61rem!important;
+  padding:8px 8px!important;
+}
+#appView td{
+  font-size:.7rem!important;
+  line-height:1.32!important;
+  padding:8px!important;
+  overflow-wrap:anywhere!important;
+}
 
-/* ---------- technician day ---------- */
+/* =========================
+   KPI / METRIC CARDS
+   ========================= */
+#adminPanel .summary-grid,
+#archivePanel .summary-grid,
+#economicsPanel .summary-grid{
+  display:grid!important;
+  grid-auto-flow:row!important;
+  justify-content:start!important;
+  align-items:stretch!important;
+  gap:12px!important;
+  margin:0 0 16px!important;
+}
+#adminPanel .admin-kpis{
+  grid-template-columns:repeat(5,minmax(180px,210px))!important;
+}
+#archivePanel .summary-grid.four,
+#economicsPanel .summary-grid.four,
+#archivePanel .archive-detail-kpis{
+  grid-template-columns:repeat(4,minmax(210px,232px))!important;
+}
+#adminPanel .summary-card,
+#archivePanel .summary-card,
+#economicsPanel .summary-card{
+  display:grid!important;
+  grid-template-columns:38px minmax(0,1fr)!important;
+  gap:12px!important;
+  align-items:center!important;
+  min-width:0!important;
+  min-height:96px!important;
+  padding:14px!important;
+  border:1px solid var(--ui-border)!important;
+  border-radius:12px!important;
+  background:#fff!important;
+  box-shadow:none!important;
+  overflow:hidden!important;
+}
+#adminPanel .summary-icon,
+#archivePanel .summary-icon,
+#economicsPanel .summary-icon{
+  width:38px!important;
+  min-width:38px!important;
+  height:38px!important;
+  margin:0!important;
+  border-radius:9px!important;
+  font-size:.86rem!important;
+}
+#adminPanel .summary-card>div,
+#archivePanel .summary-card>div,
+#economicsPanel .summary-card>div{min-width:0!important}
+#adminPanel .summary-card small,
+#archivePanel .summary-card small,
+#economicsPanel .summary-card small{
+  display:block!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  font-size:.59rem!important;
+  line-height:1.15!important;
+}
+#adminPanel .summary-card strong,
+#archivePanel .summary-card strong,
+#economicsPanel .summary-card strong{
+  display:block!important;
+  margin:4px 0!important;
+  font-size:1.42rem!important;
+  line-height:1!important;
+  letter-spacing:-.025em!important;
+}
+#adminPanel .summary-card>div>span,
+#archivePanel .summary-card>div>span,
+#economicsPanel .summary-card>div>span{
+  display:block!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  font-size:.61rem!important;
+  line-height:1.25!important;
+  color:var(--ui-muted)!important;
+}
+
+/* =========================
+   TODAY / TECHNICIAN
+   ========================= */
 #dayPanel .tech-daybar{
   display:grid!important;
-  grid-template-columns:166px minmax(0,1fr) 142px!important;
+  grid-template-columns:165px minmax(0,1fr) 140px!important;
   gap:10px!important;
   align-items:stretch!important;
-  margin:0 0 10px!important;
+  margin:0 0 12px!important;
 }
 #dayPanel .tech-date-box,
 #dayPanel .tech-progress,
 #dayPanel .tech-day-status{
   min-width:0!important;
   min-height:72px!important;
+  padding:11px 12px!important;
+  border:1px solid var(--ui-border)!important;
   border-radius:10px!important;
-  padding:10px 12px!important;
+  background:#fff!important;
+  box-shadow:none!important;
 }
-#dayPanel .tech-date-box input{width:100%!important;min-width:0!important}
-#dayPanel .tech-progress{display:grid!important;align-content:center!important}
+#dayPanel .tech-date-box,
 #dayPanel .tech-day-status{display:grid!important;align-content:center!important}
+#dayPanel .tech-date-box span,
+#dayPanel .tech-progress-copy span,
+#dayPanel .tech-day-status span{
+  font-size:.65rem!important;
+  line-height:1.2!important;
+  color:var(--ui-muted)!important;
+}
+#dayPanel .tech-date-box input{
+  margin-top:4px!important;
+  border:0!important;
+  padding:0!important;
+  min-height:28px!important;
+  box-shadow:none!important;
+  font-weight:800!important;
+}
+#dayPanel .tech-progress{
+  display:grid!important;
+  align-content:center!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  gap:8px!important;
+}
+#dayPanel .tech-progress-copy{
+  grid-column:1/-1!important;
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:12px!important;
+}
+#dayPanel .tech-progress-copy strong{font-size:1rem!important}
+#dayPanel .tech-progress-track{grid-column:1!important;height:7px!important}
+#dayPanel .tech-progress>small{grid-column:2!important;font-size:.64rem!important}
+#dayPanel .tech-day-status strong{
+  display:block!important;
+  margin-top:4px!important;
+  font-size:.92rem!important;
+}
+
 #dayPanel .proto-card{
-  width:100%!important;
   margin:0 0 10px!important;
   overflow:hidden!important;
 }
@@ -186,18 +377,24 @@ body{background:var(--layout-bg)}
   justify-content:space-between!important;
   align-items:center!important;
   gap:12px!important;
-  padding:12px 14px!important;
   min-width:0!important;
+  padding:12px 14px!important;
 }
-#dayPanel .proto-card-head>div{min-width:0}
+#dayPanel .proto-card-head>div{min-width:0!important}
 #dayPanel .proto-card-head h2{
   margin:2px 0 0!important;
   font-size:.96rem!important;
-  line-height:1.2!important;
+  line-height:1.18!important;
 }
+#dayPanel .proto-card-head p{
+  margin:5px 0 0!important;
+  font-size:.69rem!important;
+  line-height:1.4!important;
+}
+#dayPanel .crm-detected-card{border-left:3px solid #2d91ef!important}
 #dayPanel .crm-sync-pill{
   flex:none!important;
-  max-width:55%!important;
+  max-width:56%!important;
   display:flex!important;
   align-items:center!important;
   justify-content:flex-end!important;
@@ -205,7 +402,7 @@ body{background:var(--layout-bg)}
   flex-wrap:wrap!important;
 }
 #dayPanel #crmSyncStatus{
-  max-width:230px!important;
+  max-width:240px!important;
   overflow:hidden!important;
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
@@ -219,83 +416,123 @@ body{background:var(--layout-bg)}
 #dayPanel .crm-summary-item{
   min-width:0!important;
   min-height:64px!important;
-  padding:9px 11px!important;
-  border-radius:9px!important;
+  padding:10px 11px!important;
+  border-radius:8px!important;
 }
 
-/* warning / verification cards */
+/* manual form */
+#dayPanel .quick-entry-card .form-grid{
+  display:grid!important;
+  grid-template-columns:minmax(170px,.8fr) minmax(260px,1.45fr) 130px!important;
+  gap:10px!important;
+  padding:0 14px!important;
+}
+#dayPanel .quick-entry-card>label{
+  display:grid!important;
+  gap:5px!important;
+  padding:10px 14px 0!important;
+  font-size:.7rem!important;
+}
+#dayPanel .quick-duration-row{
+  display:flex!important;
+  align-items:center!important;
+  flex-wrap:wrap!important;
+  gap:6px!important;
+  padding:10px 14px 0!important;
+}
+#dayPanel .panel-actions{padding:10px 14px 14px!important}
+
+/* unresolved CRM cards */
 #dayPanel #syncIssuesCard .proto-card-head{align-items:flex-start!important}
-#dayPanel #syncIssuesCard .entry-list{
+#dayPanel #syncIssues{
   display:grid!important;
   gap:9px!important;
-  padding:0!important;
+  padding:0 10px 10px!important;
 }
 #dayPanel .issue-entry{
   display:block!important;
   width:100%!important;
+  min-width:0!important;
   padding:0!important;
   margin:0!important;
-  min-width:0!important;
+  border:1px solid #e2e9ef!important;
   border-radius:10px!important;
   overflow:hidden!important;
+  background:#fff!important;
 }
 #dayPanel .issue-main{
   display:grid!important;
-  grid-template-columns:54px minmax(0,1fr) 110px 156px!important;
+  grid-template-columns:52px minmax(0,1fr) 105px 150px!important;
   gap:12px!important;
   align-items:center!important;
-  padding:12px 14px!important;
   min-width:0!important;
+  padding:12px 13px!important;
+}
+#dayPanel .entry-code{
+  width:48px!important;
+  min-width:48px!important;
+  height:38px!important;
+  padding:0 6px!important;
+  border-radius:8px!important;
+  display:grid!important;
+  place-items:center!important;
+  font-size:.75rem!important;
 }
 #dayPanel .issue-summary{min-width:0!important}
 #dayPanel .issue-summary .entry-client,
 #dayPanel .issue-summary .entry-title{
+  display:block!important;
   min-width:0!important;
   overflow:hidden!important;
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
 }
-#dayPanel .issue-summary .entry-client{font-size:.76rem!important}
-#dayPanel .issue-summary .entry-title{font-size:.84rem!important}
+#dayPanel .issue-summary .entry-client{font-size:.75rem!important}
+#dayPanel .issue-summary .entry-title{font-size:.83rem!important;margin:2px 0!important}
 #dayPanel .issue-summary .entry-meta{
   display:flex!important;
   flex-wrap:wrap!important;
   gap:5px 8px!important;
   margin-top:5px!important;
-  font-size:.63rem!important;
+  font-size:.62rem!important;
 }
 #dayPanel .issue-entry .entry-time{
   width:auto!important;
   min-width:0!important;
   text-align:right!important;
 }
+#dayPanel .issue-entry .entry-time strong{font-size:.76rem!important}
+#dayPanel .issue-entry .entry-time span{font-size:.59rem!important}
 #dayPanel .issue-cta{
   width:auto!important;
   min-width:0!important;
   display:grid!important;
-  justify-items:stretch!important;
   gap:5px!important;
+  justify-items:stretch!important;
 }
 #dayPanel .issue-cta small{
-  text-align:right!important;
   overflow:hidden!important;
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
+  text-align:right!important;
+  font-size:.61rem!important;
 }
 #dayPanel .issue-cta .assignment-edit{width:100%!important}
 #dayPanel .issue-editor{
   width:100%!important;
-  padding:13px 14px 14px!important;
-  border-top:1px solid #e2e9f0!important;
+  padding:13px!important;
+  border-top:1px solid #e2e9ef!important;
+  background:#f8fafc!important;
 }
 #dayPanel .assignment-editor{
   display:grid!important;
-  grid-template-columns:minmax(150px,1fr) minmax(135px,.72fr) minmax(220px,1.45fr) 104px!important;
+  grid-template-columns:minmax(150px,1fr) minmax(135px,.72fr) minmax(220px,1.45fr) 105px!important;
   gap:10px 11px!important;
   width:100%!important;
   margin:0!important;
 }
 #dayPanel .assignment-field{min-width:0!important}
+#dayPanel .assignment-label{font-size:.58rem!important}
 #dayPanel .assignment-field input,
 #dayPanel .assignment-field select{width:100%!important;min-width:0!important}
 #dayPanel .assignment-description{grid-column:1/-1!important}
@@ -303,33 +540,33 @@ body{background:var(--layout-bg)}
   grid-column:1/3!important;
   min-width:0!important;
   align-self:center!important;
-  font-size:.63rem!important;
+  font-size:.62rem!important;
 }
 #dayPanel .assignment-buttons{
   grid-column:3/5!important;
   display:flex!important;
   justify-content:flex-end!important;
-  gap:8px!important;
   align-items:center!important;
+  gap:7px!important;
 }
 
-/* day activity table */
+/* daily hours */
 #dayPanel .hours-card{overflow:hidden!important}
 #dayPanel .hours-table-head,
 #dayPanel .agenda-hour-row{
   display:grid!important;
-  grid-template-columns:82px minmax(260px,1fr) 88px 104px 190px!important;
+  grid-template-columns:80px minmax(280px,1fr) 82px 100px 170px!important;
   gap:10px!important;
   align-items:center!important;
   min-width:0!important;
 }
 #dayPanel .hours-table-head{
   padding:8px 14px!important;
-  font-size:.61rem!important;
+  font-size:.59rem!important;
 }
 #dayPanel .agenda-hour-row{
-  padding:10px 14px!important;
   min-height:68px!important;
+  padding:10px 14px!important;
 }
 #dayPanel .agenda-hour-row>div{min-width:0!important}
 #dayPanel .proto-desc strong,
@@ -340,8 +577,9 @@ body{background:var(--layout-bg)}
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
 }
-#dayPanel .proto-desc strong{font-size:.75rem!important}
-#dayPanel .proto-desc small{font-size:.63rem!important}
+#dayPanel .proto-desc strong{font-size:.74rem!important}
+#dayPanel .proto-desc small{font-size:.62rem!important}
+#dayPanel .agenda-duration{text-align:left!important}
 #dayPanel .proto-hours input{width:100%!important;min-width:0!important}
 #dayPanel .proto-actions{
   display:flex!important;
@@ -350,7 +588,12 @@ body{background:var(--layout-bg)}
   flex-wrap:wrap!important;
   gap:5px!important;
 }
-#dayPanel .proto-actions button{min-height:30px!important;padding:5px 8px!important}
+#dayPanel .proto-actions button{
+  min-height:30px!important;
+  padding:5px 8px!important;
+  font-size:.65rem!important;
+}
+#dayPanel .row-state{font-size:.57rem!important}
 #dayPanel .session-edit-panel{
   grid-column:1/-1!important;
   width:100%!important;
@@ -359,12 +602,20 @@ body{background:var(--layout-bg)}
 }
 #dayPanel .hours-card-footer{
   display:grid!important;
-  grid-template-columns:auto minmax(150px,1fr) auto!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
   gap:12px!important;
   align-items:center!important;
   padding:11px 14px!important;
 }
-#dayPanel .hours-card-footer>div{text-align:center!important}
+#dayPanel #manualToggleBottom{display:none!important}
+#dayPanel .hours-card-footer>div{
+  display:flex!important;
+  align-items:baseline!important;
+  justify-content:flex-end!important;
+  gap:8px!important;
+}
+#dayPanel .hours-card-footer .complete-badge{justify-self:end!important}
+#dayPanel .recent-section{margin-top:12px!important}
 #dayPanel .recent-grid{
   display:grid!important;
   grid-template-columns:repeat(3,minmax(0,1fr))!important;
@@ -387,83 +638,9 @@ body{background:var(--layout-bg)}
   border-radius:10px!important;
 }
 
-/* ---------- KPI cards, common admin/archive/economics ---------- */
-#adminPanel .summary-grid,
-#archivePanel .summary-grid,
-#economicsPanel .summary-grid{
-  display:grid!important;
-  grid-auto-flow:row!important;
-  gap:10px!important;
-  justify-content:start!important;
-  align-items:stretch!important;
-  margin:0 0 14px!important;
-}
-#adminPanel .admin-kpis{
-  grid-template-columns:repeat(5,minmax(180px,220px))!important;
-}
-#archivePanel .summary-grid.four,
-#economicsPanel .summary-grid.four{
-  grid-template-columns:repeat(4,minmax(210px,250px))!important;
-}
-#adminPanel .summary-card,
-#archivePanel .summary-card,
-#economicsPanel .summary-card{
-  display:grid!important;
-  grid-template-columns:38px minmax(0,1fr)!important;
-  gap:11px!important;
-  align-items:center!important;
-  min-width:0!important;
-  min-height:92px!important;
-  padding:12px 13px!important;
-  border:1px solid var(--layout-border)!important;
-  border-radius:11px!important;
-  box-shadow:none!important;
-  overflow:hidden!important;
-  background:#fff!important;
-}
-#adminPanel .summary-icon,
-#archivePanel .summary-icon,
-#economicsPanel .summary-icon{
-  width:36px!important;
-  height:36px!important;
-  border-radius:9px!important;
-  margin:0!important;
-}
-#adminPanel .summary-card>div,
-#archivePanel .summary-card>div,
-#economicsPanel .summary-card>div{min-width:0!important}
-#adminPanel .summary-card small,
-#archivePanel .summary-card small,
-#economicsPanel .summary-card small{
-  display:block!important;
-  min-height:14px!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
-  white-space:nowrap!important;
-  font-size:.60rem!important;
-  line-height:1.15!important;
-}
-#adminPanel .summary-card strong,
-#archivePanel .summary-card strong,
-#economicsPanel .summary-card strong{
-  display:block!important;
-  margin:4px 0 4px!important;
-  font-size:1.38rem!important;
-  line-height:1!important;
-  letter-spacing:-.025em!important;
-}
-#adminPanel .summary-card>div>span,
-#archivePanel .summary-card>div>span,
-#economicsPanel .summary-card>div>span{
-  display:block!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
-  white-space:nowrap!important;
-  font-size:.61rem!important;
-  line-height:1.25!important;
-}
-
-/* ---------- admin dashboard ---------- */
+/* =========================
+   ADMIN DASHBOARD
+   ========================= */
 #adminPanel .date-range{
   display:grid!important;
   grid-template-columns:132px 132px auto!important;
@@ -471,44 +648,54 @@ body{background:var(--layout-bg)}
   align-items:end!important;
   flex:none!important;
 }
-#adminPanel .date-range label{width:auto!important;min-width:0!important;font-size:.67rem!important}
-#adminPanel .date-range input{width:100%!important}
+#adminPanel .date-range label{
+  width:auto!important;
+  min-width:0!important;
+  display:grid!important;
+  gap:4px!important;
+  font-size:.65rem!important;
+}
 #adminPanel .admin-shortcuts{
   display:flex!important;
+  align-items:center!important;
   flex-wrap:wrap!important;
   gap:5px!important;
-  margin:0 0 11px!important;
+  margin:0 0 12px!important;
   padding:0 0 10px!important;
+  border-bottom:1px solid #e5ebf0!important;
 }
 #adminPanel .admin-shortcuts button{
   min-height:32px!important;
   padding:5px 9px!important;
   border-radius:7px!important;
-  font-size:.66rem!important;
+  font-size:.65rem!important;
 }
 #adminPanel .admin-visual-grid{
   display:grid!important;
-  grid-template-columns:minmax(320px,.85fr) minmax(0,1.35fr)!important;
-  gap:10px!important;
-  margin:0 0 10px!important;
+  grid-template-columns:minmax(320px,.9fr) minmax(0,1.35fr)!important;
+  gap:12px!important;
+  margin:0 0 12px!important;
 }
 #adminPanel .admin-mini-grid{
   display:grid!important;
   grid-template-columns:1fr 1fr!important;
-  gap:10px!important;
-  margin:0 0 10px!important;
+  gap:12px!important;
+  margin:0 0 12px!important;
 }
-#adminPanel .admin-chart-card{min-height:232px!important;margin:0!important}
+#adminPanel .admin-chart-card{
+  min-height:230px!important;
+  margin:0!important;
+}
 #adminPanel .donut-layout{
   display:grid!important;
-  grid-template-columns:128px minmax(0,1fr)!important;
+  grid-template-columns:130px minmax(0,1fr)!important;
   gap:12px!important;
   align-items:center!important;
-  padding:5px 2px 4px!important;
+  padding:4px 0!important;
 }
 #adminPanel .type-donut{width:116px!important;height:116px!important}
 #adminPanel .type-donut::after{inset:22px!important}
-#adminPanel .type-legend{min-width:0!important}
+#adminPanel .type-legend,
 #adminPanel .type-legend>div{min-width:0!important}
 #adminPanel .type-legend span{
   min-width:0!important;
@@ -516,10 +703,10 @@ body{background:var(--layout-bg)}
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
 }
-#adminPanel .monthly-bars{height:150px!important;min-width:0!important}
+#adminPanel .monthly-bars{height:150px!important}
 #adminPanel .rank-bar-row{
   display:grid!important;
-  grid-template-columns:110px minmax(0,1fr) 52px!important;
+  grid-template-columns:110px minmax(0,1fr) 48px!important;
   gap:8px!important;
   align-items:center!important;
 }
@@ -529,9 +716,11 @@ body{background:var(--layout-bg)}
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
 }
-#adminPanel .company-sync-panel{margin-bottom:10px!important}
 #adminPanel .company-sync-panel table{min-width:640px!important}
-#adminPanel .admin-guide{margin:0 0 10px!important;padding:15px!important}
+#adminPanel .admin-guide{
+  margin:0 0 12px!important;
+  padding:15px!important;
+}
 #adminPanel .explain-grid{
   display:grid!important;
   grid-template-columns:repeat(3,minmax(0,1fr))!important;
@@ -544,44 +733,66 @@ body{background:var(--layout-bg)}
 #adminPanel .analytics-grid{
   display:grid!important;
   grid-template-columns:1.15fr 1fr 1fr!important;
-  gap:10px!important;
-  margin:0 0 10px!important;
+  gap:12px!important;
+  margin:0 0 12px!important;
 }
 #adminPanel .analytics-grid .panel{margin:0!important}
-#adminPanel .analytics-grid table{min-width:440px!important}
+#adminPanel .analytics-grid table{min-width:430px!important}
 #adminPanel .detail-panel table{min-width:980px!important}
 
-/* ---------- archive ---------- */
-#archivePanel .page-heading{align-items:flex-end!important}
-#archivePanel .archive-filter-panel{margin-bottom:12px!important}
+/* =========================
+   ARCHIVE
+   ========================= */
+#archivePanel .archive-filter-panel{margin-bottom:14px!important}
 #archivePanel .archive-filters{
   display:grid!important;
-  grid-template-columns:minmax(260px,1.55fr) repeat(3,minmax(140px,.72fr))!important;
+  grid-template-columns:minmax(280px,1.5fr) repeat(3,minmax(145px,.7fr))!important;
   gap:10px!important;
   align-items:end!important;
 }
-#archivePanel .archive-filters label{min-width:0!important}
-#archivePanel .archive-filters input,
-#archivePanel .archive-filters select{width:100%!important;min-width:0!important}
+#archivePanel .archive-filters label{
+  min-width:0!important;
+  display:grid!important;
+  gap:5px!important;
+  font-size:.68rem!important;
+}
 #archivePanel .archive-filter-foot{
   display:flex!important;
   justify-content:space-between!important;
   align-items:center!important;
   gap:12px!important;
-  margin-top:10px!important;
-  padding-top:10px!important;
+  margin-top:12px!important;
+  padding-top:12px!important;
+  border-top:1px solid #edf1f5!important;
 }
-#archivePanel .archive-table{min-width:1120px!important}
+#archivePanel .archive-table{min-width:1080px!important}
 #archivePanel .archive-detail{min-width:0!important}
-#archivePanel .archive-detail-kpis{grid-template-columns:repeat(4,minmax(0,1fr))!important}
-#archivePanel .archive-session-table{min-width:940px!important}
+#archivePanel .archive-session-table{min-width:920px!important}
+#archivePanel .archive-tech-summary{
+  padding:12px 0 14px!important;
+}
 
-/* ---------- economics ---------- */
+/* =========================
+   ECONOMICS
+   ========================= */
+#economicsPanel>.explain-panel{
+  padding:15px!important;
+  margin:0 0 14px!important;
+}
+#economicsPanel .explain-grid{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:8px!important;
+}
+#economicsPanel .explain-grid>div{
+  min-width:0!important;
+  padding:10px!important;
+}
 #economicsPanel .economics-layout{
   display:grid!important;
-  grid-template-columns:minmax(0,1.25fr) minmax(330px,.75fr)!important;
-  gap:10px!important;
-  margin:0 0 10px!important;
+  grid-template-columns:minmax(0,1.2fr) minmax(330px,.8fr)!important;
+  gap:12px!important;
+  margin:0 0 12px!important;
 }
 #economicsPanel .economics-layout>.panel{margin:0!important}
 #economicsPanel .estimator-form{
@@ -592,28 +803,50 @@ body{background:var(--layout-bg)}
 #economicsPanel .estimate-breakdown{margin-top:12px!important}
 #economicsPanel .job-economics-form{
   display:grid!important;
-  grid-template-columns:minmax(260px,1.7fr) repeat(3,minmax(118px,.62fr))!important;
+  grid-template-columns:minmax(260px,1.5fr) repeat(3,minmax(118px,.65fr))!important;
   gap:9px!important;
   align-items:end!important;
 }
 #economicsPanel .job-economics-form .job-note{grid-column:1/4!important}
-#economicsPanel .job-economics-form .btn{min-width:0!important;width:100%!important}
-#economicsPanel .economics-rate-table{min-width:650px!important}
-#economicsPanel .margin-table{min-width:1020px!important}
-#economicsPanel .cost-detail-table{min-width:900px!important}
+#economicsPanel .job-economics-form .btn{
+  width:100%!important;
+  min-width:0!important;
+}
+#economicsPanel .economics-rate-table{min-width:640px!important}
+#economicsPanel .margin-table{min-width:1000px!important}
+#economicsPanel .cost-detail-table{min-width:880px!important}
 
-/* ---------- medium desktop ---------- */
+/* =========================
+   UPDATE + SYNC STATUS
+   ========================= */
+.ore-update-banner{
+  width:min(620px,calc(100vw - 28px))!important;
+  border-radius:12px!important;
+}
+.crm-auto-label,
+.sync-state{white-space:nowrap!important}
+
+/* =========================
+   RESPONSIVE — MEDIUM DESKTOP
+   ========================= */
 @media(max-width:1280px){
-  :root{--layout-sidebar:174px;--layout-pad:18px}
-  #appView .app-content{padding:18px 18px 38px!important}
-  #adminPanel .admin-kpis{grid-template-columns:repeat(3,minmax(180px,220px))!important}
-  #adminPanel .analytics-grid{grid-template-columns:1fr 1fr!important}
-  #adminPanel .analytics-grid>.panel:first-child{grid-column:1/-1}
+  :root{--ui-sidebar:174px}
+  #appView .app-content{padding:20px!important}
+  #adminPanel .admin-kpis{
+    grid-template-columns:repeat(3,minmax(180px,210px))!important;
+  }
   #archivePanel .summary-grid.four,
-  #economicsPanel .summary-grid.four{grid-template-columns:repeat(2,minmax(210px,250px))!important}
+  #economicsPanel .summary-grid.four,
+  #archivePanel .archive-detail-kpis{
+    grid-template-columns:repeat(2,minmax(210px,232px))!important;
+  }
+  #adminPanel .analytics-grid{grid-template-columns:1fr 1fr!important}
+  #adminPanel .analytics-grid>.panel:first-child{grid-column:1/-1!important}
 }
 
-/* ---------- tablet ---------- */
+/* =========================
+   RESPONSIVE — TABLET
+   ========================= */
 @media(max-width:900px){
   #appView.app-frame{
     grid-template-columns:1fr!important;
@@ -662,14 +895,11 @@ body{background:var(--layout-bg)}
     flex-direction:column!important;
     gap:12px!important;
   }
-  #dayPanel .tech-daybar{
-    grid-template-columns:1fr 1fr!important;
-  }
+
+  #dayPanel .tech-daybar{grid-template-columns:1fr 1fr!important}
   #dayPanel .tech-progress{grid-column:1/-1!important;grid-row:2!important}
-  #dayPanel .crm-sync-pill{max-width:60%!important}
-  #dayPanel .issue-main{
-    grid-template-columns:50px minmax(0,1fr) 108px!important;
-  }
+  #dayPanel .crm-sync-pill{max-width:62%!important}
+  #dayPanel .issue-main{grid-template-columns:48px minmax(0,1fr) 105px!important}
   #dayPanel .issue-cta{
     grid-column:2/4!important;
     display:flex!important;
@@ -682,9 +912,10 @@ body{background:var(--layout-bg)}
   #dayPanel .assignment-description{grid-column:1/-1!important}
   #dayPanel .assignment-hint{grid-column:1!important}
   #dayPanel .assignment-buttons{grid-column:2!important}
+
   #dayPanel .hours-table-head{display:none!important}
   #dayPanel .agenda-hour-row{
-    grid-template-columns:78px minmax(0,1fr) 92px!important;
+    grid-template-columns:76px minmax(0,1fr) 92px!important;
     gap:8px 10px!important;
   }
   #dayPanel .agenda-duration{grid-column:3!important;grid-row:1!important;text-align:right!important}
@@ -698,28 +929,38 @@ body{background:var(--layout-bg)}
     width:100%!important;
   }
   #adminPanel #loadAdmin{grid-column:1/-1!important}
-  #adminPanel .admin-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important;justify-content:stretch!important}
-  #archivePanel .summary-grid.four,
-  #economicsPanel .summary-grid.four{grid-template-columns:repeat(2,minmax(0,1fr))!important;justify-content:stretch!important}
+  #adminPanel .admin-kpis{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    justify-content:stretch!important;
+  }
   #adminPanel .admin-visual-grid,
   #adminPanel .admin-mini-grid,
   #adminPanel .analytics-grid{grid-template-columns:1fr!important}
   #adminPanel .analytics-grid>.panel:first-child{grid-column:auto!important}
   #adminPanel .explain-grid{grid-template-columns:1fr 1fr!important}
 
+  #archivePanel .summary-grid.four,
+  #economicsPanel .summary-grid.four,
+  #archivePanel .archive-detail-kpis{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    justify-content:stretch!important;
+  }
   #archivePanel .archive-filters{grid-template-columns:1fr 1fr!important}
   #archivePanel .archive-search{grid-column:1/-1!important}
 
+  #economicsPanel .explain-grid{grid-template-columns:1fr 1fr!important}
   #economicsPanel .economics-layout{grid-template-columns:1fr!important}
   #economicsPanel .job-economics-form{grid-template-columns:1fr 1fr!important}
   #economicsPanel .job-economics-form .job-picker,
   #economicsPanel .job-economics-form .job-note{grid-column:1/-1!important}
 }
 
-/* ---------- phone ---------- */
+/* =========================
+   RESPONSIVE — PHONE
+   ========================= */
 @media(max-width:620px){
   #appView .app-content{padding:10px 8px 24px!important}
-  #appView .app-header .header-user{display:none!important}
+  #appView .header-user{display:none!important}
   #appView .page-heading h1{font-size:1.28rem!important}
   #appView .panel{padding:12px!important}
 
@@ -739,6 +980,10 @@ body{background:var(--layout-bg)}
   }
   #dayPanel #crmSyncStatus{max-width:calc(100% - 82px)!important}
   #dayPanel .crm-day-summary{grid-template-columns:1fr!important}
+
+  #dayPanel .quick-entry-card .form-grid{grid-template-columns:1fr!important}
+  #dayPanel .quick-entry-card .form-grid .wide{grid-column:auto!important}
+
   #dayPanel .issue-main{
     grid-template-columns:44px minmax(0,1fr)!important;
     gap:8px 10px!important;
@@ -763,7 +1008,11 @@ body{background:var(--layout-bg)}
   #dayPanel .assignment-description,
   #dayPanel .assignment-hint,
   #dayPanel .assignment-buttons{grid-column:1!important}
-  #dayPanel .assignment-buttons{display:grid!important;grid-template-columns:1fr 1fr!important}
+  #dayPanel .assignment-buttons{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+  }
+
   #dayPanel .agenda-hour-row{
     grid-template-columns:1fr!important;
     gap:7px!important;
@@ -778,19 +1027,29 @@ body{background:var(--layout-bg)}
     grid-column:1!important;
     grid-row:auto!important;
   }
-  #dayPanel .proto-time{display:flex!important;gap:5px!important;align-items:baseline!important}
+  #dayPanel .proto-time{
+    display:flex!important;
+    gap:5px!important;
+    align-items:baseline!important;
+  }
   #dayPanel .agenda-duration{text-align:left!important}
   #dayPanel .proto-actions{justify-content:flex-start!important}
   #dayPanel .session-edit-panel{margin:3px -12px -10px!important}
   #dayPanel .hours-card-footer{grid-template-columns:1fr!important}
-  #dayPanel .hours-card-footer>div{text-align:left!important}
+  #dayPanel .hours-card-footer>div{justify-content:flex-start!important}
+  #dayPanel .hours-card-footer .complete-badge{justify-self:start!important}
+  #dayPanel #manualToggleBottom{display:block!important;width:100%!important}
   #dayPanel .recent-grid{grid-template-columns:1fr!important}
-  #dayPanel .tech-confirm-row{align-items:stretch!important;flex-direction:column!important}
+  #dayPanel .tech-confirm-row{
+    align-items:stretch!important;
+    flex-direction:column!important;
+  }
   #dayPanel .tech-confirm-row button{width:100%!important}
 
   #adminPanel .admin-kpis,
   #archivePanel .summary-grid.four,
-  #economicsPanel .summary-grid.four{
+  #economicsPanel .summary-grid.four,
+  #archivePanel .archive-detail-kpis{
     grid-template-columns:1fr!important;
     justify-content:stretch!important;
   }
@@ -807,8 +1066,8 @@ body{background:var(--layout-bg)}
     flex-direction:column!important;
   }
   #archivePanel .archive-filter-foot button{width:100%!important}
-  #archivePanel .archive-detail-kpis{grid-template-columns:1fr!important}
 
+  #economicsPanel .explain-grid{grid-template-columns:1fr!important}
   #economicsPanel .estimator-form,
   #economicsPanel .job-economics-form{grid-template-columns:1fr!important}
   #economicsPanel .job-economics-form .job-picker,
