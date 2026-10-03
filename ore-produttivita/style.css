@@ -300,50 +300,7 @@ input:focus,select:focus{border-color:#6f91b5;box-shadow:0 0 0 3px rgba(30,58,95
 @media(max-width:1100px){.admin-visual-grid,.admin-mini-grid{grid-template-columns:1fr}.donut-layout{grid-template-columns:150px 1fr}}
 @media(max-width:620px){.donut-layout{grid-template-columns:1fr}.type-donut{width:138px;height:138px}.rank-bar-row{grid-template-columns:90px 1fr 50px}}
 
-/* Screenshot prototype fidelity pass */
-.app-header{height:64px;min-height:64px}
-.app-frame{grid-template-columns:162px minmax(0,1fr);grid-template-rows:64px minmax(0,1fr)}
-.app-sidebar{padding:18px 9px 12px}
-.app-sidebar::before{font-size:1.18rem;padding:0 10px 18px}
-.side-nav-item{font-size:.76rem;padding:9px 10px}
-.nav-icon{width:20px;height:20px;font-size:.9rem}
-.app-content{padding:16px 18px 34px}
-.tech-dashboard{max-width:1240px}
-.tech-daybar{grid-template-columns:190px minmax(0,1fr) 145px;margin-bottom:10px}
-.proto-card{margin-bottom:10px}
-.crm-detected-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
-.hours-table-head,.proto-hour-row{grid-template-columns:66px minmax(260px,1.6fr) 88px minmax(190px,1fr) 64px}
-.proto-hour-row{padding:9px 12px}
-.proto-desc strong{font-size:.75rem}
-.proto-desc small,.proto-note small{font-size:.64rem}
-.proto-hours input{width:76px;min-height:31px}
-.proto-actions .save{min-height:29px;font-size:.68rem}
-.recent-card{padding:9px}
-.page-heading{margin-bottom:14px}
-.page-heading h1{font-size:1.55rem}
-.page-heading p{font-size:.78rem}
-.summary-grid{gap:9px;margin-bottom:10px}
-.summary-card{padding:12px 13px;border-radius:9px}
-.summary-icon{width:32px;height:32px;border-radius:8px}
-.summary-card strong{font-size:1.12rem}
-.summary-card small{font-size:.62rem}
-.summary-card>div>span{font-size:.65rem}
-.admin-shortcuts{display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 10px}
-.admin-shortcuts button{border:1px solid #d9e4ed;background:#fff;color:#49647d;border-radius:7px;padding:7px 10px;font-size:.68rem;font-weight:800;cursor:pointer}
-.admin-shortcuts button:hover{background:#eef6fd;color:#187dce}
-#adminPanel .panel{padding:13px}
-#adminPanel .panel-heading h2{font-size:.91rem}
-#adminPanel .panel-heading p{font-size:.69rem}
-#adminPanel table th{font-size:.6rem;padding:7px 7px}
-#adminPanel table td{font-size:.68rem;padding:7px}
-.admin-visual-grid{gap:9px;margin:9px 0}
-.admin-mini-grid{gap:9px;margin-bottom:9px}
-.admin-chart-card{min-height:235px}
-.monthly-bars{height:160px}
-.donut-layout{grid-template-columns:145px 1fr;gap:12px}
-.type-donut{width:130px;height:130px}
-.type-donut::after{inset:24px}
-.rank-bar-row{grid-template-columns:96px 1fr 52px}
+/* Stable visual accents (layout moved to layout.css) */
 .code-a{background:#dbeafe!important;color:#1d4ed8!important}
 .code-b{background:#dcfce7!important;color:#15803d!important}
 .code-c{background:#fef3c7!important;color:#b45309!important}
@@ -360,80 +317,8 @@ input:focus,select:focus{border-color:#6f91b5;box-shadow:0 0 0 3px rgba(30,58,95
 .code-p{background:#f1f5f9!important;color:#64748b!important}
 .login-brand-panel{background:linear-gradient(150deg,#0b2a49,#103b63 58%,#164d7c)}
 .login-brand-content h1{font-size:clamp(2.2rem,4vw,3.8rem)}
-@media(max-width:820px){
-  .app-frame{grid-template-columns:1fr;grid-template-rows:58px auto 1fr}
-  .app-header{height:58px;min-height:58px}
-}
 
-
-/* 2026-10-02 — clarity pass: fewer visual distractions, stronger hierarchy */
-.tech-dashboard{max-width:1080px}
-.tech-daybar{grid-template-columns:170px minmax(0,1fr) 128px;gap:9px;align-items:stretch}
-.tech-date-box,.tech-day-status{box-shadow:none;border-color:#e1e7ed}
-.tech-progress{box-shadow:none;border:1px solid #e1e7ed;background:#fff}
-.tech-progress-copy span,.tech-day-status span,.tech-date-box span{text-transform:none;letter-spacing:0;font-size:.68rem}
-.tech-progress-copy strong{font-size:1.05rem}
-.tech-progress-track{height:7px}
-.proto-card{box-shadow:none;border-color:#e2e8ee}
-.crm-detected-card{background:#fff;border-left:4px solid #2f8df0}
-.crm-detected-card .proto-card-head{padding-left:12px}
-.crm-sync-pill{flex-wrap:wrap;justify-content:flex-end}
-.crm-sync-pill>span{font-size:.68rem;color:#60778d}
-.crm-sync-pill .crm-launch-btn{background:#eef6ff;border-color:#bfdcf5;color:#166fc0}
-.crm-detected-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
-.crm-detected-item{border-color:#e5ebf0;padding:8px}
-.hours-card{border-color:#d9e2ea}
-.hours-head{border-bottom:1px solid #edf1f4}
-.hours-table-head{background:#f7f9fb;color:#6c7d8e}
-.proto-hour-row{grid-template-columns:60px minmax(260px,1.6fr) 84px minmax(170px,1fr) 58px;gap:7px;padding:9px 12px}
-.proto-desc strong{font-size:.76rem}
-.proto-note small{font-size:.66rem}
-.activity-chip{background:#f4f1fb;color:#6547a4}
-.hours-card-footer{border-top:1px solid #edf1f4;background:#fff}
-.hours-card-footer strong{font-size:1.02rem}
-.tech-confirm-row{background:#f5faf7;border:1px solid #dcefe4;color:#4f6e60}
-.recent-section{margin-top:12px;padding-top:2px}
-.recent-card{box-shadow:none;background:#fbfcfd}
-.admin-kpis{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
-.admin-kpis .summary-card{padding:11px 12px;gap:10px;box-shadow:none;border-radius:9px}
-.admin-kpis .summary-icon{width:30px;height:30px;border-radius:7px;font-size:.82rem}
-.admin-kpis .summary-card small{font-size:.58rem;letter-spacing:.025em}
-.admin-kpis .summary-card strong{font-size:1.22rem;margin:2px 0}
-.admin-kpis .summary-card>div>span{font-size:.62rem;line-height:1.25}
-.admin-shortcuts{border-bottom:1px solid #e4e9ee;padding-bottom:8px}
-.admin-shortcuts button{border:0;border-radius:0;background:transparent;padding:5px 8px;color:#61768a}
-.admin-shortcuts button:hover{background:#f5f8fa;color:#176fb9}
-.admin-visual-grid{grid-template-columns:.85fr 1.15fr;gap:9px}
-.admin-chart-card{min-height:215px}
-.donut-layout{grid-template-columns:128px minmax(0,1fr);gap:10px}
-.type-donut{width:112px;height:112px}
-.type-donut::after{inset:21px}
-.monthly-bars{height:145px;padding-top:6px}
-.month-col{min-width:38px}
-.month-col i{width:18px;background:#2f8df0}
-.tech-bars{gap:7px}
-.rank-bar-row{grid-template-columns:96px minmax(0,1fr) 50px}
-.rank-bar-row>div{height:7px}
-.rank-bar-row i{background:#2f8df0}
-#adminPanel .panel{box-shadow:none}
-#adminPanel table th{background:#f7f9fb;color:#6d7e8f}
-#adminPanel table td{border-color:#eef1f4}
-.company-sync-panel{margin-top:9px}
-
-@media(max-width:1200px){
-  .admin-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
-}
-@media(max-width:900px){
-  .admin-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .admin-visual-grid{grid-template-columns:1fr}
-  .crm-detected-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-}
-@media(max-width:620px){
-  .admin-kpis,.crm-detected-grid{grid-template-columns:1fr}
-  .crm-sync-pill{justify-content:flex-start}
-  .proto-card-head{align-items:flex-start;flex-direction:column}
-}
-
+/* Layout overrides removed: canonical geometry lives in layout.css */
 
 /* Agenda-first daily view */
 .crm-day-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 13px}
@@ -765,128 +650,12 @@ input:focus,select:focus{border-color:#6f91b5;box-shadow:0 0 0 3px rgba(30,58,95
 }
 
 
-/* ===== Ore & Produttività — stable UI foundation v1 ===== */
-:root{
-  --ore-space-1:4px;
-  --ore-space-2:8px;
-  --ore-space-3:12px;
-  --ore-space-4:16px;
-  --ore-space-5:20px;
-  --ore-space-6:24px;
-  --ore-radius-sm:8px;
-  --ore-radius-md:12px;
-  --ore-radius-lg:16px;
-  --ore-control-h:40px;
-  --ore-card-border:#dbe4ec;
-  --ore-card-shadow:0 1px 2px rgba(16,39,62,.025);
-  --ore-page-max:1440px;
-}
-.screen{max-width:var(--ore-page-max);width:100%;margin:0 auto}
-#adminPanel .page-heading{margin-bottom:16px}
-#adminPanel .page-heading h1{font-size:1.55rem;line-height:1.15}
-#adminPanel .page-heading p{font-size:.78rem;margin-top:4px}
-#adminPanel .date-range{
-  display:grid;
-  grid-template-columns:132px 132px auto;
-  gap:8px;
-  align-items:end;
-}
-#adminPanel .date-range label{width:auto;gap:4px;font-size:.68rem}
-#adminPanel .date-range input{min-height:38px;height:38px;border-radius:8px;padding:6px 9px}
-#adminPanel #loadAdmin{min-height:38px;height:38px;border-radius:8px;white-space:nowrap}
-
-.admin-shortcuts{
-  display:flex;
-  flex-wrap:wrap;
-  align-items:center;
-  gap:4px;
-  margin:0 0 12px;
-  padding:0 0 10px;
-}
-.admin-shortcuts button{
-  min-height:32px;
-  padding:5px 9px;
-  border-radius:7px!important;
-  font-size:.69rem;
-  font-weight:750;
-}
-.admin-shortcuts button:hover{background:#edf5fb!important}
-
-.admin-kpis{
-  display:grid!important;
-  grid-template-columns:repeat(5,minmax(0,1fr))!important;
-  gap:10px!important;
-  margin-bottom:12px!important;
-}
-.admin-kpis .summary-card{
-  min-width:0;
-  min-height:108px;
-  padding:14px!important;
-  gap:11px!important;
-  align-items:flex-start;
-  border:1px solid var(--ore-card-border);
-  border-radius:var(--ore-radius-md)!important;
-  background:#fff;
-  box-shadow:var(--ore-card-shadow)!important;
-}
-.admin-kpis .summary-icon{
-  width:36px!important;
-  height:36px!important;
-  border-radius:9px!important;
-  font-size:.9rem!important;
-  margin-top:1px;
-}
-.admin-kpis .summary-card>div{min-width:0}
-.admin-kpis .summary-card small{
-  min-height:17px;
-  font-size:.63rem!important;
-  line-height:1.2;
-  letter-spacing:.025em!important;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.admin-kpis .summary-card strong{
-  font-size:1.35rem!important;
-  line-height:1.05;
-  margin:5px 0 5px!important;
-  color:#102d49;
-}
-.admin-kpis .summary-card>div>span{
-  font-size:.64rem!important;
-  line-height:1.3!important;
-  color:#7b8b9b!important;
-}
-.admin-visual-grid,.admin-mini-grid{gap:10px!important;margin-bottom:10px!important}
-#adminPanel .panel{
-  border:1px solid var(--ore-card-border);
-  border-radius:var(--ore-radius-md)!important;
-  box-shadow:var(--ore-card-shadow)!important;
-}
-#adminPanel .panel-heading{margin-bottom:12px}
-#adminPanel .panel-heading h2{font-size:.98rem}
-#adminPanel .panel-heading p{font-size:.72rem;line-height:1.4}
-#adminPanel .eyebrow{font-size:.58rem;margin-bottom:4px}
-.admin-chart-card{min-height:230px!important}
-.company-sync-panel{margin-top:10px!important}
-
+/* App update prompt */
 .ore-update-banner{
-  position:fixed;
-  top:84px;
-  left:50%;
-  transform:translateX(-50%);
-  z-index:1000;
-  width:min(620px,calc(100vw - 28px));
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:16px;
-  padding:12px 14px;
-  border:1px solid #bcd6ed;
-  border-radius:12px;
-  background:#f5faff;
-  box-shadow:0 10px 28px rgba(20,58,91,.14);
-  color:#173a5d;
+  position:fixed;top:84px;left:50%;transform:translateX(-50%);z-index:1000;
+  width:min(620px,calc(100vw - 28px));display:flex;align-items:center;justify-content:space-between;
+  gap:16px;padding:12px 14px;border:1px solid #bcd6ed;border-radius:12px;
+  background:#f5faff;box-shadow:0 10px 28px rgba(20,58,91,.14);color:#173a5d
 }
 .ore-update-banner[hidden]{display:none!important}
 .ore-update-banner>div{min-width:0}
@@ -894,35 +663,11 @@ input:focus,select:focus{border-color:#6f91b5;box-shadow:0 0 0 3px rgba(30,58,95
 .ore-update-banner strong{font-size:.82rem}
 .ore-update-banner span{margin-top:2px;color:#60768b;font-size:.68rem;line-height:1.35}
 .ore-update-banner button{
-  flex:none;
-  min-height:36px;
-  padding:7px 13px;
-  border:0;
-  border-radius:8px;
-  background:#1686ee;
-  color:#fff;
-  font-weight:800;
-  font-size:.72rem;
-  cursor:pointer;
+  flex:none;min-height:36px;padding:7px 13px;border:0;border-radius:8px;background:#1686ee;
+  color:#fff;font-weight:800;font-size:.72rem;cursor:pointer
 }
 .ore-update-banner button:disabled{opacity:.55;cursor:wait}
 .ore-version{display:block;font-size:.58rem;color:rgba(255,255,255,.55);margin-bottom:6px}
-
-@media(max-width:1280px){
-  .admin-kpis{grid-template-columns:repeat(3,minmax(0,1fr))!important}
-}
-@media(max-width:900px){
-  #adminPanel .page-heading{align-items:stretch}
-  #adminPanel .date-range{grid-template-columns:1fr 1fr}
-  #adminPanel #loadAdmin{grid-column:1/-1}
-  .admin-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
-}
-@media(max-width:620px){
-  .admin-kpis{grid-template-columns:1fr!important}
-  .admin-kpis .summary-card{min-height:92px}
-  .ore-update-banner{top:74px}
-}
-
 
 /* Automatic CRM sync status */
 .crm-auto-label{
