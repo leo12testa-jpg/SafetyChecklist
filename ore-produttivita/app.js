@@ -434,6 +434,20 @@ async function loadAdmin(){
     if($("#crmSyncLate"))$("#crmSyncLate").textContent=`${syncLate} in ritardo`;
     if($("#crmSyncNever"))$("#crmSyncNever").textContent=`${syncNever} mai`;
 
+    const agentAlert=$("#crmAgentAlert");
+    if(agentAlert){
+      const inactive=resources.length>0&&syncFresh===0;
+      const partial=resources.length>0&&syncFresh>0&&syncFresh<resources.length;
+      agentAlert.hidden=!(inactive||partial);
+      agentAlert.classList.toggle("partial",partial);
+      $("#crmAgentAlertTitle").textContent=inactive
+        ?"Sincronizzazione CRM automatica non attiva"
+        :"Sincronizzazione CRM parziale";
+      $("#crmAgentAlertText").textContent=inactive
+        ?"Nessun tecnico è stato aggiornato negli ultimi 15 minuti."
+        :`${syncFresh} tecnici aggiornati su ${resources.length}. Controlla l’agente background.`;
+    }
+
     const tb=$("#adminRows");tb.innerHTML="";
     $("#adminEmpty").hidden=j.rows.length>0;
     j.rows.forEach(r=>{

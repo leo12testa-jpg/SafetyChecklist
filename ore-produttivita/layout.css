@@ -670,6 +670,37 @@ body{background:var(--ui-bg)}
   border-radius:7px!important;
   font-size:.65rem!important;
 }
+#adminPanel .crm-agent-alert{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:14px!important;
+  margin:0 0 12px!important;
+  padding:11px 13px!important;
+  border:1px solid #f0c98b!important;
+  border-radius:10px!important;
+  background:#fff8e9!important;
+  color:#6e4b16!important;
+}
+#adminPanel .crm-agent-alert[hidden]{display:none!important}
+#adminPanel .crm-agent-alert.partial{
+  border-color:#d9dfe6!important;
+  background:#f8fafc!important;
+  color:#42566a!important;
+}
+#adminPanel .crm-agent-alert>div{min-width:0!important}
+#adminPanel .crm-agent-alert strong,
+#adminPanel .crm-agent-alert span{display:block!important}
+#adminPanel .crm-agent-alert strong{font-size:.75rem!important}
+#adminPanel .crm-agent-alert span{
+  margin-top:2px!important;
+  font-size:.64rem!important;
+  line-height:1.35!important;
+}
+#adminPanel .crm-agent-alert a{
+  flex:none!important;
+  text-decoration:none!important;
+}
 #adminPanel .admin-visual-grid{
   display:grid!important;
   grid-template-columns:minmax(320px,.9fr) minmax(0,1.35fr)!important;
@@ -1305,6 +1336,11 @@ body{background:var(--ui-bg)}
     justify-content:stretch!important;
   }
   #adminPanel .date-range{grid-template-columns:1fr!important}
+  #adminPanel .crm-agent-alert{
+    align-items:stretch!important;
+    flex-direction:column!important;
+  }
+  #adminPanel .crm-agent-alert a{width:100%!important;text-align:center!important}
   #adminPanel #loadAdmin{grid-column:auto!important}
   #adminPanel .donut-layout{grid-template-columns:1fr!important}
   #adminPanel .explain-grid{grid-template-columns:1fr!important}
