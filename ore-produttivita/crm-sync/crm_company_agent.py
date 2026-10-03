@@ -21,6 +21,11 @@ FIREBASE_REFRESH = f"https://securetoken.googleapis.com/v1/token?key={FIREBASE_A
 APP_API = "https://twznfiygzzbqdgudpwav.supabase.co/functions/v1/ore-produttivita-api"
 AGENDA_URL = "https://crm.colligoingegneria.it/intrasofter/intraplan/plage000.asp"
 KEYRING_SERVICE = "ColligoOreProduttivita"
+CRM_STATE_KEY = "company-crm-browser-state"
+CRM_SESSION_KEY = "company-crm-session-storage"
+
+class LoginRequiredError(RuntimeError):
+    pass
 
 APP_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "ColligoOreProduttivita"
 CONFIG_FILE = APP_DIR / "company-agent.json"
@@ -165,6 +170,53 @@ def api(token, action, **payload):
     if status >= 300:
         raise RuntimeError(body.get("error", f"Errore API {status}."))
     return body
+
+
+async def save_crm_auth(context, page):
+    state = await context.storage_state()
+    keyring.set_password(KEYRING_SERVICE, CRM_STATE_KEY, json.dumps(state, ensure_ascii=False))
+    try:
+        session_data = await page.evaluate("""() => {
+          const out = {};
+          for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            out[key] = sessionStorage.getItem(key);
+          }
+          return out;
+        }""")
+    except Exception:
+        session_data = {}
+    keyring.set_password(KEYRING_SERVICE, CRM_SESSION_KEY, json.dumps(session_data or {}, ensure_ascii=False))
+
+
+def load_crm_state():
+    raw = keyring.get_password(KEYRING_SERVICE, CRM_STATE_KEY)
+    if not raw:
+        return None
+    try:
+        value = json.loads(raw)
+        return value if isinstance(value, dict) else None
+    except Exception:
+        return None
+
+
+async def restore_crm_session_storage(context):
+    raw = keyring.get_password(KEYRING_SERVICE, CRM_SESSION_KEY)
+    if not raw:
+        return
+    try:
+        data = json.loads(raw)
+    except Exception:
+        data = {}
+    if not isinstance(data, dict) or not data:
+        return
+    script = """(data) => {
+      if (location.origin !== 'https://crm.colligoingegneria.it') return;
+      for (const [key, value] of Object.entries(data || {})) {
+        try { sessionStorage.setItem(key, value); } catch (_) {}
+      }
+    }"""
+    await context.add_init_script(f"({script})({json.dumps(data, ensure_ascii=False)});")
 
 
 async def login_visible(page):
@@ -403,6 +455,7 @@ async def setup(username):
         await page.wait_for_timeout(1800)
         if await login_visible(page):
             raise RuntimeError("Il CRM risulta ancora sulla schermata di accesso.")
+        await save_crm_auth(browser, page)
         await browser.close()
     write_status("ready","Configurazione completata.",{"resources":len(resources)})
     print(f"Configurazione completata: {len(resources)} risorse CRM rilevate.")
