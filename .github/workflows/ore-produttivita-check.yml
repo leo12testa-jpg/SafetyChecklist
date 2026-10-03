@@ -1,0 +1,97 @@
+name: Ore Produttivita check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ore-produttivita-check.yml"
+      - "ore-produttivita/**"
+      - "tests/ore-ui-contract.test.js"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ore-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Syntax and UI contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check ore-produttivita/app.js
+          node --check ore-produttivita/aggiornamento.js
+          python3 -m py_compile ore-produttivita/crm-sync/crm_agenda_sync.py
+          python3 -m py_compile ore-produttivita/crm-sync/crm_company_agent.py
+
+          grep -q 'id="dayPanel"' ore-produttivita/index.html
+          grep -q 'id="adminPanel"' ore-produttivita/index.html
+          grep -q 'id="archivePanel"' ore-produttivita/index.html
+          grep -q 'id="economicsPanel"' ore-produttivita/index.html
+          grep -q 'id="archiveRows"' ore-produttivita/index.html
+          grep -q 'id="crmResourceRows"' ore-produttivita/index.html
+          grep -q '<h2>Agenda CRM</h2>' ore-produttivita/index.html
+          grep -q 'id="oreUpdateBanner"' ore-produttivita/index.html
+          grep -q 'id="oreUpdateButton"' ore-produttivita/index.html
+          ! grep -q 'id="syncCrmNow"' ore-produttivita/index.html
+          ! grep -q 'colligoore://sync' ore-produttivita/app.js
+
+          ORE_BUILD="$(node -p "require('./ore-produttivita/version.json').buildId")"
+          grep -q "const BUILD_ID = \"${ORE_BUILD}\"" ore-produttivita/aggiornamento.js
+          grep -q "colligo-ore-shell-${ORE_BUILD}" ore-produttivita/service-worker.js
+          grep -q "style.css?v=${ORE_BUILD}" ore-produttivita/index.html
+          grep -q "layout.css?v=${ORE_BUILD}" ore-produttivita/index.html
+          grep -q "layout.css?v=${ORE_BUILD}" ore-produttivita/service-worker.js
+          grep -q "aggiornamento.js?v=${ORE_BUILD}" ore-produttivita/index.html
+          grep -q "app.js?v=${ORE_BUILD}" ore-produttivita/index.html
+
+          node --test tests/ore-ui-contract.test.js
+
+      - name: Wait for published Ore build
+        shell: bash
+        run: |
+          set -euo pipefail
+          ORE_BUILD="$(node -p "require('./ore-produttivita/version.json').buildId")"
+          for i in $(seq 1 36); do
+            REMOTE="$(curl -fsSL "https://leo12testa-jpg.github.io/SafetyChecklist/ore-produttivita/version.json?t=$(date +%s%N)" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(JSON.parse(s).buildId||'')}catch{}})")" || true
+            if [ "$REMOTE" = "$ORE_BUILD" ]; then
+              echo "Ore live build OK: $REMOTE"
+              exit 0
+            fi
+            echo "Attendo Pages Ore... trovato '$REMOTE', atteso '$ORE_BUILD'"
+            sleep 5
+          done
+          echo "Build Ore live non allineata" >&2
+          exit 1
+
+      - name: Live Ore static smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          ORE_BUILD="$(node -p "require('./ore-produttivita/version.json').buildId")"
+          BASE="https://leo12testa-jpg.github.io/SafetyChecklist/ore-produttivita"
+
+          HTML="$(curl -fsSL "$BASE/?t=$(date +%s%N)")"
+          printf '%s' "$HTML" | grep -q "style.css?v=${ORE_BUILD}"
+          printf '%s' "$HTML" | grep -q "layout.css?v=${ORE_BUILD}"
+          printf '%s' "$HTML" | grep -q "aggiornamento.js?v=${ORE_BUILD}"
+          printf '%s' "$HTML" | grep -q "app.js?v=${ORE_BUILD}"
+
+          LAYOUT="$(curl -fsSL "$BASE/layout.css?v=${ORE_BUILD}")"
+          printf '%s' "$LAYOUT" | grep -q -- "--ui-page:1280px"
+          printf '%s' "$LAYOUT" | grep -q "#dayPanel .issue-main"
+          printf '%s' "$LAYOUT" | grep -q "#economicsPanel .economics-layout"
+
+          APP="$(curl -fsSL "$BASE/app.js?v=${ORE_BUILD}")"
+          ! printf '%s' "$APP" | grep -q 'colligoore://'
+          printf '%s' "$APP" | grep -q 'frontend non apre mai il CRM'
+
+          echo "ORE LIVE STATIC SMOKE PASS"
