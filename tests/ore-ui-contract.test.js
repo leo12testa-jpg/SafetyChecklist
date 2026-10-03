@@ -46,7 +46,7 @@ test('dynamic control families are wired', () => {
 test('canonical layout is loaded last and owns breakpoints',()=>{
   const layout=fs.readFileSync('ore-produttivita/layout.css','utf8');
   assert.ok(html.indexOf('layout.css')>html.indexOf('style.css'),'layout.css deve essere caricato dopo style.css');
-  assert.match(layout,/--layout-page:1320px/);
+  assert.match(layout,/--ui-page:1280px/);
   assert.match(layout,/#adminPanel \.admin-kpis\{[\s\S]*grid-template-columns:repeat\(5,minmax\(180px,220px\)\)!important/);
   assert.match(layout,/@media\(max-width:900px\)/);
   assert.match(layout,/@media\(max-width:620px\)/);
@@ -57,6 +57,14 @@ test('canonical layout is loaded last and owns breakpoints',()=>{
 
 test('archive KPI cards are compact, not stretched 1fr',()=>{
   const layout=fs.readFileSync('ore-produttivita/layout.css','utf8');
-  assert.match(layout,/#archivePanel \.summary-grid\.four,[\s\S]*grid-template-columns:repeat\(4,minmax\(210px,250px\)\)!important/);
+  assert.match(layout,/#archivePanel \.summary-grid\.four,[\s\S]*grid-template-columns:repeat\(4,minmax\(210px,232px\)\)!important/);
   assert.doesNotMatch(layout,/#archivePanel \.summary-grid\.four[\s\S]{0,180}repeat\(4,minmax\(0,1fr\)\)/);
+});
+
+
+test('legacy layout override layers are removed from style.css',()=>{
+  const base=fs.readFileSync('ore-produttivita/style.css','utf8');
+  assert.equal(base.includes('Screenshot prototype fidelity pass'),false);
+  assert.equal(base.includes('clarity pass: fewer visual distractions'),false);
+  assert.equal(base.includes('stable UI foundation v1'),false);
 });
