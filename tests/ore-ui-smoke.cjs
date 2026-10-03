@@ -46,6 +46,9 @@ async function prepare(page,screen){
     document.querySelector('#oreUpdateBanner').hidden=true;
     document.querySelector('#userName').textContent='Leonardo Testa';
     document.querySelector('#userRole').textContent='Amministratore';
+    const adminScreen=screen!=='dayPanel';
+    document.querySelector('#panelTitle').textContent=adminScreen?'Pannello Amministratore':'Pannello Tecnico';
+    document.querySelector('#panelSubtitle').textContent=adminScreen?'Report, produttività e analisi per decisioni strategiche':'Inserisci le tue ore in pochi secondi';
     document.querySelectorAll('.side-nav-item').forEach(x=>x.hidden=false);
     document.querySelectorAll('.screen').forEach(x=>x.hidden=x.id!==screen);
 
@@ -154,6 +157,22 @@ async function prepare(page,screen){
           assert.equal(await guide.getAttribute('open'),null,`${vp.name} economics guide should start collapsed`);
           const h=await guide.evaluate(el=>el.getBoundingClientRect().height);
           assert.ok(h<105,`${vp.name} collapsed economics guide too tall: ${h}`);
+        }
+
+        if(vp.name==='phone'){
+          if(screen==='dayPanel'){
+            const dateBox=await page.locator('.tech-date-box').boundingBox();
+            const statusBox=await page.locator('.tech-day-status').boundingBox();
+            assert.ok(dateBox&&statusBox&&Math.abs(dateBox.y-statusBox.y)<3,'phone Date/Stato must share one row');
+            assert.equal(await page.locator('#manualToggleBottom').isVisible(),false,'phone duplicate add button must stay hidden');
+          }
+          if(['adminPanel','archivePanel','economicsPanel'].includes(screen)){
+            const cards=page.locator(`#${screen} .summary-card`);
+            if(await cards.count()>=2){
+              const a=await cards.nth(0).boundingBox(),b=await cards.nth(1).boundingBox();
+              assert.ok(a&&b&&Math.abs(a.y-b.y)<3,`${screen} phone KPI cards must use two columns`);
+            }
+          }
         }
 
         await page.screenshot({path:path.join(out,`${screen.replace('Panel','')}-${vp.name}.png`),fullPage:true});

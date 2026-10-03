@@ -1253,8 +1253,13 @@ body{background:var(--ui-bg)}
   #appView .page-heading h1{font-size:1.28rem!important}
   #appView .panel{padding:12px!important}
 
-  #dayPanel .tech-daybar{grid-template-columns:1fr!important}
-  #dayPanel .tech-progress{grid-column:auto!important;grid-row:auto!important}
+  #dayPanel .tech-daybar{
+    grid-template-columns:1fr 1fr!important;
+    gap:8px!important;
+  }
+  #dayPanel .tech-date-box{grid-column:1!important;grid-row:1!important}
+  #dayPanel .tech-day-status{grid-column:2!important;grid-row:1!important}
+  #dayPanel .tech-progress{grid-column:1/-1!important;grid-row:2!important}
   #dayPanel .tech-date-box,
   #dayPanel .tech-progress,
   #dayPanel .tech-day-status{min-height:62px!important}
@@ -1327,7 +1332,7 @@ body{background:var(--ui-bg)}
   #dayPanel .hours-card-footer{grid-template-columns:1fr!important}
   #dayPanel .hours-card-footer>div{justify-content:flex-start!important}
   #dayPanel .hours-card-footer .complete-badge{justify-self:start!important}
-  #dayPanel #manualToggleBottom{display:block!important;width:100%!important}
+  #dayPanel #manualToggleBottom{display:none!important}
   #dayPanel .recent-grid{grid-template-columns:1fr!important}
   #dayPanel .tech-confirm-row{
     align-items:stretch!important;
@@ -1339,16 +1344,46 @@ body{background:var(--ui-bg)}
   #archivePanel .summary-grid.four,
   #economicsPanel .summary-grid.four,
   #archivePanel .archive-detail-kpis{
-    grid-template-columns:1fr!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
     justify-content:stretch!important;
   }
-  #adminPanel .date-range{grid-template-columns:1fr!important}
+  #adminPanel .summary-card,
+  #archivePanel .summary-card,
+  #economicsPanel .summary-card{
+    grid-template-columns:32px minmax(0,1fr)!important;
+    min-height:84px!important;
+    padding:10px!important;
+    gap:9px!important;
+  }
+  #adminPanel .summary-icon,
+  #archivePanel .summary-icon,
+  #economicsPanel .summary-icon{
+    width:32px!important;
+    min-width:32px!important;
+    height:32px!important;
+  }
+  #adminPanel .summary-card strong,
+  #archivePanel .summary-card strong,
+  #economicsPanel .summary-card strong{
+    font-size:1.18rem!important;
+  }
+  #adminPanel .summary-card>div>span,
+  #archivePanel .summary-card>div>span,
+  #economicsPanel .summary-card>div>span{
+    white-space:normal!important;
+    font-size:.57rem!important;
+  }
+  #adminPanel .date-range{
+    grid-template-columns:1fr 1fr!important;
+    gap:8px!important;
+  }
   #adminPanel .crm-agent-alert{
     align-items:stretch!important;
     flex-direction:column!important;
   }
   #adminPanel .crm-agent-alert a{width:100%!important;text-align:center!important}
-  #adminPanel #loadAdmin{grid-column:auto!important}
+  #adminPanel #loadAdmin{grid-column:1/-1!important}
   #adminPanel .donut-layout{grid-template-columns:1fr!important}
   #adminPanel .explain-grid{grid-template-columns:1fr!important}
   #adminPanel .rank-bar-row{grid-template-columns:84px minmax(0,1fr) 48px!important}
