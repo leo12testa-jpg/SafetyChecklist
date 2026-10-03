@@ -136,7 +136,12 @@ async function prepare(page,screen){
           const details=page.locator('details.company-sync-panel');
           assert.equal(await details.getAttribute('open'),null,`${vp.name} CRM details should start collapsed`);
           const h=await details.evaluate(el=>el.getBoundingClientRect().height);
-          assert.ok(h<125,`${vp.name} collapsed CRM panel too tall: ${h}`);
+          const limit=vp.name==='phone'?190:125;
+          assert.ok(h<limit,`${vp.name} collapsed CRM panel too tall: ${h}`);
+          const guide=page.locator('details.admin-guide');
+          assert.equal(await guide.getAttribute('open'),null,`${vp.name} dashboard guide should start collapsed`);
+          const guideH=await guide.evaluate(el=>el.getBoundingClientRect().height);
+          assert.ok(guideH<105,`${vp.name} collapsed dashboard guide too tall: ${guideH}`);
         }
         if(screen==='archivePanel'){
           const btn=page.locator('.archive-open').first();

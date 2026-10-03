@@ -717,9 +717,41 @@ body{background:var(--ui-bg)}
   white-space:nowrap!important;
 }
 #adminPanel .company-sync-panel table{min-width:640px!important}
-#adminPanel .admin-guide{
+#adminPanel details.admin-guide{
   margin:0 0 12px!important;
-  padding:15px!important;
+  padding:0!important;
+  overflow:hidden!important;
+}
+#adminPanel .admin-guide .explain-summary{
+  list-style:none!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:14px!important;
+  padding:13px 15px!important;
+  cursor:pointer!important;
+}
+#adminPanel .admin-guide .explain-summary::-webkit-details-marker{display:none!important}
+#adminPanel .admin-guide .explain-summary h2{
+  margin:2px 0 0!important;
+  font-size:.96rem!important;
+}
+#adminPanel .admin-guide .summary-hint{
+  flex:none!important;
+  font-size:.64rem!important;
+  color:#687b8e!important;
+  font-weight:800!important;
+}
+#adminPanel .admin-guide .explain-summary::after{
+  content:"▾";
+  flex:none;
+  color:#6d8092;
+  font-size:.8rem;
+  transition:transform .15s ease;
+}
+#adminPanel details.admin-guide[open]>.explain-summary::after{transform:rotate(180deg)}
+#adminPanel details.admin-guide .explain-grid{
+  padding:0 15px 15px!important;
 }
 #adminPanel .explain-grid{
   display:grid!important;
