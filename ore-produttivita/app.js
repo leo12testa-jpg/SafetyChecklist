@@ -179,7 +179,16 @@ async function loadSyncStatus(){
     const [j,data]=await Promise.all([api("syncStatus",{date:$("#dayDate").value}),getAssignmentData()]);
     const who=j.resource?.sigla?`${j.resource.sigla} · `:"";
     const syncStamp=j.resource?.ultima_sync||j.lastSync?.created_at||"";
-    $("#crmSyncStatus").textContent=syncStamp?`${who}${fmtSyncTime(syncStamp)}`:`${who}Mai sincronizzato`;
+    const syncAge=syncStamp?Math.max(0,(Date.now()-new Date(syncStamp).getTime())/60000):Infinity;
+    const autoState=$("#crmAutoState");
+    if(autoState){
+      const healthy=syncAge<=15;
+      autoState.textContent=healthy?"AUTO":"FERMO";
+      autoState.classList.toggle("stale",!healthy);
+    }
+    $("#crmSyncStatus").textContent=syncStamp
+      ?`${syncAge<=15?"": "Ultimo dato · "}${who}${fmtSyncTime(syncStamp)}`
+      :`${who}Mai sincronizzato`;
 
     const issues=j.openIssues||[];
     const card=$("#syncIssuesCard"),box=$("#syncIssues"),count=$("#syncIssueCount");

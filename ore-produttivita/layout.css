@@ -857,6 +857,10 @@ body{background:var(--ui-bg)}
 }
 .crm-auto-label,
 .sync-state{white-space:nowrap!important}
+.crm-auto-label.stale{
+  background:#fff0dd!important;
+  color:#9a5b13!important;
+}
 
 /* =========================
    SCREEN REFINEMENTS
