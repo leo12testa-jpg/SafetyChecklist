@@ -68,3 +68,34 @@ Durante un ciclo viene inviato un heartbeat al backend ogni 4 risorse, così la 
 Come protezione aggiuntiva, se quattro risorse diverse restituiscono esattamente la stessa agenda non vuota, le successive vengono marcate come sospette invece di essere importate automaticamente. Questo evita di attribuire a più tecnici la stessa agenda nel caso in cui il cambio risorsa nel CRM non sia avvenuto correttamente.
 
 Il setup verifica anche la comparsa del primo file di stato locale dopo l'avvio della sincronizzazione.
+
+
+## Installazione a un click
+
+Il file standard da usare è:
+
+`INSTALLA_SYNC_CRM_AUTOMATICA.bat`
+
+Fa tutto lui:
+- prova a installare Python 3.12 con winget se manca;
+- scarica i componenti aggiornati dal repository;
+- installa Playwright e keyring;
+- verifica Microsoft Edge;
+- configura una sola volta l'account amministratore e la sessione CRM;
+- registra il task Windows ogni 5 minuti;
+- avvia una prima sincronizzazione invisibile;
+- verifica il file di stato dell'agente.
+
+## Diagnostica
+
+Se qualcosa non parte, eseguire:
+
+`DIAGNOSI_SYNC_CRM.bat`
+
+Mostra:
+- presenza e stato del task pianificato;
+- ultimo stato dell'agente;
+- ultime righe del log;
+- processi Python/Edge utili alla diagnosi.
+
+La web app mostra anche l'heartbeat backend dell'agente e distingue servizio attivo, fermo, parziale o sessione CRM scaduta.

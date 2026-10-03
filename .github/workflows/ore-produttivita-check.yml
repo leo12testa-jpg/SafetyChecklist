@@ -32,6 +32,10 @@ jobs:
           node --check ore-produttivita/aggiornamento.js
           python3 -m py_compile ore-produttivita/crm-sync/crm_agenda_sync.py
           python3 -m py_compile ore-produttivita/crm-sync/crm_company_agent.py
+          test -f ore-produttivita/crm-sync/INSTALLA_SYNC_CRM_AUTOMATICA.bat
+          test -f ore-produttivita/crm-sync/SETUP_SYNC_BACKGROUND.bat
+          test -f ore-produttivita/crm-sync/DIAGNOSI_SYNC_CRM.bat
+          test -f ore-produttivita/crm-sync/RUN_COMPANY_SYNC.vbs
 
           grep -q 'id="dayPanel"' ore-produttivita/index.html
           grep -q 'id="adminPanel"' ore-produttivita/index.html
