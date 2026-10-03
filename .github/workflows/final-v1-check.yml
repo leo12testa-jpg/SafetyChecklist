@@ -6,6 +6,7 @@ on:
     paths:
       - "tests/**"
       - "!tests/ore-ui-contract.test.js"
+      - "!tests/ore-ui-smoke.cjs"
       - "index.html"
       - "css/**"
       - "js/**"
