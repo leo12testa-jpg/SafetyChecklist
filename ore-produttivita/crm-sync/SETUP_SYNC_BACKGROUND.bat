@@ -37,13 +37,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "Register-ScheduledTask -TaskName $task -Action $action -Trigger $trigger -Settings $settings -Description 'Colligo Ore - sincronizzazione CRM invisibile' -Force | Out-Null"
 if errorlevel 1 goto :errore
 
+schtasks /Query /TN "Colligo Ore CRM Background" >nul 2>nul
+if errorlevel 1 (
+  echo.
+  echo [ERRORE] L'attivita pianificata non risulta registrata.
+  goto :errore
+)
+
+set "STATUS_FILE=%LOCALAPPDATA%\ColligoOreProduttivita\company-agent-status.json"
+if exist "%STATUS_FILE%" del /q "%STATUS_FILE%" >nul 2>nul
+
 echo.
 echo Avvio una prima sincronizzazione invisibile...
 wscript.exe "%SYNC_VBS%"
 
 echo.
 echo Attendo il primo stato dell'agente...
-set "STATUS_FILE=%LOCALAPPDATA%\ColligoOreProduttivita\company-agent-status.json"
 for /L %%I in (1,1,30) do (
   if exist "%STATUS_FILE%" goto :stato_trovato
   timeout /t 1 /nobreak >nul
@@ -58,6 +67,14 @@ goto :fine
 echo.
 echo Primo stato agente disponibile:
 type "%STATUS_FILE%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$s=Get-Content -Raw '%STATUS_FILE%' | ConvertFrom-Json;" ^
+  "if($s.state -in @('error','login_required')){ exit 2 } else { exit 0 }"
+if errorlevel 1 (
+  echo.
+  echo [ERRORE] Il primo avvio dell'agente non e riuscito.
+  goto :errore
+)
 
 :fine
 echo.

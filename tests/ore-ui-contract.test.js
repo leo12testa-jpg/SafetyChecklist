@@ -83,7 +83,8 @@ test('archive pagination is wired and limited to 25 rows',()=>{
 test('CRM agent alert is wired to the permanent installer',()=>{
   assert.match(html,/id="crmAgentAlert"/);
   assert.match(html,/INSTALLA_SYNC_CRM_AUTOMATICA\.bat/);
-  assert.match(app,/syncFresh===0/);
+  assert.match(app,/const heartbeatFresh=heartbeatAge<=15/);
+  assert.match(app,/const inactive=!heartbeatFresh\|\|heartbeatError/);
   assert.match(app,/Sincronizzazione CRM automatica non attiva/);
 });
 
