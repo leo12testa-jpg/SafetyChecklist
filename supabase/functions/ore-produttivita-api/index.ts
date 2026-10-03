@@ -97,7 +97,7 @@ const ACTION_ROLES: Record<string, readonly string[]> = {
   crmResources: ["admin"], crmAgentHeartbeat: ["admin"], ingestAgendaCompany: ["admin"],
   economicsCatalog: ["admin"], saveTechnicianCost: ["admin"], saveJobEconomics: ["admin"],
   adminEconomics: ["admin"], archiveJobs: ["admin"], archiveJobDetail: ["admin"],
-  adminSummary: ["admin"]
+  adminSummary: ["admin"], crmLinks: ["admin"], previewCrmLink: ["admin"], approveCrmLink: ["admin"]
 };
 function authorizeAction(user: any, action: string) {
   if (!Object.hasOwn(ACTION_ROLES, action)) bad("Operazione non riconosciuta.");
@@ -125,6 +125,75 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "");
     authorizeAction(user, action);
+
+    if (action === "crmLinks") {
+      const { data: resources, error } = await db.from("ore_risorse_crm").select("*").order("sigla_crm");
+      if (error) bad("Impossibile caricare i collegamenti CRM.", 500);
+      const usersResponse = await fetch(`${FIRESTORE}/utenti?pageSize=1000`, { headers: { authorization: `Bearer ${user.token}` } });
+      if (!usersResponse.ok) bad("Impossibile caricare gli account tecnici.", 500);
+      const usersBody = await usersResponse.json();
+      if (usersBody.nextPageToken) bad("Elenco account troppo lungo: serve paginazione.", 500);
+      const technicians = (usersBody.documents || []).map(fromDoc).filter((p:any)=>p.attivo===true && ["tecnico","admin"].includes(p.ruolo))
+        .map((p:any)=>({uid:p.uid,nome:`${p.nome || ""} ${p.cognome || ""}`.trim()}));
+      const sessions:any[]=[];
+      for(let offset=0;;offset+=1000){
+        const {data,error}=await db.from("ore_sessioni").select("id,tecnico_uid,crm_risorsa_id,origine,confermata").order("id").range(offset,offset+999);
+        if(error)bad("Impossibile contare le sessioni dei collegamenti.",500);
+        sessions.push(...(data||[]));if((data||[]).length<1000)break;
+      }
+      const {data:history,error:historyError}=await db.from("ore_audit").select("tecnico_uid,azione,entita_id,created_at,dettagli")
+        .in("azione",["collega_risorsa_crm","approva_collegamento_crm"]).order("created_at",{ascending:false}).limit(1000);
+      const {data:pending,error:pendingError}=await db.from("ore_sync_issues").select("id,tecnico_uid,data_lavoro,titolo,minuti,candidati")
+        .like("tecnico_uid","unassigned:%").eq("stato","aperta").order("data_lavoro").limit(1000);
+      if(historyError||pendingError)bad("Impossibile caricare lo storico CRM.",500);
+      const normalize=(v:any)=>String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().split(/\s+/).filter(Boolean);
+      const rows=(resources||[]).map((r:any)=>{
+        const real=Boolean(r.tecnico_uid&&!String(r.tecnico_uid).startsWith("legacy:"));
+        const own=sessions.filter(s=>s.crm_risorsa_id===r.id);
+        const historic=sessions.filter(s=>s.crm_risorsa_id===null&&s.tecnico_uid===r.tecnico_uid);
+        const events=(history||[]).filter((a:any)=>a.entita_id===r.id);
+        return {...r,stato_collegamento:r.collegamento_approvato_at?"confermato":"da confermare",
+          account_reale:real,sessioni_risorsa:own.length,sessioni_uid_storiche:historic.length,
+          storico:events,origine_collegamento:events.length?events[events.length-1].azione:"non indicato",
+          data_collegamento:events.length?events[events.length-1].created_at:null};
+      });
+      const similar:any[]=[];
+      for(let i=0;i<rows.length;i++)for(let j=i+1;j<rows.length;j++){
+        const a=normalize(rows[i].nome_crm),b=normalize(rows[j].nome_crm);
+        if(a.some((word:string)=>b.includes(word)))similar.push({a:rows[i].sigla_crm,b:rows[j].sigla_crm,motivo:"parole del nome in comune: da verificare"});
+      }
+      const multiple=technicians.map((t:any)=>({...t,risorse:rows.filter((r:any)=>r.tecnico_uid===t.uid).map((r:any)=>r.sigla_crm)})).filter((t:any)=>t.risorse.length>1);
+      return json(req,{rows,technicians,ambigui:{nomi_simili:similar,senza_tecnico:rows.filter((r:any)=>!r.account_reale).map((r:any)=>r.sigla_crm),tecnici_con_piu_risorse:multiple},pending:pending||[],limiti:{storico:(history||[]).length===1000,attivita:(pending||[]).length===1000}});
+    }
+
+    if (action === "previewCrmLink" || action === "approveCrmLink") {
+      const resourceId=String(body.resourceId||"");
+      const {data:resource,error}=await db.from("ore_risorse_crm").select("*").eq("id",resourceId).eq("attiva",true).maybeSingle();
+      if(error||!resource)bad("Risorsa non trovata.",404);
+      if(action==="previewCrmLink"){
+        const {data:sessions,error:sessionError}=await db.from("ore_sessioni")
+          .select("id,data_lavoro,tecnico_uid,tecnico_nome,minuti_effettivi,confermata,updated_at,ore_commesse(descrizione)")
+          .eq("crm_risorsa_id",resourceId).eq("confermata",false).order("data_lavoro").limit(501);
+        if(sessionError)bad("Impossibile caricare l'anteprima.",500);
+        if((sessions||[]).length>500)bad("Oltre 500 sessioni: restringere prima la riassegnazione.");
+        return json(req,{resource,sessions:sessions||[],nota:"Le sessioni storiche senza risorsa indicata e le sessioni confermate non vengono spostate."});
+      }
+      const targetUid=String(body.tecnicoUid||"").trim();
+      if(!targetUid||targetUid.startsWith("legacy:")||targetUid.includes("/"))bad("Scegli un account tecnico attivo.");
+      const response=await fetch(`${FIRESTORE}/utenti/${encodeURIComponent(targetUid)}`,{headers:{authorization:`Bearer ${user.token}`}});
+      if(!response.ok)bad("Account tecnico non trovato.",404);
+      const target=fromDoc(await response.json());
+      if(target.attivo!==true||!["admin","tecnico"].includes(target.ruolo))bad("Account tecnico non attivo.");
+      const sessions=Array.isArray(body.sessions)?body.sessions:[];
+      if(sessions.length>500||sessions.some((s:any)=>!s.id||!s.updated_at))bad("Anteprima non valida.");
+      const {data,error:saveError}=await db.rpc("ore_approva_collegamento_crm",{
+        p_resource:resourceId,p_uid:targetUid,p_name:`${target.nome||""} ${target.cognome||""}`.trim(),p_actor:user.uid,
+        p_previous_uid:body.previousUid??null,p_previous_approval:body.previousApproval??null,
+        p_sessions:sessions.map((s:any)=>({id:s.id,updated_at:s.updated_at}))
+      });
+      if(saveError)bad(saveError.message||"Impossibile approvare il collegamento.",409);
+      return json(req,data);
+    }
 
     const ensureTrackingJob = async (clienteIdRaw:any, tipologiaIdRaw:any, workDayRaw:any) => {
       const clienteId = String(clienteIdRaw || "").trim();
@@ -906,6 +975,7 @@ Deno.serve(async (req: Request) => {
         }
 
         const payload:any = {
+          crm_risorsa_id: resource.id,
           commessa_id: commessa.id,
           tecnico_uid: targetUid,
           tecnico_nome: targetName,
@@ -944,7 +1014,7 @@ Deno.serve(async (req: Request) => {
             commessa_risolta_id:commessa.id,
             resolved_at:new Date().toISOString(),
             updated_at:new Date().toISOString()
-          }).eq("tecnico_uid",targetUid).eq("crm_event_id",crmEventId);
+          }).in("tecnico_uid",[targetUid,"unassigned:"+resource.id]).eq("crm_event_id",crmEventId);
         }
 
         results.push({

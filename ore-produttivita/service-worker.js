@@ -1,11 +1,12 @@
-const CACHE_NAME = "colligo-ore-shell-20261003-203000";
+const CACHE_NAME = "colligo-ore-shell-20261003-204500";
 const CORE = [
   "./",
   "./index.html",
-  "./style.css?v=20261003-203000",
-  "./layout.css?v=20261003-203000",
-  "./app.js?v=20261003-203000",
-  "./aggiornamento.js?v=20261003-203000",
+  "./style.css?v=20261003-204500",
+  "./layout.css?v=20261003-204500",
+  "./app.js?v=20261003-204500",
+  "./crm-links.js?v=20261003-204500",
+  "./aggiornamento.js?v=20261003-204500",
   "./version.json",
   "./manifest.json",
   "../assets/icon-192.png",

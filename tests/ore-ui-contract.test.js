@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
 const html = fs.readFileSync('ore-produttivita/index.html', 'utf8');
-const app = fs.readFileSync('ore-produttivita/app.js', 'utf8');
+const app = fs.readFileSync('ore-produttivita/app.js', 'utf8') + '\n' + fs.readFileSync('ore-produttivita/crm-links.js', 'utf8');
 const updater = fs.readFileSync('ore-produttivita/aggiornamento.js', 'utf8');
 
 function hasListener(id) {

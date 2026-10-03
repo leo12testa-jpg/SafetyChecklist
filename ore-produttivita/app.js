@@ -22,6 +22,7 @@ function notify(message,type="error",ms){
   setTimeout(()=>t.remove(),ms??(type==="error"?7000:3500));
 }
 const READ_ACTIONS=new Set(["day","syncStatus","catalog","commesse","recentPersonal","adminSummary","crmResources","archiveJobs","archiveJob","economicsCatalog","adminEconomics"]);
+READ_ACTIONS.add("crmLinks");READ_ACTIONS.add("previewCrmLink");
 const API_TIMEOUT_MS=25000;
 function friendlyError(status,body){
   if(body&&body.error)return body.error;

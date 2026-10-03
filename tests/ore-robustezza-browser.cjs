@@ -41,6 +41,9 @@ async function run(role,viewport,label,extra){
       case 'confirmDay':return r.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:'Giornata già chiusa dal responsabile.'})});
       case 'adminSummary':return ok({totalMinutes:600,technicians:1,jobs:2,rows:[{data_lavoro:'2026-10-02',tecnico_nome:'Leo '+EVIL,commessa_id:'c1',minuti_effettivi:600,origine:'manuale',ore_commesse:{...job(1,'DVR sede'),stato:'completata'}}]});
       case 'crmResources':return ok({resources:[],agent:{heartbeat_at:new Date().toISOString(),state:'ok'}});
+      case 'crmLinks':return ok({rows:[{id:'r1',sigla_crm:'XX',nome_crm:'Risorsa '+EVIL,tecnico_uid:'u1',tecnico_nome:'Leo',account_reale:true,stato_collegamento:'da confermare',sessioni_risorsa:1,sessioni_uid_storiche:2}],technicians:[{uid:'u1',nome:'Leo'},{uid:'u2',nome:'Nuovo tecnico'}],ambigui:{},pending:[]});
+      case 'previewCrmLink':return ok({resource:{tecnico_uid:'u1',collegamento_approvato_at:null},sessions:[{id:'move1',tecnico_uid:'u1',data_lavoro:'2026-10-02',minuti_effettivi:60,updated_at:'2026-10-03T10:00:00Z'}],nota:'Le sessioni confermate non vengono spostate.'});
+      case 'approveCrmLink':return ok({ok:true,riassegnate:b.sessions.length});
       case 'archiveJobs':return ok({totals:{commesse:3},rows:[
         {id:'c1',stato:'completata',ore:40,tipologia:{codice:'B',nome:'DVR'},cliente:{id:'k1',ragione_sociale:'ACME'}},
         {id:'c2',stato:'completata',ore:20,tipologia:{codice:'B',nome:'DVR'},cliente:{id:'k1',ragione_sociale:'ACME'}},
@@ -110,12 +113,23 @@ async function run(role,viewport,label,extra){
     await run('tecnico',{width:390,height:844},'tecnico-mobile',async(page)=>{
       for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),false,id+' visibile al tecnico (mobile)');
     });
-    await run('admin',{width:1366,height:900},'admin-desktop',async(page)=>{
+    await run('admin',{width:1366,height:900},'admin-desktop',async(page,calls)=>{
       for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),true,id+' non visibile all\'admin');
       await page.click('#tabAdmin');await page.waitForTimeout(800);
       const prod=await page.locator('#productivityRows').innerText();
       assert.match(prod,/B · DVR/);assert.match(prod,/30 h/,'mediana sullo storico (40 e 20) = 30 h');
       assert.ok(!prod.includes('99'),'pratiche aperte escluse');
+      await page.locator('#loadCrmLinks').evaluate(el=>el.closest('details').open=true);
+      await page.click('#loadCrmLinks');
+      await page.waitForSelector('#crmLinksRows .crm-target');
+      assert.ok((await page.locator('#crmLinksRows').innerText()).includes('da confermare'));
+      await page.selectOption('#crmLinksRows .crm-target','u2');await page.click('#crmLinksRows .crm-preview');
+      await page.waitForSelector('#crmLinkPreview input');
+      assert.equal(await page.locator('#crmLinkPreview input').isChecked(),false,'nessuna riassegnazione automatica');
+      await page.check('#crmLinkPreview input');await page.click('#crmLinkPreview .crm-approve');
+      await page.waitForTimeout(300);
+      const approval=calls.find(c=>c.action==='approveCrmLink');
+      assert.equal(approval.tecnicoUid,'u2');assert.equal(approval.sessions.length,1);assert.equal(approval.sessions[0].id,'move1');
       await page.fill('#adminFrom','2026-10-10');await page.fill('#adminTo','2026-10-01');await page.click('#loadAdmin');
       await page.waitForTimeout(200);
       assert.ok(await page.locator('.toast-warn').count()>=1,'periodo invertito segnalato');

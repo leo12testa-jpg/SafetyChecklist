@@ -11,8 +11,8 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="../assets/icon-192.png">
   <link rel="apple-touch-icon" href="../assets/icon-512.png">
-  <link rel="stylesheet" href="./style.css?v=20261003-203000">
-  <link rel="stylesheet" href="./layout.css?v=20261003-203000">
+  <link rel="stylesheet" href="./style.css?v=20261003-204500">
+  <link rel="stylesheet" href="./layout.css?v=20261003-204500">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -286,6 +286,16 @@
                 </table>
               </div>
               <div id="crmResourceEmpty" class="empty" hidden>Nessuna risorsa CRM configurata.</div>
+              <section aria-labelledby="crmLinksHeading">
+                <h3 id="crmLinksHeading">Collegamenti CRM approvati</h3>
+                <p>I collegamenti esistenti restano attivi e sono da confermare. Nessun trasferimento basato sul nome.</p>
+                <button id="loadCrmLinks" type="button">Carica collegamenti e casi da verificare</button>
+                <div id="crmLinksAmbiguous" role="status"></div>
+                <div class="table-wrap"><table><thead><tr><th>Risorsa e sigla</th><th>Account collegato</th><th>Origine e data</th><th>Sessioni</th><th>Approvazione</th></tr></thead><tbody id="crmLinksRows"></tbody></table></div>
+                <div id="crmLinkPreview" hidden></div>
+                <h4>Attività senza collegamento approvato</h4>
+                <div class="table-wrap"><table><thead><tr><th>Risorsa</th><th>Data</th><th>Attività</th><th>Minuti</th></tr></thead><tbody id="crmLinkPending"></tbody></table></div>
+              </section>
             </div>
           </details>
 
@@ -558,7 +568,8 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./aggiornamento.js?v=20261003-203000"></script>
-  <script src="./app.js?v=20261003-203000"></script>
+  <script src="./aggiornamento.js?v=20261003-204500"></script>
+  <script src="./app.js?v=20261003-204500"></script>
+  <script src="./crm-links.js?v=20261003-204500"></script>
 </body>
 </html>
