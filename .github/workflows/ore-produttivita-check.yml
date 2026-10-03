@@ -80,18 +80,18 @@ jobs:
           BASE="https://leo12testa-jpg.github.io/SafetyChecklist/ore-produttivita"
 
           HTML="$(curl -fsSL "$BASE/?t=$(date +%s%N)")"
-          printf '%s' "$HTML" | grep -q "style.css?v=${ORE_BUILD}"
-          printf '%s' "$HTML" | grep -q "layout.css?v=${ORE_BUILD}"
-          printf '%s' "$HTML" | grep -q "aggiornamento.js?v=${ORE_BUILD}"
-          printf '%s' "$HTML" | grep -q "app.js?v=${ORE_BUILD}"
+          grep -q "style.css?v=${ORE_BUILD}" <<<"$HTML"
+          grep -q "layout.css?v=${ORE_BUILD}" <<<"$HTML"
+          grep -q "aggiornamento.js?v=${ORE_BUILD}" <<<"$HTML"
+          grep -q "app.js?v=${ORE_BUILD}" <<<"$HTML"
 
           LAYOUT="$(curl -fsSL "$BASE/layout.css?v=${ORE_BUILD}")"
-          printf '%s' "$LAYOUT" | grep -q -- "--ui-page:1280px"
-          printf '%s' "$LAYOUT" | grep -q "#dayPanel .issue-main"
-          printf '%s' "$LAYOUT" | grep -q "#economicsPanel .economics-layout"
+          grep -q -- "--ui-page:1280px" <<<"$LAYOUT"
+          grep -q "#dayPanel .issue-main" <<<"$LAYOUT"
+          grep -q "#economicsPanel .economics-layout" <<<"$LAYOUT"
 
           APP="$(curl -fsSL "$BASE/app.js?v=${ORE_BUILD}")"
-          ! printf '%s' "$APP" | grep -q 'colligoore://'
-          printf '%s' "$APP" | grep -q 'frontend non apre mai il CRM'
+          ! grep -q 'colligoore://' <<<"$APP"
+          grep -q 'frontend non apre mai il CRM' <<<"$APP"
 
           echo "ORE LIVE STATIC SMOKE PASS"
