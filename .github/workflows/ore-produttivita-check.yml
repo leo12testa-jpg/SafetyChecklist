@@ -111,6 +111,11 @@ jobs:
           ! grep -q 'colligoore://' <<<"$APP"
           grep -q 'frontend non apre mai il CRM' <<<"$APP"
 
+          MANIFEST="$(curl -fsSL "$BASE/manifest.json?t=$(date +%s%N)")"
+          grep -q '"display": "standalone"' <<<"$MANIFEST"
+          grep -q '"short_name": "Colligo Ore"' <<<"$MANIFEST"
+          grep -q '"start_url": "./"' <<<"$MANIFEST"
+
           echo "ORE LIVE STATIC SMOKE PASS"
 
       - name: Live Ore visual smoke
