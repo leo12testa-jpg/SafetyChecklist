@@ -401,10 +401,14 @@ async function loadAdmin(){
     $("#crmResourceEmpty").hidden=resources.length>0;
     const crmBody=$("#crmResourceRows");
     crmBody.innerHTML="";
+    let syncFresh=0,syncLate=0,syncNever=0;
     for(const r of resources){
       const lastDate=r.ultima_sync?new Date(r.ultima_sync):null;
       const last=lastDate?lastDate.toLocaleString("it-IT",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"Mai";
       const ageMinutes=lastDate?Math.max(0,(Date.now()-lastDate.getTime())/60000):Infinity;
+      if(!lastDate)syncNever++;
+      else if(ageMinutes<=15)syncFresh++;
+      else syncLate++;
       const state=!lastDate
         ?'<span class="sync-state sync-never">Mai sincronizzato</span>'
         :ageMinutes<=15
@@ -417,6 +421,9 @@ async function loadAdmin(){
         <td>${state}</td>`;
       crmBody.appendChild(tr);
     }
+    if($("#crmSyncFresh"))$("#crmSyncFresh").textContent=`${syncFresh} aggiornati`;
+    if($("#crmSyncLate"))$("#crmSyncLate").textContent=`${syncLate} in ritardo`;
+    if($("#crmSyncNever"))$("#crmSyncNever").textContent=`${syncNever} mai`;
 
     const tb=$("#adminRows");tb.innerHTML="";
     $("#adminEmpty").hidden=j.rows.length>0;
