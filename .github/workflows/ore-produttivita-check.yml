@@ -7,6 +7,7 @@ on:
       - ".github/workflows/ore-produttivita-check.yml"
       - "ore-produttivita/**"
       - "tests/ore-ui-contract.test.js"
+      - "tests/ore-ui-smoke.cjs"
   workflow_dispatch:
 
 permissions:
@@ -55,6 +56,17 @@ jobs:
 
           node --test tests/ore-ui-contract.test.js
 
+      - name: Install browser driver
+        run: npm install --no-save playwright-core@1.55.0
+
+      - name: Find Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME"
+          echo "CHROME_PATH=$CHROME" >> "$GITHUB_ENV"
+
       - name: Wait for published Ore build
         shell: bash
         run: |
@@ -95,3 +107,16 @@ jobs:
           grep -q 'frontend non apre mai il CRM' <<<"$APP"
 
           echo "ORE LIVE STATIC SMOKE PASS"
+
+      - name: Live Ore visual smoke
+        env:
+          ORE_LIVE_URL: https://leo12testa-jpg.github.io/SafetyChecklist/ore-produttivita/
+        run: node tests/ore-ui-smoke.cjs
+
+      - name: Upload Ore UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ore-ui-screenshots
+          path: reports/ore-ui/
+          if-no-files-found: ignore
