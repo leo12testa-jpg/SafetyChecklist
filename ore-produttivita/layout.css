@@ -1512,3 +1512,7 @@ body{background:var(--ui-bg)}
 #workScheduleWeek label{display:flex;flex-direction:column;gap:4px;max-width:130px}
 #workScheduleWeek input{width:100%;min-width:0}
 #workScheduleForm>label{display:inline-flex;flex-direction:column;gap:4px;margin:8px 12px 8px 0;max-width:100%}
+.phase-editor{display:flex;flex-wrap:wrap;align-items:end;gap:8px;margin-top:8px;min-width:0}
+.phase-editor label{display:flex;flex-direction:column;gap:4px;min-width:0}
+.phase-editor select,.phase-editor input{max-width:100%;width:180px}
+.phase-editor button{white-space:normal}

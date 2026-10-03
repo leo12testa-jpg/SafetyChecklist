@@ -102,3 +102,19 @@ test('festività italiane: Pasqua, lunedì Angelo e 4 ottobre solo dal 2026',()=
 test('date impossibili rifiutate, anno bisestile accettato',()=>{
   const app=backend();assert.throws(()=>vm.runInContext("dateOnly('2026-02-29')",app.context));assert.throws(()=>vm.runInContext("dateOnly('2026-04-31')",app.context));assert.equal(vm.runInContext("dateOnly('2024-02-29')",app.context),'2024-02-29');
 });
+
+test('fase: enum e proprietà della sessione controllati sul server',async()=>{
+  const invalid=backend();assert.equal((await invalid.call({action:'savePhase',id:'s1',fase:'inventata'})).status,400);assert.equal(invalid.dbCalls(),0);
+  const foreign=backend();assert.equal((await foreign.call({action:'savePhase',id:'s1',fase:'redazione',updatedAt:'2026-10-03T10:00:00Z',ruolo:'admin'})).status,403);
+});
+test('fase: versione obbligatoria e conferma umana trasmessa al database',async()=>{
+  assert.equal((await backend({owner:'u1'}).call({action:'savePhase',id:'s1',fase:'redazione'})).status,400);
+  let saved;const q={select(){return this;},eq(){return this;},maybeSingle:async()=>({data:{tecnico_uid:'u1',confermata:false}})};
+  const app=backend({database:{from:()=>q,rpc:async(name,args)=>{assert.equal(name,'ore_salva_fase');saved=args;return {data:{ok:true,updatedAt:'2026-10-03T11:00:00Z'}};}}});
+  const response=await app.call({action:'savePhase',id:'s1',fase:'trasferta',updatedAt:'2026-10-03T10:00:00Z',ruolo:'admin'});assert.equal(response.status,200);assert.equal(saved.p_phase,'trasferta');assert.equal(saved.p_admin,false);assert.equal(saved.p_actor,'u1');
+});
+test('riepilogo admin legge oltre 1000 sessioni senza troncare le fasi',async()=>{
+  const ranges=[];const database={from(table){const q={select(){return this;},gte(){return this;},lte(){return this;},order(){return this;},range(start,end){ranges.push([table,start,end]);this.start=start;return this;},then(resolve){resolve({data:table==='ore_sessioni'?Array.from({length:this.start===0?1000:1},()=>({commessa_id:'j1',fase:'trasferta',minuti_effettivi:1})):[],error:null});}};return q;}};
+  const response=await backend({role:'admin',database}).call({action:'adminSummary',from:'2026-10-01',to:'2026-10-03'});
+  assert.equal(response.status,200);assert.equal((await response.json()).rows.length,1001);assert.ok(ranges.some(r=>r[0]==='ore_sessioni'&&r[1]===1000));
+});

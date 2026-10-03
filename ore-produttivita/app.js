@@ -433,6 +433,7 @@ async function renderRecentActivities(){
 }
 let daySeq=0;
 function dayHasUnsavedWork(){
+  if(typeof phaseHasUnsavedWork==="function"&&phaseHasUnsavedWork())return true;
   if(typeof internalHasUnsavedWork==="function"&&internalHasUnsavedWork())return true;
   if([...document.querySelectorAll("#sessions .proto-hours input")].some(i=>i.value.trim()!==(i.dataset.original||"")))return true;
   if(document.querySelector("#sessions .session-edit-panel:not([hidden]), #syncIssues .issue-editor:not([hidden])"))return true;
@@ -478,7 +479,7 @@ async function loadDay(){
         <div class="proto-hours"><input aria-label="Ore effettive" value="${fmtMinutes(s.minuti_effettivi).replace(" ","")}"></div>
         <div class="proto-actions"><span class="row-state ${s.confermata?"done":""}">${s.confermata?"Confermata":"Da verificare"}</span><button class="save" type="button">Salva</button><button class="assignment-edit session-edit" type="button">Modifica</button></div><div class="session-edit-panel" hidden></div>`;
       row.querySelector(".agenda-object").textContent=note;
-      const inp=row.querySelector("input"),btn=row.querySelector(".save"),editBtn=row.querySelector(".session-edit"),editPanel=row.querySelector(".session-edit-panel");
+      const inp=row.querySelector(".proto-hours input"),btn=row.querySelector(".save"),editBtn=row.querySelector(".session-edit"),editPanel=row.querySelector(".session-edit-panel");
       inp.dataset.original=inp.value;
       inp.addEventListener("input",()=>{const changed=inp.value.trim()!==inp.dataset.original;const bad=inp.value.trim()!==""&&inputMinutes(inp.value)==null;row.classList.toggle("dirty",changed);inp.classList.toggle("invalid",bad);inp.title=bad?"Formato non valido: usa 2h30, 2:30 oppure 1,5":(changed?"= "+fmtMinutes(inputMinutes(inp.value)||0)+" · premi Invio o Salva":"")});
       inp.addEventListener("keydown",ev=>{if(ev.key==="Enter"){ev.preventDefault();btn.click()}if(ev.key==="Escape"){inp.value=inp.dataset.original;inp.dispatchEvent(new Event("input"))}});
@@ -501,6 +502,7 @@ async function loadDay(){
         }catch(e){notify(e.message)}
       });
       box.appendChild(row);
+      if(typeof addPhaseEditor==="function")addPhaseEditor(row,s,confirmed);
     });
     await Promise.all([loadSyncStatus(),renderRecentActivities()]);
   }catch(e){if(seq!==daySeq)return;$("#dayMessage").textContent=e.message;$("#dayMessage").hidden=false;renderEmpty()}
@@ -557,6 +559,7 @@ async function loadAdmin(){
     const [j,crm]=await Promise.all([api("adminSummary",{from,to}),api("crmResources")]);
     if(seq!==adminSeq)return;
     j.rows=Array.isArray(j.rows)?j.rows:[];
+    if(typeof renderPhaseSummary==="function")renderPhaseSummary(j.rows);
     const totalHours=j.totalMinutes/60;
     $("#kpiHours").textContent=totalHours.toLocaleString("it-IT",{maximumFractionDigits:1});
     $("#kpiTechs").textContent=j.technicians;

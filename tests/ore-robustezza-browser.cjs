@@ -38,6 +38,7 @@ async function run(role,viewport,label,extra){
       case 'commesse':return ok({commesse:[{id:'c1',cliente_id:'k1',tipologia_id:'t1',descrizione:'DVR sede '+EVIL,codice_lavoro:'1B'}]});
       case 'recentPersonal':return r.fulfill({status:500,body:'boom'});
       case 'saveSession':return ok({ok:true});
+      case 'savePhase':return ok({ok:true,updatedAt:'2026-10-03T11:00:00Z'});
       case 'saveInternal':return ok({ok:true,id:'int2'});
       case 'workSchedules':return ok({technicians:[{uid:'u1',nome:'Leo'}],schedules:[{tecnico_uid:'u1',tecnico_nome:'Leo',valido_dal:'2026-01-01',settimana_minuti:[240,240,240,240,240,0,0]}]});
       case 'saveWorkSchedule':return ok({ok:true,id:'schedule2'});
@@ -126,6 +127,14 @@ async function run(role,viewport,label,extra){
       await page.click('#saveInternal');await page.waitForTimeout(300);
       const internal=calls.find(c=>c.action==='saveInternal');assert.equal(internal.categoria,'assenza');assert.equal(internal.minutiEffettivi,150);assert.equal('motivo' in internal,false);
       assert.equal(await page.locator('#internalDuration').inputValue(),'');
+      const phase=page.locator('#sessions .phase-select').first();
+      assert.equal(await phase.inputValue(),'','nessuna deduzione dalla parola sopralluogo');
+      await phase.selectOption('trasferta');assert.equal(calls.filter(c=>c.action==='savePhase').length,0,'fase non salvata senza conferma');
+      await page.locator('#sessions .proto-hours input').first().fill('1h45');
+      await page.locator('#sessions .save-phase').first().click();await page.waitForTimeout(250);
+      assert.equal(calls.find(c=>c.action==='savePhase').fase,'trasferta');
+      assert.equal(await page.locator('#sessions .proto-hours input').first().inputValue(),'1h45','salvare fase preserva ore aperte');
+      assert.equal(await phase.inputValue(),'trasferta');
     });
     await run('tecnico',{width:390,height:844},'tecnico-mobile',async(page)=>{
       for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),false,id+' visibile al tecnico (mobile)');

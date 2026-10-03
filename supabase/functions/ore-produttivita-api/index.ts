@@ -121,13 +121,15 @@ const ACTION_ROLES: Record<string, readonly string[]> = {
   economicsCatalog: ["admin"], saveTechnicianCost: ["admin"], saveJobEconomics: ["admin"],
   adminEconomics: ["admin"], archiveJobs: ["admin"], archiveJobDetail: ["admin"],
   adminSummary: ["admin"], crmLinks: ["admin"], previewCrmLink: ["admin"], approveCrmLink: ["admin"],
-  saveInternal: ["admin", "tecnico"], workSchedules: ["admin"], saveWorkSchedule: ["admin"]
+  saveInternal: ["admin", "tecnico"], workSchedules: ["admin"], saveWorkSchedule: ["admin"],
+  savePhase: ["admin", "tecnico"]
 };
 function authorizeAction(user: any, action: string) {
   if (!Object.hasOwn(ACTION_ROLES, action)) bad("Operazione non riconosciuta.");
   if (!ACTION_ROLES[action].includes(user.profile.ruolo)) bad("Operazione riservata agli amministratori.", 403);
 }
 const INTERNAL_CATEGORIES = new Set(["formazione_interna","amministrazione","commerciale_preventivi","aggiornamento_normativo","riunioni_interne","altro_interno","assenza"]);
+const WORK_PHASES = new Set(["sopralluogo","trasferta","redazione","revisione","riunione_cliente","misurazioni","formazione_erogata","altro"]);
 function billability(rows:any[]) {
   const byTech=new Map<string,any>();
   let billable=0,denominator=0,absence=0;
@@ -163,6 +165,19 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "");
     authorizeAction(user, action);
+
+    if (action === "savePhase") {
+      const id=String(body.id||""),phase=body.fase===null||body.fase===""?null:String(body.fase||"");
+      if(!id||(phase!==null&&!WORK_PHASES.has(phase)))bad("Fase di lavoro non valida.");
+      const {data:current,error}=await db.from("ore_sessioni").select("tecnico_uid,confermata").eq("id",id).maybeSingle();
+      if(error||!current)bad("Sessione non trovata.",404);
+      if(current.tecnico_uid!==user.uid&&user.profile.ruolo!=="admin")bad("Non autorizzato.",403);
+      if(current.confermata&&user.profile.ruolo!=="admin")bad("Giornata confermata: serve sblocco amministratore.",403);
+      if(!body.updatedAt||!Number.isFinite(Date.parse(String(body.updatedAt))))bad("Versione della sessione non valida: ricarica.");
+      const {data,error:saveError}=await db.rpc("ore_salva_fase",{p_id:id,p_phase:phase,p_actor:user.uid,p_admin:user.profile.ruolo==="admin",p_expected:body.updatedAt,p_reason:String(body.motivo||"").trim().slice(0,300)||null});
+      if(saveError)bad(saveError.message||"Impossibile salvare la fase.",409);
+      return json(req,data);
+    }
 
     if (action === "workSchedules") {
       const {data:schedules,error}=await db.from("ore_orari_tecnici").select("*").order("valido_dal",{ascending:false});
@@ -389,7 +404,7 @@ Deno.serve(async (req: Request) => {
       await bindCallerResource(db,user);
       const day = dateOnly(body.date);
       const { data, error } = await db.from("ore_sessioni")
-        .select("id,data_lavoro,inizio,fine,minuti_agenda,minuti_effettivi,origine,crm_event_id,crm_oggetto,attivita_rilevata,modificata_manualmente,motivo_modifica,confermata,commessa_id,ore_commesse(codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome))")
+        .select("id,data_lavoro,inizio,fine,minuti_agenda,minuti_effettivi,origine,crm_event_id,crm_oggetto,attivita_rilevata,modificata_manualmente,motivo_modifica,confermata,commessa_id,fase,updated_at,ore_commesse(codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome))")
         .eq("tecnico_uid", user.uid).eq("data_lavoro", day).order("inizio", { ascending: true });
       if (error) bad("Impossibile caricare la giornata.", 500);
       const {data:activities,error:activitiesError}=await db.from("ore_rendicontazioni").select("*").eq("tecnico_uid",user.uid).eq("data_lavoro",day);
@@ -1936,11 +1951,14 @@ Deno.serve(async (req: Request) => {
     if (action === "adminSummary") {
       requireAdmin(user);
       const from = dateOnly(body.from), to = dateOnly(body.to);
-      const { data, error } = await db.from("ore_sessioni")
-        .select("tecnico_uid,tecnico_nome,data_lavoro,minuti_effettivi,origine,commessa_id,ore_commesse(codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome))")
-        .gte("data_lavoro", from).lte("data_lavoro", to).limit(10000);
-      if (error) bad("Impossibile generare il riepilogo.", 500);
-      const rows = data || [];
+      const rows:any[]=[];
+      for(let offset=0;;offset+=1000){
+        const {data,error}=await db.from("ore_sessioni")
+          .select("tecnico_uid,tecnico_nome,data_lavoro,minuti_effettivi,origine,commessa_id,fase,ore_commesse(codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome))")
+          .gte("data_lavoro",from).lte("data_lavoro",to).order("id").range(offset,offset+999);
+        if(error)bad("Impossibile generare il riepilogo completo.",500);
+        rows.push(...(data||[]));if((data||[]).length<1000)break;
+      }
       const activities:any[]=[];
       for(let offset=0;;offset+=1000){
         const {data,error}=await db.from("ore_rendicontazioni").select("*").gte("data_lavoro",from).lte("data_lavoro",to).order("id").order("tipo_record").range(offset,offset+999);

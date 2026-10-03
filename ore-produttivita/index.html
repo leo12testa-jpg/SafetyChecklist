@@ -11,8 +11,8 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="../assets/icon-192.png">
   <link rel="apple-touch-icon" href="../assets/icon-512.png">
-  <link rel="stylesheet" href="./style.css?v=20261003-211000">
-  <link rel="stylesheet" href="./layout.css?v=20261003-211000">
+  <link rel="stylesheet" href="./style.css?v=20261003-212000">
+  <link rel="stylesheet" href="./layout.css?v=20261003-212000">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -343,6 +343,7 @@
               <div class="panel-heading compact"><div><span class="eyebrow">PREVENTIVAZIONE</span><h2>Tempo per tipologia</h2><p>Pratiche completate dell’intero storico, con le ore complessive di ciascuna (indipendente dal periodo filtrato).</p></div></div>
               <div class="table-wrap">
                 <table><thead><tr><th>Tipo</th><th>Chiuse</th><th>Media</th><th>Mediana</th><th>Range</th></tr></thead><tbody id="productivityRows"></tbody></table>
+                <table><caption>Ore per fase e tipologia nel periodo selezionato</caption><thead><tr><th>Tipologia</th><th>Fase</th><th>Ore</th></tr></thead><tbody id="phaseSummaryRows"></tbody></table>
               </div>
               <div id="productivityEmpty" class="empty" hidden>Nessun documento completato classificato.</div>
             </div>
@@ -594,10 +595,11 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./aggiornamento.js?v=20261003-211000"></script>
-  <script src="./app.js?v=20261003-211000"></script>
-  <script src="./crm-links.js?v=20261003-211000"></script>
-  <script src="./internal-activities.js?v=20261003-211000"></script>
-  <script src="./work-schedules.js?v=20261003-211000"></script>
+  <script src="./aggiornamento.js?v=20261003-212000"></script>
+  <script src="./app.js?v=20261003-212000"></script>
+  <script src="./crm-links.js?v=20261003-212000"></script>
+  <script src="./internal-activities.js?v=20261003-212000"></script>
+  <script src="./work-schedules.js?v=20261003-212000"></script>
+  <script src="./work-phases.js?v=20261003-212000"></script>
 </body>
 </html>
