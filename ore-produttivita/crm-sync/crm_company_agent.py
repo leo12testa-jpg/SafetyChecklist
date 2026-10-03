@@ -431,6 +431,15 @@ if __name__=="__main__":
         asyncio.run(main())
     except Exception as exc:
         write_status("error",str(exc))
+        if "--setup" not in sys.argv:
+            try:
+                if CONFIG_FILE.exists():
+                    username=json.loads(CONFIG_FILE.read_text(encoding="utf-8")).get("username","").strip()
+                    if username:
+                        token=app_token(username, interactive=False)
+                        api(token,"crmAgentHeartbeat",state="error",message=str(exc)[:300])
+            except Exception:
+                pass
         if "--setup" in sys.argv:
             print("\nERRORE:",exc)
             input("\nPremi INVIO per chiudere.")
