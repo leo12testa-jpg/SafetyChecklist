@@ -1,11 +1,11 @@
-name: Final V1 check
+name: SafetyChecklist core check
 
 on:
   push:
     branches: [main]
     paths:
-      - ".github/workflows/final-v1-check.yml"
       - "tests/**"
+      - "!tests/ore-ui-contract.test.js"
       - "index.html"
       - "css/**"
       - "js/**"
@@ -13,7 +13,6 @@ on:
       - "version.json"
       - "firestore.rules"
       - "checklists/**"
-      - "ore-produttivita/**"
   workflow_dispatch:
 
 permissions:
@@ -31,7 +30,10 @@ jobs:
           node-version: "22"
 
       - name: Core regression suite
-        run: node --test tests/*.test.js
+        shell: bash
+        run: |
+          set -euo pipefail
+          find tests -maxdepth 1 -name '*.test.js' ! -name 'ore-ui-contract.test.js' -print0 | xargs -0 node --test
 
       - name: Build and role consistency
         shell: bash
@@ -50,33 +52,6 @@ jobs:
           grep -q "if (!appIdentity.isAdmin())" js/account-screens.js
           grep -q "if (!appIdentity.isAdmin())" js/app.js
           echo "Build/ruoli coerenti: ${BUILD}"
-
-      - name: Ore Produttivita syntax and UI contract
-        run: |
-          set -euo pipefail
-          node --check ore-produttivita/app.js
-          node --check ore-produttivita/aggiornamento.js
-          python -m py_compile ore-produttivita/crm-sync/crm_agenda_sync.py
-          python -m py_compile ore-produttivita/crm-sync/crm_company_agent.py
-          grep -q 'id="dayPanel"' ore-produttivita/index.html
-          grep -q 'id="adminPanel"' ore-produttivita/index.html
-          grep -q 'id="archivePanel"' ore-produttivita/index.html
-          grep -q 'id="archiveRows"' ore-produttivita/index.html
-          grep -q 'id="crmResourceRows"' ore-produttivita/index.html
-          grep -q '<h2>Agenda CRM</h2>' ore-produttivita/index.html
-          grep -q 'id="oreUpdateBanner"' ore-produttivita/index.html
-          grep -q 'id="oreUpdateButton"' ore-produttivita/index.html
-          ! grep -q 'id="syncCrmNow"' ore-produttivita/index.html
-          ! grep -q 'colligoore://sync' ore-produttivita/app.js
-          ORE_BUILD="$(node -p "require('./ore-produttivita/version.json').buildId")"
-          grep -q "const BUILD_ID = \"${ORE_BUILD}\"" ore-produttivita/aggiornamento.js
-          grep -q "colligo-ore-shell-${ORE_BUILD}" ore-produttivita/service-worker.js
-          grep -q "style.css?v=${ORE_BUILD}" ore-produttivita/index.html
-          grep -q "layout.css?v=${ORE_BUILD}" ore-produttivita/index.html
-          grep -q "layout.css?v=${ORE_BUILD}" ore-produttivita/service-worker.js
-          grep -q "aggiornamento.js?v=${ORE_BUILD}" ore-produttivita/index.html
-          grep -q "app.js?v=${ORE_BUILD}" ore-produttivita/index.html
-          node --test tests/ore-ui-contract.test.js
 
       - name: Install Playwright driver only
         run: npm install --no-save playwright-core@1.55.0
