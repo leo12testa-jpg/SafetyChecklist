@@ -1,0 +1,125 @@
+// Test end-to-end dell'app Ore con backend e Firebase simulati (nessun dato reale).
+// Uso: NODE_PATH=$(npm root -g) node tests/ore-robustezza-browser.cjs
+const http=require('node:http'),fs=require('node:fs'),path=require('node:path');
+const assert=require('node:assert/strict');
+const {chromium}=require('playwright');
+const ROOT=process.cwd(),OUT=path.join(ROOT,'reports','ore-ui');fs.mkdirSync(OUT,{recursive:true});
+const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.png':'image/png'};
+const server=http.createServer((q,r)=>{let p=path.join(ROOT,decodeURIComponent(q.url.split('?')[0]));if(p.endsWith(path.sep))p+='index.html';fs.readFile(p,(e,d)=>{if(e){r.writeHead(404);r.end();return}r.writeHead(200,{'content-type':types[path.extname(p)]||'application/octet-stream'});r.end(d)})});
+
+const FIREBASE_STUB=role=>`(function(){const user={uid:"u1",getIdToken:async()=>"tok"};
+const auth=()=>({setPersistence:()=>Promise.resolve(),onAuthStateChanged:cb=>setTimeout(()=>cb(user),0),currentUser:user,signOut:async()=>{},signInWithEmailAndPassword:async()=>{}});
+auth.Auth={Persistence:{LOCAL:"local"}};
+window.firebase={initializeApp(){},auth,firestore:()=>({collection:()=>({doc:()=>({get:async()=>({exists:true,data:()=>({attivo:true,ruolo:"${role}",nome:"Leo",cognome:"Test",username:"leo.test"})})})})})};})();`;
+const EVIL='<img src=x onerror="window.__xss=1">';
+const iso=h=>`2026-10-03T${String(h).padStart(2,'0')}:00:00Z`;
+const job=(id,desc)=>({descrizione:desc,codice_commessa_crm:'CM00'+id,cliente_id:'k1',ore_clienti:{codice_breve:'1',ragione_sociale:'ACME & Figli '+EVIL},ore_tipologie:{codice:'B',nome:'DVR'}});
+
+async function run(role,viewport,label,extra){
+  const browser=await chromium.launch();
+  const ctx=await browser.newContext({viewport,serviceWorkers:'block'});
+  const page=await ctx.newPage();
+  const errors=[],calls=[];
+  page.on('pageerror',e=>errors.push('pageerror: '+e.message));
+  page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource|produttivit|recent activities/.test(m.text()))errors.push('console: '+m.text())});
+  await page.route('**/js/vendor/firebase-app-compat.js',r=>r.fulfill({contentType:'text/javascript',body:FIREBASE_STUB(role)}));
+  await page.route(/firebase-(firestore|auth)-compat\.js/,r=>r.fulfill({contentType:'text/javascript',body:''}));
+  await page.route('**/functions/v1/ore-produttivita-api',async r=>{
+    const b=JSON.parse(r.request().postData()||'{}');calls.push(b);
+    const ok=o=>r.fulfill({contentType:'application/json',body:JSON.stringify(o)});
+    switch(b.action){
+      case 'day':{
+        if(b.date==='2026-10-01'){await new Promise(x=>setTimeout(x,1500));return ok({totalMinutes:60,sessions:[{id:'old',origine:'manuale',minuti_effettivi:60,commessa_id:'c9',ore_commesse:job(9,'RISPOSTA VECCHIA')}]})}
+        return ok({totalMinutes:270,dayStatus:{stato:'aperta'},sessions:[
+          {id:'s1',origine:'crm_agenda',inizio:iso(7),fine:iso(9),minuti_agenda:120,minuti_effettivi:150,commessa_id:'c1',crm_oggetto:'Sopralluogo '+EVIL,ore_commesse:job(1,'DVR sede '+EVIL)},
+          {id:'s2',origine:'manuale',minuti_effettivi:120,commessa_id:'c2',ore_commesse:job(2,'DUVRI appalto pulizie')}]});}
+      case 'syncStatus':return ok({resource:{sigla:'LT',ultima_sync:new Date().toISOString()},openIssues:[{id:'i1',codice_lavoro:'1B',titolo:'Riunione '+EVIL,minuti:30,inizio:iso(10),fine:iso(10),candidati:[]}]});
+      case 'catalog':return ok({clienti:[{id:'k1',codice_breve:'1',ragione_sociale:'ACME & Figli '+EVIL}],tipologie:[{id:'t1',codice:'B',nome:'DVR'}]});
+      case 'commesse':return ok({commesse:[{id:'c1',cliente_id:'k1',tipologia_id:'t1',descrizione:'DVR sede '+EVIL,codice_lavoro:'1B'}]});
+      case 'recentPersonal':return r.fulfill({status:500,body:'boom'});
+      case 'saveSession':return ok({ok:true});
+      case 'confirmDay':return r.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:'Giornata già chiusa dal responsabile.'})});
+      case 'adminSummary':return ok({totalMinutes:600,technicians:1,jobs:2,rows:[{data_lavoro:'2026-10-02',tecnico_nome:'Leo '+EVIL,commessa_id:'c1',minuti_effettivi:600,origine:'manuale',ore_commesse:{...job(1,'DVR sede'),stato:'completata'}}]});
+      case 'crmResources':return ok({resources:[],agent:{heartbeat_at:new Date().toISOString(),state:'ok'}});
+      case 'archiveJobs':return ok({totals:{commesse:3},rows:[
+        {id:'c1',stato:'completata',ore:40,tipologia:{codice:'B',nome:'DVR'},cliente:{id:'k1',ragione_sociale:'ACME'}},
+        {id:'c2',stato:'completata',ore:20,tipologia:{codice:'B',nome:'DVR'},cliente:{id:'k1',ragione_sociale:'ACME'}},
+        {id:'c3',stato:'in_lavorazione',ore:99,tipologia:{codice:'B',nome:'DVR'},cliente:{id:'k1',ragione_sociale:'ACME'}}]});
+      default:return ok({});
+    }
+  });
+  await page.goto(`http://127.0.0.1:${server.address().port}/ore-produttivita/`);
+  await page.waitForSelector('#sessions .proto-hour-row',{timeout:10000});
+  await page.waitForTimeout(600);
+  await extra(page,calls);
+  assert.equal(await page.evaluate(()=>window.__xss),undefined,'XSS eseguito!');
+  assert.equal(await page.locator('#appView img[src="x"]').count(),0,'tag img iniettato nel DOM');
+  const m=await page.evaluate(()=>({vw:innerWidth,doc:document.documentElement.scrollWidth}));
+  assert.ok(m.doc<=m.vw+2,`${label}: overflow orizzontale ${JSON.stringify(m)}`);
+  await page.screenshot({path:path.join(OUT,`robustezza-${label}.png`),fullPage:true});
+  assert.deepEqual(errors,[],`${label}: errori JS`);
+  await browser.close();
+  console.log('ok -',label);
+}
+
+(async()=>{
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  try{
+    await run('tecnico',{width:1366,height:900},'tecnico-desktop',async(page,calls)=>{
+      // le schede riservate all'amministratore non devono comparire al tecnico
+      for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),false,id+' visibile al tecnico');
+      // testo del CRM mostrato come testo
+      assert.ok((await page.locator('#sessions').innerText()).includes('<img src=x'),'il testo pericoloso deve apparire come testo');
+      // 1h30 -> 90 minuti, Invio salva
+      const inp=page.locator('#sessions .proto-hours input').first();
+      await inp.fill('1h30');
+      assert.ok(await page.locator('#sessions .proto-hour-row.dirty').count()===1,'riga modificata evidenziata');
+      // tornare sulla scheda NON deve cancellare la modifica
+      const before=calls.filter(c=>c.action==='day').length;
+      await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+      await page.waitForTimeout(900);
+      assert.equal(calls.filter(c=>c.action==='day').length,before,'ricarica fatta nonostante modifiche aperte');
+      assert.equal(await inp.inputValue(),'1h30');
+      await inp.press('Enter');
+      await page.waitForTimeout(500);
+      const save=calls.find(c=>c.action==='saveSession');
+      assert.equal(save?.minutiEffettivi,90,'salvati 90 minuti');
+      // formato errato: niente chiamata al server
+      const n=calls.filter(c=>c.action==='saveSession').length;
+      await page.locator('#sessions .proto-hours input').first().fill('2h75');
+      await page.locator('#sessions .save').first().click();
+      await page.waitForTimeout(300);
+      assert.equal(calls.filter(c=>c.action==='saveSession').length,n);
+      assert.ok(await page.locator('.toast-warn').count()>=1,'avviso formato');
+      await page.locator('#sessions .proto-hours input').first().press('Escape');
+      // conferma: chiede conferma per attività non abbinate, poi mostra errore leggibile del server
+      page.once('dialog',d=>d.accept());
+      await page.click('#confirmDay');
+      await page.waitForTimeout(500);
+      assert.ok((await page.locator('.toast-error').innerText()).includes('Giornata già chiusa'),'errore server leggibile');
+      // cambio data veloce: la risposta lenta e vecchia non deve sovrascrivere
+      await page.fill('#dayDate','2026-10-01');await page.dispatchEvent('#dayDate','change');
+      await page.fill('#dayDate','2026-10-03');await page.dispatchEvent('#dayDate','change');
+      await page.waitForTimeout(2000);
+      assert.equal((await page.locator('#sessions').innerText()).includes('RISPOSTA VECCHIA'),false,'risposta vecchia mostrata');
+      // anteprima durata nell'inserimento manuale
+      await page.click('#manualToggle');await page.fill('#manualDuration','2:30');
+      assert.equal(await page.locator('#manualCard .duration-preview').innerText(),'= 2h 30m');
+      await page.fill('#manualDuration','');await page.click('#manualClose');
+    });
+    await run('tecnico',{width:390,height:844},'tecnico-mobile',async(page)=>{
+      for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),false,id+' visibile al tecnico (mobile)');
+    });
+    await run('admin',{width:1366,height:900},'admin-desktop',async(page)=>{
+      for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),true,id+' non visibile all\'admin');
+      await page.click('#tabAdmin');await page.waitForTimeout(800);
+      const prod=await page.locator('#productivityRows').innerText();
+      assert.match(prod,/B · DVR/);assert.match(prod,/30 h/,'mediana sullo storico (40 e 20) = 30 h');
+      assert.ok(!prod.includes('99'),'pratiche aperte escluse');
+      await page.fill('#adminFrom','2026-10-10');await page.fill('#adminTo','2026-10-01');await page.click('#loadAdmin');
+      await page.waitForTimeout(200);
+      assert.ok(await page.locator('.toast-warn').count()>=1,'periodo invertito segnalato');
+    });
+    console.log('TUTTI I TEST BROWSER SUPERATI');
+  }finally{server.close()}
+})().catch(e=>{console.error('FALLITO:',e.message);server.close();process.exit(1)});

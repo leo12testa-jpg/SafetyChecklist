@@ -1479,3 +1479,25 @@ body{background:var(--ui-bg)}
   #economicsPanel .job-economics-form .job-picker,
   #economicsPanel .job-economics-form .job-note{grid-column:auto!important}
 }
+
+/* === Robustezza: notifiche, righe modificate, anteprima durata === */
+.toast-host{position:fixed;right:16px;top:calc(76px + env(safe-area-inset-top,0px));z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:min(420px,calc(100vw - 32px));pointer-events:none}
+.toast{pointer-events:auto;display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:12px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-left:4px solid var(--danger);box-shadow:var(--shadow);font-size:.9rem;line-height:1.35;animation:toastIn .18s ease-out}
+.toast-ok{border-left-color:var(--success)}
+.toast-warn{border-left-color:var(--warning);background:var(--warning-bg)}
+.toast-close{margin-left:auto;border:0;background:transparent;color:var(--muted);font-size:1.1rem;line-height:1;cursor:pointer;padding:0 2px}
+@keyframes toastIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+#sessions .proto-hour-row.dirty{box-shadow:inset 3px 0 0 var(--warning);background:var(--warning-bg)}
+#sessions .proto-hour-row.dirty .save{background:var(--primary);color:#fff;border-color:var(--primary)}
+#sessions .proto-hours input.invalid,.assignment-input.invalid{border-color:var(--danger)!important;outline-color:var(--danger)}
+.duration-preview{display:block;margin-top:4px;font-size:.78rem;color:var(--success);font-weight:600;min-height:1em}
+.duration-preview.bad{color:var(--danger)}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}}
+/* Piede barra laterale: versione sopra, nome app su una riga senza tagli */
+#appView .sidebar-foot{flex-wrap:wrap!important;row-gap:6px!important}
+#appView .sidebar-foot .ore-version{flex-basis:100%;margin:0!important}
+#appView .sidebar-foot>div{min-width:0}
+#appView .sidebar-foot strong{font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Un elemento con l'attributo hidden resta nascosto anche se una regola #appView forza display:flex/grid
+   (prima i tecnici vedevano le schede Dashboard, Attività e Preventivi riservate all'amministratore). */
+#appView [hidden],#appView .side-nav-item[hidden]{display:none!important}

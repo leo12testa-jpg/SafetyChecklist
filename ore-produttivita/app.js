@@ -6,6 +6,31 @@ const authPersistence=firebase.auth()
   .setPersistence(firebase.auth.Auth.Persistence.LOCAL)
   .catch(error=>{console.error("Persistenza sessione",error)});
 const $=s=>document.querySelector(s);
+// --- Robustezza: escaping HTML, notifiche, API con timeout --------------------
+class SafeHTML{constructor(v){this.v=String(v)}toString(){return this.v}}
+function esc(v){if(v instanceof SafeHTML)return v.v;if(Array.isArray(v))return v.map(esc).join("");return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function raw(v){return new SafeHTML(v??"")}
+function html(strings,...values){let out=strings[0];values.forEach((v,i)=>{out+=esc(v)+strings[i+1]});return new SafeHTML(out)}
+function notify(message,type="error",ms){
+  let host=document.getElementById("toastHost");
+  if(!host){host=document.createElement("div");host.id="toastHost";host.className="toast-host";host.setAttribute("role","status");host.setAttribute("aria-live","polite");document.body.appendChild(host)}
+  const text=String(message||"Operazione non riuscita.");
+  if([...host.children].some(t=>t.dataset.text===text))return;
+  const t=document.createElement("div");t.className="toast toast-"+type;t.dataset.text=text;t.textContent=text;
+  const close=document.createElement("button");close.type="button";close.className="toast-close";close.setAttribute("aria-label","Chiudi");close.textContent="×";close.addEventListener("click",()=>t.remove());
+  t.appendChild(close);host.appendChild(t);
+  setTimeout(()=>t.remove(),ms??(type==="error"?7000:3500));
+}
+const READ_ACTIONS=new Set(["day","syncStatus","catalog","commesse","recentPersonal","adminSummary","crmResources","archiveJobs","archiveJob","economicsCatalog","adminEconomics"]);
+const API_TIMEOUT_MS=25000;
+function friendlyError(status,body){
+  if(body&&body.error)return body.error;
+  if(status===401||status===403)return "Sessione scaduta o permessi insufficienti. Esci e rientra.";
+  if(status===404)return "Funzione del server non trovata. Aggiorna l’app.";
+  if(status===429)return "Troppe richieste ravvicinate. Riprova tra qualche secondo.";
+  if(status>=500)return "Il server non risponde correttamente. Riprova tra poco.";
+  return "Richiesta non riuscita ("+status+").";
+}
 const loginView=$("#loginView"),appView=$("#appView"),loginForm=$("#loginForm"),loginError=$("#loginError"),loginBtn=$("#loginBtn");
 let profile=null;
 function internalEmail(v){const u=String(v||"").trim().toLowerCase();if(!/^[a-z0-9][a-z0-9._-]{1,38}[a-z0-9]$/.test(u)||u.includes(".."))throw new Error("Username non valido.");return u+"@safetychecklist.local"}
@@ -16,9 +41,47 @@ const moneyFmt=new Intl.NumberFormat("it-IT",{style:"currency",currency:"EUR",mi
 function fmtMoney(v){return v===null||v===undefined||!Number.isFinite(Number(v))?"—":moneyFmt.format(Number(v))}
 function numberInput(v){if(v===null||v===undefined||String(v).trim()==="")return null;const n=Number(String(v).replace(",",".").trim());return Number.isFinite(n)?n:null}
 function median(values){const a=[...values].sort((x,y)=>x-y),n=a.length;if(!n)return 0;const m=Math.floor(n/2);return n%2?a[m]:(a[m-1]+a[m])/2}
-function inputMinutes(v){const s=String(v||"").trim().toLowerCase().replace(/\s+/g,"");if(/^\d+$/.test(s))return Number(s);const h=(s.match(/(\d+)h/)||[])[1];const m=(s.match(/(\d+)m/)||[])[1];if(h==null&&m==null)return null;const n=Number(h||0)*60+Number(m||0);return Number.isFinite(n)&&n<=1440?n:null}
+function inputMinutes(v){
+  let s=String(v??"").trim().toLowerCase().replace(/\s+/g,"").replace(/or[ea]$/,"h").replace(/min(uti|uto)?$/,"m");
+  if(!s)return null;
+  let n=null,m;
+  if((m=s.match(/^(\d{1,2}):([0-5]\d)$/)))n=Number(m[1])*60+Number(m[2]);
+  else if((m=s.match(/^(\d+(?:[.,]\d+)?)h$/)))n=Math.round(Number(m[1].replace(",","."))*60);
+  else if((m=s.match(/^(\d+)h(\d{1,2})m?$/))){if(Number(m[2])>59)return null;n=Number(m[1])*60+Number(m[2])}
+  else if((m=s.match(/^(\d+)m$/)))n=Number(m[1]);
+  else if((m=s.match(/^(\d+(?:[.,]\d+)?)$/))){const x=Number(m[1].replace(",","."));n=x<=12?Math.round(x*60):(Number.isInteger(x)?x:null)}
+  return n!=null&&Number.isFinite(n)&&n>=0&&n<=1440?n:null;
+}
+function durationHint(input){
+  if(!input||input.dataset.hintBound)return;
+  input.dataset.hintBound="1";
+  const hint=document.createElement("small");hint.className="duration-preview";hint.setAttribute("aria-live","polite");
+  input.insertAdjacentElement("afterend",hint);
+  const upd=()=>{const t=input.value.trim();if(!t){hint.textContent="";hint.classList.remove("bad");return}const m=inputMinutes(t);hint.textContent=m==null?"Formato non valido (es. 2h30, 2:30, 1,5)":"= "+fmtMinutes(m);hint.classList.toggle("bad",m==null)};
+  input.addEventListener("input",upd);upd();
+}
 async function token(){const u=firebase.auth().currentUser;if(!u)throw new Error("Sessione scaduta.");return u.getIdToken()}
-async function api(action,body={}){const r=await fetch(API,{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${await token()}`},body:JSON.stringify({action,...body})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"Richiesta non riuscita.");return j}
+async function api(action,body={},attempt=0){
+  if(navigator.onLine===false)throw new Error("Sei offline: controlla la connessione e riprova.");
+  const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),API_TIMEOUT_MS);
+  let r;
+  try{
+    r=await fetch(API,{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${await token()}`},body:JSON.stringify({action,...body}),signal:ctrl.signal});
+  }catch(e){
+    clearTimeout(timer);
+    if(e&&e.message==="Sessione scaduta.")throw e;
+    if(READ_ACTIONS.has(action)&&attempt<1){await new Promise(res=>setTimeout(res,800));return api(action,body,attempt+1)}
+    throw new Error(e&&e.name==="AbortError"?"Il server non ha risposto in tempo. Riprova.":"Connessione al server non riuscita. Riprova.");
+  }
+  clearTimeout(timer);
+  const j=await r.json().catch(()=>null);
+  if(!r.ok){
+    if(READ_ACTIONS.has(action)&&r.status>=500&&attempt<1){await new Promise(res=>setTimeout(res,800));return api(action,body,attempt+1)}
+    throw new Error(friendlyError(r.status,j));
+  }
+  if(!j||typeof j!=="object")throw new Error("Risposta del server non valida.");
+  return j;
+}
 async function loadProfile(user){const snap=await db.collection("utenti").doc(user.uid).get({source:"server"});if(!snap.exists)throw new Error("Profilo utente non disponibile.");const p=snap.data();if(p.attivo!==true||!["admin","tecnico"].includes(p.ruolo))throw new Error("Account non attivo.");return {...p,uid:user.uid}}
 function showLogin(msg=""){profile=null;loginView.hidden=false;appView.hidden=true;loginError.textContent=msg;loginError.hidden=!msg}
 async function showApp(p){profile=p;loginView.hidden=true;appView.hidden=false;$("#userName").textContent=[p.nome,p.cognome].filter(Boolean).join(" ")||p.username;$("#userRole").textContent=p.ruolo==="admin"?"Amministratore":"Tecnico";$("#tabAdmin").hidden=p.ruolo!=="admin";$("#tabArchive").hidden=p.ruolo!=="admin";$("#tabEconomics").hidden=p.ruolo!=="admin";$("#panelTitle").textContent=p.ruolo==="admin"?"Pannello Amministratore":"Pannello Tecnico";$("#panelSubtitle").textContent=p.ruolo==="admin"?"Report, produttività e analisi per decisioni strategiche":"Inserisci le tue ore in pochi secondi";await loadDay();if(p.ruolo==="admin")await loadAdmin()}
@@ -69,37 +132,43 @@ installAppBtn?.addEventListener("click",async()=>{
     return;
   }
   if(isIOS()){
-    alert("Su iPhone/iPad: apri Condividi in Safari e scegli “Aggiungi alla schermata Home”.");
+    notify("Su iPhone/iPad: apri Condividi in Safari e scegli “Aggiungi alla schermata Home”.");
     return;
   }
-  alert("Apri il menu del browser e scegli “Installa app” o “Aggiungi alla schermata Home”.");
+  notify("Apri il menu del browser e scegli “Installa app” o “Aggiungi alla schermata Home”.");
 });
 refreshInstallAction();
 
 $("#dayDate").value=localDate();$("#adminFrom").value=monthStart();$("#adminTo").value=localDate();
-$("#dayDate").addEventListener("change",loadDay);$("#refreshDay").addEventListener("click",loadDay);
+let lastDayDate=$("#dayDate").value;
+$("#dayDate").addEventListener("change",()=>{
+  const el=$("#dayDate");
+  if(!el.value){el.value=lastDayDate;return}
+  if(dayHasUnsavedWork()&&!confirm("Ci sono modifiche non salvate in questa giornata. Cambiare data e perderle?")){el.value=lastDayDate;return}
+  lastDayDate=el.value;loadDay();
+});$("#refreshDay").addEventListener("click",loadDay);
 let manualCatalogLoaded=false;
 async function loadManualCatalog(){
   const client=$("#manualClient"),job=$("#manualJob");
   if(!manualCatalogLoaded){
     const j=await api("catalog");
-    client.innerHTML='<option value="">Seleziona cliente…</option>'+j.clienti.map(c=>`<option value="${c.id}">${String(Number(c.codice_breve))} · ${c.ragione_sociale}</option>`).join("");
+    client.innerHTML='<option value="">Seleziona cliente…</option>'+j.clienti.map(c=>html`<option value="${c.id}">${String(Number(c.codice_breve))} · ${c.ragione_sociale}</option>`).join("");
     manualCatalogLoaded=true;
   }
   if(!client.value){job.innerHTML='<option value="">Seleziona prima il cliente…</option>';return}
   const j=await api("commesse",{clienteId:client.value});
-  job.innerHTML='<option value="">Seleziona commessa…</option>'+j.commesse.map(c=>`<option value="${c.id}">${c.codice_lavoro||""} · ${c.descrizione}</option>`).join("");
+  job.innerHTML='<option value="">Seleziona commessa…</option>'+j.commesse.map(c=>html`<option value="${c.id}">${c.codice_lavoro||""} · ${c.descrizione}</option>`).join("");
 }
-async function openManualCard(){$("#manualCard").hidden=false;try{await loadManualCatalog()}catch(e){alert(e.message)}$("#manualCard").scrollIntoView({behavior:"smooth",block:"nearest"})}
+async function openManualCard(){$("#manualCard").hidden=false;try{await loadManualCatalog()}catch(e){notify(e.message)}$("#manualCard").scrollIntoView({behavior:"smooth",block:"nearest"})}
 $("#manualToggle").addEventListener("click",openManualCard);
 $("#manualToggleBottom")?.addEventListener("click",openManualCard);
 document.querySelectorAll("[data-quick-minutes]").forEach(btn=>btn.addEventListener("click",()=>{const m=Number(btn.dataset.quickMinutes||0);if(m)$("#manualDuration").value=m>=60&&m%60===0?(m/60)+"h":m+"m"}));
 $("#manualClose").addEventListener("click",()=>{$("#manualCard").hidden=true});
-$("#manualClient").addEventListener("change",()=>loadManualCatalog().catch(e=>alert(e.message)));
+$("#manualClient").addEventListener("change",()=>loadManualCatalog().catch(e=>notify(e.message)));
 $("#manualSave").addEventListener("click",async()=>{
   const btn=$("#manualSave"),m=inputMinutes($("#manualDuration").value),commessaId=$("#manualJob").value;
-  if(!commessaId){alert("Seleziona una commessa.");return}
-  if(m==null||m<=0){alert("Inserisci una durata valida, ad esempio 2h30m.");return}
+  if(!commessaId){notify("Seleziona una commessa.","warn");return}
+  if(m==null||m<=0){notify("Inserisci una durata valida, ad esempio 2h30m.","warn");return}
   btn.disabled=true;
   try{
     await api("addManual",{
@@ -110,7 +179,7 @@ $("#manualSave").addEventListener("click",async()=>{
     });
     $("#manualDuration").value="";$("#manualNote").value="";$("#manualCard").hidden=true;
     await loadDay();
-  }catch(e){alert(e.message)}
+  }catch(e){notify(e.message)}
   finally{btn.disabled=false}
 });
 
@@ -206,11 +275,11 @@ function buildAssignmentEditor({host,data,clientId="",typeId="",jobId="",minutes
   const cancel=document.createElement("button");cancel.type="button";cancel.className="assignment-cancel";cancel.textContent="Annulla";
   save.addEventListener("click",async()=>{
     const m=inputMinutes(dur.value);
-    if(!job.value&&!(client.value&&type.value)){alert("Seleziona una commessa oppure almeno Cliente + Tipo.");return}
-    if(m==null||m<=0){alert("Inserisci una durata valida, ad esempio 2h30m.");return}
+    if(!job.value&&!(client.value&&type.value)){notify("Seleziona una commessa oppure almeno Cliente + Tipo.","warn");return}
+    if(m==null||m<=0){notify("Inserisci una durata valida, ad esempio 2h30m.","warn");return}
     save.disabled=true;cancel.disabled=true;
     try{await onSave({commessaId:job.value||"",clienteId:client.value||"",tipologiaId:type.value||"",minutiEffettivi:m,oggetto:note.value});}
-    catch(e){alert(e.message);save.disabled=false;cancel.disabled=false}
+    catch(e){notify(e.message);save.disabled=false;cancel.disabled=false}
   });
   cancel.addEventListener("click",()=>onCancel?.());
   actions.append(save,cancel);
@@ -262,7 +331,7 @@ async function loadSyncStatus(){
         ?"Cliente e tipologia rilevati"
         :issue.motivo==="ambiguous"?"Più pratiche compatibili":"Da classificare";
 
-      row.innerHTML=`
+      row.innerHTML=html`
         <div class="issue-main">
           <div class="entry-code">${code}</div>
           <div class="issue-summary">
@@ -326,7 +395,7 @@ async function loadSyncStatus(){
 // Il frontend non apre mai il CRM. L'agenda viene sincronizzata in background
 // dall'agente aziendale; qui ricarichiamo soltanto i dati già presenti nel backend.
 document.addEventListener("visibilitychange",()=>{
-  if(!document.hidden&&profile)setTimeout(()=>loadDay().catch(()=>{}),500);
+  if(!document.hidden&&profile&&!$("#dayPanel").hidden&&!dayHasUnsavedWork())setTimeout(()=>{if(!dayHasUnsavedWork())loadDay().catch(()=>{})},500);
 });
 
 function renderEmpty(){
@@ -338,7 +407,7 @@ function renderCrmDetected(sessions){
   const rows=(sessions||[]).filter(s=>s.origine==="crm_agenda");
   const planned=rows.reduce((sum,s)=>sum+Number(s.minuti_agenda||0),0);
   const effective=rows.reduce((sum,s)=>sum+Number(s.minuti_effettivi||0),0);
-  box.innerHTML=`<div class="crm-summary-item"><span>Appuntamenti</span><strong>${rows.length}</strong></div>
+  box.innerHTML=html`<div class="crm-summary-item"><span>Appuntamenti</span><strong>${rows.length}</strong></div>
     <div class="crm-summary-item"><span>Ore da agenda</span><strong>${fmtMinutes(planned)}</strong></div>
     <div class="crm-summary-item"><span>Ore rendicontate</span><strong>${fmtMinutes(effective)}</strong></div>`;
 }
@@ -352,7 +421,7 @@ async function renderRecentActivities(){
       const c=s.ore_commesse||{},cl=c.ore_clienti||{},tp=c.ore_tipologie||{};
       const code=(cl.codice_breve?String(Number(cl.codice_breve)):"")+(tp.codice||"P");
       const card=document.createElement("article");card.className="recent-card";
-      card.innerHTML=`<div><span class="mini-code code-${(tp.codice||"P").toLowerCase()}">${code||"—"}</span><strong>${cl.ragione_sociale||"Cliente"} · ${tp.nome||"Attività"}</strong></div><small>${c.descrizione||"—"}</small><button type="button">＋ Aggiungi ore</button>`;
+      card.innerHTML=html`<div><span class="mini-code code-${(tp.codice||"P").toLowerCase()}">${code||"—"}</span><strong>${cl.ragione_sociale||"Cliente"} · ${tp.nome||"Attività"}</strong></div><small>${c.descrizione||"—"}</small><button type="button">＋ Aggiungi ore</button>`;
       card.querySelector("button").addEventListener("click",async()=>{
         await openManualCard();
         if(c.cliente_id){$("#manualClient").value=String(c.cliente_id);await loadManualCatalog();$("#manualJob").value=String(s.commessa_id||"")}
@@ -361,11 +430,21 @@ async function renderRecentActivities(){
     });
   }catch(e){console.error("recent activities",e)}
 }
+let daySeq=0;
+function dayHasUnsavedWork(){
+  if([...document.querySelectorAll("#sessions .proto-hours input")].some(i=>i.value.trim()!==(i.dataset.original||"")))return true;
+  if(document.querySelector("#sessions .session-edit-panel:not([hidden]), #syncIssues .issue-editor:not([hidden])"))return true;
+  const mc=$("#manualCard");
+  return !!(mc&&!mc.hidden&&($("#manualDuration").value.trim()||$("#manualNote").value.trim()));
+}
 async function loadDay(){
   if(!profile)return;
+  const seq=++daySeq,requestedDate=$("#dayDate").value;
   $("#dayMessage").hidden=true;
   try{
-    const j=await api("day",{date:$("#dayDate").value});
+    const j=await api("day",{date:requestedDate});
+    if(seq!==daySeq)return;
+    j.sessions=Array.isArray(j.sessions)?j.sessions:[];
     const total=Number(j.totalMinutes||0),totalText=fmtMinutes(total),pct=Math.max(0,Math.min(100,Math.round(total/480*100)));
     $("#dayTotal").textContent=`${totalText} / 8h 00m`;
     $("#dayTotalBottom").textContent=totalText;
@@ -388,14 +467,17 @@ async function loadDay(){
       const activity=s.attivita_rilevata||tp.nome||"Attività";
       const clock=isCrm&&s.inizio&&s.fine?`${fmtClock(s.inizio)}<small>– ${fmtClock(s.fine)}</small>`:"<span>Manuale</span>";
       const agenda=isCrm?fmtMinutes(s.minuti_agenda):"—";
-      row.innerHTML=`<div class="proto-time">${clock}</div>
+      row.innerHTML=html`<div class="proto-time">${raw(clock)}</div>
         <div class="proto-desc"><strong><span class="inline-code code-${(tp.codice||"P").toLowerCase()}">${displayCode||"—"}</span> ${cl.ragione_sociale||"Cliente"} · ${c.descrizione||"Attività"}</strong><small>${c.codice_commessa_crm||""} · ${activity} · ${origin}</small><small class="agenda-object"></small></div>
         <div class="agenda-duration"><strong>${agenda}</strong><small>${isCrm?"da CRM":"inserimento"}</small></div>
         <div class="proto-hours"><input aria-label="Ore effettive" value="${fmtMinutes(s.minuti_effettivi).replace(" ","")}"></div>
         <div class="proto-actions"><span class="row-state ${s.confermata?"done":""}">${s.confermata?"Confermata":"Da verificare"}</span><button class="save" type="button">Salva</button><button class="assignment-edit session-edit" type="button">Modifica</button></div><div class="session-edit-panel" hidden></div>`;
       row.querySelector(".agenda-object").textContent=note;
       const inp=row.querySelector("input"),btn=row.querySelector(".save"),editBtn=row.querySelector(".session-edit"),editPanel=row.querySelector(".session-edit-panel");
-      btn.addEventListener("click",async()=>{const m=inputMinutes(inp.value);if(m==null){alert("Inserisci una durata come 2h30m.");return}btn.disabled=true;try{await api("saveSession",{id:s.id,minutiEffettivi:m});await loadDay()}catch(e){alert(e.message)}finally{btn.disabled=false}});
+      inp.dataset.original=inp.value;
+      inp.addEventListener("input",()=>{const changed=inp.value.trim()!==inp.dataset.original;const bad=inp.value.trim()!==""&&inputMinutes(inp.value)==null;row.classList.toggle("dirty",changed);inp.classList.toggle("invalid",bad);inp.title=bad?"Formato non valido: usa 2h30, 2:30 oppure 1,5":(changed?"= "+fmtMinutes(inputMinutes(inp.value)||0)+" · premi Invio o Salva":"")});
+      inp.addEventListener("keydown",ev=>{if(ev.key==="Enter"){ev.preventDefault();btn.click()}if(ev.key==="Escape"){inp.value=inp.dataset.original;inp.dispatchEvent(new Event("input"))}});
+      btn.addEventListener("click",async()=>{if(btn.disabled)return;const m=inputMinutes(inp.value);if(m==null){notify("Durata non valida: usa ad esempio 2h30, 2:30 oppure 1,5.","warn");inp.focus();return}btn.disabled=true;try{await api("saveSession",{id:s.id,minutiEffettivi:m});inp.dataset.original=inp.value;row.classList.remove("dirty");notify("Ore salvate.","ok");await loadDay()}catch(e){notify(e.message)}finally{btn.disabled=false}});
       editBtn.addEventListener("click",async()=>{
         try{
           const data=await getAssignmentData();
@@ -411,14 +493,24 @@ async function loadDay(){
             onSave:async values=>{await api("saveSession",{id:s.id,...values,motivo:"Correzione manuale attività importata"});await loadDay();},
             onCancel:()=>{editPanel.hidden=true;row.classList.remove("editing")}
           });
-        }catch(e){alert(e.message)}
+        }catch(e){notify(e.message)}
       });
       box.appendChild(row);
     });
     await Promise.all([loadSyncStatus(),renderRecentActivities()]);
-  }catch(e){$("#dayMessage").textContent=e.message;$("#dayMessage").hidden=false;renderEmpty()}
+  }catch(e){if(seq!==daySeq)return;$("#dayMessage").textContent=e.message;$("#dayMessage").hidden=false;renderEmpty()}
 }
-$("#confirmDay").addEventListener("click",async()=>{const b=$("#confirmDay");b.disabled=true;try{const j=await api("confirmDay",{date:$("#dayDate").value});$("#dayMessage").textContent=`Giornata confermata: ${fmtMinutes(j.totalMinutes)}.`;$("#dayMessage").hidden=false;await loadDay()}catch(e){alert(e.message)}finally{b.disabled=false}});
+$("#confirmDay").addEventListener("click",async()=>{
+  const b=$("#confirmDay");if(b.disabled)return;
+  if(dayHasUnsavedWork()){notify("Salva o annulla le modifiche aperte prima di confermare la giornata.","warn");return}
+  const issues=Number($("#syncIssueCount")?.textContent||0);
+  const totalTxt=$("#dayTotalBottom")?.textContent||"";
+  if(issues>0&&!confirm(`Ci sono ${issues} attività non abbinate a una pratica: non verranno conteggiate. Confermare comunque la giornata?`))return;
+  if(/^0h 00m$/.test(totalTxt)&&!confirm("La giornata non ha ore registrate. Confermare comunque?"))return;
+  b.disabled=true;
+  try{const j=await api("confirmDay",{date:$("#dayDate").value});$("#dayMessage").textContent=`Giornata confermata: ${fmtMinutes(j.totalMinutes)}.`;$("#dayMessage").hidden=false;notify("Giornata confermata.","ok");await loadDay()}
+  catch(e){notify(e.message)}finally{b.disabled=false}
+});
 function setTab(which){
   const day=which==="day",admin=which==="admin",archive=which==="archive",economics=which==="economics";
   $("#dayPanel").hidden=!day;$("#adminPanel").hidden=!admin;$("#archivePanel").hidden=!archive;$("#economicsPanel").hidden=!economics;
@@ -436,7 +528,7 @@ function renderRankBars(selector,entries,limit=6){
   const box=$(selector);if(!box)return;box.innerHTML="";
   const rows=[...entries].sort((a,b)=>b[1].minutes-a[1].minutes).slice(0,limit);
   const max=Math.max(1,...rows.map(x=>x[1].minutes));
-  rows.forEach(([name,v],idx)=>{const row=document.createElement("div");row.className="rank-bar-row";const pct=Math.max(4,Math.round(v.minutes/max*100));row.innerHTML=`<span>${name}</span><div><i style="width:${pct}%"></i></div><b>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})} h</b>`;box.appendChild(row)});
+  rows.forEach(([name,v],idx)=>{const row=document.createElement("div");row.className="rank-bar-row";const pct=Math.max(4,Math.round(v.minutes/max*100));row.innerHTML=html`<span>${name}</span><div><i style="width:${pct}%"></i></div><b>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})} h</b>`;box.appendChild(row)});
   if(!rows.length)box.innerHTML='<div class="crm-empty">Nessun dato.</div>';
 }
 function renderAdminVisuals(rows,clients,techs){
@@ -444,14 +536,22 @@ function renderAdminVisuals(rows,clients,techs){
   const typeMap=new Map(),monthMap=new Map();
   for(const r of rows||[]){const c=r.ore_commesse||{},tp=c.ore_tipologie||{},mins=Number(r.minuti_effettivi||0);const key=tp.nome||"Altro";typeMap.set(key,(typeMap.get(key)||0)+mins);const m=String(r.data_lavoro||"").slice(0,7);if(m)monthMap.set(m,(monthMap.get(m)||0)+mins)}
   const types=[...typeMap.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8),total=types.reduce((s,x)=>s+x[1],0);
-  const donut=$("#typeDonut"),legend=$("#typeLegend");if(donut&&legend){let acc=0;const seg=[];types.forEach(([name,mins],i)=>{const start=total?acc/total*360:0;acc+=mins;const end=total?acc/total*360:0;seg.push(`${palette[i%palette.length]} ${start}deg ${end}deg`)});donut.style.background=seg.length?`conic-gradient(${seg.join(",")})`:"#e8edf2";$("#typeDonutTotal").textContent=(total/60).toLocaleString("it-IT",{maximumFractionDigits:0})+"h";legend.innerHTML="";types.forEach(([name,mins],i)=>{const el=document.createElement("div");const pct=total?Math.round(mins/total*100):0;el.innerHTML=`<i style="background:${palette[i%palette.length]}"></i><span>${name}</span><b>${pct}%</b>`;legend.appendChild(el)})}
-  const months=[...monthMap.entries()].sort((a,b)=>a[0].localeCompare(b[0]));const mb=$("#monthlyBars");if(mb){mb.innerHTML="";const max=Math.max(1,...months.map(x=>x[1]));months.forEach(([m,mins])=>{const col=document.createElement("div");col.className="month-col";const h=Math.max(6,Math.round(mins/max*100));const d=new Date(m+"-01T12:00:00");col.innerHTML=`<b>${(mins/60).toLocaleString("it-IT",{maximumFractionDigits:0})}</b><div><i style="height:${h}%"></i></div><span>${d.toLocaleDateString("it-IT",{month:"short"})}</span>`;mb.appendChild(col)});if(!months.length)mb.innerHTML='<div class="crm-empty">Nessun dato.</div>'}
+  const donut=$("#typeDonut"),legend=$("#typeLegend");if(donut&&legend){let acc=0;const seg=[];types.forEach(([name,mins],i)=>{const start=total?acc/total*360:0;acc+=mins;const end=total?acc/total*360:0;seg.push(`${palette[i%palette.length]} ${start}deg ${end}deg`)});donut.style.background=seg.length?`conic-gradient(${seg.join(",")})`:"#e8edf2";$("#typeDonutTotal").textContent=(total/60).toLocaleString("it-IT",{maximumFractionDigits:0})+"h";legend.innerHTML="";types.forEach(([name,mins],i)=>{const el=document.createElement("div");const pct=total?Math.round(mins/total*100):0;el.innerHTML=html`<i style="background:${palette[i%palette.length]}"></i><span>${name}</span><b>${pct}%</b>`;legend.appendChild(el)})}
+  const months=[...monthMap.entries()].sort((a,b)=>a[0].localeCompare(b[0]));const mb=$("#monthlyBars");if(mb){mb.innerHTML="";const max=Math.max(1,...months.map(x=>x[1]));months.forEach(([m,mins])=>{const col=document.createElement("div");col.className="month-col";const h=Math.max(6,Math.round(mins/max*100));const d=new Date(m+"-01T12:00:00");col.innerHTML=html`<b>${(mins/60).toLocaleString("it-IT",{maximumFractionDigits:0})}</b><div><i style="height:${h}%"></i></div><span>${d.toLocaleDateString("it-IT",{month:"short"})}</span>`;mb.appendChild(col)});if(!months.length)mb.innerHTML='<div class="crm-empty">Nessun dato.</div>'}
   renderRankBars("#techBars",techs,6);renderRankBars("#clientBars",clients,6);
 }
+let adminSeq=0;
 async function loadAdmin(){
   if(!profile||profile.ruolo!=="admin")return;
+  const from=$("#adminFrom").value,to=$("#adminTo").value;
+  if(!from||!to){notify("Indica entrambe le date del periodo.","warn");return}
+  if(from>to){notify("La data “Dal” è successiva alla data “Al”.","warn");return}
+  const seq=++adminSeq;
+  $("#adminEmpty").textContent="Nessuna sessione nel periodo selezionato.";
   try{
-    const [j,crm]=await Promise.all([api("adminSummary",{from:$("#adminFrom").value,to:$("#adminTo").value}),api("crmResources")]);
+    const [j,crm]=await Promise.all([api("adminSummary",{from,to}),api("crmResources")]);
+    if(seq!==adminSeq)return;
+    j.rows=Array.isArray(j.rows)?j.rows:[];
     const totalHours=j.totalMinutes/60;
     $("#kpiHours").textContent=totalHours.toLocaleString("it-IT",{maximumFractionDigits:1});
     $("#kpiTechs").textContent=j.technicians;
@@ -477,7 +577,7 @@ async function loadAdmin(){
           ?'<span class="sync-state sync-ok">Aggiornato</span>'
           :'<span class="sync-state sync-late">In ritardo</span>';
       const tr=document.createElement("tr");
-      tr.innerHTML=`<td><b>${r.sigla_crm||"—"}</b></td>
+      tr.innerHTML=html`<td><b>${r.sigla_crm||"—"}</b></td>
         <td>${r.tecnico_nome||r.nome_crm||"—"}</td>
         <td>${last}</td>
         <td>${state}</td>`;
@@ -531,7 +631,7 @@ async function loadAdmin(){
       const code=(cl.codice_breve&&tp.codice)?String(Number(cl.codice_breve))+tp.codice:"";
       const tr=document.createElement("tr");
       const origin=r.origine==="crm_agenda"?"CRM":r.origine==="import_storico"?"Storico":"Manuale";
-      tr.innerHTML=`<td>${new Date(r.data_lavoro+"T12:00:00").toLocaleDateString("it-IT")}</td>
+      tr.innerHTML=html`<td>${new Date(r.data_lavoro+"T12:00:00").toLocaleDateString("it-IT")}</td>
         <td><b>${r.tecnico_nome||r.tecnico_uid}</b></td>
         <td><b>${code||"—"}</b></td>
         <td>${cl.ragione_sociale||"—"}</td>
@@ -566,7 +666,7 @@ async function loadAdmin(){
     const clientBody=$("#clientRows");clientBody.innerHTML="";
     [...clients.entries()].sort((a,b)=>b[1].minutes-a[1].minutes).slice(0,12).forEach(([name,v])=>{
       const tr=document.createElement("tr");
-      tr.innerHTML=`<td><b>${name}</b></td><td>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})}</td><td>${v.sessions}</td>`;
+      tr.innerHTML=html`<td><b>${name}</b></td><td>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})}</td><td>${v.sessions}</td>`;
       clientBody.appendChild(tr);
     });
     $("#clientEmpty").hidden=clients.size>0;
@@ -575,25 +675,12 @@ async function loadAdmin(){
     const techBody=$("#technicianRows");techBody.innerHTML="";
     [...techs.entries()].sort((a,b)=>b[1].minutes-a[1].minutes).slice(0,15).forEach(([name,v])=>{
       const tr=document.createElement("tr");
-      tr.innerHTML=`<td><b>${name}</b></td><td>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})}</td><td>${v.sessions}</td><td>${v.jobs.size}</td>`;
+      tr.innerHTML=html`<td><b>${name}</b></td><td>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})}</td><td>${v.sessions}</td><td>${v.jobs.size}</td>`;
       techBody.appendChild(tr);
     });
     $("#technicianEmpty").hidden=techs.size>0;
 
-    const types=new Map();
-    for(const job of jobs.values()){
-      if(job.status!=="completata"||job.typeCode==="P")continue;
-      const v=types.get(job.typeCode)||{name:job.type,values:[]};
-      v.values.push(job.minutes/60);types.set(job.typeCode,v);
-    }
-    const prodBody=$("#productivityRows");prodBody.innerHTML="";
-    [...types.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([code,v])=>{
-      const vals=v.values,avg=vals.reduce((s,x)=>s+x,0)/vals.length,med=median(vals),min=Math.min(...vals),max=Math.max(...vals);
-      const tr=document.createElement("tr");
-      tr.innerHTML=`<td><b>${code} · ${v.name}</b></td><td>${vals.length}</td><td>${avg.toLocaleString("it-IT",{maximumFractionDigits:1})} h</td><td><b>${med.toLocaleString("it-IT",{maximumFractionDigits:1})} h</b></td><td>${min.toLocaleString("it-IT",{maximumFractionDigits:1})}–${max.toLocaleString("it-IT",{maximumFractionDigits:1})} h</td>`;
-      prodBody.appendChild(tr);
-    });
-    $("#productivityEmpty").hidden=types.size>0;
+    renderProductivity().catch(e=>console.error("produttività",e));
   }catch(e){
     console.error(e);
     const box=$("#adminEmpty");if(box){box.textContent="Impossibile caricare i dati della direzione.";box.hidden=false}
@@ -603,6 +690,29 @@ async function loadAdmin(){
 
 
 
+// Tempo per tipologia: usa il totale ore dell'intera pratica (archivio completo),
+// non solo le ore cadute nel periodo filtrato, che sottostimerebbero le pratiche lunghe.
+async function renderProductivity(){
+  const body=$("#productivityRows"),empty=$("#productivityEmpty");
+  if(!archiveData){try{archiveData=await api("archiveJobs")}catch(e){body.innerHTML="";empty.textContent="Impossibile calcolare i tempi per tipologia: "+e.message;empty.hidden=false;return}}
+  const types=new Map();
+  for(const r of archiveData.rows||[]){
+    const code=String(r.tipologia?.codice||"");const ore=Number(r.ore||0);
+    if(r.stato!=="completata"||!code||code==="P"||!(ore>0))continue;
+    const v=types.get(code)||{name:r.tipologia?.nome||code,values:[]};
+    v.values.push(ore);types.set(code,v);
+  }
+  const f=x=>x.toLocaleString("it-IT",{maximumFractionDigits:1});
+  body.innerHTML="";
+  [...types.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([code,v])=>{
+    const vals=v.values,avg=vals.reduce((s,x)=>s+x,0)/vals.length,med=median(vals),min=Math.min(...vals),max=Math.max(...vals);
+    const tr=document.createElement("tr");
+    tr.innerHTML=html`<td><b>${code} · ${v.name}</b>${vals.length<5?html`<br><span class="muted">campione ridotto</span>`:""}</td><td>${vals.length}</td><td>${f(avg)} h</td><td><b>${f(med)} h</b></td><td>${f(min)}–${f(max)} h</td>`;
+    body.appendChild(tr);
+  });
+  empty.textContent="Nessuna pratica completata e classificata nello storico.";
+  empty.hidden=types.size>0;
+}
 let archiveData=null;
 let archivePage=1;
 const ARCHIVE_PAGE_SIZE=25;
@@ -633,8 +743,8 @@ function populateArchiveFilters(){
     .sort((a,b)=>String(a[0]).localeCompare(String(b[0]),"it"));
   const client=$("#archiveClient"),type=$("#archiveType");
   const prevClient=client.value,prevType=type.value;
-  client.innerHTML='<option value="">Tutti</option>'+clients.map(([id,name])=>`<option value="${id}">${name}</option>`).join("");
-  type.innerHTML='<option value="">Tutti</option>'+types.map(([code,name])=>`<option value="${code}">${code} · ${name}</option>`).join("");
+  client.innerHTML='<option value="">Tutti</option>'+clients.map(([id,name])=>html`<option value="${id}">${name}</option>`).join("");
+  type.innerHTML='<option value="">Tutti</option>'+types.map(([code,name])=>html`<option value="${code}">${code} · ${name}</option>`).join("");
   if(prevClient&&clients.some(x=>String(x[0])===prevClient))client.value=prevClient;
   if(prevType&&types.some(x=>String(x[0])===prevType))type.value=prevType;
 }
@@ -681,7 +791,7 @@ function renderArchive(){
     const period=r.prima_attivita||r.ultima_attivita
       ? `${archiveDate(r.prima_attivita)} – ${archiveDate(r.ultima_attivita)}`:"—";
     const tr=document.createElement("tr");
-    tr.innerHTML=`<td><span class="archive-code">${r.codice_lavoro||"—"}</span><br><span class="muted">${r.codice_commessa_crm||""}</span></td>
+    tr.innerHTML=html`<td><span class="archive-code">${r.codice_lavoro||"—"}</span><br><span class="muted">${r.codice_commessa_crm||""}</span></td>
       <td><b>${r.cliente?.ragione_sociale||"—"}</b></td>
       <td><b>${r.descrizione||"—"}</b></td>
       <td>${r.tipologia?.nome||"Altro"}</td>
@@ -714,7 +824,7 @@ async function openArchiveJob(id){
     const chips=$("#archiveTechSummary");chips.innerHTML="";
     for(const t of j.technicians||[]){
       const span=document.createElement("span");
-      span.innerHTML=`<b>${t.nome}</b> ${Number(t.ore||0).toLocaleString("it-IT",{maximumFractionDigits:2})} h · ${t.attivita} attività`;
+      span.innerHTML=html`<b>${t.nome}</b> ${Number(t.ore||0).toLocaleString("it-IT",{maximumFractionDigits:2})} h · ${t.attivita} attività`;
       chips.appendChild(span);
     }
 
@@ -722,10 +832,10 @@ async function openArchiveJob(id){
     for(const s of j.sessions||[]){
       const edited=s.modificata_manualmente?" · modificata":"";
       const tr=document.createElement("tr");
-      tr.innerHTML=`<td>${archiveDate(s.data_lavoro)}</td>
+      tr.innerHTML=html`<td>${archiveDate(s.data_lavoro)}</td>
         <td><b>${s.tecnico_nome||s.tecnico_uid||"—"}</b></td>
         <td>${s.inizio||s.fine?`${archiveClock(s.inizio)}–${archiveClock(s.fine)}`:"—"}</td>
-        <td><b>${s.crm_oggetto||"Attività"}</b>${s.motivo_modifica?`<br><span class="muted">${s.motivo_modifica}</span>`:""}</td>
+        <td><b>${s.crm_oggetto||"Attività"}</b>${s.motivo_modifica?html`<br><span class="muted">${s.motivo_modifica}</span>`:""}</td>
         <td><span class="archive-origin">${archiveOrigin(s.origine)}${edited}</span></td>
         <td><b>${fmtMinutes(s.minuti_effettivi)}</b></td>
         <td>${s.confermata?"Confermata":"Da confermare"}</td>`;
@@ -797,7 +907,7 @@ function renderCostRates(){
   for(const tech of techs){
     const rate=latestRateForTech(tech,economicsCatalog.rates);
     const tr=document.createElement("tr");
-    tr.innerHTML=`<td><b>${tech.tecnico_nome||tech.tecnico_uid}</b><br><span class="muted">${String(tech.tecnico_uid||"").startsWith("legacy:")?"Storico CRM":"Account attuale"}</span></td>
+    tr.innerHTML=html`<td><b>${tech.tecnico_nome||tech.tecnico_uid}</b><br><span class="muted">${String(tech.tecnico_uid||"").startsWith("legacy:")?"Storico CRM":"Account attuale"}</span></td>
       <td><input class="rate-value" inputmode="decimal" value="${rate?.costo_orario??""}" placeholder="€/h"></td>
       <td><input class="rate-from" type="date" value="${rate?.valido_dal||defaultFrom}"></td>
       <td><input class="rate-to" type="date" value="${rate?.valido_al||""}"></td>
@@ -805,7 +915,7 @@ function renderCostRates(){
     const btn=tr.querySelector(".rate-save");
     btn.addEventListener("click",async()=>{
       const cost=numberInput(tr.querySelector(".rate-value").value);
-      if(cost===null||cost<0){alert("Inserisci un costo orario valido.");return}
+      if(cost===null||cost<0){notify("Inserisci un costo orario valido.","warn");return}
       btn.disabled=true;
       try{
         await api("saveTechnicianCost",{
@@ -816,7 +926,7 @@ function renderCostRates(){
           validoAl:tr.querySelector(".rate-to").value||null
         });
         await loadEconomics();
-      }catch(e){alert(e.message)}
+      }catch(e){notify(e.message)}
       finally{btn.disabled=false}
     });
     body.appendChild(tr);
@@ -829,7 +939,7 @@ function populateEconomicsJobs(){
   const previous=select.value;
   select.innerHTML='<option value="">Seleziona una pratica…</option>'+jobs.map(j=>{
     const cl=j.ore_clienti||{};
-    return `<option value="${j.id}">${j.codice_lavoro||"—"} · ${cl.ragione_sociale||"Cliente"} · ${j.descrizione}</option>`;
+    return html`<option value="${j.id}">${j.codice_lavoro||"—"} · ${cl.ragione_sociale||"Cliente"} · ${j.descrizione}</option>`;
   }).join("");
   if(previous&&jobs.some(j=>j.id===previous))select.value=previous;
   fillJobEconomicsForm();
@@ -863,11 +973,11 @@ function renderEconomicsSummary(){
     const complete=Boolean(j.copertura_completa);
     const marginClass=j.margine===null?"":(Number(j.margine)>=0?"money-positive":"money-negative");
     const tr=document.createElement("tr");
-    tr.innerHTML=`<td><b>${j.codice_lavoro||"—"}</b><br><span class="muted">${j.codice_commessa_crm||""}</span></td>
+    tr.innerHTML=html`<td><b>${j.codice_lavoro||"—"}</b><br><span class="muted">${j.codice_commessa_crm||""}</span></td>
       <td><b>${j.cliente||"—"}</b><br><span class="muted">${j.descrizione||"—"}</span></td>
       <td>${Number(j.ore||0).toLocaleString("it-IT",{maximumFractionDigits:2})} h</td>
       <td>${j.budget_ore===null?"—":Number(j.budget_ore).toLocaleString("it-IT",{maximumFractionDigits:2})+" h"}</td>
-      <td>${fmtMoney(j.costo_tecnico)}${complete?"":'<br><span class="coverage-warning">parziale</span>'}</td>
+      <td>${fmtMoney(j.costo_tecnico)}${raw(complete?"":'<br><span class="coverage-warning">parziale</span>')}</td>
       <td>${fmtMoney(j.costi_esterni||0)}</td>
       <td>${complete?fmtMoney(j.costo_totale):"—"}</td>
       <td>${j.valore_vendita===null?"—":fmtMoney(j.valore_vendita)}</td>
@@ -881,12 +991,12 @@ function renderEconomicsSummary(){
   $("#costDetailEmpty").hidden=costRows.length>0;
   for(const r of costRows){
     const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${new Date(r.data_lavoro+"T12:00:00").toLocaleDateString("it-IT")}</td>
+    tr.innerHTML=html`<td>${new Date(r.data_lavoro+"T12:00:00").toLocaleDateString("it-IT")}</td>
       <td><b>${r.tecnico_nome||"—"}</b></td>
       <td><b>${r.codice_lavoro||"—"}</b><br><span class="muted">${r.codice_commessa_crm||""}</span></td>
       <td><b>${r.cliente||"—"}</b><br><span class="muted">${r.descrizione||"—"}</span></td>
       <td>${(Number(r.minuti||0)/60).toLocaleString("it-IT",{maximumFractionDigits:2})} h</td>
-      <td>${r.costo_orario===null?'<span class="coverage-warning">Da valorizzare</span>':fmtMoney(r.costo_orario)+"/h"}</td>
+      <td>${r.costo_orario===null?raw('<span class="coverage-warning">Da valorizzare</span>'):fmtMoney(r.costo_orario)+"/h"}</td>
       <td><b>${r.costo_sessione===null?"—":fmtMoney(r.costo_sessione)}</b></td>`;
     detail.appendChild(tr);
   }
@@ -896,7 +1006,7 @@ function renderEstimator(){
   const e=economicsSummary;
   const types=e?.typeStats||[];
   const sel=$("#estimateType"),old=sel.value;
-  sel.innerHTML='<option value="">Seleziona tipologia…</option>'+types.map(t=>`<option value="${t.codice}">${t.codice} · ${t.nome} · mediana ${t.mediana_ore} h (${t.n} casi)</option>`).join("");
+  sel.innerHTML='<option value="">Seleziona tipologia…</option>'+types.map(t=>html`<option value="${t.codice}">${t.codice} · ${t.nome} · mediana ${t.mediana_ore} h (${t.n} casi)</option>`).join("");
   if(old&&types.some(t=>t.codice===old))sel.value=old;
   updateEstimator(false);
 }
@@ -949,7 +1059,7 @@ async function loadEconomics(){
     renderEstimator();
   }catch(e){
     console.error(e);
-    alert("Impossibile caricare Economia & Margini: "+e.message);
+    notify("Impossibile caricare Economia & Margini: "+e.message);
   }
 }
 
@@ -957,7 +1067,7 @@ $("#reloadEconomics")?.addEventListener("click",loadEconomics);
 $("#economicsJob")?.addEventListener("change",fillJobEconomicsForm);
 $("#saveJobEconomics")?.addEventListener("click",async()=>{
   const id=$("#economicsJob").value;
-  if(!id){alert("Seleziona una pratica.");return}
+  if(!id){notify("Seleziona una pratica.","warn");return}
   const btn=$("#saveJobEconomics"),msg=$("#jobEconomicsMessage");
   btn.disabled=true;msg.hidden=true;
   try{
@@ -1053,3 +1163,12 @@ document.querySelectorAll("[data-admin-tab]").forEach(btn=>btn.addEventListener(
   const which=btn.dataset.adminTab;
   if(which)setTab(which);
 }));
+
+// --- Robustezza globale ---------------------------------------------------------
+durationHint($("#manualDuration"));
+document.querySelectorAll("[data-quick-minutes]").forEach(b=>b.addEventListener("click",()=>$("#manualDuration").dispatchEvent(new Event("input"))));
+new MutationObserver(()=>document.querySelectorAll(".assignment-duration input").forEach(durationHint)).observe(document.body,{childList:true,subtree:true});
+window.addEventListener("offline",()=>notify("Connessione assente: le modifiche non verranno salvate finché non torni online.","warn",10000));
+window.addEventListener("online",()=>{notify("Connessione ripristinata.","ok");if(profile&&!$("#dayPanel").hidden&&!dayHasUnsavedWork())loadDay()});
+window.addEventListener("unhandledrejection",ev=>{console.error(ev.reason);notify(ev.reason?.message||"Errore imprevisto. Ricarica la pagina se il problema persiste.")});
+window.addEventListener("beforeunload",ev=>{if(profile&&dayHasUnsavedWork()){ev.preventDefault();ev.returnValue=""}});

@@ -11,8 +11,8 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="../assets/icon-192.png">
   <link rel="apple-touch-icon" href="../assets/icon-512.png">
-  <link rel="stylesheet" href="./style.css?v=20261003-1330">
-  <link rel="stylesheet" href="./layout.css?v=20261003-1330">
+  <link rel="stylesheet" href="./style.css?v=20261003-1900">
+  <link rel="stylesheet" href="./layout.css?v=20261003-1900">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -143,7 +143,7 @@
             <div class="form-grid">
               <label>Cliente<select id="manualClient"></select></label>
               <label class="wide">Commessa / pratica<select id="manualJob"></select></label>
-              <label>Durata<input id="manualDuration" placeholder="es. 2h30m"></label>
+              <label>Durata<input id="manualDuration" placeholder="es. 2h30, 2:30, 1,5" inputmode="text" autocomplete="off"></label>
             </div>
             <label>Nota<input id="manualNote" placeholder="Es. aggiornamento sede Roma"></label>
             <div class="quick-duration-row">
@@ -233,7 +233,7 @@
           <div class="summary-grid five admin-kpis">
             <article class="summary-card"><span class="summary-icon">◷</span><div><small>Ore totali</small><strong id="kpiHours">0</strong><span>Ore effettive registrate</span></div></article>
             <article class="summary-card"><span class="summary-icon">▣</span><div><small>Documenti / commesse</small><strong id="kpiJobs">0</strong><span>Pratiche lavorate nel periodo</span></div></article>
-            <article class="summary-card"><span class="summary-icon">≈</span><div><small>Ore medie / pratica</small><strong id="kpiAvgJob">0</strong><span>Ore totali ÷ commesse</span></div></article>
+            <article class="summary-card"><span class="summary-icon">≈</span><div><small>Ore medie / pratica</small><strong id="kpiAvgJob">0</strong><span>Ore del periodo ÷ pratiche lavorate</span></div></article>
             <article class="summary-card"><span class="summary-icon">◎</span><div><small>Tecnici</small><strong id="kpiTechs">0</strong><span>Risorse attive nel periodo</span></div></article>
             <article class="summary-card"><span class="summary-icon">◆</span><div><small>Clienti attivi</small><strong id="kpiClients">0</strong><span>Clienti con almeno un’attività</span></div></article>
           </div>
@@ -305,7 +305,7 @@
 
           <div class="analytics-grid">
             <div class="panel">
-              <div class="panel-heading compact"><div><span class="eyebrow">PREVENTIVAZIONE</span><h2>Tempo per tipologia</h2><p>Solo pratiche completate e già classificate.</p></div></div>
+              <div class="panel-heading compact"><div><span class="eyebrow">PREVENTIVAZIONE</span><h2>Tempo per tipologia</h2><p>Pratiche completate dell’intero storico, con le ore complessive di ciascuna (indipendente dal periodo filtrato).</p></div></div>
               <div class="table-wrap">
                 <table><thead><tr><th>Tipo</th><th>Chiuse</th><th>Media</th><th>Mediana</th><th>Range</th></tr></thead><tbody id="productivityRows"></tbody></table>
               </div>
@@ -557,7 +557,7 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./aggiornamento.js?v=20261003-1330"></script>
-  <script src="./app.js?v=20261003-1330"></script>
+  <script src="./aggiornamento.js?v=20261003-1900"></script>
+  <script src="./app.js?v=20261003-1900"></script>
 </body>
 </html>
