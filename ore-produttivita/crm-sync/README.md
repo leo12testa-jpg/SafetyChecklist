@@ -99,3 +99,10 @@ Mostra:
 - processi Python/Edge utili alla diagnosi.
 
 La web app mostra anche l'heartbeat backend dell'agente e distingue servizio attivo, fermo, parziale o sessione CRM scaduta.
+
+
+### Persistenza sessione CRM
+
+Lo stato browser viene salvato in `%LOCALAPPDATA%\ColligoOreProduttivita\crm-auth.bin`
+cifrato con Fernet. Nel Gestore credenziali Windows resta solo la piccola chiave di
+cifratura, evitando il limite `CredWrite 1783`.

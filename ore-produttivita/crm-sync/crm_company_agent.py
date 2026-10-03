@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import getpass
 import hashlib
 import html
@@ -9,12 +8,12 @@ import re
 import sys
 import urllib.error
 import urllib.request
-import zlib
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlencode
 
 import keyring
+from cryptography.fernet import Fernet, InvalidToken
 from playwright.async_api import async_playwright
 
 FIREBASE_API_KEY = "AIzaSyAdgCc8TQ1TVfF8l0NMxtm7NS95ZOl4lCA"
@@ -23,8 +22,7 @@ FIREBASE_REFRESH = f"https://securetoken.googleapis.com/v1/token?key={FIREBASE_A
 APP_API = "https://twznfiygzzbqdgudpwav.supabase.co/functions/v1/ore-produttivita-api"
 AGENDA_URL = "https://crm.colligoingegneria.it/intrasofter/intraplan/plage000.asp"
 KEYRING_SERVICE = "ColligoOreProduttivita"
-CRM_STATE_KEY = "company-crm-browser-state"
-CRM_SESSION_KEY = "company-crm-session-storage"
+CRM_FILE_KEY = "company-crm-file-key"
 
 class LoginRequiredError(RuntimeError):
     pass
@@ -33,6 +31,7 @@ APP_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "ColligoOreProdutt
 CONFIG_FILE = APP_DIR / "company-agent.json"
 PROFILE_DIR = APP_DIR / "crm-company-browser"
 STATUS_FILE = APP_DIR / "company-agent-status.json"
+CRM_AUTH_FILE = APP_DIR / "crm-auth.bin"
 TIME_RE = re.compile(r"\b([01]?\d|2[0-3]):([0-5]\d)\b")
 WORK_RE = re.compile(r"\b(\d{1,2}[A-IL-P])\b", re.I)
 OLD_SHORT_RE = re.compile(r"\b(\d{2}\.\d{2})(?:-([A-Z]))?\b", re.I)
@@ -174,58 +173,63 @@ def api(token, action, **payload):
     return body
 
 
-def secure_store_set(key, value):
-    raw = str(value or "").encode("utf-8")
-    packed = base64.b64encode(zlib.compress(raw, 9)).decode("ascii")
-    chunk_size = 900
-    chunks = [packed[i:i+chunk_size] for i in range(0, len(packed), chunk_size)] or [""]
+def crm_file_cipher():
+    key = None
     try:
-        old_count = int(keyring.get_password(KEYRING_SERVICE, key + ":count") or "0")
+        key = keyring.get_password(KEYRING_SERVICE, CRM_FILE_KEY)
     except Exception:
-        old_count = 0
+        key = None
+    if not key:
+        key = Fernet.generate_key().decode("ascii")
+        # Questa è una chiave piccola; Credential Manager la gestisce senza
+        # dover contenere l'intera sessione browser.
+        keyring.set_password(KEYRING_SERVICE, CRM_FILE_KEY, key)
+    return Fernet(key.encode("ascii"))
 
-    keyring.set_password(KEYRING_SERVICE, key + ":count", str(len(chunks)))
-    for i, chunk in enumerate(chunks):
-        keyring.set_password(KEYRING_SERVICE, f"{key}:{i}", chunk)
 
-    for i in range(len(chunks), old_count):
+def save_encrypted_crm_payload(payload):
+    APP_DIR.mkdir(parents=True, exist_ok=True)
+    cipher = crm_file_cipher()
+    raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    encrypted = cipher.encrypt(raw)
+    tmp = CRM_AUTH_FILE.with_suffix(".tmp")
+    tmp.write_bytes(encrypted)
+    tmp.replace(CRM_AUTH_FILE)
+
+
+def load_encrypted_crm_payload():
+    if not CRM_AUTH_FILE.exists():
+        return None
+    try:
+        cipher = crm_file_cipher()
+        raw = cipher.decrypt(CRM_AUTH_FILE.read_bytes())
+        value = json.loads(raw.decode("utf-8"))
+        return value if isinstance(value, dict) else None
+    except (InvalidToken, ValueError, json.JSONDecodeError):
+        return None
+
+
+def cleanup_legacy_crm_credentials():
+    # Rimuove, se presenti, i vecchi tentativi a blocchi. Non sono più usati.
+    for base in ("company-crm-browser-state", "company-crm-session-storage"):
         try:
-            keyring.delete_password(KEYRING_SERVICE, f"{key}:{i}")
+            count = int(keyring.get_password(KEYRING_SERVICE, base + ":count") or "0")
         except Exception:
-            pass
-
-    try:
-        keyring.delete_password(KEYRING_SERVICE, key)
-    except Exception:
-        pass
-
-
-def secure_store_get(key):
-    try:
-        count = int(keyring.get_password(KEYRING_SERVICE, key + ":count") or "0")
-    except Exception:
-        count = 0
-
-    if count > 0:
-        parts = []
+            count = 0
         for i in range(count):
-            part = keyring.get_password(KEYRING_SERVICE, f"{key}:{i}")
-            if part is None:
-                return None
-            parts.append(part)
-        try:
-            packed = "".join(parts)
-            return zlib.decompress(base64.b64decode(packed.encode("ascii"))).decode("utf-8")
-        except Exception:
-            return None
-
-    # Compatibilita con eventuali salvataggi precedenti a blocco singolo.
-    return keyring.get_password(KEYRING_SERVICE, key)
+            try:
+                keyring.delete_password(KEYRING_SERVICE, f"{base}:{i}")
+            except Exception:
+                pass
+        for suffix in (":count", ""):
+            try:
+                keyring.delete_password(KEYRING_SERVICE, base + suffix)
+            except Exception:
+                pass
 
 
 async def save_crm_auth(context, page):
     state = await context.storage_state()
-    secure_store_set(CRM_STATE_KEY, json.dumps(state, ensure_ascii=False))
     try:
         session_data = await page.evaluate("""() => {
           const out = {};
@@ -237,28 +241,23 @@ async def save_crm_auth(context, page):
         }""")
     except Exception:
         session_data = {}
-    secure_store_set(CRM_SESSION_KEY, json.dumps(session_data or {}, ensure_ascii=False))
+
+    save_encrypted_crm_payload({
+        "storage_state": state,
+        "session_storage": session_data or {}
+    })
+    cleanup_legacy_crm_credentials()
 
 
 def load_crm_state():
-    raw = secure_store_get(CRM_STATE_KEY)
-    if not raw:
-        return None
-    try:
-        value = json.loads(raw)
-        return value if isinstance(value, dict) else None
-    except Exception:
-        return None
+    payload = load_encrypted_crm_payload()
+    state = payload.get("storage_state") if payload else None
+    return state if isinstance(state, dict) else None
 
 
 async def restore_crm_session_storage(context):
-    raw = secure_store_get(CRM_SESSION_KEY)
-    if not raw:
-        return
-    try:
-        data = json.loads(raw)
-    except Exception:
-        data = {}
+    payload = load_encrypted_crm_payload()
+    data = payload.get("session_storage") if payload else None
     if not isinstance(data, dict) or not data:
         return
     script = """(data) => {
@@ -268,7 +267,6 @@ async def restore_crm_session_storage(context):
       }
     }"""
     await context.add_init_script(f"({script})({json.dumps(data, ensure_ascii=False)});")
-
 
 async def login_visible(page):
     for frame in page.frames:

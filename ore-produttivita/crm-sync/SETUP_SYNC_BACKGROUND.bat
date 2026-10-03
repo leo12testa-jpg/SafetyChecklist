@@ -14,7 +14,7 @@ if not defined PY (
 
 echo.
 echo Installo i componenti necessari...
-%PY% -m pip install --disable-pip-version-check --upgrade playwright keyring
+%PY% -m pip install --disable-pip-version-check --upgrade playwright keyring cryptography
 if errorlevel 1 goto :errore
 
 echo.
