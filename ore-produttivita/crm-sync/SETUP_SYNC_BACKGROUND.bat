@@ -37,7 +37,6 @@ echo.
 echo Registro la sincronizzazione automatica ogni 5 minuti...
 set "SYNC_VBS=%~dp0RUN_COMPANY_SYNC.vbs"
 
-rem Prima prova con ScheduledTasks. Se Windows la blocca, fallback a schtasks.
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$ErrorActionPreference='Stop';" ^
   "$task='Colligo Ore CRM Background';" ^
@@ -60,40 +59,35 @@ if errorlevel 1 (
 )
 
 set "STATUS_FILE=%LOCALAPPDATA%\ColligoOreProduttivita\company-agent-status.json"
+set "LOG_FILE=%LOCALAPPDATA%\ColligoOreProduttivita\company-sync.log"
 if exist "%STATUS_FILE%" del /q "%STATUS_FILE%" >nul 2>nul
 
 echo.
-echo Avvio la prima sincronizzazione invisibile...
-wscript.exe "%SYNC_VBS%"
+echo Test immediato della sessione salvata in modalita invisibile...
+%PY% crm_company_agent.py --run >> "%LOG_FILE%" 2>&1
+set "FIRST_RC=%ERRORLEVEL%"
+
+if "%FIRST_RC%"=="0" goto :prima_ok
 
 echo.
-echo Attendo il primo stato dell'agente...
-for /L %%I in (1,1,60) do (
-  if exist "%STATUS_FILE%" goto :stato_trovato
-  timeout /t 1 /nobreak >nul
-)
-
-echo.
-echo [ATTENZIONE] Il task e registrato ma il primo stato non e ancora disponibile.
-echo Apro la diagnostica...
-call "%~dp0DIAGNOSI_SYNC_CRM.bat"
-goto :fine
-
-:stato_trovato
-echo.
-echo Primo stato agente:
-type "%STATUS_FILE%"
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$s=Get-Content -Raw '%STATUS_FILE%' | ConvertFrom-Json;" ^
-  "if($s.state -in @('error','login_required')){ exit 2 } else { exit 0 }"
-if errorlevel 1 (
+echo [ERRORE] Il primo ciclo invisibile non e riuscito. Exit code: %FIRST_RC%
+if exist "%STATUS_FILE%" (
   echo.
-  echo [ERRORE] Il primo ciclo dell'agente non e riuscito.
-  call "%~dp0DIAGNOSI_SYNC_CRM.bat"
-  goto :errore
+  echo Stato agente:
+  type "%STATUS_FILE%"
 )
+call "%~dp0DIAGNOSI_SYNC_CRM.bat"
+goto :errore
 
-:fine
+:prima_ok
+echo.
+echo Primo ciclo invisibile completato correttamente.
+if exist "%STATUS_FILE%" type "%STATUS_FILE%"
+
+echo.
+echo Avvio anche il task registrato...
+schtasks /Run /TN "Colligo Ore CRM Background" >nul 2>nul
+
 echo.
 echo Configurazione completata.
 echo Da ora l'agente viene eseguito automaticamente ogni 5 minuti.
