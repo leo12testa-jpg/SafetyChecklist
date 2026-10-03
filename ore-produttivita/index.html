@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#1e3a5f">
   <title>Colligo · Ore & Produttività</title>
   <link rel="icon" href="../assets/icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=20261003-1145">
-  <link rel="stylesheet" href="./layout.css?v=20261003-1145">
+  <link rel="stylesheet" href="./style.css?v=20261003-1200">
+  <link rel="stylesheet" href="./layout.css?v=20261003-1200">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -388,6 +388,11 @@
               </table>
             </div>
             <div id="archiveEmpty" class="empty" hidden>Nessuna commessa corrisponde ai filtri.</div>
+            <div id="archivePager" class="archive-pager" hidden>
+              <button id="archivePrev" class="btn btn-secondary" type="button">← Precedente</button>
+              <span id="archivePageInfo">Pagina 1 di 1</span>
+              <button id="archiveNext" class="btn btn-secondary" type="button">Successiva →</button>
+            </div>
           </div>
 
           <div id="archiveDetail" class="panel archive-detail" hidden>
@@ -537,7 +542,7 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./aggiornamento.js?v=20261003-1145"></script>
-  <script src="./app.js?v=20261003-1145"></script>
+  <script src="./aggiornamento.js?v=20261003-1200"></script>
+  <script src="./app.js?v=20261003-1200"></script>
 </body>
 </html>

@@ -505,6 +505,8 @@ async function loadAdmin(){
 
 
 let archiveData=null;
+let archivePage=1;
+const ARCHIVE_PAGE_SIZE=25;
 
 function archiveStatusLabel(v){
   if(v==="completata")return "Completata";
@@ -561,10 +563,21 @@ function renderArchive(){
     return String(a.descrizione||"").localeCompare(String(b.descrizione||""),"it");
   });
 
-  $("#archiveVisibleCount").textContent=`${rows.length} commesse visualizzate su ${all.length}`;
+  const totalPages=Math.max(1,Math.ceil(rows.length/ARCHIVE_PAGE_SIZE));
+  archivePage=Math.min(Math.max(1,archivePage),totalPages);
+  const start=(archivePage-1)*ARCHIVE_PAGE_SIZE;
+  const pageRows=rows.slice(start,start+ARCHIVE_PAGE_SIZE);
+  $("#archiveVisibleCount").textContent=rows.length
+    ? `${start+1}–${Math.min(start+pageRows.length,rows.length)} di ${rows.length} commesse filtrate · ${all.length} totali`
+    : `0 commesse filtrate · ${all.length} totali`;
   $("#archiveEmpty").hidden=rows.length>0;
+  const pager=$("#archivePager");
+  pager.hidden=rows.length<=ARCHIVE_PAGE_SIZE;
+  $("#archivePageInfo").textContent=`Pagina ${archivePage} di ${totalPages}`;
+  $("#archivePrev").disabled=archivePage<=1;
+  $("#archiveNext").disabled=archivePage>=totalPages;
   const body=$("#archiveRows");body.innerHTML="";
-  for(const r of rows){
+  for(const r of pageRows){
     const statusClass=r.stato==="completata"?" completed":"";
     const period=r.prima_attivita||r.ultima_attivita
       ? `${archiveDate(r.prima_attivita)} – ${archiveDate(r.ultima_attivita)}`:"—";
@@ -634,6 +647,7 @@ async function loadArchive(){
     $("#archiveHoursCount").textContent=Number(archiveData.totals?.ore||0).toLocaleString("it-IT",{maximumFractionDigits:2});
     $("#archiveTechCount").textContent=String(archiveData.totals?.tecnici||0);
     populateArchiveFilters();
+    archivePage=1;
     renderArchive();
   }catch(e){
     console.error(e);
@@ -645,14 +659,24 @@ async function loadArchive(){
 $("#reloadArchive")?.addEventListener("click",loadArchive);
 ["#archiveSearch","#archiveClient","#archiveType","#archiveStatus"].forEach(s=>{
   const el=$(s);if(!el)return;
-  el.addEventListener(s==="#archiveSearch"?"input":"change",renderArchive);
+  el.addEventListener(s==="#archiveSearch"?"input":"change",()=>{
+    archivePage=1;
+    renderArchive();
+  });
 });
 $("#archiveReset")?.addEventListener("click",()=>{
   $("#archiveSearch").value="";
   $("#archiveClient").value="";
   $("#archiveType").value="";
   $("#archiveStatus").value="";
+  archivePage=1;
   renderArchive();
+});
+$("#archivePrev")?.addEventListener("click",()=>{
+  if(archivePage>1){archivePage--;renderArchive();$("#archiveRows").closest(".panel")?.scrollIntoView({behavior:"smooth",block:"start"})}
+});
+$("#archiveNext")?.addEventListener("click",()=>{
+  archivePage++;renderArchive();$("#archiveRows").closest(".panel")?.scrollIntoView({behavior:"smooth",block:"start"})
 });
 $("#archiveDetailClose")?.addEventListener("click",()=>{$("#archiveDetail").hidden=true});
 

@@ -68,3 +68,13 @@ test('legacy layout override layers are removed from style.css',()=>{
   assert.equal(base.includes('clarity pass: fewer visual distractions'),false);
   assert.equal(base.includes('stable UI foundation v1'),false);
 });
+
+
+test('archive pagination is wired and limited to 25 rows',()=>{
+  assert.match(app,/const ARCHIVE_PAGE_SIZE=25/);
+  assert.match(app,/pageRows=rows\.slice\(start,start\+ARCHIVE_PAGE_SIZE\)/);
+  assert.match(app,/\$\("#archivePrev"\)\?\.addEventListener/);
+  assert.match(app,/\$\("#archiveNext"\)\?\.addEventListener/);
+  assert.match(html,/id="archivePager"/);
+  assert.match(html,/id="archivePageInfo"/);
+});

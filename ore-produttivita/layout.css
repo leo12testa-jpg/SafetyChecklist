@@ -1029,6 +1029,49 @@ body{background:var(--ui-bg)}
   line-height:1!important;
 }
 
+/* Archive pagination + sticky long tables */
+#archivePanel .archive-table-wrap{
+  max-height:620px!important;
+  overflow:auto!important;
+}
+#archivePanel .archive-table thead th,
+#adminPanel .company-sync-panel thead th,
+#economicsPanel .economics-rate-table thead th,
+#economicsPanel .margin-table thead th,
+#economicsPanel .cost-detail-table thead th{
+  position:sticky!important;
+  top:0!important;
+  z-index:2!important;
+  background:#f7f9fb!important;
+  box-shadow:0 1px 0 #e2e8ee!important;
+}
+#archivePanel .archive-pager{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:10px!important;
+  padding:12px 0 0!important;
+  border-top:1px solid #edf1f5!important;
+  margin-top:10px!important;
+}
+#archivePanel .archive-pager[hidden]{display:none!important}
+#archivePanel .archive-pager span{
+  min-width:100px!important;
+  text-align:center!important;
+  font-size:.67rem!important;
+  color:#66798c!important;
+  font-weight:750!important;
+}
+#archivePanel .archive-pager button{
+  min-height:32px!important;
+  padding:5px 9px!important;
+  font-size:.65rem!important;
+}
+#archivePanel .archive-pager button:disabled{
+  opacity:.45!important;
+  cursor:not-allowed!important;
+}
+
 /* =========================
    RESPONSIVE — MEDIUM DESKTOP
    ========================= */
@@ -1273,6 +1316,17 @@ body{background:var(--ui-bg)}
     flex-direction:column!important;
   }
   #archivePanel .archive-filter-foot button{width:100%!important}
+  #archivePanel .archive-pager{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    justify-content:stretch!important;
+  }
+  #archivePanel .archive-pager span{
+    grid-column:1/-1!important;
+    grid-row:1!important;
+    min-width:0!important;
+  }
+  #archivePanel .archive-pager button{width:100%!important}
 
   #economicsPanel .explain-grid{grid-template-columns:1fr!important}
   #economicsPanel .estimator-form,
