@@ -248,23 +248,30 @@
             </div>
           </div>
 
-          <div class="panel company-sync-panel">
-            <div class="panel-heading compact">
+          <details class="panel company-sync-panel">
+            <summary class="panel-summary">
               <div>
                 <span class="eyebrow">SINCRONIZZAZIONE AUTOMATICA</span>
                 <h2>Stato agenda dei tecnici</h2>
-                <p>Le agende vengono lette in background dall’agente aziendale. Gli utenti non devono aprire il CRM.</p>
+                <p>Servizio CRM in background. Apri il dettaglio solo quando serve controllare un tecnico.</p>
               </div>
-              <span id="crmResourceCount" class="count-badge">0</span>
+              <div class="sync-summary-meta">
+                <span id="crmSyncFresh" class="sync-mini sync-ok">0 aggiornati</span>
+                <span id="crmSyncLate" class="sync-mini sync-late">0 in ritardo</span>
+                <span id="crmSyncNever" class="sync-mini sync-never">0 mai</span>
+                <span id="crmResourceCount" class="count-badge">0</span>
+              </div>
+            </summary>
+            <div class="collapsible-body">
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Sigla</th><th>Tecnico</th><th>Ultima sincronizzazione</th><th>Stato</th></tr></thead>
+                  <tbody id="crmResourceRows"></tbody>
+                </table>
+              </div>
+              <div id="crmResourceEmpty" class="empty" hidden>Nessuna risorsa CRM configurata.</div>
             </div>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Sigla</th><th>Tecnico</th><th>Ultima sincronizzazione</th><th>Stato</th></tr></thead>
-                <tbody id="crmResourceRows"></tbody>
-              </table>
-            </div>
-            <div id="crmResourceEmpty" class="empty" hidden>Nessuna risorsa CRM configurata.</div>
-          </div>
+          </details>
 
           <section class="explain-panel admin-guide">
             <div class="explain-heading"><div><span class="eyebrow">COME LEGGERE I DATI</span><h2>Cosa significa ogni indicatore</h2></div></div>
@@ -428,8 +435,11 @@
             <article class="summary-card"><span class="summary-icon">◎</span><div><small>Margine lordo</small><strong id="econMargin">—</strong><span id="econMarginMeta">Non ancora calcolabile</span></div></article>
           </div>
 
-          <section class="explain-panel">
-            <div class="explain-heading"><div><span class="eyebrow">COME LEGGERE I COSTI</span><h2>Ogni euro ha un’origine precisa</h2></div></div>
+          <details class="explain-panel economics-guide">
+            <summary class="explain-summary">
+              <div><span class="eyebrow">COME LEGGERE I COSTI</span><h2>Guida agli indicatori economici</h2></div>
+              <span class="summary-hint">Apri guida</span>
+            </summary>
             <div class="explain-grid">
               <div><b>Costo orario tecnico</b><span>Valore interno €/h assegnato al tecnico per un periodo. Non è la paga netta: è il costo interno che Colligo decide di usare per il controllo di gestione.</span></div>
               <div><b>Costo tecnico commessa</b><span>Somma di ogni sessione: ore effettive × costo orario applicabile al tecnico in quella data.</span></div>
@@ -438,7 +448,7 @@
               <div><b>Valore venduto</b><span>Prezzo netto della commessa che inserisce la direzione. Non viene ricavato automaticamente.</span></div>
               <div><b>Margine lordo di commessa</b><span>Valore venduto − costo totale. Non è utile netto aziendale: non comprende costi generali, imposte e altre voci non imputate.</span></div>
             </div>
-          </section>
+          </details>
 
           <div class="economics-layout">
             <div class="panel">
