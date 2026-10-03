@@ -1,11 +1,11 @@
-const CACHE_NAME = "colligo-ore-shell-20261003-1230";
+const CACHE_NAME = "colligo-ore-shell-20261003-1245";
 const CORE = [
   "./",
   "./index.html",
-  "./style.css?v=20261003-1230",
-  "./layout.css?v=20261003-1230",
-  "./app.js?v=20261003-1230",
-  "./aggiornamento.js?v=20261003-1230",
+  "./style.css?v=20261003-1245",
+  "./layout.css?v=20261003-1245",
+  "./app.js?v=20261003-1245",
+  "./aggiornamento.js?v=20261003-1245",
   "./version.json",
   "../assets/icon-192.png",
   "../js/vendor/firebase-app-compat.js",

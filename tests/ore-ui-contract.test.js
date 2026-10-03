@@ -86,3 +86,11 @@ test('CRM agent alert is wired to the permanent installer',()=>{
   assert.match(app,/syncFresh===0/);
   assert.match(app,/Sincronizzazione CRM automatica non attiva/);
 });
+
+
+test('CRM heartbeat status is rendered from backend agent state',()=>{
+  assert.match(html,/id="crmAgentHeartbeatText"/);
+  assert.match(app,/const heartbeat=crm\.agent\|\|null/);
+  assert.match(app,/heartbeatAge<=15/);
+  assert.match(app,/crm\.companySync\?\.completed_at/);
+});

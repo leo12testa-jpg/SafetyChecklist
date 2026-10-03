@@ -338,6 +338,7 @@ async def run_once():
     if not resources:
         raise RuntimeError("Nessuna risorsa CRM attiva.")
 
+    api(token,"crmAgentHeartbeat",state="starting",message="Avvio sincronizzazione CRM aziendale.")
     write_status("running","Sincronizzazione in corso.",{"resources":len(resources)})
     today=date.today().strftime("%Y%m")
     events=[]
@@ -352,6 +353,7 @@ async def run_once():
         await page.goto(AGENDA_URL,wait_until="domcontentloaded",timeout=60000)
         if await login_visible(page):
             await browser.close()
+            api(token,"crmAgentHeartbeat",state="login_required",message="Sessione CRM scaduta: serve nuova configurazione.")
             write_status("login_required","Sessione CRM scaduta: eseguire una volta SETUP_SYNC_BACKGROUND.bat.")
             return
 
@@ -385,9 +387,17 @@ async def run_once():
         await browser.close()
 
     if len(events)>1500:
+        api(token,"crmAgentHeartbeat",state="error",message=f"Lettura anomala: {len(events)} eventi complessivi.",scanned=len(scanned),events=len(events),failures=len(failures))
         raise RuntimeError(f"Lettura anomala: {len(events)} eventi complessivi.")
 
     result=api(token,"ingestAgendaCompany",events=events,scannedResources=scanned,date=date.today().isoformat())
+    api(token,"crmAgentHeartbeat",
+        state="ok",
+        message="Sincronizzazione CRM aziendale completata.",
+        scanned=len(scanned),
+        events=len(events),
+        saved=result.get("saved",0),
+        failures=len(failures))
     write_status("ok","Sincronizzazione completata.",{
         "scanned":len(scanned),
         "events":len(events),

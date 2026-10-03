@@ -436,16 +436,39 @@ async function loadAdmin(){
 
     const agentAlert=$("#crmAgentAlert");
     if(agentAlert){
-      const inactive=resources.length>0&&syncFresh===0;
-      const partial=resources.length>0&&syncFresh>0&&syncFresh<resources.length;
+      const heartbeat=crm.agent||null;
+      const heartbeatAt=heartbeat?.heartbeat_at?new Date(heartbeat.heartbeat_at):null;
+      const heartbeatAge=heartbeatAt?Math.max(0,(Date.now()-heartbeatAt.getTime())/60000):Infinity;
+      const heartbeatFresh=heartbeatAge<=15;
+      const heartbeatState=String(heartbeat?.state||"").toLowerCase();
+      const heartbeatError=["login_required","error"].includes(heartbeatState);
+      const inactive=!heartbeatFresh||heartbeatError;
+      const partial=!inactive&&resources.length>0&&syncFresh<resources.length;
       agentAlert.hidden=!(inactive||partial);
-      agentAlert.classList.toggle("partial",partial);
-      $("#crmAgentAlertTitle").textContent=inactive
-        ?"Sincronizzazione CRM automatica non attiva"
-        :"Sincronizzazione CRM parziale";
-      $("#crmAgentAlertText").textContent=inactive
-        ?"Nessun tecnico è stato aggiornato negli ultimi 15 minuti."
-        :`${syncFresh} tecnici aggiornati su ${resources.length}. Controlla l’agente background.`;
+      agentAlert.classList.toggle("partial",partial&&!inactive);
+
+      if(inactive){
+        $("#crmAgentAlertTitle").textContent=heartbeatState==="login_required"
+          ?"CRM: sessione scaduta"
+          :"Sincronizzazione CRM automatica non attiva";
+        $("#crmAgentAlertText").textContent=heartbeat?.message
+          ||"L’agente aziendale non sta inviando heartbeat recenti.";
+      }else{
+        $("#crmAgentAlertTitle").textContent=partial
+          ?"Sincronizzazione CRM parziale"
+          :"Sincronizzazione CRM attiva";
+        $("#crmAgentAlertText").textContent=partial
+          ?`${syncFresh} tecnici aggiornati su ${resources.length}. Ultimo ciclo agente regolare.`
+          :`${resources.length} tecnici coperti. Agente background regolare.`;
+      }
+
+      const heartbeatText=$("#crmAgentHeartbeatText");
+      if(heartbeatText){
+        const lastCycle=crm.companySync?.completed_at?fmtSyncTime(crm.companySync.completed_at):"mai";
+        heartbeatText.textContent=heartbeatAt
+          ?`Heartbeat ${fmtSyncTime(heartbeat.heartbeat_at)} · stato ${heartbeatState||"—"} · ultimo ciclo ${lastCycle}`
+          :`Nessun heartbeat agente · ultimo ciclo ${lastCycle}`;
+      }
     }
 
     const tb=$("#adminRows");tb.innerHTML="";
