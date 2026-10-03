@@ -47,7 +47,7 @@ test('canonical layout is loaded last and owns breakpoints',()=>{
   const layout=fs.readFileSync('ore-produttivita/layout.css','utf8');
   assert.ok(html.indexOf('layout.css')>html.indexOf('style.css'),'layout.css deve essere caricato dopo style.css');
   assert.match(layout,/--ui-page:1280px/);
-  assert.match(layout,/#adminPanel \.admin-kpis\{[\s\S]*grid-template-columns:repeat\(5,minmax\(180px,220px\)\)!important/);
+  assert.match(layout,/#adminPanel \.admin-kpis\{[\s\S]*grid-template-columns:repeat\(5,minmax\(180px,210px\)\)!important/);
   assert.match(layout,/@media\(max-width:900px\)/);
   assert.match(layout,/@media\(max-width:620px\)/);
   assert.match(layout,/#dayPanel \.issue-main/);
