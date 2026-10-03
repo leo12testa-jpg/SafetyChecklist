@@ -433,6 +433,7 @@ async function renderRecentActivities(){
 }
 let daySeq=0;
 function dayHasUnsavedWork(){
+  if(typeof internalHasUnsavedWork==="function"&&internalHasUnsavedWork())return true;
   if([...document.querySelectorAll("#sessions .proto-hours input")].some(i=>i.value.trim()!==(i.dataset.original||"")))return true;
   if(document.querySelector("#sessions .session-edit-panel:not([hidden]), #syncIssues .issue-editor:not([hidden])"))return true;
   const mc=$("#manualCard");
@@ -446,6 +447,7 @@ async function loadDay(){
     const j=await api("day",{date:requestedDate});
     if(seq!==daySeq)return;
     j.sessions=Array.isArray(j.sessions)?j.sessions:[];
+    if(typeof renderInternalActivities==="function")renderInternalActivities(j.internalActivities||[]);
     const total=Number(j.totalMinutes||0),totalText=fmtMinutes(total),pct=Math.max(0,Math.min(100,Math.round(total/480*100)));
     $("#dayTotal").textContent=`${totalText} / 8h 00m`;
     $("#dayTotalBottom").textContent=totalText;
@@ -527,7 +529,7 @@ $("#tabEconomics").addEventListener("click",()=>setTab("economics"));
 $("#loadAdmin").addEventListener("click",loadAdmin);
 function renderRankBars(selector,entries,limit=6){
   const box=$(selector);if(!box)return;box.innerHTML="";
-  const rows=[...entries].sort((a,b)=>b[1].minutes-a[1].minutes).slice(0,limit);
+  const rows=[...entries].sort((a,b)=>selector==="#techBars"?String(a[0]).localeCompare(String(b[0]),"it"):b[1].minutes-a[1].minutes).slice(0,selector==="#techBars"?entries.size||entries.length:limit);
   const max=Math.max(1,...rows.map(x=>x[1].minutes));
   rows.forEach(([name,v],idx)=>{const row=document.createElement("div");row.className="rank-bar-row";const pct=Math.max(4,Math.round(v.minutes/max*100));row.innerHTML=html`<span>${name}</span><div><i style="width:${pct}%"></i></div><b>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})} h</b>`;box.appendChild(row)});
   if(!rows.length)box.innerHTML='<div class="crm-empty">Nessun dato.</div>';
@@ -556,6 +558,10 @@ async function loadAdmin(){
     const totalHours=j.totalMinutes/60;
     $("#kpiHours").textContent=totalHours.toLocaleString("it-IT",{maximumFractionDigits:1});
     $("#kpiTechs").textContent=j.technicians;
+    $("#kpiBillable").textContent=j.billability?.percent==null?"non indicato":j.billability.percent.toLocaleString("it-IT",{maximumFractionDigits:1})+"%";
+    if(typeof renderAdminInternalActivities==="function")renderAdminInternalActivities(j.internalActivities||[]);
+    const billableBody=$("#billabilityRows");billableBody.innerHTML=html``;
+    for(const t of j.billability?.technicians||[]){const tr=document.createElement("tr");tr.innerHTML=html`<td>${t.tecnico_nome}</td><td>${(t.billableMinutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})}</td><td>${(t.reportedExcludingAbsence/60).toLocaleString("it-IT",{maximumFractionDigits:1})}</td><td>${t.percent==null?"non indicato":t.percent.toLocaleString("it-IT",{maximumFractionDigits:1})+"%"}</td>`;billableBody.appendChild(tr);}
     $("#kpiJobs").textContent=j.jobs;
     $("#kpiAvgJob").textContent=j.jobs?(totalHours/j.jobs).toLocaleString("it-IT",{maximumFractionDigits:1})+"h":"0h";
 
@@ -674,7 +680,7 @@ async function loadAdmin(){
     $("#kpiClients").textContent=String(clients.size);
 
     const techBody=$("#technicianRows");techBody.innerHTML="";
-    [...techs.entries()].sort((a,b)=>b[1].minutes-a[1].minutes).slice(0,15).forEach(([name,v])=>{
+    [...techs.entries()].sort((a,b)=>String(a[0]).localeCompare(String(b[0]),"it")).forEach(([name,v])=>{
       const tr=document.createElement("tr");
       tr.innerHTML=html`<td><b>${name}</b></td><td>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})}</td><td>${v.sessions}</td><td>${v.jobs.size}</td>`;
       techBody.appendChild(tr);

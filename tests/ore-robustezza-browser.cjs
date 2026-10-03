@@ -30,7 +30,7 @@ async function run(role,viewport,label,extra){
     switch(b.action){
       case 'day':{
         if(b.date==='2026-10-01'){await new Promise(x=>setTimeout(x,1500));return ok({totalMinutes:60,sessions:[{id:'old',origine:'manuale',minuti_effettivi:60,commessa_id:'c9',ore_commesse:job(9,'RISPOSTA VECCHIA')}]})}
-        return ok({totalMinutes:270,dayStatus:{stato:'aperta'},sessions:[
+        return ok({totalMinutes:360,internalActivities:[{id:'int1',categoria:'amministrazione',minuti_effettivi:30},{id:'abs1',categoria:'assenza',minuti_effettivi:60}],dayStatus:{stato:'aperta'},sessions:[
           {id:'s1',origine:'crm_agenda',inizio:iso(7),fine:iso(9),minuti_agenda:120,minuti_effettivi:150,commessa_id:'c1',crm_oggetto:'Sopralluogo '+EVIL,ore_commesse:job(1,'DVR sede '+EVIL)},
           {id:'s2',origine:'manuale',minuti_effettivi:120,commessa_id:'c2',ore_commesse:job(2,'DUVRI appalto pulizie')}]});}
       case 'syncStatus':return ok({resource:{sigla:'LT',ultima_sync:new Date().toISOString()},openIssues:[{id:'i1',codice_lavoro:'1B',titolo:'Riunione '+EVIL,minuti:30,inizio:iso(10),fine:iso(10),candidati:[]}]});
@@ -38,12 +38,15 @@ async function run(role,viewport,label,extra){
       case 'commesse':return ok({commesse:[{id:'c1',cliente_id:'k1',tipologia_id:'t1',descrizione:'DVR sede '+EVIL,codice_lavoro:'1B'}]});
       case 'recentPersonal':return r.fulfill({status:500,body:'boom'});
       case 'saveSession':return ok({ok:true});
+      case 'saveInternal':return ok({ok:true,id:'int2'});
       case 'confirmDay':return r.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:'Giornata già chiusa dal responsabile.'})});
-      case 'adminSummary':return ok({totalMinutes:600,technicians:1,jobs:2,rows:[{data_lavoro:'2026-10-02',tecnico_nome:'Leo '+EVIL,commessa_id:'c1',minuti_effettivi:600,origine:'manuale',ore_commesse:{...job(1,'DVR sede'),stato:'completata'}}]});
+      case 'adminSummary':return ok({totalMinutes:960,technicians:1,jobs:2,billability:{percent:80,technicians:[{tecnico_uid:'u1',tecnico_nome:'Leo '+EVIL,billableMinutes:480,reportedExcludingAbsence:600,percent:80}]},rows:[{data_lavoro:'2026-10-02',tecnico_nome:'Leo '+EVIL,commessa_id:'c1',minuti_effettivi:600,origine:'manuale',ore_commesse:{...job(1,'DVR sede'),stato:'completata'}}]});
       case 'crmResources':return ok({resources:[],agent:{heartbeat_at:new Date().toISOString(),state:'ok'}});
       case 'crmLinks':return ok({rows:[{id:'r1',sigla_crm:'XX',nome_crm:'Risorsa '+EVIL,tecnico_uid:'u1',tecnico_nome:'Leo',account_reale:true,stato_collegamento:'da confermare',sessioni_risorsa:1,sessioni_uid_storiche:2}],technicians:[{uid:'u1',nome:'Leo'},{uid:'u2',nome:'Nuovo tecnico'}],ambigui:{},pending:[]});
       case 'previewCrmLink':return ok({resource:{tecnico_uid:'u1',collegamento_approvato_at:null},sessions:[{id:'move1',tecnico_uid:'u1',data_lavoro:'2026-10-02',minuti_effettivi:60,updated_at:'2026-10-03T10:00:00Z'}],nota:'Le sessioni confermate non vengono spostate.'});
       case 'approveCrmLink':return ok({ok:true,riassegnate:b.sessions.length});
+      case 'economicsCatalog':return ok({technicians:[],rates:[],jobs:[]});
+      case 'adminEconomics':return ok({jobs:[],costRows:[],typeStats:[],blendedHourlyCost:null,coverage:{percent:0},comparable:{jobs:0}});
       case 'archiveJobs':return ok({totals:{commesse:3},rows:[
         {id:'c1',stato:'completata',ore:40,tipologia:{codice:'B',nome:'DVR'},cliente:{id:'k1',ragione_sociale:'ACME'}},
         {id:'c2',stato:'completata',ore:20,tipologia:{codice:'B',nome:'DVR'},cliente:{id:'k1',ragione_sociale:'ACME'}},
@@ -55,6 +58,11 @@ async function run(role,viewport,label,extra){
   await page.waitForSelector('#sessions .proto-hour-row',{timeout:10000});
   await page.waitForTimeout(600);
   await extra(page,calls);
+  if(role==='admin')for(const [tab,panel] of [['#tabDay','#dayPanel'],['#tabAdmin','#adminPanel'],['#tabArchive','#archivePanel'],['#tabEconomics','#economicsPanel']]){
+    await page.click(tab);await page.waitForTimeout(450);assert.equal(await page.locator(panel).isVisible(),true);
+    const size=await page.evaluate(()=>({vw:innerWidth,doc:document.documentElement.scrollWidth}));
+    assert.ok(size.doc<=size.vw+2,`${label} ${panel}: overflow ${JSON.stringify(size)}`);
+  }
   assert.equal(await page.evaluate(()=>window.__xss),undefined,'XSS eseguito!');
   assert.equal(await page.locator('#appView img[src="x"]').count(),0,'tag img iniettato nel DOM');
   const m=await page.evaluate(()=>({vw:innerWidth,doc:document.documentElement.scrollWidth}));
@@ -109,6 +117,12 @@ async function run(role,viewport,label,extra){
       await page.click('#manualToggle');await page.fill('#manualDuration','2:30');
       assert.equal(await page.locator('#manualCard .duration-preview').innerText(),'= 2h 30m');
       await page.fill('#manualDuration','');await page.click('#manualClose');
+      assert.equal(await page.locator('#internalActivities .internal-entry').count(),2);
+      await page.selectOption('#internalCategory','assenza');await page.fill('#internalDuration','2:30');
+      assert.equal(await page.locator('#internalDurationPreview').innerText(),'= 2h 30m');
+      await page.click('#saveInternal');await page.waitForTimeout(300);
+      const internal=calls.find(c=>c.action==='saveInternal');assert.equal(internal.categoria,'assenza');assert.equal(internal.minutiEffettivi,150);assert.equal('motivo' in internal,false);
+      assert.equal(await page.locator('#internalDuration').inputValue(),'');
     });
     await run('tecnico',{width:390,height:844},'tecnico-mobile',async(page)=>{
       for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),false,id+' visibile al tecnico (mobile)');
@@ -116,6 +130,8 @@ async function run(role,viewport,label,extra){
     await run('admin',{width:1366,height:900},'admin-desktop',async(page,calls)=>{
       for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),true,id+' non visibile all\'admin');
       await page.click('#tabAdmin');await page.waitForTimeout(800);
+      assert.equal(await page.locator('#kpiBillable').innerText(),'80%');
+      assert.ok((await page.locator('#billabilityRows').innerText()).includes('80%'));
       const prod=await page.locator('#productivityRows').innerText();
       assert.match(prod,/B · DVR/);assert.match(prod,/30 h/,'mediana sullo storico (40 e 20) = 30 h');
       assert.ok(!prod.includes('99'),'pratiche aperte escluse');
@@ -133,6 +149,10 @@ async function run(role,viewport,label,extra){
       await page.fill('#adminFrom','2026-10-10');await page.fill('#adminTo','2026-10-01');await page.click('#loadAdmin');
       await page.waitForTimeout(200);
       assert.ok(await page.locator('.toast-warn').count()>=1,'periodo invertito segnalato');
+    });
+    await run('admin',{width:390,height:844},'admin-mobile',async(page)=>{
+      await page.click('#tabAdmin');await page.waitForTimeout(800);
+      assert.equal(await page.locator('#kpiBillable').innerText(),'80%');
     });
     console.log('TUTTI I TEST BROWSER SUPERATI');
   }finally{server.close()}

@@ -1,5 +1,5 @@
 const oreAggiornamento = (() => {
-  const BUILD_ID = "20261003-204500";
+  const BUILD_ID = "20261003-210000";
   const banner = document.getElementById("oreUpdateBanner");
   const button = document.getElementById("oreUpdateButton");
   const badge = document.getElementById("oreVersion");

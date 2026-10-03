@@ -11,8 +11,8 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="../assets/icon-192.png">
   <link rel="apple-touch-icon" href="../assets/icon-512.png">
-  <link rel="stylesheet" href="./style.css?v=20261003-204500">
-  <link rel="stylesheet" href="./layout.css?v=20261003-204500">
+  <link rel="stylesheet" href="./style.css?v=20261003-210000">
+  <link rel="stylesheet" href="./layout.css?v=20261003-210000">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -195,6 +195,17 @@
           </section>
 
           <div class="tech-confirm-row">
+            <section class="panel" aria-labelledby="internalHeading">
+              <h2 id="internalHeading">Attività interne e assenze</h2>
+              <p>L’assenza si registra senza motivo.</p>
+              <form id="internalForm"><label>Categoria<select id="internalCategory" required>
+                <option value="formazione_interna">Formazione interna</option><option value="amministrazione">Amministrazione</option>
+                <option value="commerciale_preventivi">Commerciale/preventivi</option><option value="aggiornamento_normativo">Aggiornamento normativo</option>
+                <option value="riunioni_interne">Riunioni interne</option><option value="altro_interno">Altro interno</option><option value="assenza">Assenza</option>
+              </select></label><label>Durata<input id="internalDuration" required placeholder="2h30, 2:30, 1,5" inputmode="decimal"></label>
+              <span id="internalDurationPreview" aria-live="polite"></span><button id="saveInternal" type="submit">Aggiungi attività interna</button></form>
+              <div id="internalActivities"></div>
+            </section>
             <span>Controlla le ore derivate dall’agenda e conferma la giornata.</span>
             <button id="confirmDay" class="proto-primary" type="button">Conferma giornata</button>
           </div>
@@ -233,6 +244,7 @@
 
           <div class="summary-grid five admin-kpis">
             <article class="summary-card"><span class="summary-icon">◷</span><div><small>Ore totali</small><strong id="kpiHours">0</strong><span>Ore effettive registrate</span></div></article>
+            <article class="summary-card"><div><small>% ore fatturabili</small><strong id="kpiBillable">non indicato</strong><span>Ore su commesse / ore senza assenze</span></div></article>
             <article class="summary-card"><span class="summary-icon">▣</span><div><small>Documenti / commesse</small><strong id="kpiJobs">0</strong><span>Pratiche lavorate nel periodo</span></div></article>
             <article class="summary-card"><span class="summary-icon">≈</span><div><small>Ore medie / pratica</small><strong id="kpiAvgJob">0</strong><span>Ore del periodo ÷ pratiche lavorate</span></div></article>
             <article class="summary-card"><span class="summary-icon">◎</span><div><small>Tecnici</small><strong id="kpiTechs">0</strong><span>Risorse attive nel periodo</span></div></article>
@@ -335,6 +347,8 @@
               <div class="panel-heading compact"><div><span class="eyebrow">RISORSE</span><h2>Ore per tecnico</h2><p>Carico registrato nel periodo selezionato.</p></div></div>
               <div class="table-wrap">
                 <table><thead><tr><th>Tecnico</th><th>Ore</th><th>Sessioni</th><th>Commesse</th></tr></thead><tbody id="technicianRows"></tbody></table>
+                <table><caption>Ore fatturabili per tecnico nel periodo, in ordine alfabetico</caption><thead><tr><th>Tecnico</th><th>Ore commesse</th><th>Ore senza assenze</th><th>% fatturabili</th></tr></thead><tbody id="billabilityRows"></tbody></table>
+                <table><caption>Attività interne nel periodo · modifica amministratore</caption><thead><tr><th>Tecnico e data</th><th>Categoria</th><th>Durata</th><th>Salva</th></tr></thead><tbody id="adminInternalRows"></tbody></table>
               </div>
               <div id="technicianEmpty" class="empty" hidden>Nessun dato nel periodo.</div>
             </div>
@@ -568,8 +582,9 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./aggiornamento.js?v=20261003-204500"></script>
-  <script src="./app.js?v=20261003-204500"></script>
-  <script src="./crm-links.js?v=20261003-204500"></script>
+  <script src="./aggiornamento.js?v=20261003-210000"></script>
+  <script src="./app.js?v=20261003-210000"></script>
+  <script src="./crm-links.js?v=20261003-210000"></script>
+  <script src="./internal-activities.js?v=20261003-210000"></script>
 </body>
 </html>

@@ -97,11 +97,26 @@ const ACTION_ROLES: Record<string, readonly string[]> = {
   crmResources: ["admin"], crmAgentHeartbeat: ["admin"], ingestAgendaCompany: ["admin"],
   economicsCatalog: ["admin"], saveTechnicianCost: ["admin"], saveJobEconomics: ["admin"],
   adminEconomics: ["admin"], archiveJobs: ["admin"], archiveJobDetail: ["admin"],
-  adminSummary: ["admin"], crmLinks: ["admin"], previewCrmLink: ["admin"], approveCrmLink: ["admin"]
+  adminSummary: ["admin"], crmLinks: ["admin"], previewCrmLink: ["admin"], approveCrmLink: ["admin"],
+  saveInternal: ["admin", "tecnico"]
 };
 function authorizeAction(user: any, action: string) {
   if (!Object.hasOwn(ACTION_ROLES, action)) bad("Operazione non riconosciuta.");
   if (!ACTION_ROLES[action].includes(user.profile.ruolo)) bad("Operazione riservata agli amministratori.", 403);
+}
+const INTERNAL_CATEGORIES = new Set(["formazione_interna","amministrazione","commerciale_preventivi","aggiornamento_normativo","riunioni_interne","altro_interno","assenza"]);
+function billability(rows:any[]) {
+  const byTech=new Map<string,any>();
+  let billable=0,denominator=0,absence=0;
+  for(const r of rows){
+    const m=Number(r.minuti_effettivi||0);
+    const t=byTech.get(r.tecnico_uid)||{tecnico_uid:r.tecnico_uid,tecnico_nome:r.tecnico_nome||r.tecnico_uid,billableMinutes:0,reportedExcludingAbsence:0,absenceMinutes:0};
+    if(r.assenza){absence+=m;t.absenceMinutes+=m;}else{denominator+=m;t.reportedExcludingAbsence+=m;}
+    if(r.fatturabile){billable+=m;t.billableMinutes+=m;}
+    byTech.set(r.tecnico_uid,t);
+  }
+  return {billableMinutes:billable,reportedExcludingAbsence:denominator,absenceMinutes:absence,percent:denominator?100*billable/denominator:null,
+    technicians:[...byTech.values()].map(t=>({...t,percent:t.reportedExcludingAbsence?100*t.billableMinutes/t.reportedExcludingAbsence:null})).sort((a,b)=>String(a.tecnico_nome).localeCompare(String(b.tecnico_nome),"it"))};
 }
 async function writeAudit(db: any, uid: string, action: string, entity: string, entityId: string | null, details: any = {}) {
   await db.from("ore_audit").insert({ tecnico_uid: uid, azione: action, entita: entity, entita_id: entityId, dettagli: details });
@@ -125,6 +140,32 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "");
     authorizeAction(user, action);
+
+    if (action === "saveInternal") {
+      const category=String(body.categoria||"");
+      if(!INTERNAL_CATEGORIES.has(category))bad("Categoria interna non valida.");
+      const duration=minutes(body.minutiEffettivi), day=dateOnly(body.date);
+      let targetUid=String(body.tecnicoUid||user.uid), targetName=`${user.profile.nome||""} ${user.profile.cognome||""}`.trim();
+      const id=body.id?String(body.id):null;
+      if(id){
+        const {data:current,error}=await db.from("ore_attivita_interne").select("tecnico_uid,tecnico_nome,data_lavoro").eq("id",id).maybeSingle();
+        if(error||!current)bad("Attività interna non trovata.",404);
+        if(current.tecnico_uid!==user.uid&&user.profile.ruolo!=="admin")bad("Non autorizzato.",403);
+        targetUid=current.tecnico_uid;targetName=current.tecnico_nome||"";
+        if(current.data_lavoro!==day)bad("La data dell'attività non è modificabile.");
+      }
+      if(targetUid!==user.uid){
+        requireAdmin(user);
+        const response=await fetch(`${FIRESTORE}/utenti/${encodeURIComponent(targetUid)}`,{headers:{authorization:`Bearer ${user.token}`}});
+        if(!response.ok)bad("Account tecnico non trovato.",404);
+        const target=fromDoc(await response.json());
+        if(target.attivo!==true||!["admin","tecnico"].includes(target.ruolo))bad("Account tecnico non attivo.");
+        targetName=`${target.nome||""} ${target.cognome||""}`.trim();
+      }
+      const {data,error}=await db.rpc("ore_salva_attivita_interna",{p_id:id,p_uid:targetUid,p_name:targetName,p_day:day,p_category:category,p_minutes:duration,p_actor:user.uid,p_admin:user.profile.ruolo==="admin"});
+      if(error)bad(error.message||"Impossibile salvare l'attività interna.",409);
+      return json(req,data);
+    }
 
     if (action === "crmLinks") {
       const { data: resources, error } = await db.from("ore_risorse_crm").select("*").order("sigla_crm");
@@ -306,9 +347,11 @@ Deno.serve(async (req: Request) => {
         .select("id,data_lavoro,inizio,fine,minuti_agenda,minuti_effettivi,origine,crm_event_id,crm_oggetto,attivita_rilevata,modificata_manualmente,motivo_modifica,confermata,commessa_id,ore_commesse(codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome))")
         .eq("tecnico_uid", user.uid).eq("data_lavoro", day).order("inizio", { ascending: true });
       if (error) bad("Impossibile caricare la giornata.", 500);
-      const total = (data || []).reduce((s: number, x: any) => s + Number(x.minuti_effettivi || 0), 0);
+      const {data:activities,error:activitiesError}=await db.from("ore_rendicontazioni").select("*").eq("tecnico_uid",user.uid).eq("data_lavoro",day);
+      if(activitiesError)bad("Impossibile caricare le attività interne.",500);
+      const total = (activities || []).reduce((s: number, x: any) => s + Number(x.minuti_effettivi || 0), 0);
       const { data: giornata } = await db.from("ore_giornate").select("stato,confermata_at").eq("tecnico_uid", user.uid).eq("data", day).maybeSingle();
-      return json(req, { date: day, sessions: data || [], totalMinutes: total, dayStatus: giornata || { stato: "da_verificare", confermata_at: null } });
+      return json(req, { date: day, sessions: data || [], internalActivities:(activities||[]).filter((r:any)=>r.tipo_record==="interna"),billability:billability(activities||[]),totalMinutes: total, dayStatus: giornata || { stato: "da_verificare", confermata_at: null } });
     }
 
     if (action === "recentPersonal") {
@@ -408,33 +451,10 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "confirmDay") {
-      await bindCallerResource(db,user);
-      const day = dateOnly(body.date);
-      const { count: openIssues, error: issuesError } = await db.from("ore_sync_issues")
-        .select("id", { count: "exact", head: true })
-        .eq("tecnico_uid", user.uid)
-        .eq("data_lavoro", day)
-        .eq("stato", "aperta");
-      if (issuesError) bad("Impossibile verificare le attività CRM.", 500);
-      if ((openIssues || 0) > 0) bad(`Ci sono ${openIssues} attività CRM da verificare prima di confermare la giornata.`, 409);
-
-      const { data: sessions, error } = await db.from("ore_sessioni").select("id,minuti_effettivi").eq("tecnico_uid", user.uid).eq("data_lavoro", day);
-      if (error) bad("Impossibile verificare la giornata.", 500);
-      const total = (sessions || []).reduce((s: number, x: any) => s + Number(x.minuti_effettivi || 0), 0);
-      const now = new Date().toISOString();
-      const { error: upsertError } = await db.from("ore_giornate").upsert({
-        tecnico_uid: user.uid,
-        tecnico_nome: `${user.profile.nome || ""} ${user.profile.cognome || ""}`.trim(),
-        data: day,
-        minuti_totali: total,
-        stato: "confermata",
-        confermata_at: now,
-        updated_at: now
-      }, { onConflict: "tecnico_uid,data" });
-      if (upsertError) bad("Impossibile confermare la giornata.", 500);
-      await db.from("ore_sessioni").update({ confermata: true, confermata_at: now, updated_at: now }).eq("tecnico_uid", user.uid).eq("data_lavoro", day);
-      await writeAudit(db, user.uid, "conferma_giornata", "giornata", day, { minuti: total, sessioni: (sessions || []).length });
-      return json(req, { ok: true, totalMinutes: total });
+      const day=dateOnly(body.date);
+      const {data,error}=await db.rpc("ore_conferma_giornata",{p_uid:user.uid,p_name:`${user.profile.nome||""} ${user.profile.cognome||""}`.trim(),p_day:day});
+      if(error)bad(error.message||"Impossibile confermare la giornata.",409);
+      return json(req,data);
     }
 
     if (action === "importPlanner") {
@@ -1873,10 +1893,16 @@ Deno.serve(async (req: Request) => {
         .gte("data_lavoro", from).lte("data_lavoro", to).limit(10000);
       if (error) bad("Impossibile generare il riepilogo.", 500);
       const rows = data || [];
-      const totalMinutes = rows.reduce((s: number, x: any) => s + Number(x.minuti_effettivi || 0), 0);
-      const technicians = new Set(rows.map((x: any) => x.tecnico_uid)).size;
+      const activities:any[]=[];
+      for(let offset=0;;offset+=1000){
+        const {data,error}=await db.from("ore_rendicontazioni").select("*").gte("data_lavoro",from).lte("data_lavoro",to).order("id").order("tipo_record").range(offset,offset+999);
+        if(error)bad("Impossibile calcolare la rendicontazione completa.",500);
+        activities.push(...(data||[]));if((data||[]).length<1000)break;
+      }
+      const totalMinutes = activities.reduce((s: number, x: any) => s + Number(x.minuti_effettivi || 0), 0);
+      const technicians = new Set(activities.map((x: any) => x.tecnico_uid)).size;
       const jobs = new Set(rows.map((x: any) => x.commessa_id)).size;
-      return json(req, { from, to, totalMinutes, sessions: rows.length, technicians, jobs, rows });
+      return json(req, { from, to, totalMinutes, sessions: rows.length, technicians, jobs, rows,billability:billability(activities),internalActivities:activities.filter((r:any)=>r.tipo_record==="interna") });
     }
 
     bad("Operazione non riconosciuta.");

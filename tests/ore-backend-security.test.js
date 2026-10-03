@@ -60,3 +60,30 @@ test('risorsa senza account: ingest conserva evento da verificare senza creare s
   const result=await response.json();assert.equal(result.saved,0);assert.equal(result.resourceUnmatched,1);
   const issue=writes.find(w=>w.table==='ore_sync_issues');assert.equal(issue.value.tecnico_uid,'unassigned:r1');assert.equal(issue.value.stato,'aperta');assert.equal(issue.value.minuti,60);
 });
+test('fatturabilità include interne ed esclude assenze, anche per tecnico',()=>{
+  const app=backend();app.context.rows=[{tecnico_uid:'u1',tecnico_nome:'Leo',minuti_effettivi:480,fatturabile:true,assenza:false},{tecnico_uid:'u1',tecnico_nome:'Leo',minuti_effettivi:120,fatturabile:false,assenza:false},{tecnico_uid:'u1',tecnico_nome:'Leo',minuti_effettivi:240,fatturabile:false,assenza:true}];
+  const result=vm.runInContext('billability(rows)',app.context);assert.equal(result.percent,80);assert.equal(result.technicians[0].percent,80);assert.equal(result.reportedExcludingAbsence,600);assert.equal(result.absenceMinutes,240);
+  assert.equal(vm.runInContext('billability([]).percent',app.context),null);
+});
+test('attività interne: categorie e minuti invalidi rifiutati prima del salvataggio',async()=>{
+  for(const body of [{categoria:'malattia',minutiEffettivi:60},{categoria:'assenza',minutiEffettivi:1441},{categoria:'amministrazione',minutiEffettivi:-1}]){
+    const app=backend();assert.equal((await app.call({action:'saveInternal',date:'2026-10-03',...body})).status,400);assert.equal(app.dbCalls(),0);
+  }
+});
+test('tecnico non crea né modifica attività interne altrui',async()=>{
+  for(const body of [{tecnicoUid:'other'},{id:'s1'}]){const app=backend();assert.equal((await app.call({action:'saveInternal',date:'2026-10-03',categoria:'assenza',minutiEffettivi:60,...body})).status,403);}
+});
+test('assenza: nessun motivo inviato al database, ruolo nel body ignorato',async()=>{
+  let saved;
+  const app=backend({database:{rpc:async(name,args)=>{saved=args;return {data:{ok:true},error:null};}}});
+  const response=await app.call({action:'saveInternal',date:'2026-10-03',categoria:'assenza',minutiEffettivi:60,motivo:'dato da non registrare',ruolo:'admin'});
+  assert.equal(response.status,200);assert.equal(saved.p_admin,false);assert.equal(saved.p_uid,'u1');assert.equal(saved.p_category,'assenza');assert.equal('motivo' in saved,false);
+});
+test('day usa vista unificata per totale e quota e filtra sempre sul chiamante',async()=>{
+  const filters=[];
+  const activities=[{id:'s1',tipo_record:'sessione',tecnico_uid:'u1',minuti_effettivi:480,fatturabile:true,assenza:false},{id:'i1',tipo_record:'interna',tecnico_uid:'u1',minuti_effettivi:120,fatturabile:false,assenza:false},{id:'a1',tipo_record:'interna',tecnico_uid:'u1',minuti_effettivi:240,fatturabile:false,assenza:true}];
+  const database={from(table){const q={select(){return this;},eq(k,v){filters.push([table,k,v]);return this;},order(){return this;},maybeSingle:async()=>({data:null}),then(resolve){resolve({data:table==='ore_rendicontazioni'?activities:table==='ore_sessioni'?[activities[0]]:[],error:null});}};return q;}};
+  const app=backend({database});const response=await app.call({action:'day',date:'2026-10-03',tecnicoUid:'other'});assert.equal(response.status,200);const data=await response.json();
+  assert.equal(data.totalMinutes,840);assert.equal(data.sessions.length,1);assert.equal(data.internalActivities.length,2);assert.equal(data.billability.percent,80);
+  assert.ok(filters.some(f=>f[0]==='ore_rendicontazioni'&&f[1]==='tecnico_uid'&&f[2]==='u1'));
+});

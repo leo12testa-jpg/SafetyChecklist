@@ -1,0 +1,82 @@
+-- Backup: C:/Users/Leonardo/.cache/ore-db-backups/20261003-before-lock-order.json
+CREATE OR REPLACE FUNCTION public.ore_salva_attivita_interna(p_id uuid, p_uid text, p_name text, p_day date, p_category text, p_minutes integer, p_actor text, p_admin boolean)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+declare previous public.ore_attivita_interne%rowtype; saved public.ore_attivita_interne%rowtype;
+begin
+ perform pg_advisory_xact_lock(hashtextextended(p_uid||':'||p_day::text,0));
+ if p_id is not null then
+  select * into previous from public.ore_attivita_interne where id=p_id for update;
+  if not found then raise exception 'Attivita non trovata'; end if;
+  if previous.tecnico_uid<>p_actor and not p_admin then raise exception 'Non autorizzato'; end if;
+  if previous.tecnico_uid<>p_uid or previous.data_lavoro<>p_day then raise exception 'Tecnico e data non modificabili'; end if;
+ end if;
+ if p_uid<>p_actor and not p_admin then raise exception 'Non autorizzato'; end if;
+ insert into public.ore_attivita_interne(id,tecnico_uid,tecnico_nome,data_lavoro,categoria,minuti_effettivi)
+ values(coalesce(p_id,gen_random_uuid()),p_uid,p_name,p_day,p_category,p_minutes)
+ on conflict(id) do update set categoria=excluded.categoria,minuti_effettivi=excluded.minuti_effettivi,
+  confermata=false,confermata_at=null,updated_at=clock_timestamp()
+ returning * into saved;
+ update public.ore_giornate set stato='riaperta',confermata_at=null,updated_at=clock_timestamp()
+ where tecnico_uid=p_uid and data=p_day and stato='confermata';
+ insert into public.ore_audit(tecnico_uid,azione,entita,entita_id,dettagli)
+ values(p_actor,'salva_attivita_interna','attivita_interna',saved.id::text,jsonb_build_object('prima',case when p_id is null then null else to_jsonb(previous) end,'dopo',to_jsonb(saved)));
+ return jsonb_build_object('ok',true,'id',saved.id);
+end $function$
+;
+CREATE OR REPLACE FUNCTION public.ore_approva_collegamento_crm(p_resource uuid, p_uid text, p_name text, p_actor text, p_previous_uid text, p_previous_approval timestamp with time zone, p_sessions jsonb DEFAULT '[]'::jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+declare
+ r public.ore_risorse_crm%rowtype;
+ s public.ore_sessioni%rowtype;
+ item jsonb; lock_key text; changed integer:=0; stamp timestamptz:=clock_timestamp();
+begin
+ select * into r from public.ore_risorse_crm where id=p_resource and attiva for update;
+ if not found then raise exception 'Risorsa non trovata'; end if;
+ if r.tecnico_uid is distinct from p_previous_uid or r.collegamento_approvato_at is distinct from p_previous_approval then
+   raise exception 'Collegamento modificato nel frattempo: ricarica';
+ end if;
+ if p_uid is null or trim(p_uid)='' or p_uid like 'legacy:%' or p_actor is null then raise exception 'Account non valido'; end if;
+ if jsonb_typeof(p_sessions)<>'array' or jsonb_array_length(p_sessions)>500 then raise exception 'Anteprima non valida'; end if;
+ -- All owner/day advisory locks precede session row locks, in one consistent order.
+ for lock_key in
+   select distinct day_key from (
+     select session_row.tecnico_uid||':'||session_row.data_lavoro::text as day_key
+     from public.ore_sessioni session_row join jsonb_array_elements(p_sessions) event_ref(value) on session_row.id=(event_ref.value->>'id')::uuid
+     union
+     select p_uid||':'||session_row.data_lavoro::text
+     from public.ore_sessioni session_row join jsonb_array_elements(p_sessions) event_ref(value) on session_row.id=(event_ref.value->>'id')::uuid
+   ) keys order by day_key
+ loop perform pg_advisory_xact_lock(hashtextextended(lock_key,0)); end loop;
+ -- Lock the session rows and reject changes after the preview, including day confirmation.
+ for item in select value from jsonb_array_elements(p_sessions) loop
+   select * into s from public.ore_sessioni where id=(item->>'id')::uuid for update;
+   if not found or s.crm_risorsa_id is distinct from p_resource or s.confermata
+      or s.updated_at is distinct from (item->>'updated_at')::timestamptz
+      or exists(select 1 from public.ore_giornate g where g.tecnico_uid=s.tecnico_uid and g.data=s.data_lavoro and g.stato='confermata')
+   then raise exception 'Sessione non riassegnabile o cambiata: ricarica anteprima'; end if;
+   -- Serialize competing changes for this destination/day; no silent exceeding of 24h.
+   perform pg_advisory_xact_lock(hashtextextended(p_uid || ':' || s.data_lavoro::text,0));
+   if s.tecnico_uid is distinct from p_uid and
+     (select coalesce(sum(minuti_effettivi),0) from public.ore_sessioni where tecnico_uid=p_uid and data_lavoro=s.data_lavoro)+s.minuti_effettivi>1440
+   then raise exception 'La riassegnazione supera 24 ore giornaliere'; end if;
+   if exists(select 1 from public.ore_giornate where tecnico_uid=p_uid and data=s.data_lavoro and stato='confermata')
+   then raise exception 'Giornata di destinazione confermata'; end if;
+   insert into public.ore_audit(tecnico_uid,azione,entita,entita_id,dettagli)
+   values(p_actor,'riassegna_sessione_crm','sessione',s.id::text,jsonb_build_object('prima',to_jsonb(s),'dopo_uid',p_uid,'risorsa_id',p_resource));
+   update public.ore_sessioni set tecnico_uid=p_uid,tecnico_nome=p_name,updated_at=stamp where id=s.id;
+   changed:=changed+1;
+ end loop;
+ update public.ore_risorse_crm set tecnico_uid=p_uid,tecnico_nome=p_name,
+   collegamento_approvato_at=stamp,collegamento_approvato_da=p_actor,updated_at=stamp where id=p_resource;
+ insert into public.ore_audit(tecnico_uid,azione,entita,entita_id,dettagli)
+ values(p_actor,'approva_collegamento_crm','risorsa_crm',p_resource::text,
+   jsonb_build_object('prima',to_jsonb(r),'dopo_uid',p_uid,'dopo_nome',p_name,'sessioni_riassegnate',changed));
+ return jsonb_build_object('ok',true,'riassegnate',changed);
+end; $function$
+;
