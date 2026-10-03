@@ -42,6 +42,9 @@ jobs:
           grep -q '<h2>Agenda CRM</h2>' ore-produttivita/index.html
           grep -q 'id="oreUpdateBanner"' ore-produttivita/index.html
           grep -q 'id="oreUpdateButton"' ore-produttivita/index.html
+          grep -q 'id="installAppBtn"' ore-produttivita/index.html
+          grep -q 'rel="manifest" href="./manifest.json"' ore-produttivita/index.html
+          test -f ore-produttivita/manifest.json
           ! grep -q 'id="syncCrmNow"' ore-produttivita/index.html
           ! grep -q 'colligoore://sync' ore-produttivita/app.js
 
@@ -53,6 +56,8 @@ jobs:
           grep -q "layout.css?v=${ORE_BUILD}" ore-produttivita/service-worker.js
           grep -q "aggiornamento.js?v=${ORE_BUILD}" ore-produttivita/index.html
           grep -q "app.js?v=${ORE_BUILD}" ore-produttivita/index.html
+          grep -q '"display": "standalone"' ore-produttivita/manifest.json
+          grep -q './manifest.json' ore-produttivita/service-worker.js
 
           node --test tests/ore-ui-contract.test.js
 

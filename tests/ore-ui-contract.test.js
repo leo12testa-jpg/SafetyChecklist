@@ -95,3 +95,13 @@ test('CRM heartbeat status is rendered from backend agent state',()=>{
   assert.match(app,/heartbeatAge<=15/);
   assert.match(app,/crm\.companySync\?\.completed_at/);
 });
+
+
+test('PWA install and persistent auth are wired',()=>{
+  assert.match(html,/rel="manifest" href="\.\/manifest\.json"/);
+  assert.match(html,/id="installAppBtn"/);
+  assert.match(app,/Auth\.Persistence\.LOCAL/);
+  assert.match(app,/await authPersistence/);
+  assert.match(app,/beforeinstallprompt/);
+  assert.match(app,/appinstalled/);
+});

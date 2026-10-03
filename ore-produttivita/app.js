@@ -2,7 +2,9 @@ const firebaseConfig={apiKey:"AIzaSyAdgCc8TQ1TVfF8l0NMxtm7NS95ZOl4lCA",authDomai
 const API="https://twznfiygzzbqdgudpwav.supabase.co/functions/v1/ore-produttivita-api";
 firebase.initializeApp(firebaseConfig);
 const db=firebase.firestore();
-firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+const authPersistence=firebase.auth()
+  .setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+  .catch(error=>{console.error("Persistenza sessione",error)});
 const $=s=>document.querySelector(s);
 const loginView=$("#loginView"),appView=$("#appView"),loginForm=$("#loginForm"),loginError=$("#loginError"),loginBtn=$("#loginBtn");
 let profile=null;
@@ -20,9 +22,60 @@ async function api(action,body={}){const r=await fetch(API,{method:"POST",header
 async function loadProfile(user){const snap=await db.collection("utenti").doc(user.uid).get({source:"server"});if(!snap.exists)throw new Error("Profilo utente non disponibile.");const p=snap.data();if(p.attivo!==true||!["admin","tecnico"].includes(p.ruolo))throw new Error("Account non attivo.");return {...p,uid:user.uid}}
 function showLogin(msg=""){profile=null;loginView.hidden=false;appView.hidden=true;loginError.textContent=msg;loginError.hidden=!msg}
 async function showApp(p){profile=p;loginView.hidden=true;appView.hidden=false;$("#userName").textContent=[p.nome,p.cognome].filter(Boolean).join(" ")||p.username;$("#userRole").textContent=p.ruolo==="admin"?"Amministratore":"Tecnico";$("#tabAdmin").hidden=p.ruolo!=="admin";$("#tabArchive").hidden=p.ruolo!=="admin";$("#tabEconomics").hidden=p.ruolo!=="admin";$("#panelTitle").textContent=p.ruolo==="admin"?"Pannello Amministratore":"Pannello Tecnico";$("#panelSubtitle").textContent=p.ruolo==="admin"?"Report, produttività e analisi per decisioni strategiche":"Inserisci le tue ore in pochi secondi";await loadDay();if(p.ruolo==="admin")await loadAdmin()}
-loginForm.addEventListener("submit",async e=>{e.preventDefault();loginBtn.disabled=true;loginError.hidden=true;try{await firebase.auth().signInWithEmailAndPassword(internalEmail($("#username").value),$("#password").value)}catch(err){showLogin(["auth/invalid-credential","auth/user-not-found","auth/wrong-password"].includes(err.code)?"Credenziali non valide.":err.message)}finally{loginBtn.disabled=false;$("#password").value=""}});
+loginForm.addEventListener("submit",async e=>{
+  e.preventDefault();loginBtn.disabled=true;loginError.hidden=true;
+  try{
+    await authPersistence;
+    await firebase.auth().signInWithEmailAndPassword(internalEmail($("#username").value),$("#password").value);
+  }catch(err){
+    showLogin(["auth/invalid-credential","auth/user-not-found","auth/wrong-password"].includes(err.code)?"Credenziali non valide.":err.message);
+  }finally{
+    loginBtn.disabled=false;$("#password").value="";
+  }
+});
 $("#logoutBtn").addEventListener("click",()=>firebase.auth().signOut());
-firebase.auth().onAuthStateChanged(async user=>{if(!user){showLogin();return}try{showApp(await loadProfile(user))}catch(e){await firebase.auth().signOut().catch(()=>{});showLogin(e.message)}});
+authPersistence.finally(()=>{
+  firebase.auth().onAuthStateChanged(async user=>{
+    if(!user){showLogin();return}
+    try{showApp(await loadProfile(user))}
+    catch(e){await firebase.auth().signOut().catch(()=>{});showLogin(e.message)}
+  });
+});
+let deferredInstallPrompt=null;
+const installAppBtn=$("#installAppBtn");
+const isStandalone=()=>window.matchMedia?.("(display-mode: standalone)")?.matches===true||window.navigator.standalone===true;
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent||"");
+
+function refreshInstallAction(){
+  if(!installAppBtn)return;
+  installAppBtn.hidden=isStandalone()||(!deferredInstallPrompt&&!isIOS());
+}
+window.addEventListener("beforeinstallprompt",event=>{
+  event.preventDefault();
+  deferredInstallPrompt=event;
+  refreshInstallAction();
+});
+window.addEventListener("appinstalled",()=>{
+  deferredInstallPrompt=null;
+  refreshInstallAction();
+});
+installAppBtn?.addEventListener("click",async()=>{
+  if(deferredInstallPrompt){
+    const prompt=deferredInstallPrompt;
+    deferredInstallPrompt=null;
+    await prompt.prompt();
+    await prompt.userChoice.catch(()=>null);
+    refreshInstallAction();
+    return;
+  }
+  if(isIOS()){
+    alert("Su iPhone/iPad: apri Condividi in Safari e scegli “Aggiungi alla schermata Home”.");
+    return;
+  }
+  alert("Apri il menu del browser e scegli “Installa app” o “Aggiungi alla schermata Home”.");
+});
+refreshInstallAction();
+
 $("#dayDate").value=localDate();$("#adminFrom").value=monthStart();$("#adminTo").value=localDate();
 $("#dayDate").addEventListener("change",loadDay);$("#refreshDay").addEventListener("click",loadDay);
 let manualCatalogLoaded=false;

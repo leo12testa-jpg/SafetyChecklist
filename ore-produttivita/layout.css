@@ -104,6 +104,11 @@ body{background:var(--ui-bg)}
 }
 #appView .sidebar-foot{margin-top:auto!important;min-width:0!important}
 #appView .header-actions{min-width:0!important}
+#appView .install-app-btn{
+  border-color:rgba(255,255,255,.42)!important;
+  background:rgba(255,255,255,.08)!important;
+}
+#appView .install-app-btn:hover{background:rgba(255,255,255,.15)!important}
 #appView .header-user{min-width:0!important;text-align:right!important}
 #appView .header-user strong,
 #appView .header-user span{
@@ -1250,6 +1255,13 @@ body{background:var(--ui-bg)}
 @media(max-width:620px){
   #appView .app-content{padding:10px 8px 24px!important}
   #appView .header-user{display:none!important}
+  #appView .header-actions{gap:6px!important}
+  #appView .install-app-btn,
+  #appView #logoutBtn{
+    min-height:36px!important;
+    padding:6px 9px!important;
+    font-size:.68rem!important;
+  }
   #appView .page-heading h1{font-size:1.28rem!important}
   #appView .panel{padding:12px!important}
 
