@@ -57,3 +57,14 @@ File utili:
 Le password CRM non vengono salvate nel codice o nel database dell'app. La sessione CRM resta nel profilo browser dedicato sul PC aziendale. Il token dell'app viene conservato tramite il gestore credenziali di Windows.
 
 Se la sessione CRM scade, l'agente non apre finestre agli utenti: si ferma e richiede una nuova esecuzione di `SETUP_SYNC_BACKGROUND.bat` sul PC aziendale.
+
+
+## Robustezza del servizio
+
+L'agente aziendale usa un mutex Windows per impedire due sincronizzazioni contemporanee. L'attività pianificata è inoltre configurata con `MultipleInstances=IgnoreNew`.
+
+Durante un ciclo viene inviato un heartbeat al backend ogni 4 risorse, così la Dashboard distingue un agente realmente fermo da un ciclo ancora in corso.
+
+Come protezione aggiuntiva, se quattro risorse diverse restituiscono esattamente la stessa agenda non vuota, le successive vengono marcate come sospette invece di essere importate automaticamente. Questo evita di attribuire a più tecnici la stessa agenda nel caso in cui il cambio risorsa nel CRM non sia avvenuto correttamente.
+
+Il setup verifica anche la comparsa del primo file di stato locale dopo l'avvio della sincronizzazione.

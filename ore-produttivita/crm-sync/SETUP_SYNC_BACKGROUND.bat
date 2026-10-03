@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal EnableExtensions
 title Colligo - Configura sincronizzazione CRM automatica
 cd /d "%~dp0"
 
@@ -26,13 +26,40 @@ if errorlevel 1 goto :errore
 
 echo.
 echo Registro la sincronizzazione automatica ogni 5 minuti...
-schtasks /Create /TN "Colligo Ore CRM Background" /SC MINUTE /MO 5 /TR "wscript.exe "%~dp0RUN_COMPANY_SYNC.vbs"" /F >nul
+set "SYNC_VBS=%~dp0RUN_COMPANY_SYNC.vbs"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$ErrorActionPreference='Stop';" ^
+  "$task='Colligo Ore CRM Background';" ^
+  "$vbs=$env:SYNC_VBS;" ^
+  "$action=New-ScheduledTaskAction -Execute 'wscript.exe' -Argument ('"' + $vbs + '"');" ^
+  "$trigger=New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 5);" ^
+  "$settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable;" ^
+  "Register-ScheduledTask -TaskName $task -Action $action -Trigger $trigger -Settings $settings -Description 'Colligo Ore - sincronizzazione CRM invisibile' -Force | Out-Null"
 if errorlevel 1 goto :errore
 
 echo.
 echo Avvio una prima sincronizzazione invisibile...
-start "" /min wscript.exe "%~dp0RUN_COMPANY_SYNC.vbs"
+wscript.exe "%SYNC_VBS%"
 
+echo.
+echo Attendo il primo stato dell'agente...
+set "STATUS_FILE=%LOCALAPPDATA%\ColligoOreProduttivita\company-agent-status.json"
+for /L %%I in (1,1,30) do (
+  if exist "%STATUS_FILE%" goto :stato_trovato
+  timeout /t 1 /nobreak >nul
+)
+
+echo.
+echo [ATTENZIONE] Attivita pianificata creata, ma nessuno stato agente e ancora disponibile.
+echo Controlla la Dashboard tra qualche minuto.
+goto :fine
+
+:stato_trovato
+echo.
+echo Primo stato agente disponibile:
+type "%STATUS_FILE%"
+
+:fine
 echo.
 echo Configurazione completata.
 echo Da ora telefono e PC leggono i dati dal backend senza aprire il CRM.

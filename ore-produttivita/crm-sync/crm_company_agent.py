@@ -31,6 +31,34 @@ WORK_RE = re.compile(r"\b(\d{1,2}[A-IL-P])\b", re.I)
 OLD_SHORT_RE = re.compile(r"\b(\d{2}\.\d{2})(?:-([A-Z]))?\b", re.I)
 COMM_RE = re.compile(r"\b(CM\d{5,})\b", re.I)
 
+MUTEX_NAME = "Local\\ColligoOreProduttivitaCompanyAgent"
+
+
+def acquire_run_mutex():
+    """Return Windows mutex handle, or None if another cycle is already running."""
+    if os.name != "nt":
+        return True
+    import ctypes
+    kernel32 = ctypes.windll.kernel32
+    handle = kernel32.CreateMutexW(None, False, MUTEX_NAME)
+    if not handle:
+        raise RuntimeError("Impossibile creare il lock dell'agente CRM.")
+    # ERROR_ALREADY_EXISTS
+    if kernel32.GetLastError() == 183:
+        kernel32.CloseHandle(handle)
+        return None
+    return handle
+
+
+def release_run_mutex(handle):
+    if os.name == "nt" and handle not in (None, True):
+        try:
+            import ctypes
+            ctypes.windll.kernel32.CloseHandle(handle)
+        except Exception:
+            pass
+
+
 
 def write_status(state, message, extra=None):
     APP_DIR.mkdir(parents=True, exist_ok=True)
@@ -302,6 +330,17 @@ def parse_day(texts, wanted, sigla):
     return out
 
 
+def agenda_fingerprint(events):
+    if not events:
+        return ""
+    canonical = [
+        (str(x.get("date") or ""), str(x.get("start") or ""), str(x.get("end") or ""), str(x.get("title") or "").strip())
+        for x in events
+    ]
+    canonical.sort()
+    return hashlib.sha1(json.dumps(canonical, ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
 async def setup(username):
     token=app_token(username, interactive=True)
     resources=api(token,"crmResources").get("resources",[])
@@ -344,6 +383,7 @@ async def run_once():
     events=[]
     scanned=[]
     failures=[]
+    fingerprints={}
 
     async with async_playwright() as p:
         browser=await p.chromium.launch_persistent_context(
@@ -376,13 +416,43 @@ async def run_once():
                 if len(resource_events)>120:
                     failures.append({"sigla":sigla,"reason":"troppi_eventi","count":len(resource_events)})
                     continue
+                fingerprint=agenda_fingerprint(resource_events)
+                if fingerprint:
+                    same=fingerprints.setdefault(fingerprint,[])
+                    if len(same)>=3:
+                        failures.append({
+                            "sigla":sigla,
+                            "reason":"agenda_identica_sospetta",
+                            "same_as":same[:3]
+                        })
+                        continue
+                    same.append(sigla)
+
                 for ev in resource_events:
                     ev["tecnicoSigla"]=sigla
                     ev["tecnicoNome"]=name
                 events.extend(resource_events)
                 scanned.append(sigla)
+
+                if index % 4 == 0 or index == len(resources):
+                    api(token,"crmAgentHeartbeat",
+                        state="running",
+                        message=f"Lettura CRM in corso: {index}/{len(resources)} risorse.",
+                        scanned=len(scanned),
+                        events=len(events),
+                        failures=len(failures))
             except Exception as exc:
                 failures.append({"sigla":sigla,"reason":str(exc)[:160]})
+                if index % 4 == 0 or index == len(resources):
+                    try:
+                        api(token,"crmAgentHeartbeat",
+                            state="running",
+                            message=f"Lettura CRM in corso: {index}/{len(resources)} risorse.",
+                            scanned=len(scanned),
+                            events=len(events),
+                            failures=len(failures))
+                    except Exception:
+                        pass
 
         await browser.close()
 
@@ -427,7 +497,13 @@ async def main():
 
 
 if __name__=="__main__":
+    mutex=None
     try:
+        if "--setup" not in sys.argv:
+            mutex=acquire_run_mutex()
+            if mutex is None:
+                write_status("skipped","Sincronizzazione già in corso: nuovo avvio ignorato.")
+                sys.exit(0)
         asyncio.run(main())
     except Exception as exc:
         write_status("error",str(exc))
@@ -444,3 +520,5 @@ if __name__=="__main__":
             print("\nERRORE:",exc)
             input("\nPremi INVIO per chiudere.")
         sys.exit(1)
+    finally:
+        release_run_mutex(mutex)
