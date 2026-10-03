@@ -1363,6 +1363,16 @@ body{background:var(--ui-bg)}
     min-width:32px!important;
     height:32px!important;
   }
+  #adminPanel .summary-card small,
+  #archivePanel .summary-card small,
+  #economicsPanel .summary-card small{
+    min-height:24px!important;
+    white-space:normal!important;
+    overflow:visible!important;
+    text-overflow:clip!important;
+    font-size:.54rem!important;
+    line-height:1.15!important;
+  }
   #adminPanel .summary-card strong,
   #archivePanel .summary-card strong,
   #economicsPanel .summary-card strong{
@@ -1387,6 +1397,7 @@ body{background:var(--ui-bg)}
   #adminPanel .donut-layout{grid-template-columns:1fr!important}
   #adminPanel .explain-grid{grid-template-columns:1fr!important}
   #adminPanel .rank-bar-row{grid-template-columns:84px minmax(0,1fr) 48px!important}
+  #adminPanel .admin-chart-card{min-height:190px!important}
 
   #archivePanel .archive-filters{grid-template-columns:1fr!important}
   #adminPanel .panel-summary{align-items:flex-start!important;flex-direction:column!important}
@@ -1411,6 +1422,46 @@ body{background:var(--ui-bg)}
   #archivePanel .archive-pager button{width:100%!important}
 
   #economicsPanel .explain-grid{grid-template-columns:1fr!important}
+
+  #economicsPanel .economics-rate-table{
+    min-width:0!important;
+    display:block!important;
+  }
+  #economicsPanel .economics-rate-table thead{display:none!important}
+  #economicsPanel .economics-rate-table tbody{
+    display:grid!important;
+    gap:9px!important;
+  }
+  #economicsPanel .economics-rate-table tr{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:8px!important;
+    padding:10px!important;
+    border:1px solid #e1e8ef!important;
+    border-radius:9px!important;
+    background:#fff!important;
+  }
+  #economicsPanel .economics-rate-table td{
+    display:block!important;
+    min-width:0!important;
+    padding:0!important;
+    border:0!important;
+  }
+  #economicsPanel .economics-rate-table td:first-child{
+    grid-column:1/-1!important;
+    padding-bottom:2px!important;
+  }
+  #economicsPanel .economics-rate-table td:nth-child(4){
+    grid-column:1/-1!important;
+  }
+  #economicsPanel .economics-rate-table td:last-child{
+    grid-column:1/-1!important;
+  }
+  #economicsPanel .economics-rate-table td input,
+  #economicsPanel .economics-rate-table td button{
+    width:100%!important;
+  }
+
   #economicsPanel .estimator-form,
   #economicsPanel .job-economics-form{grid-template-columns:1fr!important}
   #economicsPanel .job-economics-form .job-picker,

@@ -171,7 +171,17 @@ async function prepare(page,screen){
             if(await cards.count()>=2){
               const a=await cards.nth(0).boundingBox(),b=await cards.nth(1).boundingBox();
               assert.ok(a&&b&&Math.abs(a.y-b.y)<3,`${screen} phone KPI cards must use two columns`);
+              const labelStyle=await cards.nth(0).locator('small').evaluate(el=>getComputedStyle(el).whiteSpace);
+              assert.equal(labelStyle,'normal',`${screen} phone KPI label must wrap`);
             }
+          }
+          if(screen==='economicsPanel'){
+            const firstRow=page.locator('.economics-rate-table tbody tr').first();
+            const display=await firstRow.evaluate(el=>getComputedStyle(el).display);
+            assert.equal(display,'grid','economics phone rate rows must be card grids');
+            const tableWidth=await page.locator('.economics-rate-table').evaluate(el=>el.getBoundingClientRect().width);
+            const panelWidth=await page.locator('#economicsPanel').evaluate(el=>el.getBoundingClientRect().width);
+            assert.ok(tableWidth<=panelWidth+1,'economics phone rate table must fit panel');
           }
         }
 
