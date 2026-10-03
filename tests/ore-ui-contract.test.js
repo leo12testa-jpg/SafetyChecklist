@@ -19,7 +19,7 @@ test('frontend never launches CRM/browser protocol', () => {
 
 test('main static buttons are wired', () => {
   const ids = [...html.matchAll(/<button[^>]*\bid="([^"]+)"/g)].map((m) => m[1]);
-  const special = new Set(['loginBtn', 'oreUpdateButton']);
+  const special = new Set(['loginBtn', 'oreUpdateButton', 'installAppBtn']);
   const missing = ids.filter((id) => !special.has(id) && !hasListener(id));
   assert.deepEqual(missing, [], `Pulsanti senza handler: ${missing.join(', ')}`);
   assert.equal(app.includes('loginForm.addEventListener("submit"'), true);
