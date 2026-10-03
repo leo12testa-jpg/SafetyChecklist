@@ -30,8 +30,31 @@ function bad(message: string, status = 400) {
 }
 function dateOnly(v: unknown) {
   const s = String(v || "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) bad("Data non valida.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || !Number.isFinite(Date.parse(s+"T12:00:00Z")) || new Date(s+"T12:00:00Z").toISOString().slice(0,10)!==s) bad("Data non valida.");
   return s;
+}
+function easterDate(year:number){
+  const a=year%19,b=Math.floor(year/100),c=year%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3);
+  const h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+  const value=h+l-7*m+114,month=Math.floor(value/31),day=value%31+1;
+  return `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+}
+function italianHoliday(day:string){
+  const year=Number(day.slice(0,4));
+  const fixed:Record<string,string>={"01-01":"Capodanno","01-06":"Epifania","04-25":"Liberazione","05-01":"Festa del lavoro","06-02":"Festa della Repubblica","08-15":"Ferragosto","11-01":"Ognissanti","12-08":"Immacolata","12-25":"Natale","12-26":"Santo Stefano"};
+  if(fixed[day.slice(5)])return fixed[day.slice(5)];
+  // L. 151/2025, effective 2026; no retroactive national holiday.
+  if(year>=2026&&day.slice(5)==="10-04")return "San Francesco d’Assisi";
+  const easter=easterDate(year);if(day===easter)return "Pasqua";
+  const monday=new Date(easter+"T12:00:00Z");monday.setUTCDate(monday.getUTCDate()+1);
+  return day===monday.toISOString().slice(0,10)?"Lunedì dell’Angelo":null;
+}
+function expectedWork(day:string,schedules:any[]){
+  const holiday=italianHoliday(day);
+  const applicable=schedules.filter(s=>s.valido_dal<=day).sort((a,b)=>String(b.valido_dal).localeCompare(String(a.valido_dal)))[0];
+  const weekday=(new Date(day+"T12:00:00Z").getUTCDay()+6)%7;
+  const week=applicable?.settimana_minuti||[480,480,480,480,480,0,0];
+  return {minutes:holiday?0:week[weekday],holiday,source:applicable?"configurato":"default",validFrom:applicable?.valido_dal||null};
 }
 function minutes(v: unknown) {
   const n = Number(v);
@@ -98,7 +121,7 @@ const ACTION_ROLES: Record<string, readonly string[]> = {
   economicsCatalog: ["admin"], saveTechnicianCost: ["admin"], saveJobEconomics: ["admin"],
   adminEconomics: ["admin"], archiveJobs: ["admin"], archiveJobDetail: ["admin"],
   adminSummary: ["admin"], crmLinks: ["admin"], previewCrmLink: ["admin"], approveCrmLink: ["admin"],
-  saveInternal: ["admin", "tecnico"]
+  saveInternal: ["admin", "tecnico"], workSchedules: ["admin"], saveWorkSchedule: ["admin"]
 };
 function authorizeAction(user: any, action: string) {
   if (!Object.hasOwn(ACTION_ROLES, action)) bad("Operazione non riconosciuta.");
@@ -140,6 +163,28 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "");
     authorizeAction(user, action);
+
+    if (action === "workSchedules") {
+      const {data:schedules,error}=await db.from("ore_orari_tecnici").select("*").order("valido_dal",{ascending:false});
+      if(error)bad("Impossibile caricare gli orari previsti.",500);
+      const response=await fetch(`${FIRESTORE}/utenti?pageSize=1000`,{headers:{authorization:`Bearer ${user.token}`}});
+      if(!response.ok)bad("Impossibile caricare gli account tecnici.",500);
+      const body=await response.json();if(body.nextPageToken)bad("Elenco account troppo lungo: serve paginazione.",500);
+      const technicians=(body.documents||[]).map(fromDoc).filter((p:any)=>p.attivo===true&&["tecnico","admin"].includes(p.ruolo)).map((p:any)=>({uid:p.uid,nome:`${p.nome||""} ${p.cognome||""}`.trim()}));
+      return json(req,{schedules:schedules||[],technicians});
+    }
+    if (action === "saveWorkSchedule") {
+      const uid=String(body.tecnicoUid||"").trim(),from=dateOnly(body.validoDal);
+      const week=body.settimanaMinuti;if(!uid||!Array.isArray(week)||week.length!==7)bad("Orario settimanale non valido.");
+      if(week.some((value:any)=>typeof value!=="number"))bad("I minuti settimanali devono essere numeri interi.");
+      week.forEach(minutes);
+      const response=await fetch(`${FIRESTORE}/utenti/${encodeURIComponent(uid)}`,{headers:{authorization:`Bearer ${user.token}`}});
+      if(!response.ok)bad("Account tecnico non trovato.",404);
+      const target=fromDoc(await response.json());if(target.attivo!==true||!["admin","tecnico"].includes(target.ruolo))bad("Account tecnico non attivo.");
+      const {data,error}=await db.rpc("ore_aggiungi_orario",{p_uid:uid,p_name:`${target.nome||""} ${target.cognome||""}`.trim(),p_from:from,p_week:week,p_actor:user.uid});
+      if(error)bad(error.message||"Impossibile salvare l'orario.",409);
+      return json(req,data);
+    }
 
     if (action === "saveInternal") {
       const category=String(body.categoria||"");
@@ -349,9 +394,12 @@ Deno.serve(async (req: Request) => {
       if (error) bad("Impossibile caricare la giornata.", 500);
       const {data:activities,error:activitiesError}=await db.from("ore_rendicontazioni").select("*").eq("tecnico_uid",user.uid).eq("data_lavoro",day);
       if(activitiesError)bad("Impossibile caricare le attività interne.",500);
+      const {data:schedules,error:scheduleError}=await db.from("ore_orari_tecnici").select("valido_dal,settimana_minuti").eq("tecnico_uid",user.uid).lte("valido_dal",day).order("valido_dal",{ascending:false}).limit(1);
+      if(scheduleError)bad("Impossibile caricare l'orario previsto.",500);
+      const work=expectedWork(day,schedules||[]);
       const total = (activities || []).reduce((s: number, x: any) => s + Number(x.minuti_effettivi || 0), 0);
       const { data: giornata } = await db.from("ore_giornate").select("stato,confermata_at").eq("tecnico_uid", user.uid).eq("data", day).maybeSingle();
-      return json(req, { date: day, sessions: data || [], internalActivities:(activities||[]).filter((r:any)=>r.tipo_record==="interna"),billability:billability(activities||[]),totalMinutes: total, dayStatus: giornata || { stato: "da_verificare", confermata_at: null } });
+      return json(req, { date: day, sessions: data || [], internalActivities:(activities||[]).filter((r:any)=>r.tipo_record==="interna"),billability:billability(activities||[]),totalMinutes: total,expectedMinutes:work.minutes,workSchedule:work,dayStatus: giornata || { stato: "da_verificare", confermata_at: null } });
     }
 
     if (action === "recentPersonal") {

@@ -448,11 +448,13 @@ async function loadDay(){
     if(seq!==daySeq)return;
     j.sessions=Array.isArray(j.sessions)?j.sessions:[];
     if(typeof renderInternalActivities==="function")renderInternalActivities(j.internalActivities||[]);
-    const total=Number(j.totalMinutes||0),totalText=fmtMinutes(total),pct=Math.max(0,Math.min(100,Math.round(total/480*100)));
-    $("#dayTotal").textContent=`${totalText} / 8h 00m`;
+    const total=Number(j.totalMinutes||0),totalText=fmtMinutes(total),expected=j.expectedMinutes;
+    const pct=expected>0?Math.max(0,Math.min(100,Math.round(total/expected*100))):0;
+    $("#dayTotal").textContent=`${totalText} / ${expected==null?"non indicato":fmtMinutes(expected)}`;
     $("#dayTotalBottom").textContent=totalText;
     $("#dayProgressBar").style.width=pct+"%";
-    $("#dayProgressText").textContent=pct+"%";
+    $("#dayProgressText").textContent=expected>0?pct+"%":"—";
+    $("#dayScheduleNote").textContent=j.workSchedule?.holiday?`Festività nazionale: ${j.workSchedule.holiday}`:j.workSchedule?.source==="default"?"Orario non configurato: default 8h lun–ven.":j.workSchedule?.validFrom?`Orario valido dal ${j.workSchedule.validFrom}`:"Orario non indicato.";
     const confirmed=j.dayStatus?.stato==="confermata";
     $("#dayStatus").textContent=confirmed?"Confermata":"Da verificare";
     $("#dayCompleteBadge").textContent=confirmed?"Completata":"Da completare";

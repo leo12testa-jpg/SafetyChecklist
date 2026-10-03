@@ -18,7 +18,7 @@ function backend({ role = 'tecnico', tokenValid = true, owner = 'other', databas
   return { call: body => handler(new Request('https://test/', {method:'POST',headers:{authorization:'Bearer test','content-type':'application/json'},body:JSON.stringify(body)})),
     dbCalls: () => dbCalls, context };
 }
-for (const action of ['adminSummary','adminEconomics','saveJobEconomics','archiveJobs','importPlanner','importHistoryBatch','crmResources','crmAgentHeartbeat','ingestAgendaCompany','economicsCatalog','saveTechnicianCost','archiveJobDetail','crmLinks','previewCrmLink','approveCrmLink']) {
+for (const action of ['adminSummary','adminEconomics','saveJobEconomics','archiveJobs','importPlanner','importHistoryBatch','crmResources','crmAgentHeartbeat','ingestAgendaCompany','economicsCatalog','saveTechnicianCost','archiveJobDetail','crmLinks','previewCrmLink','approveCrmLink','workSchedules','saveWorkSchedule']) {
   test(`tecnico: ${action} restituisce 403 prima di accedere ai dati`, async () => {
     const app=backend();
     assert.equal((await app.call({action,ruolo:'admin'})).status,403);
@@ -82,8 +82,23 @@ test('assenza: nessun motivo inviato al database, ruolo nel body ignorato',async
 test('day usa vista unificata per totale e quota e filtra sempre sul chiamante',async()=>{
   const filters=[];
   const activities=[{id:'s1',tipo_record:'sessione',tecnico_uid:'u1',minuti_effettivi:480,fatturabile:true,assenza:false},{id:'i1',tipo_record:'interna',tecnico_uid:'u1',minuti_effettivi:120,fatturabile:false,assenza:false},{id:'a1',tipo_record:'interna',tecnico_uid:'u1',minuti_effettivi:240,fatturabile:false,assenza:true}];
-  const database={from(table){const q={select(){return this;},eq(k,v){filters.push([table,k,v]);return this;},order(){return this;},maybeSingle:async()=>({data:null}),then(resolve){resolve({data:table==='ore_rendicontazioni'?activities:table==='ore_sessioni'?[activities[0]]:[],error:null});}};return q;}};
+  const database={from(table){const q={select(){return this;},eq(k,v){filters.push([table,k,v]);return this;},lte(){return this;},limit(){return this;},order(){return this;},maybeSingle:async()=>({data:null}),then(resolve){resolve({data:table==='ore_rendicontazioni'?activities:table==='ore_sessioni'?[activities[0]]:[],error:null});}};return q;}};
   const app=backend({database});const response=await app.call({action:'day',date:'2026-10-03',tecnicoUid:'other'});assert.equal(response.status,200);const data=await response.json();
   assert.equal(data.totalMinutes,840);assert.equal(data.sessions.length,1);assert.equal(data.internalActivities.length,2);assert.equal(data.billability.percent,80);
   assert.ok(filters.some(f=>f[0]==='ore_rendicontazioni'&&f[1]==='tecnico_uid'&&f[2]==='u1'));
+});
+test('orario default, part-time e decorrenze rispettano lo storico',()=>{
+  const app=backend();app.context.schedules=[{valido_dal:'2026-01-01',settimana_minuti:[240,240,240,240,240,0,0]},{valido_dal:'2026-09-01',settimana_minuti:[360,360,360,360,360,0,0]}];
+  for(const [day,expected] of [['2025-12-29',480],['2026-08-31',240],['2026-09-01',360],['2026-10-03',0]]){
+    assert.equal(vm.runInContext(`expectedWork('${day}',schedules).minutes`,app.context),expected);
+  }
+});
+test('festività italiane: Pasqua, lunedì Angelo e 4 ottobre solo dal 2026',()=>{
+  const app=backend();for(const day of ['2026-01-01','2026-04-05','2026-04-06','2026-04-25','2026-10-04','2027-10-04','2026-12-25'])assert.equal(vm.runInContext(`expectedWork('${day}',[]).minutes`,app.context),0);
+  assert.equal(vm.runInContext("italianHoliday('2025-10-04')",app.context),null);
+  assert.equal(vm.runInContext("easterDate(2026)",app.context),'2026-04-05');
+  for(const day of ['2026-03-30','2026-10-26'])assert.equal(vm.runInContext(`expectedWork('${day}',[]).minutes`,app.context),480);
+});
+test('date impossibili rifiutate, anno bisestile accettato',()=>{
+  const app=backend();assert.throws(()=>vm.runInContext("dateOnly('2026-02-29')",app.context));assert.throws(()=>vm.runInContext("dateOnly('2026-04-31')",app.context));assert.equal(vm.runInContext("dateOnly('2024-02-29')",app.context),'2024-02-29');
 });

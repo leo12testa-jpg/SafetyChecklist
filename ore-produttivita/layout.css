@@ -1508,3 +1508,7 @@ body{background:var(--ui-bg)}
 .internal-entry.dirty{outline:2px solid #d6951b;outline-offset:4px}
 .tech-confirm-row:has(#internalForm){flex-wrap:wrap}
 .tech-confirm-row:has(#internalForm)>section{flex-basis:100%;width:100%;min-width:0}
+#workScheduleWeek{display:flex;flex-wrap:wrap;gap:12px}
+#workScheduleWeek label{display:flex;flex-direction:column;gap:4px;max-width:130px}
+#workScheduleWeek input{width:100%;min-width:0}
+#workScheduleForm>label{display:inline-flex;flex-direction:column;gap:4px;margin:8px 12px 8px 0;max-width:100%}

@@ -11,8 +11,8 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="../assets/icon-192.png">
   <link rel="apple-touch-icon" href="../assets/icon-512.png">
-  <link rel="stylesheet" href="./style.css?v=20261003-210000">
-  <link rel="stylesheet" href="./layout.css?v=20261003-210000">
+  <link rel="stylesheet" href="./style.css?v=20261003-211000">
+  <link rel="stylesheet" href="./layout.css?v=20261003-211000">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -109,7 +109,8 @@
             <div class="tech-progress">
               <div class="tech-progress-copy">
                 <span>Ore rendicontate</span>
-                <strong id="dayTotal">0h 00m / 8h 00m</strong>
+                <strong id="dayTotal">0h 00m / non indicato</strong>
+                <small id="dayScheduleNote"></small>
               </div>
               <div class="tech-progress-track"><i id="dayProgressBar"></i></div>
               <small id="dayProgressText">0%</small>
@@ -311,6 +312,17 @@
             </div>
           </details>
 
+          <details class="explain-panel admin-guide">
+            <summary>Ore previste per persona</summary>
+            <p>Ogni nuova configurazione ha una decorrenza successiva alla precedente. Le configurazioni storiche non vengono sovrascritte. Default: 8h lun–ven. Le festività nazionali sono escluse; patronali e chiusure aziendali non sono configurate.</p>
+            <button id="loadWorkSchedules" type="button">Carica orari e tecnici</button>
+            <form id="workScheduleForm">
+              <label>Tecnico<select id="workScheduleTech" required><option value="">Seleziona tecnico…</option></select></label>
+              <label>Valido dal<input id="workScheduleFrom" type="date" required></label>
+              <div id="workScheduleWeek"></div><button id="saveWorkSchedule" type="submit">Salva nuova decorrenza</button>
+            </form>
+            <div class="table-wrap"><table><thead><tr><th>Tecnico</th><th>Valido dal</th><th>Lun</th><th>Mar</th><th>Mer</th><th>Gio</th><th>Ven</th><th>Sab</th><th>Dom</th></tr></thead><tbody id="workScheduleRows"></tbody></table></div>
+          </details>
           <details class="explain-panel admin-guide">
             <summary class="explain-summary">
               <div><span class="eyebrow">COME LEGGERE I DATI</span><h2>Guida agli indicatori della dashboard</h2></div>
@@ -582,9 +594,10 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./aggiornamento.js?v=20261003-210000"></script>
-  <script src="./app.js?v=20261003-210000"></script>
-  <script src="./crm-links.js?v=20261003-210000"></script>
-  <script src="./internal-activities.js?v=20261003-210000"></script>
+  <script src="./aggiornamento.js?v=20261003-211000"></script>
+  <script src="./app.js?v=20261003-211000"></script>
+  <script src="./crm-links.js?v=20261003-211000"></script>
+  <script src="./internal-activities.js?v=20261003-211000"></script>
+  <script src="./work-schedules.js?v=20261003-211000"></script>
 </body>
 </html>

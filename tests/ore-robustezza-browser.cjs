@@ -30,7 +30,7 @@ async function run(role,viewport,label,extra){
     switch(b.action){
       case 'day':{
         if(b.date==='2026-10-01'){await new Promise(x=>setTimeout(x,1500));return ok({totalMinutes:60,sessions:[{id:'old',origine:'manuale',minuti_effettivi:60,commessa_id:'c9',ore_commesse:job(9,'RISPOSTA VECCHIA')}]})}
-        return ok({totalMinutes:360,internalActivities:[{id:'int1',categoria:'amministrazione',minuti_effettivi:30},{id:'abs1',categoria:'assenza',minuti_effettivi:60}],dayStatus:{stato:'aperta'},sessions:[
+        return ok({totalMinutes:360,expectedMinutes:240,workSchedule:{source:'configurato',validFrom:'2026-09-01'},internalActivities:[{id:'int1',categoria:'amministrazione',minuti_effettivi:30},{id:'abs1',categoria:'assenza',minuti_effettivi:60}],dayStatus:{stato:'aperta'},sessions:[
           {id:'s1',origine:'crm_agenda',inizio:iso(7),fine:iso(9),minuti_agenda:120,minuti_effettivi:150,commessa_id:'c1',crm_oggetto:'Sopralluogo '+EVIL,ore_commesse:job(1,'DVR sede '+EVIL)},
           {id:'s2',origine:'manuale',minuti_effettivi:120,commessa_id:'c2',ore_commesse:job(2,'DUVRI appalto pulizie')}]});}
       case 'syncStatus':return ok({resource:{sigla:'LT',ultima_sync:new Date().toISOString()},openIssues:[{id:'i1',codice_lavoro:'1B',titolo:'Riunione '+EVIL,minuti:30,inizio:iso(10),fine:iso(10),candidati:[]}]});
@@ -39,6 +39,8 @@ async function run(role,viewport,label,extra){
       case 'recentPersonal':return r.fulfill({status:500,body:'boom'});
       case 'saveSession':return ok({ok:true});
       case 'saveInternal':return ok({ok:true,id:'int2'});
+      case 'workSchedules':return ok({technicians:[{uid:'u1',nome:'Leo'}],schedules:[{tecnico_uid:'u1',tecnico_nome:'Leo',valido_dal:'2026-01-01',settimana_minuti:[240,240,240,240,240,0,0]}]});
+      case 'saveWorkSchedule':return ok({ok:true,id:'schedule2'});
       case 'confirmDay':return r.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:'Giornata già chiusa dal responsabile.'})});
       case 'adminSummary':return ok({totalMinutes:960,technicians:1,jobs:2,billability:{percent:80,technicians:[{tecnico_uid:'u1',tecnico_nome:'Leo '+EVIL,billableMinutes:480,reportedExcludingAbsence:600,percent:80}]},rows:[{data_lavoro:'2026-10-02',tecnico_nome:'Leo '+EVIL,commessa_id:'c1',minuti_effettivi:600,origine:'manuale',ore_commesse:{...job(1,'DVR sede'),stato:'completata'}}]});
       case 'crmResources':return ok({resources:[],agent:{heartbeat_at:new Date().toISOString(),state:'ok'}});
@@ -79,6 +81,7 @@ async function run(role,viewport,label,extra){
     await run('tecnico',{width:1366,height:900},'tecnico-desktop',async(page,calls)=>{
       // le schede riservate all'amministratore non devono comparire al tecnico
       for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),false,id+' visibile al tecnico');
+      assert.ok((await page.locator('#dayTotal').innerText()).endsWith('/ 4h 00m'),'ore previste personalizzate');
       // testo del CRM mostrato come testo
       assert.ok((await page.locator('#sessions').innerText()).includes('<img src=x'),'il testo pericoloso deve apparire come testo');
       // 1h30 -> 90 minuti, Invio salva
@@ -146,6 +149,11 @@ async function run(role,viewport,label,extra){
       await page.waitForTimeout(300);
       const approval=calls.find(c=>c.action==='approveCrmLink');
       assert.equal(approval.tecnicoUid,'u2');assert.equal(approval.sessions.length,1);assert.equal(approval.sessions[0].id,'move1');
+      await page.locator('#loadWorkSchedules').evaluate(el=>el.closest('details').open=true);await page.click('#loadWorkSchedules');
+      await page.selectOption('#workScheduleTech','u1');await page.fill('#workScheduleFrom','2026-11-01');
+      for(let i=0;i<5;i++)await page.fill(`#workScheduleWeek input[data-weekday="${i}"]`,'4h');
+      await page.click('#saveWorkSchedule');await page.waitForTimeout(300);
+      const schedule=calls.find(c=>c.action==='saveWorkSchedule');assert.equal(schedule.validoDal,'2026-11-01');assert.deepEqual(schedule.settimanaMinuti,[240,240,240,240,240,0,0]);
       await page.fill('#adminFrom','2026-10-10');await page.fill('#adminTo','2026-10-01');await page.click('#loadAdmin');
       await page.waitForTimeout(200);
       assert.ok(await page.locator('.toast-warn').count()>=1,'periodo invertito segnalato');
