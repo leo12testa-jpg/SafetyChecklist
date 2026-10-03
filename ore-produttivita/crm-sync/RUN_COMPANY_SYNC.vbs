@@ -1,10 +1,7 @@
 Option Explicit
-Dim fso, shell, base, logDir, logFile, cmd
+Dim fso, shell, base, runner
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set shell = CreateObject("WScript.Shell")
 base = fso.GetParentFolderName(WScript.ScriptFullName)
-logDir = shell.ExpandEnvironmentStrings("%LOCALAPPDATA%\ColligoOreProduttivita")
-If Not fso.FolderExists(logDir) Then fso.CreateFolder(logDir)
-logFile = logDir & "\company-sync.log"
-cmd = "cmd /c py """ & base & "\crm_company_agent.py"" --run >> """ & logFile & """ 2>&1"
-shell.Run cmd, 0, True
+runner = Chr(34) & base & "\RUN_COMPANY_SYNC.bat" & Chr(34)
+shell.Run runner, 0, True

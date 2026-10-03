@@ -36,6 +36,9 @@ jobs:
           test -f ore-produttivita/crm-sync/SETUP_SYNC_BACKGROUND.bat
           test -f ore-produttivita/crm-sync/DIAGNOSI_SYNC_CRM.bat
           test -f ore-produttivita/crm-sync/RUN_COMPANY_SYNC.vbs
+          test -f ore-produttivita/crm-sync/RUN_COMPANY_SYNC.bat
+          grep -q 'where py' ore-produttivita/crm-sync/RUN_COMPANY_SYNC.bat
+          grep -q 'where python' ore-produttivita/crm-sync/RUN_COMPANY_SYNC.bat
 
           grep -q 'id="dayPanel"' ore-produttivita/index.html
           grep -q 'id="adminPanel"' ore-produttivita/index.html
