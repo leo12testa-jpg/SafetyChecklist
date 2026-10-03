@@ -256,30 +256,58 @@ async def month_cells(page):
                 const s=getComputedStyle(el), r=el.getBoundingClientRect();
                 return s.display!=='none' && s.visibility!=='hidden' && r.width>0 && r.height>0;
               };
+              const compact = v => (v||'').toString().replace(/\s+/g,' ').trim();
+              const rich = el => {
+                const parts=[];
+                const add=v=>{v=compact(v);if(v&&!parts.includes(v))parts.push(v)};
+                add(el.innerText);
+                add(el.getAttribute?.('title'));
+                add(el.getAttribute?.('aria-label'));
+                add(el.getAttribute?.('data-title'));
+                add(el.getAttribute?.('data-original-title'));
+                add(el.getAttribute?.('data-tooltip'));
+                return parts.join(' | ');
+              };
+              const hasPair = text => /Dalle\s+(?:[01]?\d|2[0-3]):[0-5]\d\s+Alle\s+(?:[01]?\d|2[0-3]):[0-5]\d/i.test(text||'');
               const out=[];
-              const nodes=[...document.querySelectorAll('[data-giorno]')];
-              for(const el of nodes){
+
+              for(const el of document.querySelectorAll('[data-giorno]')){
                 const day=(el.getAttribute('data-giorno')||'').trim();
                 if(!/^20\d{6}$/.test(day) || !visible(el)) continue;
-                const parts=[];
-                const add=v=>{
-                  v=(v||'').toString().replace(/\s+/g,' ').trim();
-                  if(v && !parts.includes(v)) parts.push(v);
-                };
-                add(el.innerText);
-                el.querySelectorAll('[title],[aria-label],[data-title],[data-original-title],[data-tooltip]').forEach(ch=>{
-                  if(!visible(ch)) return;
-                  add(ch.innerText); add(ch.getAttribute('title')); add(ch.getAttribute('aria-label'));
-                  add(ch.getAttribute('data-title')); add(ch.getAttribute('data-original-title')); add(ch.getAttribute('data-tooltip'));
+
+                const candidates=[];
+                for(const node of [el,...el.querySelectorAll('*')]){
+                  if(!visible(node)) continue;
+                  const text=rich(node);
+                  if(hasPair(text)) candidates.push({node,text});
+                }
+
+                // Prefer the smallest event containers: a candidate is kept only if
+                // none of its visible children already contains a complete Dalle/Alle pair.
+                const minimal=candidates.filter(({node})=>{
+                  for(const child of node.children||[]){
+                    if(visible(child) && hasPair(rich(child))) return false;
+                  }
+                  return true;
                 });
-                if(parts.length) out.push({day,text:parts.join(' | ')});
+
+                const texts=[];
+                const add=v=>{v=compact(v);if(v&&!texts.includes(v))texts.push(v)};
+                for(const item of minimal) add(item.text);
+
+                // Fallback for CRM variants where the whole day cell is the only node
+                // carrying the hidden Dalle/Alle text.
+                if(!texts.length) add(rich(el));
+                if(texts.length) out.push({day,texts});
               }
               return out;
             }""")
             for row in rows or []:
                 result.setdefault(row["day"], [])
-                if row["text"] not in result[row["day"]]:
-                    result[row["day"]].append(row["text"])
+                values = row.get("texts") or ([row.get("text")] if row.get("text") else [])
+                for value in values:
+                    if value and value not in result[row["day"]]:
+                        result[row["day"]].append(value)
         except Exception:
             pass
     return result
@@ -287,6 +315,20 @@ async def month_cells(page):
 
 def iso_day(day_key):
     return f"{day_key[0:4]}-{day_key[4:6]}-{day_key[6:8]}"
+
+
+def clean_event_title(value):
+    parts=[]
+    seen=set()
+    ignored={"impegno di gruppo","impegno gruppo"}
+    for raw in str(value or "").split("|"):
+        part=re.sub(r"\s+"," ",raw).strip(" -|")
+        key=part.casefold()
+        if not part or key in ignored or key in seen:
+            continue
+        seen.add(key)
+        parts.append(part)
+    return " | ".join(parts).strip()
 
 
 def parse_day(texts, wanted, sigla):
@@ -300,7 +342,7 @@ def parse_day(texts, wanted, sigla):
     for raw in texts or []:
         text = re.sub(r"\s+", " ", html.unescape(str(raw or ""))).strip()
         for m in pattern.finditer(text):
-            title = m.group(5).strip(" |")
+            title = clean_event_title(m.group(5))
             if not title or len(title) > 500:
                 continue
             sh, sm, eh, em = map(int, m.group(1,2,3,4))
