@@ -61,14 +61,36 @@ function minutes(v: unknown) {
   if (!Number.isInteger(n) || n < 0 || n > 1440) bad("Durata non valida.");
   return n;
 }
+let firebaseKeyCache:{keys:JsonWebKey[],until:number}|null=null;
+function jwtBytes(value:string){return Uint8Array.from(atob(value.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0));}
+async function verifyFirebaseJwt(token:string){
+  try{
+    const parts=token.split(".");if(parts.length!==3||token.length>16384)throw new Error();
+    const header=JSON.parse(new TextDecoder().decode(jwtBytes(parts[0]))),claims=JSON.parse(new TextDecoder().decode(jwtBytes(parts[1])));
+    const now=Math.floor(Date.now()/1000);
+    if(header.alg!=="RS256"||typeof header.kid!=="string"||claims.aud!==FIREBASE_PROJECT_ID||claims.iss!==`https://securetoken.google.com/${FIREBASE_PROJECT_ID}`||typeof claims.exp!=="number"||claims.exp<=now||typeof claims.iat!=="number"||claims.iat>now||typeof claims.sub!=="string"||!claims.sub||claims.sub.length>128)throw new Error();
+    if(!firebaseKeyCache||firebaseKeyCache.until<=Date.now()){
+      const response=await fetch("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com");
+      if(!response.ok)throw new Error();const body=await response.json();
+      if(!Array.isArray(body.keys))throw new Error();
+      const seconds=Number(response.headers.get("cache-control")?.match(/max-age=(\d+)/)?.[1]||300);
+      firebaseKeyCache={keys:body.keys,until:Date.now()+Math.min(seconds,3600)*1000};
+    }
+    const jwk=firebaseKeyCache.keys.find((k:any)=>k.kid===header.kid&&k.kty==="RSA");if(!jwk)throw new Error();
+    const key=await crypto.subtle.importKey("jwk",jwk,{name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["verify"]);
+    if(!await crypto.subtle.verify("RSASSA-PKCS1-v1_5",key,jwtBytes(parts[2]),new TextEncoder().encode(parts[0]+"."+parts[1])))throw new Error();
+    return claims.sub;
+  }catch{bad("Sessione non valida.",401);}
+}
 async function firebaseLookup(idToken: string) {
+  const verifiedUid=await verifyFirebaseJwt(idToken);
   const response = await fetch(`${FIREBASE_AUTH}/accounts:lookup?key=${FIREBASE_API_KEY}`, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idToken })
   });
   if (!response.ok) bad("Sessione non valida.", 401);
   const data = await response.json();
   const user = data.users?.[0];
-  if (!user?.localId) bad("Sessione non valida.", 401);
+  if (!user?.localId || user.localId!==verifiedUid) bad("Sessione non valida.", 401);
   return { uid: String(user.localId), email: String(user.email || "") };
 }
 function fromValue(value: any): any {

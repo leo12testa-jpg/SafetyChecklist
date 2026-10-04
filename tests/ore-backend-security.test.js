@@ -15,6 +15,7 @@ function backend({ role = 'tecnico', tokenValid = true, owner = 'other', databas
   }, createClient: () => database || ({from(){ dbCalls++; return query; }}),
   Deno: {env:{get:name=> name==='SUPABASE_SECRET_KEYS' ? undefined : 'test'},serve: fn => {handler=fn;}} });
   vm.runInContext(stripTypeScriptTypes(source.replace(/^import .*;\n/, ''), {mode:'transform'}), context);
+  vm.runInContext('verifyFirebaseJwt=async()=>"u1"',context); // Auth is exercised separately with real RSA signatures.
   return { call: body => handler(new Request('https://test/', {method:'POST',headers:{authorization:'Bearer test','content-type':'application/json'},body:JSON.stringify(body)})),
     dbCalls: () => dbCalls, context };
 }

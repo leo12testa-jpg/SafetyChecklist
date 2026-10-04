@@ -13,6 +13,16 @@ begin
  select sum(minuti_effettivi) into n from public.ore_rendicontazioni where tecnico_uid=uid and data_lavoro='2026-10-03' and not assenza;
  if n<>600 then raise exception 'TEST: denominatore fatturabile errato'; end if;
  begin
+  insert into public.ore_sessioni(commessa_id,tecnico_uid,data_lavoro,minuti_effettivi,origine,crm_event_id)
+  values(job,uid,'2026-10-03',601,'crm_agenda','test-overflow-'||uid);
+  raise exception 'TEST: import CRM supera 24h';
+ exception when others then if sqlerrm like 'TEST:%' then raise; end if; end;
+ begin
+  insert into public.ore_sessioni(commessa_id,tecnico_uid,data_lavoro,minuti_effettivi,origine)
+  values(job,uid,'2026-10-04',1441,'crm_agenda');
+  raise exception 'TEST: singolo import oltre 1440';
+ exception when others then if sqlerrm like 'TEST:%' then raise; end if; end;
+ begin
   perform public.ore_salva_attivita_interna(null,uid,'Test','2026-10-03','amministrazione',601,uid,false);
   raise exception 'TEST: limite giornaliero interne ignorato';
  exception when others then if sqlerrm like 'TEST:%' then raise; end if; end;
