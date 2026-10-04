@@ -19,7 +19,7 @@ function backend({ role = 'tecnico', tokenValid = true, owner = 'other', databas
   return { call: body => handler(new Request('https://test/', {method:'POST',headers:{authorization:'Bearer test','content-type':'application/json'},body:JSON.stringify(body)})),
     dbCalls: () => dbCalls, context };
 }
-for (const action of ['adminSummary','adminEconomics','saveJobEconomics','archiveJobs','importPlanner','importHistoryBatch','crmResources','crmAgentHeartbeat','ingestAgendaCompany','economicsCatalog','saveTechnicianCost','archiveJobDetail','crmLinks','previewCrmLink','approveCrmLink','workSchedules','saveWorkSchedule']) {
+for (const action of ['adminSummary','adminEconomics','saveJobEconomics','archiveJobs','importPlanner','importHistoryBatch','crmResources','crmAgentHeartbeat','ingestAgendaCompany','economicsCatalog','saveTechnicianCost','archiveJobDetail','crmLinks','previewCrmLink','approveCrmLink','workSchedules','saveWorkSchedule','previewIdentity','approveIdentity']) {
   test(`tecnico: ${action} restituisce 403 prima di accedere ai dati`, async () => {
     const app=backend();
     assert.equal((await app.call({action,ruolo:'admin'})).status,403);
@@ -118,4 +118,10 @@ test('riepilogo admin legge oltre 1000 sessioni senza troncare le fasi',async()=
   const ranges=[];const database={from(table){const q={select(){return this;},gte(){return this;},lte(){return this;},order(){return this;},range(start,end){ranges.push([table,start,end]);this.start=start;return this;},then(resolve){resolve({data:table==='ore_sessioni'?Array.from({length:this.start===0?1000:1},()=>({commessa_id:'j1',fase:'trasferta',minuti_effettivi:1})):[],error:null});}};return q;}};
   const response=await backend({role:'admin',database}).call({action:'adminSummary',from:'2026-10-01',to:'2026-10-03'});
   assert.equal(response.status,200);assert.equal((await response.json()).rows.length,1001);assert.ok(ranges.some(r=>r[0]==='ore_sessioni'&&r[1]===1000));
+});
+test('alias approvato aggrega lo storico senza cambiare righe o usare nomi simili',()=>{
+ const app=backend();const rows=[{tecnico_uid:'legacy:LT',tecnico_nome:'Leo',minuti_effettivi:60,fatturabile:true},{tecnico_uid:'u1',tecnico_nome:'Leo',minuti_effettivi:120,fatturabile:true},{tecnico_uid:'legacy:LG',tecnico_nome:'Leo',minuti_effettivi:30,fatturabile:true}];
+ app.context.rows=rows;app.context.aliases=[{uid_storico:'legacy:LT',tecnico_uid:'u1',tecnico_nome:'Leo'}];
+ const attributed=vm.runInContext('attributeIdentity(rows,aliases)',app.context);assert.equal(rows[0].tecnico_uid,'legacy:LT');assert.equal(attributed[0].tecnico_uid_originale,'legacy:LT');
+ const result=vm.runInContext('billability(attributeIdentity(rows,aliases))',app.context);assert.equal(result.technicians.length,2);assert.equal(result.technicians.find(t=>t.tecnico_uid==='u1').billableMinutes,180);
 });

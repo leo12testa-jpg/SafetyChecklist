@@ -24,6 +24,7 @@ async function run(role,viewport,label,extra){
   page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource|produttivit|recent activities/.test(m.text()))errors.push('console: '+m.text())});
   await page.route('**/js/vendor/firebase-app-compat.js',r=>r.fulfill({contentType:'text/javascript',body:FIREBASE_STUB(role)}));
   await page.route(/firebase-(firestore|auth)-compat\.js/,r=>r.fulfill({contentType:'text/javascript',body:''}));
+  await page.route('**/functions/v1/manage-users',r=>{const body=JSON.parse(r.request().postData());calls.push(body);return r.fulfill({contentType:'application/json',body:JSON.stringify({user:{uid:'new-test-user'}})});});
   await page.route('**/functions/v1/ore-produttivita-api',async r=>{
     const b=JSON.parse(r.request().postData()||'{}');calls.push(b);
     const ok=o=>r.fulfill({contentType:'application/json',body:JSON.stringify(o)});
@@ -48,6 +49,8 @@ async function run(role,viewport,label,extra){
       case 'crmLinks':return ok({rows:[{id:'r1',sigla_crm:'XX',nome_crm:'Risorsa '+EVIL,tecnico_uid:'u1',tecnico_nome:'Leo',account_reale:true,stato_collegamento:'da confermare',sessioni_risorsa:1,sessioni_uid_storiche:2}],technicians:[{uid:'u1',nome:'Leo'},{uid:'u2',nome:'Nuovo tecnico'}],ambigui:{},pending:[]});
       case 'previewCrmLink':return ok({resource:{tecnico_uid:'u1',collegamento_approvato_at:null},sessions:[{id:'move1',tecnico_uid:'u1',data_lavoro:'2026-10-02',minuti_effettivi:60,updated_at:'2026-10-03T10:00:00Z'}],nota:'Le sessioni confermate non vengono spostate.'});
       case 'approveCrmLink':return ok({ok:true,riassegnate:b.sessions.length});
+      case 'previewIdentity':return ok({resource:{tecnico_uid:'legacy:XX',collegamento_approvato_at:null},legacyUid:'legacy:XX',alias:null,sessions:12,minutes:1200});
+      case 'approveIdentity':return ok({ok:true,sessioniRiscritte:0});
       case 'economicsCatalog':return ok({technicians:[],rates:[],jobs:[]});
       case 'adminEconomics':return ok({jobs:[],costRows:[],typeStats:[],blendedHourlyCost:null,coverage:{percent:0},comparable:{jobs:0}});
       case 'archiveJobs':return ok({totals:{commesse:3},rows:[
@@ -158,6 +161,15 @@ async function run(role,viewport,label,extra){
       await page.waitForTimeout(300);
       const approval=calls.find(c=>c.action==='approveCrmLink');
       assert.equal(approval.tecnicoUid,'u2');assert.equal(approval.sessions.length,1);assert.equal(approval.sessions[0].id,'move1');
+      await page.selectOption('#crmLinksRows .crm-target','u2');await page.click('#crmLinksRows .identity-existing');await page.waitForSelector('.identity-check');
+      assert.ok((await page.locator('#crmLinkPreview').innerText()).includes('12 sessioni'));
+      await page.click('.identity-confirm');assert.equal(calls.filter(c=>c.action==='approveIdentity').length,0,'alias senza conferma rifiutato');
+      await page.check('.identity-check');await page.click('.identity-confirm');await page.waitForTimeout(250);
+      assert.equal(calls.find(c=>c.action==='approveIdentity').tecnicoUid,'u2');
+      await page.click('#crmLinksRows .identity-new');await page.waitForSelector('#identityAccountForm');
+      await page.fill('#identityAccountForm [name="nome"]','Nome');await page.fill('#identityAccountForm [name="cognome"]','Test');await page.fill('#identityAccountForm [name="username"]','nome.test');await page.fill('#identityAccountForm [name="password"]','Password-di-test-123');
+      await page.check('.identity-check');await page.click('.identity-confirm');await page.waitForTimeout(300);
+      const created=calls.filter(c=>c.action==='create');assert.equal(created.length,1);assert.equal(created[0].ruolo,'tecnico');assert.equal(calls.filter(c=>c.action==='approveIdentity').at(-1).tecnicoUid,'new-test-user');
       await page.locator('#loadWorkSchedules').evaluate(el=>el.closest('details').open=true);await page.click('#loadWorkSchedules');
       await page.selectOption('#workScheduleTech','u1');await page.fill('#workScheduleFrom','2026-11-01');
       for(let i=0;i<5;i++)await page.fill(`#workScheduleWeek input[data-weekday="${i}"]`,'4h');

@@ -533,9 +533,9 @@ $("#tabEconomics").addEventListener("click",()=>setTab("economics"));
 $("#loadAdmin").addEventListener("click",loadAdmin);
 function renderRankBars(selector,entries,limit=6){
   const box=$(selector);if(!box)return;box.innerHTML="";
-  const rows=[...entries].sort((a,b)=>selector==="#techBars"?String(a[0]).localeCompare(String(b[0]),"it"):b[1].minutes-a[1].minutes).slice(0,selector==="#techBars"?entries.size||entries.length:limit);
+  const rows=[...entries].sort((a,b)=>selector==="#techBars"?String(a[1].name||a[0]).localeCompare(String(b[1].name||b[0]),"it"):b[1].minutes-a[1].minutes).slice(0,selector==="#techBars"?entries.size||entries.length:limit);
   const max=Math.max(1,...rows.map(x=>x[1].minutes));
-  rows.forEach(([name,v],idx)=>{const row=document.createElement("div");row.className="rank-bar-row";const pct=Math.max(4,Math.round(v.minutes/max*100));row.innerHTML=html`<span>${name}</span><div><i style="width:${pct}%"></i></div><b>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})} h</b>`;box.appendChild(row)});
+  rows.forEach(([name,v],idx)=>{const row=document.createElement("div");row.className="rank-bar-row";const pct=Math.max(4,Math.round(v.minutes/max*100));row.innerHTML=html`<span>${v.name||name}</span><div><i style="width:${pct}%"></i></div><b>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})} h</b>`;box.appendChild(row)});
   if(!rows.length)box.innerHTML='<div class="crm-empty">Nessun dato.</div>';
 }
 function renderAdminVisuals(rows,clients,techs){
@@ -662,8 +662,8 @@ async function loadAdmin(){
       const cv=clients.get(clientKey)||{minutes:0,sessions:0};
       cv.minutes+=mins;cv.sessions++;clients.set(clientKey,cv);
 
-      const techKey=r.tecnico_nome||r.tecnico_uid||"—";
-      const tv=techs.get(techKey)||{minutes:0,sessions:0,jobs:new Set()};
+      const techKey=r.tecnico_uid||"non indicato";
+      const tv=techs.get(techKey)||{minutes:0,sessions:0,jobs:new Set(),name:r.tecnico_nome||techKey};
       tv.minutes+=mins;tv.sessions++;if(r.commessa_id)tv.jobs.add(r.commessa_id);techs.set(techKey,tv);
 
       const jobKey=r.commessa_id||c.codice_breve;
@@ -685,9 +685,9 @@ async function loadAdmin(){
     $("#kpiClients").textContent=String(clients.size);
 
     const techBody=$("#technicianRows");techBody.innerHTML="";
-    [...techs.entries()].sort((a,b)=>String(a[0]).localeCompare(String(b[0]),"it")).forEach(([name,v])=>{
+    [...techs.entries()].sort((a,b)=>String(a[1].name).localeCompare(String(b[1].name),"it")).forEach(([uid,v])=>{
       const tr=document.createElement("tr");
-      tr.innerHTML=html`<td><b>${name}</b></td><td>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})}</td><td>${v.sessions}</td><td>${v.jobs.size}</td>`;
+      tr.innerHTML=html`<td><b>${v.name}</b></td><td>${(v.minutes/60).toLocaleString("it-IT",{maximumFractionDigits:1})}</td><td>${v.sessions}</td><td>${v.jobs.size}</td>`;
       techBody.appendChild(tr);
     });
     $("#technicianEmpty").hidden=techs.size>0;
@@ -845,7 +845,7 @@ async function openArchiveJob(id){
       const edited=s.modificata_manualmente?" · modificata":"";
       const tr=document.createElement("tr");
       tr.innerHTML=html`<td>${archiveDate(s.data_lavoro)}</td>
-        <td><b>${s.tecnico_nome||s.tecnico_uid||"—"}</b></td>
+        <td><b>${s.tecnico_nome||s.tecnico_uid||"—"}</b>${s.tecnico_uid_originale?html`<br><small>UID storico: ${s.tecnico_uid_originale}</small>`:""}</td>
         <td>${s.inizio||s.fine?`${archiveClock(s.inizio)}–${archiveClock(s.fine)}`:"—"}</td>
         <td><b>${s.crm_oggetto||"Attività"}</b>${s.motivo_modifica?html`<br><span class="muted">${s.motivo_modifica}</span>`:""}</td>
         <td><span class="archive-origin">${archiveOrigin(s.origine)}${edited}</span></td>

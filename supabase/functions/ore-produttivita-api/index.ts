@@ -144,7 +144,7 @@ const ACTION_ROLES: Record<string, readonly string[]> = {
   adminEconomics: ["admin"], archiveJobs: ["admin"], archiveJobDetail: ["admin"],
   adminSummary: ["admin"], crmLinks: ["admin"], previewCrmLink: ["admin"], approveCrmLink: ["admin"],
   saveInternal: ["admin", "tecnico"], workSchedules: ["admin"], saveWorkSchedule: ["admin"],
-  savePhase: ["admin", "tecnico"]
+  savePhase: ["admin", "tecnico"], previewIdentity: ["admin"], approveIdentity: ["admin"]
 };
 function authorizeAction(user: any, action: string) {
   if (!Object.hasOwn(ACTION_ROLES, action)) bad("Operazione non riconosciuta.");
@@ -152,6 +152,15 @@ function authorizeAction(user: any, action: string) {
 }
 const INTERNAL_CATEGORIES = new Set(["formazione_interna","amministrazione","commerciale_preventivi","aggiornamento_normativo","riunioni_interne","altro_interno","assenza"]);
 const WORK_PHASES = new Set(["sopralluogo","trasferta","redazione","revisione","riunione_cliente","misurazioni","formazione_erogata","altro"]);
+function attributeIdentity(rows:any[],aliases:any[]){
+  const byUid=new Map(aliases.map(a=>[a.uid_storico,a]));
+  return rows.map(row=>{const alias:any=byUid.get(row.tecnico_uid);return alias?{...row,tecnico_uid_originale:row.tecnico_uid,tecnico_uid:alias.tecnico_uid,tecnico_nome:alias.tecnico_nome||row.tecnico_nome}:row;});
+}
+async function readAll(builder:()=>any){
+ const rows:any[]=[];
+ for(let offset=0;;offset+=1000){const {data,error}=await builder().order("id").range(offset,offset+999);if(error)return {data:null,error};rows.push(...(data||[]));if((data||[]).length<1000)break;}
+ return {data:rows,error:null};
+}
 function billability(rows:any[]) {
   const byTech=new Map<string,any>();
   let billable=0,denominator=0,absence=0;
@@ -187,6 +196,24 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "");
     authorizeAction(user, action);
+
+    if(action === "previewIdentity"||action === "approveIdentity"){
+      const {data:resource,error}=await db.from("ore_risorse_crm").select("*").eq("id",String(body.resourceId||"")).eq("attiva",true).maybeSingle();
+      if(error||!resource)bad("Risorsa non trovata.",404);
+      const legacyUid="legacy:"+resource.sigla_crm;
+      const {data:alias}=await db.from("ore_identita_alias").select("*").eq("uid_storico",legacyUid).maybeSingle();
+      if(action==="previewIdentity"){
+        let sessions=0,minutes=0;
+        for(let offset=0;;offset+=1000){const {data,error}=await db.from("ore_sessioni").select("minuti_effettivi").eq("tecnico_uid",legacyUid).order("id").range(offset,offset+999);if(error)bad("Impossibile leggere lo storico.",500);sessions+=(data||[]).length;minutes+=(data||[]).reduce((sum:number,s:any)=>sum+s.minuti_effettivi,0);if((data||[]).length<1000)break;}
+        return json(req,{resource,alias,legacyUid,sessions,minutes});
+      }
+      const uid=String(body.tecnicoUid||"");if(!uid||uid.startsWith("legacy:")||uid.includes("/"))bad("Account non valido.");
+      const response=await fetch(`${FIRESTORE}/utenti/${encodeURIComponent(uid)}`,{headers:{authorization:`Bearer ${user.token}`}});
+      if(!response.ok)bad("Account non trovato.",404);const target=fromDoc(await response.json());
+      if(target.attivo!==true||!["admin","tecnico"].includes(target.ruolo))bad("Account non attivo.");
+      const {data,error:saveError}=await db.rpc("ore_collega_identita",{p_resource:resource.id,p_uid:uid,p_name:`${target.nome||""} ${target.cognome||""}`.trim(),p_actor:user.uid,p_previous_uid:body.previousUid??null,p_previous_approval:body.previousApproval??null,p_previous_alias:body.previousAlias??null});
+      if(saveError)bad(saveError.message,409);return json(req,data);
+    }
 
     if (action === "savePhase") {
       const id=String(body.id||""),phase=body.fase===null||body.fase===""?null:String(body.fase||"");
@@ -318,6 +345,11 @@ Deno.serve(async (req: Request) => {
       return json(req,data);
     }
 
+    const identityAliases:any[]=[];
+    if(["adminSummary","archiveJobs","archiveJobDetail","adminEconomics","economicsCatalog"].includes(action)){
+      const {data,error}=await db.from("ore_identita_alias").select("*");
+      if(error)bad("Impossibile attribuire le identita approvate.",500);identityAliases.push(...(data||[]));
+    }
     const ensureTrackingJob = async (clienteIdRaw:any, tipologiaIdRaw:any, workDayRaw:any) => {
       const clienteId = String(clienteIdRaw || "").trim();
       const tipologiaId = String(tipologiaIdRaw || "").trim();
@@ -1574,10 +1606,9 @@ Deno.serve(async (req: Request) => {
       requireAdmin(user);
 
       const [{ data: sessionTechs, error: techErr }, { data: rates, error: rateErr }, { data: jobs, error: jobsErr }] = await Promise.all([
-        db.from("ore_sessioni")
+        readAll(()=>db.from("ore_sessioni")
           .select("tecnico_uid,tecnico_nome")
-          .order("tecnico_nome")
-          .limit(10000),
+          .order("tecnico_nome")),
         db.from("ore_costi_tecnici")
           .select("id,tecnico_uid,tecnico_nome,costo_orario,valido_dal,valido_al,note,updated_at")
           .order("valido_dal", { ascending: false })
@@ -1591,9 +1622,9 @@ Deno.serve(async (req: Request) => {
       if (techErr || rateErr || jobsErr) bad("Impossibile caricare i dati economici.", 500);
 
       const techMap = new Map<string, any>();
-      for (const t of sessionTechs || []) {
+      for (const t of attributeIdentity(sessionTechs || [],identityAliases)) {
         const name = String(t.tecnico_nome || t.tecnico_uid || "").trim();
-        const key = name.toLocaleLowerCase("it-IT");
+        const key = String(t.tecnico_uid||"");
         if (!key) continue;
         const prev = techMap.get(key);
         const uid = String(t.tecnico_uid || "");
@@ -1688,9 +1719,9 @@ Deno.serve(async (req: Request) => {
       requireAdmin(user);
 
       const [{ data: sessions, error: sessionsErr }, { data: rates, error: ratesErr }] = await Promise.all([
-        db.from("ore_sessioni")
+        readAll(()=>db.from("ore_sessioni")
           .select("tecnico_uid,tecnico_nome,data_lavoro,minuti_effettivi,commessa_id,ore_commesse(codice_lavoro,codice_commessa_crm,descrizione,stato,budget_ore,costi_esterni,valore_vendita,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome))")
-          .limit(20000),
+        ),
         db.from("ore_costi_tecnici")
           .select("tecnico_uid,tecnico_nome,costo_orario,valido_dal,valido_al")
           .order("valido_dal", { ascending: false })
@@ -1701,7 +1732,7 @@ Deno.serve(async (req: Request) => {
       const normalizeName = (v:any) => String(v || "").trim().toLocaleLowerCase("it-IT");
       const byUid = new Map<string, any[]>();
       const byName = new Map<string, any[]>();
-      for (const r of rates || []) {
+      for (const r of attributeIdentity(rates || [],identityAliases)) {
         const uid = String(r.tecnico_uid || "");
         if (uid) {
           const a = byUid.get(uid) || [];
@@ -1717,8 +1748,7 @@ Deno.serve(async (req: Request) => {
       const applicableRate = (s:any) => {
         const date = String(s.data_lavoro || "");
         const candidates = [
-          ...(byUid.get(String(s.tecnico_uid || "")) || []),
-          ...(byName.get(normalizeName(s.tecnico_nome)) || [])
+          ...(byUid.get(String(s.tecnico_uid || "")) || [])
         ];
         const seen = new Set<string>();
         for (const r of candidates) {
@@ -1735,7 +1765,7 @@ Deno.serve(async (req: Request) => {
       const jobs = new Map<string, any>();
       const costRows:any[] = [];
       let totalMinutes = 0, coveredMinutes = 0, knownInternalCost = 0;
-      for (const s of sessions || []) {
+      for (const s of attributeIdentity(sessions || [],identityAliases)) {
         const c:any = s.ore_commesse || {};
         const cl:any = c.ore_clienti || {};
         const tp:any = c.ore_tipologie || {};
@@ -1858,21 +1888,19 @@ Deno.serve(async (req: Request) => {
       requireAdmin(user);
 
       const [{ data: jobs, error: jobsErr }, { data: sessions, error: sessionsErr }] = await Promise.all([
-        db.from("ore_commesse")
+        readAll(()=>db.from("ore_commesse")
           .select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,anno,data_apertura,data_completamento,budget_ore,costi_esterni,valore_vendita,ore_clienti(id,codice_breve,ragione_sociale),ore_tipologie(id,codice,nome)")
-          .order("descrizione")
-          .limit(2000),
-        db.from("ore_sessioni")
+          .order("descrizione")),
+        readAll(()=>db.from("ore_sessioni")
           .select("id,commessa_id,tecnico_uid,tecnico_nome,data_lavoro,minuti_effettivi,origine,modificata_manualmente")
-          .order("data_lavoro",{ascending:true})
-          .limit(20000)
+          .order("data_lavoro",{ascending:true}))
       ]);
       if (jobsErr || sessionsErr) bad("Impossibile caricare l'archivio completo.",500);
 
       const stats=new Map<string,any>();
       let totalMinutes=0;
       const technicians=new Set<string>();
-      for(const s of sessions||[]){
+      for(const s of attributeIdentity(sessions||[],identityAliases)){
         totalMinutes+=Number(s.minuti_effettivi||0);
         technicians.add(String(s.tecnico_uid||s.tecnico_nome||""));
         const id=String(s.commessa_id||"");
@@ -1937,21 +1965,20 @@ Deno.serve(async (req: Request) => {
         db.from("ore_commesse")
           .select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,anno,data_apertura,data_completamento,budget_ore,costi_esterni,valore_vendita,note_economiche,ore_clienti(id,codice_breve,ragione_sociale),ore_tipologie(id,codice,nome)")
           .eq("id",commessaId).maybeSingle(),
-        db.from("ore_sessioni")
+        readAll(()=>db.from("ore_sessioni")
           .select("id,tecnico_uid,tecnico_nome,data_lavoro,inizio,fine,minuti_agenda,minuti_effettivi,origine,crm_event_id,crm_oggetto,attivita_rilevata,modificata_manualmente,motivo_modifica,confermata")
           .eq("commessa_id",commessaId)
           .order("data_lavoro",{ascending:true})
-          .order("inizio",{ascending:true})
-          .limit(5000)
+          .order("inizio",{ascending:true}))
       ]);
       if(jobErr||!job) bad("Commessa non trovata.",404);
       if(sessionsErr) bad("Impossibile caricare le attività della commessa.",500);
 
       const byTech=new Map<string,any>();
       let totalMinutes=0;
-      for(const s of sessions||[]){
-        const key=String(s.tecnico_nome||s.tecnico_uid||"—");
-        const v=byTech.get(key)||{minutes:0,sessions:0};
+      for(const s of attributeIdentity(sessions||[],identityAliases)){
+        const key=String(s.tecnico_uid||"non indicato");
+        const v=byTech.get(key)||{minutes:0,sessions:0,name:s.tecnico_nome||key};
         v.minutes+=Number(s.minuti_effettivi||0);
         v.sessions++;
         byTech.set(key,v);
@@ -1965,8 +1992,8 @@ Deno.serve(async (req: Request) => {
           ore:Math.round((totalMinutes/60)*100)/100,
           tecnici:byTech.size
         },
-        technicians:[...byTech.entries()].map(([nome,v])=>({nome,ore:Math.round((v.minutes/60)*100)/100,attivita:v.sessions})).sort((a,b)=>b.ore-a.ore),
-        sessions:sessions||[]
+        technicians:[...byTech.entries()].map(([uid,v])=>({nome:v.name,tecnico_uid:uid,ore:Math.round((v.minutes/60)*100)/100,attivita:v.sessions})).sort((a,b)=>a.nome.localeCompare(b.nome,"it")),
+        sessions:attributeIdentity(sessions||[],identityAliases)
       });
     }
 
@@ -1979,13 +2006,13 @@ Deno.serve(async (req: Request) => {
           .select("tecnico_uid,tecnico_nome,data_lavoro,minuti_effettivi,origine,commessa_id,fase,ore_commesse(codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome))")
           .gte("data_lavoro",from).lte("data_lavoro",to).order("id").range(offset,offset+999);
         if(error)bad("Impossibile generare il riepilogo completo.",500);
-        rows.push(...(data||[]));if((data||[]).length<1000)break;
+        rows.push(...attributeIdentity(data||[],identityAliases));if((data||[]).length<1000)break;
       }
       const activities:any[]=[];
       for(let offset=0;;offset+=1000){
         const {data,error}=await db.from("ore_rendicontazioni").select("*").gte("data_lavoro",from).lte("data_lavoro",to).order("id").order("tipo_record").range(offset,offset+999);
         if(error)bad("Impossibile calcolare la rendicontazione completa.",500);
-        activities.push(...(data||[]));if((data||[]).length<1000)break;
+        activities.push(...attributeIdentity(data||[],identityAliases));if((data||[]).length<1000)break;
       }
       const totalMinutes = activities.reduce((s: number, x: any) => s + Number(x.minuti_effettivi || 0), 0);
       const technicians = new Set(activities.map((x: any) => x.tecnico_uid)).size;

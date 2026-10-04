@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
 const html = fs.readFileSync('ore-produttivita/index.html', 'utf8');
-const app = ['app.js','crm-links.js','internal-activities.js','work-schedules.js','work-phases.js'].map(file=>fs.readFileSync('ore-produttivita/'+file,'utf8')).join('\n');
+const app = ['app.js','crm-links.js','internal-activities.js','work-schedules.js','work-phases.js','identities.js'].map(file=>fs.readFileSync('ore-produttivita/'+file,'utf8')).join('\n');
 const updater = fs.readFileSync('ore-produttivita/aggiornamento.js', 'utf8');
 
 function hasListener(id) {

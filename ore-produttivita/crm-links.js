@@ -23,6 +23,7 @@ async function loadCrmLinks(){
         try{await previewCrmLink(r,select.value,data.technicians||[]);}catch(e){notify(e.message);}
       });
       body.appendChild(tr);
+      if(typeof addIdentityActions==="function")addIdentityActions(tr,r);
     }
     const pending=$("#crmLinkPending");pending.innerHTML=html``;
     for(const p of data.pending||[]){const tr=document.createElement("tr");tr.innerHTML=html`<td>${p.candidati?.[0]?.sigla||"non indicato"}</td><td>${p.data_lavoro}</td><td>${p.titolo||"non indicato"}</td><td>${p.minuti}</td>`;pending.appendChild(tr);}
