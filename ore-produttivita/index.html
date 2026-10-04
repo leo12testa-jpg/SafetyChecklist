@@ -11,8 +11,8 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="../assets/icon-192.png">
   <link rel="apple-touch-icon" href="../assets/icon-512.png">
-  <link rel="stylesheet" href="./style.css?v=20261004-100000">
-  <link rel="stylesheet" href="./layout.css?v=20261004-100000">
+  <link rel="stylesheet" href="./style.css?v=20261004-120000">
+  <link rel="stylesheet" href="./layout.css?v=20261004-120000">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -423,6 +423,7 @@
               <label>Cliente<select id="archiveClient"><option value="">Tutti</option></select></label>
               <label>Tipo<select id="archiveType"><option value="">Tutti</option></select></label>
               <label>Stato<select id="archiveStatus"><option value="">Tutti</option><option value="in_lavorazione">In lavorazione</option><option value="completata">Completata</option><option value="archiviata">Archiviata</option></select></label>
+              <label>Aperte senza attività da più di N giorni<input id="archiveInactive" type="number" min="1" max="3650" placeholder="N"></label>
             </div>
             <div class="archive-filter-foot">
               <span id="archiveVisibleCount">0 commesse visualizzate</span>
@@ -465,6 +466,7 @@
               <article class="summary-card"><span class="summary-icon">▣</span><div><small>Codice CRM</small><strong id="archiveDetailCrm">—</strong><span>Identificativo della pratica</span></div></article>
             </div>
 
+            <div id="jobClosure"></div>
             <div class="archive-tech-summary">
               <strong>Ripartizione per tecnico</strong>
               <div id="archiveTechSummary" class="archive-tech-chips"></div>
@@ -595,12 +597,13 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./aggiornamento.js?v=20261004-100000"></script>
-  <script src="./app.js?v=20261004-100000"></script>
-  <script src="./crm-links.js?v=20261004-100000"></script>
-  <script src="./internal-activities.js?v=20261004-100000"></script>
-  <script src="./work-schedules.js?v=20261004-100000"></script>
-  <script src="./work-phases.js?v=20261004-100000"></script>
-  <script src="./identities.js?v=20261004-100000"></script>
+  <script src="./aggiornamento.js?v=20261004-120000"></script>
+  <script src="./app.js?v=20261004-120000"></script>
+  <script src="./crm-links.js?v=20261004-120000"></script>
+  <script src="./internal-activities.js?v=20261004-120000"></script>
+  <script src="./work-schedules.js?v=20261004-120000"></script>
+  <script src="./work-phases.js?v=20261004-120000"></script>
+  <script src="./identities.js?v=20261004-120000"></script>
+  <script src="./job-closure.js?v=20261004-120000"></script>
 </body>
 </html>

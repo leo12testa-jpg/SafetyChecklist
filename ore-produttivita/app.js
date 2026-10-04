@@ -23,6 +23,7 @@ function notify(message,type="error",ms){
 }
 const READ_ACTIONS=new Set(["day","syncStatus","catalog","commesse","recentPersonal","adminSummary","crmResources","archiveJobs","archiveJob","economicsCatalog","adminEconomics"]);
 READ_ACTIONS.add("crmLinks");READ_ACTIONS.add("previewCrmLink");
+READ_ACTIONS.add("archiveJobDetail");READ_ACTIONS.add("previewIdentity");
 const API_TIMEOUT_MS=25000;
 function friendlyError(status,body){
   if(body&&body.error)return body.error;
@@ -706,7 +707,7 @@ async function loadAdmin(){
 // non solo le ore cadute nel periodo filtrato, che sottostimerebbero le pratiche lunghe.
 async function renderProductivity(){
   const body=$("#productivityRows"),empty=$("#productivityEmpty");
-  if(!archiveData){try{archiveData=await api("archiveJobs")}catch(e){body.innerHTML="";empty.textContent="Impossibile calcolare i tempi per tipologia: "+e.message;empty.hidden=false;return}}
+  if(!archiveData||Date.now()-archiveLoadedAt>300000){try{archiveData=await api("archiveJobs");archiveLoadedAt=Date.now()}catch(e){body.innerHTML=html``;empty.textContent="Impossibile calcolare i tempi per tipologia: "+e.message;empty.hidden=false;return}}
   const types=new Map();
   for(const r of archiveData.rows||[]){
     const code=String(r.tipologia?.codice||"");const ore=Number(r.ore||0);
@@ -726,6 +727,7 @@ async function renderProductivity(){
   empty.hidden=types.size>0;
 }
 let archiveData=null;
+let archiveLoadedAt=0;
 let archivePage=1;
 const ARCHIVE_PAGE_SIZE=25;
 
@@ -766,10 +768,13 @@ function renderArchive(){
   const client=$("#archiveClient").value;
   const type=$("#archiveType").value;
   const status=$("#archiveStatus").value;
+  if(!$("#archiveInactive").validity.valid){notify("Indica un numero di giorni fra 1 e 3650.","warn");return;}
+  const inactive=Number($("#archiveInactive").value||0),today=new Date().toLocaleDateString("sv-SE",{timeZone:"Europe/Rome"});
   const rows=all.filter(r=>{
     if(client&&String(r.cliente?.id||r.cliente?.ragione_sociale)!==client)return false;
     if(type&&String(r.tipologia?.codice||"")!==type)return false;
     if(status&&String(r.stato||"")!==status)return false;
+    if(inactive){const days=inactivityDays(r,today);if(days===null||days<=inactive)return false;}
     if(q){
       const hay=[
         r.codice_lavoro,r.codice_breve,r.codice_commessa_crm,r.descrizione,
@@ -826,6 +831,7 @@ async function openArchiveJob(id){
   try{
     const j=await api("archiveJobDetail",{commessaId:id});
     const job=j.job||{},cl=job.ore_clienti||{},tp=job.ore_tipologie||{};
+    if(typeof renderJobClosure==="function")renderJobClosure(j);
     $("#archiveDetailTitle").textContent=`${job.codice_lavoro||"—"} · ${cl.ragione_sociale||"Cliente"} · ${job.descrizione||"Commessa"}`;
     $("#archiveDetailSubtitle").textContent=`${tp.nome||"Altro"} · ${archiveStatusLabel(job.stato)} · ${job.anno||"—"}`;
     $("#archiveDetailHours").textContent=Number(j.totals?.ore||0).toLocaleString("it-IT",{maximumFractionDigits:2})+" h";
@@ -863,6 +869,7 @@ async function loadArchive(){
   if(!profile||profile.ruolo!=="admin")return;
   try{
     archiveData=await api("archiveJobs");
+    archiveLoadedAt=Date.now();
     $("#archiveJobsCount").textContent=String(archiveData.totals?.commesse||0);
     $("#archiveSessionsCount").textContent=Number(archiveData.totals?.attivita||0).toLocaleString("it-IT");
     $("#archiveHoursCount").textContent=Number(archiveData.totals?.ore||0).toLocaleString("it-IT",{maximumFractionDigits:2});
@@ -878,7 +885,7 @@ async function loadArchive(){
   }
 }
 $("#reloadArchive")?.addEventListener("click",loadArchive);
-["#archiveSearch","#archiveClient","#archiveType","#archiveStatus"].forEach(s=>{
+["#archiveSearch","#archiveClient","#archiveType","#archiveStatus","#archiveInactive"].forEach(s=>{
   const el=$(s);if(!el)return;
   el.addEventListener(s==="#archiveSearch"?"input":"change",()=>{
     archivePage=1;
@@ -890,6 +897,7 @@ $("#archiveReset")?.addEventListener("click",()=>{
   $("#archiveClient").value="";
   $("#archiveType").value="";
   $("#archiveStatus").value="";
+  $("#archiveInactive").value="";
   archivePage=1;
   renderArchive();
 });

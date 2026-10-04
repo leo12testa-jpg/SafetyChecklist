@@ -51,6 +51,8 @@ async function run(role,viewport,label,extra){
       case 'approveCrmLink':return ok({ok:true,riassegnate:b.sessions.length});
       case 'previewIdentity':return ok({resource:{tecnico_uid:'legacy:XX',collegamento_approvato_at:null},legacyUid:'legacy:XX',alias:null,sessions:12,minutes:1200});
       case 'approveIdentity':return ok({ok:true,sessioniRiscritte:0});
+      case 'changeJobState':return ok({ok:true});
+      case 'archiveJobDetail':return ok({job:{id:b.commessaId,stato:calls.some(c=>c.action==='changeJobState'&&c.operation==='close')?'completata':'in_lavorazione',updated_at:'2026-10-04T10:00:00Z',ore_clienti:{ragione_sociale:'Cliente'},ore_tipologie:{nome:'DVR'}},totals:{},sessions:[],technicians:[],closureHistory:[]});
       case 'economicsCatalog':return ok({technicians:[],rates:[],jobs:[]});
       case 'adminEconomics':return ok({jobs:[],costRows:[],typeStats:[],blendedHourlyCost:null,coverage:{percent:0},comparable:{jobs:0}});
       case 'archiveJobs':return ok({totals:{commesse:3},rows:[
@@ -175,6 +177,11 @@ async function run(role,viewport,label,extra){
       for(let i=0;i<5;i++)await page.fill(`#workScheduleWeek input[data-weekday="${i}"]`,'4h');
       await page.click('#saveWorkSchedule');await page.waitForTimeout(300);
       const schedule=calls.find(c=>c.action==='saveWorkSchedule');assert.equal(schedule.validoDal,'2026-11-01');assert.deepEqual(schedule.settimanaMinuti,[240,240,240,240,240,0,0]);
+      await page.click('#tabArchive');await page.waitForSelector('.archive-open');await page.locator('.archive-open').first().click();await page.waitForSelector('#jobClosureForm');
+      await page.fill('#jobClosureForm [name="delivery"]','2026-10-01');await page.fill('#jobClosureForm [name="revisions"]','0');await page.click('#jobClosureForm button');await page.waitForTimeout(250);
+      assert.equal(calls.find(c=>c.action==='changeJobState').revisioniCliente,0);
+      await page.click('#jobClosureForm button');await page.waitForTimeout(250);assert.equal(calls.filter(c=>c.action==='changeJobState').at(-1).operation,'reopen');
+      await page.click('#tabAdmin');
       await page.fill('#adminFrom','2026-10-10');await page.fill('#adminTo','2026-10-01');await page.click('#loadAdmin');
       await page.waitForTimeout(200);
       assert.ok(await page.locator('.toast-warn').count()>=1,'periodo invertito segnalato');
@@ -182,6 +189,7 @@ async function run(role,viewport,label,extra){
     await run('admin',{width:390,height:844},'admin-mobile',async(page)=>{
       await page.click('#tabAdmin');await page.waitForTimeout(800);
       assert.equal(await page.locator('#kpiBillable').innerText(),'80%');
+      await page.click('#tabArchive');await page.waitForSelector('.archive-open');await page.locator('.archive-open').first().click();await page.waitForSelector('#jobClosureForm');
     });
     console.log('TUTTI I TEST BROWSER SUPERATI');
   }finally{server.close()}

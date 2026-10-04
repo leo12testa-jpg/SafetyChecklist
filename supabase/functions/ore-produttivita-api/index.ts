@@ -144,7 +144,7 @@ const ACTION_ROLES: Record<string, readonly string[]> = {
   adminEconomics: ["admin"], archiveJobs: ["admin"], archiveJobDetail: ["admin"],
   adminSummary: ["admin"], crmLinks: ["admin"], previewCrmLink: ["admin"], approveCrmLink: ["admin"],
   saveInternal: ["admin", "tecnico"], workSchedules: ["admin"], saveWorkSchedule: ["admin"],
-  savePhase: ["admin", "tecnico"], previewIdentity: ["admin"], approveIdentity: ["admin"]
+  savePhase: ["admin", "tecnico"], previewIdentity: ["admin"], approveIdentity: ["admin"], changeJobState: ["admin"]
 };
 function authorizeAction(user: any, action: string) {
   if (!Object.hasOwn(ACTION_ROLES, action)) bad("Operazione non riconosciuta.");
@@ -196,6 +196,15 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "");
     authorizeAction(user, action);
+
+    if(action === "changeJobState"){
+      if(!["close","reopen"].includes(body.operation)||!body.commessaId||!body.updatedAt||!Number.isFinite(Date.parse(body.updatedAt)))bad("Comando o versione della pratica non validi.");
+      const close=body.operation==="close",delivery=close?dateOnly(body.consegnaData):null,revisions=close?body.revisioniCliente:null;
+      if(close&&(typeof revisions!=="number"||!Number.isInteger(revisions)||revisions<0||revisions>100000))bad("Numero di revisioni non valido.");
+      const note=String(body.nota||"").trim();if(note.length>2000)bad("Nota troppo lunga.");
+      const {data,error}=await db.rpc("ore_cambia_stato_pratica",{p_id:body.commessaId,p_close:close,p_delivery:delivery,p_revisions:revisions,p_note:note||null,p_actor:user.uid,p_expected:body.updatedAt});
+      if(error)bad(error.message,409);return json(req,data);
+    }
 
     if(action === "previewIdentity"||action === "approveIdentity"){
       const {data:resource,error}=await db.from("ore_risorse_crm").select("*").eq("id",String(body.resourceId||"")).eq("attiva",true).maybeSingle();
@@ -1963,7 +1972,7 @@ Deno.serve(async (req: Request) => {
 
       const [{ data: job, error: jobErr }, { data: sessions, error: sessionsErr }] = await Promise.all([
         db.from("ore_commesse")
-          .select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,anno,data_apertura,data_completamento,budget_ore,costi_esterni,valore_vendita,note_economiche,ore_clienti(id,codice_breve,ragione_sociale),ore_tipologie(id,codice,nome)")
+          .select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,anno,data_apertura,data_completamento,consegna_data,revisioni_cliente,nota_chiusura,updated_at,budget_ore,costi_esterni,valore_vendita,note_economiche,ore_clienti(id,codice_breve,ragione_sociale),ore_tipologie(id,codice,nome)")
           .eq("id",commessaId).maybeSingle(),
         readAll(()=>db.from("ore_sessioni")
           .select("id,tecnico_uid,tecnico_nome,data_lavoro,inizio,fine,minuti_agenda,minuti_effettivi,origine,crm_event_id,crm_oggetto,attivita_rilevata,modificata_manualmente,motivo_modifica,confermata")
@@ -1973,6 +1982,8 @@ Deno.serve(async (req: Request) => {
       ]);
       if(jobErr||!job) bad("Commessa non trovata.",404);
       if(sessionsErr) bad("Impossibile caricare le attività della commessa.",500);
+      const {data:closureHistory,error:historyError}=await readAll(()=>db.from("ore_pratiche_storia").select("*").eq("commessa_id",commessaId).order("created_at",{ascending:false}));
+      if(historyError)bad("Impossibile caricare lo storico della pratica.",500);
 
       const byTech=new Map<string,any>();
       let totalMinutes=0;
@@ -1993,7 +2004,7 @@ Deno.serve(async (req: Request) => {
           tecnici:byTech.size
         },
         technicians:[...byTech.entries()].map(([uid,v])=>({nome:v.name,tecnico_uid:uid,ore:Math.round((v.minutes/60)*100)/100,attivita:v.sessions})).sort((a,b)=>a.nome.localeCompare(b.nome,"it")),
-        sessions:attributeIdentity(sessions||[],identityAliases)
+        sessions:attributeIdentity(sessions||[],identityAliases),closureHistory
       });
     }
 
