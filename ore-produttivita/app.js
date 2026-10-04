@@ -709,9 +709,10 @@ async function renderProductivity(){
   const body=$("#productivityRows"),empty=$("#productivityEmpty");
   if(!archiveData||Date.now()-archiveLoadedAt>300000){try{archiveData=await api("archiveJobs");archiveLoadedAt=Date.now()}catch(e){body.innerHTML=html``;empty.textContent="Impossibile calcolare i tempi per tipologia: "+e.message;empty.hidden=false;return}}
   const types=new Map();
+  let filters={};try{if(typeof readComplexity==="function")filters=readComplexity($("#productivityFilters"));}catch(e){notify(e.message);return;}
   for(const r of archiveData.rows||[]){
     const code=String(r.tipologia?.codice||"");const ore=Number(r.ore||0);
-    if(r.stato!=="completata"||!code||code==="P"||!(ore>0))continue;
+    if(r.stato!=="completata"||!code||code==="P"||!(ore>0)||(typeof matchesJobComplexity==="function"&&!matchesJobComplexity(r,filters)))continue;
     const v=types.get(code)||{name:r.tipologia?.nome||code,values:[]};
     v.values.push(ore);types.set(code,v);
   }
@@ -723,7 +724,7 @@ async function renderProductivity(){
     tr.innerHTML=html`<td><b>${code} · ${v.name}</b>${vals.length<5?html`<br><span class="muted">campione ridotto</span>`:""}</td><td>${vals.length}</td><td>${f(avg)} h</td><td><b>${f(med)} h</b></td><td>${f(min)}–${f(max)} h</td>`;
     body.appendChild(tr);
   });
-  empty.textContent="Nessuna pratica completata e classificata nello storico.";
+  empty.textContent="0 casi: nessuna pratica completata e classificata nello storico con questi filtri.";
   empty.hidden=types.size>0;
 }
 let archiveData=null;
@@ -832,6 +833,7 @@ async function openArchiveJob(id){
     const j=await api("archiveJobDetail",{commessaId:id});
     const job=j.job||{},cl=job.ore_clienti||{},tp=job.ore_tipologie||{};
     if(typeof renderJobClosure==="function")renderJobClosure(j);
+    if(typeof renderJobComplexity==="function")renderJobComplexity(j);
     $("#archiveDetailTitle").textContent=`${job.codice_lavoro||"—"} · ${cl.ragione_sociale||"Cliente"} · ${job.descrizione||"Commessa"}`;
     $("#archiveDetailSubtitle").textContent=`${tp.nome||"Altro"} · ${archiveStatusLabel(job.stato)} · ${job.anno||"—"}`;
     $("#archiveDetailHours").textContent=Number(j.totals?.ore||0).toLocaleString("it-IT",{maximumFractionDigits:2})+" h";
@@ -1026,7 +1028,7 @@ function renderEstimator(){
   const e=economicsSummary;
   const types=e?.typeStats||[];
   const sel=$("#estimateType"),old=sel.value;
-  sel.innerHTML='<option value="">Seleziona tipologia…</option>'+types.map(t=>html`<option value="${t.codice}">${t.codice} · ${t.nome} · mediana ${t.mediana_ore} h (${t.n} casi)</option>`).join("");
+  sel.innerHTML=html`<option value="">Seleziona tipologia…</option>${types.map(t=>html`<option value="${t.codice}">${t.codice} · ${t.nome} · mediana ${t.mediana_ore} h (${t.n} casi${t.n<5?", campione ridotto":""})</option>`)}`;
   if(old&&types.some(t=>t.codice===old))sel.value=old;
   updateEstimator(false);
 }
@@ -1035,6 +1037,7 @@ function updateEstimator(setHistoricalHours=false){
   const e=economicsSummary;
   if(!e)return;
   const type=(e.typeStats||[]).find(t=>t.codice===$("#estimateType").value);
+  $("#estimateSample").textContent=type?`${type.n} casi · mediana ${type.mediana_ore} h${type.n<5?" · campione ridotto":""}`:"0 casi selezionati: scegli una tipologia con storico disponibile.";
   if(setHistoricalHours&&type)$("#estimateHours").value=type.mediana_ore;
   const hours=numberInput($("#estimateHours").value);
   const external=numberInput($("#estimateExternal").value)??0;
@@ -1067,10 +1070,13 @@ function updateEstimator(setHistoricalHours=false){
     :"La stima usa le ore inserite e il costo orario medio delle ore già valorizzate.";
 }
 
+let economicsSeq=0;
 async function loadEconomics(){
   if(!profile||profile.ruolo!=="admin")return;
   try{
-    const [catalog,summary]=await Promise.all([api("economicsCatalog"),api("adminEconomics")]);
+    const seq=++economicsSeq,complexity=typeof readComplexity==="function"?readComplexity($("#estimateComplexityFilters")):{};
+    const [catalog,summary]=await Promise.all([api("economicsCatalog"),api("adminEconomics",{complexity})]);
+    if(seq!==economicsSeq)return;
     economicsCatalog=catalog;
     economicsSummary=summary;
     renderCostRates();

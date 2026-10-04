@@ -1519,3 +1519,7 @@ body{background:var(--ui-bg)}
 #jobClosureForm,#identityAccountForm{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;margin:12px 0}
 #jobClosureForm label,#identityAccountForm label{display:flex;flex-direction:column;gap:5px;min-width:0}
 #jobClosureForm input,#jobClosureForm textarea,#identityAccountForm input{width:100%;min-width:0;box-sizing:border-box}
+.complexity-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:12px;margin:12px 0;min-width:0}
+.complexity-fields>label{display:flex;flex-direction:column;gap:5px;min-width:0}
+.complexity-fields select,.complexity-fields input:not([type=checkbox]){width:100%;min-width:0;box-sizing:border-box}
+#estimateComplexityFilters{grid-column:1/-1}

@@ -144,7 +144,7 @@ const ACTION_ROLES: Record<string, readonly string[]> = {
   adminEconomics: ["admin"], archiveJobs: ["admin"], archiveJobDetail: ["admin"],
   adminSummary: ["admin"], crmLinks: ["admin"], previewCrmLink: ["admin"], approveCrmLink: ["admin"],
   saveInternal: ["admin", "tecnico"], workSchedules: ["admin"], saveWorkSchedule: ["admin"],
-  savePhase: ["admin", "tecnico"], previewIdentity: ["admin"], approveIdentity: ["admin"], changeJobState: ["admin"]
+  savePhase: ["admin", "tecnico"], previewIdentity: ["admin"], approveIdentity: ["admin"], changeJobState: ["admin"], saveJobComplexity: ["admin"]
 };
 function authorizeAction(user: any, action: string) {
   if (!Object.hasOwn(ACTION_ROLES, action)) bad("Operazione non riconosciuta.");
@@ -152,6 +152,19 @@ function authorizeAction(user: any, action: string) {
 }
 const INTERNAL_CATEGORIES = new Set(["formazione_interna","amministrazione","commerciale_preventivi","aggiornamento_normativo","riunioni_interne","altro_interno","assenza"]);
 const WORK_PHASES = new Set(["sopralluogo","trasferta","redazione","revisione","riunione_cliente","misurazioni","formazione_erogata","altro"]);
+const COMPLEXITY_FIELDS=["fascia_lavoratori","numero_sedi","numero_mansioni","tipo_intervento","settore"];
+function complexityOf(job:any){return Object.fromEntries(COMPLEXITY_FIELDS.map(key=>[key,job[key]??null]));}
+function validateComplexity(data:any,filter=false){
+ const result:any={};for(const key of COMPLEXITY_FIELDS){let value=data?.[key];if(value===null||value===undefined||value===""){result[key]=null;continue;}
+  if(filter&&value==="__missing__"){result[key]=value;continue;}
+  if(key==="fascia_lavoratori"&&!["1-9","10-49","50-249","250+"].includes(value))bad("Fascia lavoratori non valida.");
+  if(key==="tipo_intervento"&&!["prima_redazione","aggiornamento","revisione"].includes(value))bad("Tipo intervento non valido.");
+  if(["numero_sedi","numero_mansioni"].includes(key)&&(typeof value!=="number"||!Number.isInteger(value)||value<1||value>100000))bad("Numero sedi o mansioni non valido.");
+  if(key==="settore"){if(typeof value!=="string"||value.trim().length>200)bad("Settore non valido.");value=value.trim()||null;}
+  result[key]=value;
+ }return result;
+}
+function matchesComplexity(job:any,filters:any){return COMPLEXITY_FIELDS.every(key=>{const f=filters[key],value=job[key]??null;return f===null||f===undefined?true:f==="__missing__"?value===null:key==="settore"?String(value||"").toLocaleLowerCase("it-IT")===String(f).toLocaleLowerCase("it-IT"):value===f;});}
 function attributeIdentity(rows:any[],aliases:any[]){
   const byUid=new Map(aliases.map(a=>[a.uid_storico,a]));
   return rows.map(row=>{const alias:any=byUid.get(row.tecnico_uid);return alias?{...row,tecnico_uid_originale:row.tecnico_uid,tecnico_uid:alias.tecnico_uid,tecnico_nome:alias.tecnico_nome||row.tecnico_nome}:row;});
@@ -196,6 +209,13 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "");
     authorizeAction(user, action);
+
+    if(action === "saveJobComplexity"){
+      if(!body.complexity||typeof body.complexity!=="object"||Array.isArray(body.complexity))bad("Indica i fattori di complessita.");
+      const values=validateComplexity(body.complexity);
+      if(!body.commessaId||!body.updatedAt||!Number.isFinite(Date.parse(body.updatedAt)))bad("Pratica o versione non valide.");
+      const {data,error}=await db.rpc("ore_salva_complessita",{p_id:body.commessaId,p_data:values,p_actor:user.uid,p_expected:body.updatedAt});if(error)bad(error.message,409);return json(req,data);
+    }
 
     if(action === "changeJobState"){
       if(!["close","reopen"].includes(body.operation)||!body.commessaId||!body.updatedAt||!Number.isFinite(Date.parse(body.updatedAt)))bad("Comando o versione della pratica non validi.");
@@ -371,7 +391,7 @@ Deno.serve(async (req: Request) => {
       if (clientErr || !client || typeErr || !type) bad("Cliente o tipologia non validi.", 404);
 
       const { data: matching, error: matchErr } = await db.from("ore_commesse")
-        .select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,cliente_id,tipologia_id")
+        .select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore,cliente_id,tipologia_id")
         .eq("cliente_id", client.id)
         .eq("tipologia_id", type.id)
         .neq("stato", "archiviata")
@@ -386,7 +406,7 @@ Deno.serve(async (req: Request) => {
       const internalCode = `AUTO-${workCode}-${year}`;
 
       const { data: existing, error: existingErr } = await db.from("ore_commesse")
-        .select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,cliente_id,tipologia_id")
+        .select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore,cliente_id,tipologia_id")
         .eq("codice_breve", internalCode)
         .maybeSingle();
       if (existingErr) bad("Impossibile verificare la classificazione interna.", 500);
@@ -404,10 +424,10 @@ Deno.serve(async (req: Request) => {
         data_apertura: day,
         note: "Voce interna creata da Ore & Produttività per classificare attività CRM senza commessa specifica.",
         updated_at: new Date().toISOString()
-      }).select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,cliente_id,tipologia_id").single();
+      }).select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore,cliente_id,tipologia_id").single();
       if (createErr || !created) {
         const { data: raced } = await db.from("ore_commesse")
-          .select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,cliente_id,tipologia_id")
+          .select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore,cliente_id,tipologia_id")
           .eq("codice_breve", internalCode).maybeSingle();
         if (raced) return raced;
         bad("Impossibile creare la classificazione interna.", 500);
@@ -456,7 +476,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "commesse") {
-      let q = db.from("ore_commesse").select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,cliente_id,tipologia_id").neq("stato", "archiviata").order("codice_breve").limit(250);
+      let q = db.from("ore_commesse").select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore,cliente_id,tipologia_id").neq("stato", "archiviata").order("codice_breve").limit(250);
       if (body.clienteId) q = q.eq("cliente_id", String(body.clienteId));
       const { data, error } = await q;
       if (error) bad("Impossibile caricare le commesse.", 500);
@@ -467,7 +487,7 @@ Deno.serve(async (req: Request) => {
       await bindCallerResource(db,user);
       const day = dateOnly(body.date);
       const { data, error } = await db.from("ore_sessioni")
-        .select("id,data_lavoro,inizio,fine,minuti_agenda,minuti_effettivi,origine,crm_event_id,crm_oggetto,attivita_rilevata,modificata_manualmente,motivo_modifica,confermata,commessa_id,fase,updated_at,ore_commesse(codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome))")
+        .select("id,data_lavoro,inizio,fine,minuti_agenda,minuti_effettivi,origine,crm_event_id,crm_oggetto,attivita_rilevata,modificata_manualmente,motivo_modifica,confermata,commessa_id,fase,updated_at,ore_commesse(codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome))")
         .eq("tecnico_uid", user.uid).eq("data_lavoro", day).order("inizio", { ascending: true });
       if (error) bad("Impossibile caricare la giornata.", 500);
       const {data:activities,error:activitiesError}=await db.from("ore_rendicontazioni").select("*").eq("tecnico_uid",user.uid).eq("data_lavoro",day);
@@ -813,7 +833,7 @@ Deno.serve(async (req: Request) => {
           .eq("attivo", true)
           .limit(500),
         db.from("ore_commesse")
-          .select("id,cliente_id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,ore_tipologie(codice,nome)")
+          .select("id,cliente_id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore,ore_tipologie(codice,nome)")
           .neq("stato","archiviata")
           .limit(2000)
       ]);
@@ -938,7 +958,7 @@ Deno.serve(async (req: Request) => {
       };
 
       const compactCandidates = (candidates:any[]) => candidates.map((c:any)=>({
-        id:c.id,codiceComm:c.codice_commessa_crm,descrizione:c.descrizione,stato:c.stato,codiceLavoro:c.codice_lavoro,
+        id:c.id,codiceComm:c.codice_commessa_crm,descrizione:c.descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore:c.stato,codiceLavoro:c.codice_lavoro,
         clienteId:c.cliente_id||null,tipologiaId:c.tipologia_id||null
       }));
 
@@ -1216,7 +1236,7 @@ Deno.serve(async (req: Request) => {
       const [{ data: allClients, error: clientsErr }, { data: allJobs, error: jobsErr }] = await Promise.all([
         db.from("ore_clienti").select("id,codice_breve,ragione_sociale").eq("attivo",true).limit(500),
         db.from("ore_commesse")
-          .select("id,cliente_id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,ore_tipologie(codice,nome)")
+          .select("id,cliente_id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore,ore_tipologie(codice,nome)")
           .neq("stato","archiviata").limit(2000)
       ]);
       if (clientsErr || jobsErr) bad("Impossibile caricare l'anagrafica per la classificazione automatica.",500);
@@ -1339,7 +1359,7 @@ Deno.serve(async (req: Request) => {
       };
 
       const compactCandidates = (candidates:any[]) => candidates.map((c:any)=>({
-        id:c.id,codiceComm:c.codice_commessa_crm,descrizione:c.descrizione,stato:c.stato,codiceLavoro:c.codice_lavoro,
+        id:c.id,codiceComm:c.codice_commessa_crm,descrizione:c.descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore:c.stato,codiceLavoro:c.codice_lavoro,
         clienteId:c.cliente_id||null,tipologiaId:c.tipologia_id||null
       }));
 
@@ -1623,7 +1643,7 @@ Deno.serve(async (req: Request) => {
           .order("valido_dal", { ascending: false })
           .limit(1000),
         db.from("ore_commesse")
-          .select("id,codice_lavoro,codice_commessa_crm,descrizione,stato,budget_ore,costi_esterni,valore_vendita,note_economiche,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome)")
+          .select("id,codice_lavoro,codice_commessa_crm,descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore,budget_ore,costi_esterni,valore_vendita,note_economiche,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome)")
           .neq("stato", "archiviata")
           .order("descrizione")
           .limit(1000)
@@ -1726,10 +1746,11 @@ Deno.serve(async (req: Request) => {
 
     if (action === "adminEconomics") {
       requireAdmin(user);
+      const complexityFilters=validateComplexity(body.complexity,true);
 
       const [{ data: sessions, error: sessionsErr }, { data: rates, error: ratesErr }] = await Promise.all([
         readAll(()=>db.from("ore_sessioni")
-          .select("tecnico_uid,tecnico_nome,data_lavoro,minuti_effettivi,commessa_id,ore_commesse(codice_lavoro,codice_commessa_crm,descrizione,stato,budget_ore,costi_esterni,valore_vendita,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome))")
+          .select("tecnico_uid,tecnico_nome,data_lavoro,minuti_effettivi,commessa_id,ore_commesse(codice_lavoro,codice_commessa_crm,descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore,budget_ore,costi_esterni,valore_vendita,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome))")
         ),
         db.from("ore_costi_tecnici")
           .select("tecnico_uid,tecnico_nome,costo_orario,valido_dal,valido_al")
@@ -1804,6 +1825,7 @@ Deno.serve(async (req: Request) => {
         if (!id) continue;
         const v = jobs.get(id) || {
           id,
+          ...complexityOf(c),
           codice_lavoro: c.codice_lavoro || "",
           codice_commessa_crm: c.codice_commessa_crm || "",
           descrizione: c.descrizione || "",
@@ -1850,7 +1872,7 @@ Deno.serve(async (req: Request) => {
 
       const completedByType = new Map<string, number[]>();
       for (const j of jobRows) {
-        if (j.stato !== "completata" || j.tipo_codice === "P") continue;
+        if (j.stato !== "completata" || j.tipo_codice === "P" || !(j.ore>0) || !matchesComplexity(j,complexityFilters)) continue;
         const a = completedByType.get(j.tipo_codice) || [];
         a.push(Number(j.ore || 0));
         completedByType.set(j.tipo_codice, a);
@@ -1898,7 +1920,7 @@ Deno.serve(async (req: Request) => {
 
       const [{ data: jobs, error: jobsErr }, { data: sessions, error: sessionsErr }] = await Promise.all([
         readAll(()=>db.from("ore_commesse")
-          .select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,anno,data_apertura,data_completamento,budget_ore,costi_esterni,valore_vendita,ore_clienti(id,codice_breve,ragione_sociale),ore_tipologie(id,codice,nome)")
+          .select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore,anno,data_apertura,data_completamento,budget_ore,costi_esterni,valore_vendita,ore_clienti(id,codice_breve,ragione_sociale),ore_tipologie(id,codice,nome)")
           .order("descrizione")),
         readAll(()=>db.from("ore_sessioni")
           .select("id,commessa_id,tecnico_uid,tecnico_nome,data_lavoro,minuti_effettivi,origine,modificata_manualmente")
@@ -1937,6 +1959,7 @@ Deno.serve(async (req: Request) => {
           codice_commessa_crm:j.codice_commessa_crm,
           descrizione:j.descrizione,
           stato:j.stato,
+          ...complexityOf(j),
           anno:j.anno,
           data_apertura:j.data_apertura,
           data_completamento:j.data_completamento,
@@ -1972,7 +1995,7 @@ Deno.serve(async (req: Request) => {
 
       const [{ data: job, error: jobErr }, { data: sessions, error: sessionsErr }] = await Promise.all([
         db.from("ore_commesse")
-          .select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,anno,data_apertura,data_completamento,consegna_data,revisioni_cliente,nota_chiusura,updated_at,budget_ore,costi_esterni,valore_vendita,note_economiche,ore_clienti(id,codice_breve,ragione_sociale),ore_tipologie(id,codice,nome)")
+          .select("id,codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore,anno,data_apertura,data_completamento,consegna_data,revisioni_cliente,nota_chiusura,updated_at,budget_ore,costi_esterni,valore_vendita,note_economiche,ore_clienti(id,codice_breve,ragione_sociale),ore_tipologie(id,codice,nome)")
           .eq("id",commessaId).maybeSingle(),
         readAll(()=>db.from("ore_sessioni")
           .select("id,tecnico_uid,tecnico_nome,data_lavoro,inizio,fine,minuti_agenda,minuti_effettivi,origine,crm_event_id,crm_oggetto,attivita_rilevata,modificata_manualmente,motivo_modifica,confermata")
@@ -2014,7 +2037,7 @@ Deno.serve(async (req: Request) => {
       const rows:any[]=[];
       for(let offset=0;;offset+=1000){
         const {data,error}=await db.from("ore_sessioni")
-          .select("tecnico_uid,tecnico_nome,data_lavoro,minuti_effettivi,origine,commessa_id,fase,ore_commesse(codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome))")
+          .select("tecnico_uid,tecnico_nome,data_lavoro,minuti_effettivi,origine,commessa_id,fase,ore_commesse(codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome))")
           .gte("data_lavoro",from).lte("data_lavoro",to).order("id").range(offset,offset+999);
         if(error)bad("Impossibile generare il riepilogo completo.",500);
         rows.push(...attributeIdentity(data||[],identityAliases));if((data||[]).length<1000)break;

@@ -11,8 +11,8 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="../assets/icon-192.png">
   <link rel="apple-touch-icon" href="../assets/icon-512.png">
-  <link rel="stylesheet" href="./style.css?v=20261004-120000">
-  <link rel="stylesheet" href="./layout.css?v=20261004-120000">
+  <link rel="stylesheet" href="./style.css?v=20261004-130000">
+  <link rel="stylesheet" href="./layout.css?v=20261004-130000">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -343,6 +343,7 @@
               <div class="panel-heading compact"><div><span class="eyebrow">PREVENTIVAZIONE</span><h2>Tempo per tipologia</h2><p>Pratiche completate dell’intero storico, con le ore complessive di ciascuna (indipendente dal periodo filtrato).</p></div></div>
               <div class="table-wrap">
                 <table><thead><tr><th>Tipo</th><th>Chiuse</th><th>Media</th><th>Mediana</th><th>Range</th></tr></thead><tbody id="productivityRows"></tbody></table>
+                <div id="productivityFilters" class="complexity-fields"></div>
                 <table><caption>Ore per fase e tipologia nel periodo selezionato</caption><thead><tr><th>Tipologia</th><th>Fase</th><th>Ore</th></tr></thead><tbody id="phaseSummaryRows"></tbody></table>
               </div>
               <div id="productivityEmpty" class="empty" hidden>Nessun documento completato classificato.</div>
@@ -467,6 +468,7 @@
             </div>
 
             <div id="jobClosure"></div>
+            <div id="jobComplexity"></div>
             <div class="archive-tech-summary">
               <strong>Ripartizione per tecnico</strong>
               <div id="archiveTechSummary" class="archive-tech-chips"></div>
@@ -532,6 +534,7 @@
                 <div><span class="eyebrow">NUOVO PREVENTIVO</span><h2>Simulatore prezzo</h2><p>Usa la mediana storica delle ore come base modificabile. Il risultato è un supporto, non un listino automatico.</p></div>
               </div>
               <div class="estimator-form">
+                <div id="estimateComplexityFilters" class="complexity-fields"></div>
                 <label>Tipo di lavoro<select id="estimateType"></select></label>
                 <label>Ore previste<input id="estimateHours" inputmode="decimal" placeholder="—"></label>
                 <label>Costi esterni previsti (€)<input id="estimateExternal" inputmode="decimal" placeholder="0"></label>
@@ -544,6 +547,7 @@
                 <div class="estimate-result"><span>Prezzo indicativo</span><strong id="estimatePrice">—</strong></div>
               </div>
               <p id="estimateNote" class="helper-text">Inserisci prima almeno un costo orario tecnico per ottenere una stima economica.</p>
+              <p id="estimateSample" class="helper-text">0 casi selezionati.</p>
             </div>
           </div>
 
@@ -597,13 +601,14 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./aggiornamento.js?v=20261004-120000"></script>
-  <script src="./app.js?v=20261004-120000"></script>
-  <script src="./crm-links.js?v=20261004-120000"></script>
-  <script src="./internal-activities.js?v=20261004-120000"></script>
-  <script src="./work-schedules.js?v=20261004-120000"></script>
-  <script src="./work-phases.js?v=20261004-120000"></script>
-  <script src="./identities.js?v=20261004-120000"></script>
-  <script src="./job-closure.js?v=20261004-120000"></script>
+  <script src="./aggiornamento.js?v=20261004-130000"></script>
+  <script src="./app.js?v=20261004-130000"></script>
+  <script src="./crm-links.js?v=20261004-130000"></script>
+  <script src="./internal-activities.js?v=20261004-130000"></script>
+  <script src="./work-schedules.js?v=20261004-130000"></script>
+  <script src="./work-phases.js?v=20261004-130000"></script>
+  <script src="./identities.js?v=20261004-130000"></script>
+  <script src="./job-closure.js?v=20261004-130000"></script>
+  <script src="./job-complexity.js?v=20261004-130000"></script>
 </body>
 </html>

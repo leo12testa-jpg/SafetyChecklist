@@ -52,12 +52,13 @@ async function run(role,viewport,label,extra){
       case 'previewIdentity':return ok({resource:{tecnico_uid:'legacy:XX',collegamento_approvato_at:null},legacyUid:'legacy:XX',alias:null,sessions:12,minutes:1200});
       case 'approveIdentity':return ok({ok:true,sessioniRiscritte:0});
       case 'changeJobState':return ok({ok:true});
+      case 'saveJobComplexity':return ok({ok:true,updatedAt:'2026-10-04T11:00:00Z'});
       case 'archiveJobDetail':return ok({job:{id:b.commessaId,stato:calls.some(c=>c.action==='changeJobState'&&c.operation==='close')?'completata':'in_lavorazione',updated_at:'2026-10-04T10:00:00Z',ore_clienti:{ragione_sociale:'Cliente'},ore_tipologie:{nome:'DVR'}},totals:{},sessions:[],technicians:[],closureHistory:[]});
       case 'economicsCatalog':return ok({technicians:[],rates:[],jobs:[]});
-      case 'adminEconomics':return ok({jobs:[],costRows:[],typeStats:[],blendedHourlyCost:null,coverage:{percent:0},comparable:{jobs:0}});
+      case 'adminEconomics':return ok({jobs:[],costRows:[],typeStats:b.complexity?.fascia_lavoratori==='250+'?[]:[{codice:'B',nome:'DVR',n:b.complexity?.fascia_lavoratori==='10-49'?1:2,mediana_ore:b.complexity?.fascia_lavoratori==='10-49'?40:30}],blendedHourlyCost:60,coverage:{percent:0},comparable:{jobs:0}});
       case 'archiveJobs':return ok({totals:{commesse:3},rows:[
-        {id:'c1',stato:'completata',ore:40,tipologia:{codice:'B',nome:'DVR'},cliente:{id:'k1',ragione_sociale:'ACME'}},
-        {id:'c2',stato:'completata',ore:20,tipologia:{codice:'B',nome:'DVR'},cliente:{id:'k1',ragione_sociale:'ACME'}},
+        {id:'c1',stato:'completata',ore:40,fascia_lavoratori:'10-49',numero_sedi:2,tipologia:{codice:'B',nome:'DVR'},cliente:{id:'k1',ragione_sociale:'ACME'}},
+        {id:'c2',stato:'completata',ore:20,fascia_lavoratori:'1-9',numero_sedi:1,tipologia:{codice:'B',nome:'DVR'},cliente:{id:'k1',ragione_sociale:'ACME'}},
         {id:'c3',stato:'in_lavorazione',ore:99,tipologia:{codice:'B',nome:'DVR'},cliente:{id:'k1',ragione_sociale:'ACME'}}]});
       default:return ok({});
     }
@@ -152,6 +153,14 @@ async function run(role,viewport,label,extra){
       const prod=await page.locator('#productivityRows').innerText();
       assert.match(prod,/B · DVR/);assert.match(prod,/30 h/,'mediana sullo storico (40 e 20) = 30 h');
       assert.ok(!prod.includes('99'),'pratiche aperte escluse');
+      await page.selectOption('#productivityFilters [data-complexity="fascia_lavoratori"]','10-49');await page.waitForTimeout(250);
+      assert.match(await page.locator('#productivityRows').innerText(),/40 h/);assert.match(await page.locator('#productivityRows').innerText(),/campione ridotto/);
+      await page.selectOption('#productivityFilters [data-complexity="fascia_lavoratori"]','');
+      await page.click('#tabEconomics');await page.waitForTimeout(300);await page.selectOption('#estimateType','B');
+      assert.match(await page.locator('#estimateSample').innerText(),/2 casi/);
+      await page.selectOption('#estimateComplexityFilters [data-complexity="fascia_lavoratori"]','10-49');await page.waitForTimeout(400);
+      assert.match(await page.locator('#estimateSample').innerText(),/1 casi.*campione ridotto/);assert.equal(await page.locator('#estimateHours').inputValue(),'40');
+      await page.click('#tabAdmin');
       await page.locator('#loadCrmLinks').evaluate(el=>el.closest('details').open=true);
       await page.click('#loadCrmLinks');
       await page.waitForSelector('#crmLinksRows .crm-target');
@@ -181,6 +190,8 @@ async function run(role,viewport,label,extra){
       await page.fill('#jobClosureForm [name="delivery"]','2026-10-01');await page.fill('#jobClosureForm [name="revisions"]','0');await page.click('#jobClosureForm button');await page.waitForTimeout(250);
       assert.equal(calls.find(c=>c.action==='changeJobState').revisioniCliente,0);
       await page.click('#jobClosureForm button');await page.waitForTimeout(250);assert.equal(calls.filter(c=>c.action==='changeJobState').at(-1).operation,'reopen');
+      await page.fill('#jobComplexityForm [data-complexity="numero_sedi"]','2');await page.click('#jobComplexityForm button');await page.waitForTimeout(250);
+      assert.equal(calls.find(c=>c.action==='saveJobComplexity').complexity.numero_sedi,2);assert.equal(calls.find(c=>c.action==='saveJobComplexity').complexity.numero_mansioni,null);
       await page.click('#tabAdmin');
       await page.fill('#adminFrom','2026-10-10');await page.fill('#adminTo','2026-10-01');await page.click('#loadAdmin');
       await page.waitForTimeout(200);

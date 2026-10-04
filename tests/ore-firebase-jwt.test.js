@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const {stripTypeScriptTypes}=require('node:module'),{webcrypto}=require('node:crypto');
-const source=fs.readFileSync('supabase/functions/ore-produttivita-api/index.ts','utf8').replace(/^import .*;\n/,'');
+const source=fs.readFileSync('supabase/functions/ore-produttivita-api/index.ts','utf8').replace(/^import .*;\r?\n/,'');
 test('Firebase: firma RSA, audience, issuer, scadenza e UID verificati',async()=>{
  const pair=await webcrypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['sign','verify']);
  const jwk=await webcrypto.subtle.exportKey('jwk',pair.publicKey);jwk.kid='test-key';

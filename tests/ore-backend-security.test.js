@@ -14,12 +14,12 @@ function backend({ role = 'tecnico', tokenValid = true, owner = 'other', databas
     return new Response(JSON.stringify({fields:{attivo:{booleanValue:true},ruolo:{stringValue:role}}}));
   }, createClient: () => database || ({from(){ dbCalls++; return query; }}),
   Deno: {env:{get:name=> name==='SUPABASE_SECRET_KEYS' ? undefined : 'test'},serve: fn => {handler=fn;}} });
-  vm.runInContext(stripTypeScriptTypes(source.replace(/^import .*;\n/, ''), {mode:'transform'}), context);
+  vm.runInContext(stripTypeScriptTypes(source.replace(/^import .*;\r?\n/, ''), {mode:'transform'}), context);
   vm.runInContext('verifyFirebaseJwt=async()=>"u1"',context); // Auth is exercised separately with real RSA signatures.
   return { call: body => handler(new Request('https://test/', {method:'POST',headers:{authorization:'Bearer test','content-type':'application/json'},body:JSON.stringify(body)})),
     dbCalls: () => dbCalls, context };
 }
-for (const action of ['adminSummary','adminEconomics','saveJobEconomics','archiveJobs','importPlanner','importHistoryBatch','crmResources','crmAgentHeartbeat','ingestAgendaCompany','economicsCatalog','saveTechnicianCost','archiveJobDetail','crmLinks','previewCrmLink','approveCrmLink','workSchedules','saveWorkSchedule','previewIdentity','approveIdentity','changeJobState']) {
+for (const action of ['adminSummary','adminEconomics','saveJobEconomics','archiveJobs','importPlanner','importHistoryBatch','crmResources','crmAgentHeartbeat','ingestAgendaCompany','economicsCatalog','saveTechnicianCost','archiveJobDetail','crmLinks','previewCrmLink','approveCrmLink','workSchedules','saveWorkSchedule','previewIdentity','approveIdentity','changeJobState','saveJobComplexity']) {
   test(`tecnico: ${action} restituisce 403 prima di accedere ai dati`, async () => {
     const app=backend();
     assert.equal((await app.call({action,ruolo:'admin'})).status,403);
@@ -127,4 +127,16 @@ test('alias approvato aggrega lo storico senza cambiare righe o usare nomi simil
 });
 test('chiusura: revisioni esplicite e comando valido obbligatori',async()=>{
  for(const body of [{operation:'close',revisioniCliente:null},{operation:'close',revisioniCliente:-1},{operation:'bad',revisioniCliente:0}]){const app=backend({role:'admin'});assert.equal((await app.call({action:'changeJobState',commessaId:'j1',updatedAt:'2026-10-01T10:00:00Z',consegnaData:'2026-10-01',...body})).status,400);assert.equal(app.dbCalls(),0);}
+});
+test('complessità: enum, interi e dati assenti validati sul server',async()=>{
+ for(const complexity of [null,{fascia_lavoratori:'dedotta'},{numero_sedi:0},{numero_mansioni:1.5},{tipo_intervento:'automatico'}]){const app=backend({role:'admin'});assert.equal((await app.call({action:'saveJobComplexity',commessaId:'j1',updatedAt:'2026-10-01T10:00:00Z',complexity})).status,400);assert.equal(app.dbCalls(),0);}
+ const app=backend();app.context.job={fascia_lavoratori:null,numero_sedi:2,settore:'ATECO 41'};
+ assert.equal(vm.runInContext("matchesComplexity(job,validateComplexity({fascia_lavoratori:'__missing__',numero_sedi:2,settore:'ateco 41'},true))",app.context),true);
+ assert.equal(vm.runInContext("matchesComplexity(job,validateComplexity({fascia_lavoratori:'10-49'},true))",app.context),false);
+});
+test('simulatore: filtra pratiche complete e conta casi, non sessioni',async()=>{
+ const job=(fascia,stato)=>({stato,fascia_lavoratori:fascia,numero_sedi:2,ore_tipologie:{codice:'B',nome:'DVR'},ore_clienti:{ragione_sociale:'Cliente'},budget_ore:null,valore_vendita:null});
+ const sessions=[{commessa_id:'j1',minuti_effettivi:480,ore_commesse:job('10-49','completata')},{commessa_id:'j1',minuti_effettivi:240,ore_commesse:job('10-49','completata')},{commessa_id:'j2',minuti_effettivi:120,ore_commesse:job('1-9','completata')},{commessa_id:'j3',minuti_effettivi:60,ore_commesse:job('10-49','in_lavorazione')}];
+ const database={from(table){const q={select(){return this;},order(){return this;},limit(){return this;},range(){return this;},then(resolve){resolve({data:table==='ore_sessioni'?sessions:[],error:null});}};return q;}};
+ const response=await backend({role:'admin',database}).call({action:'adminEconomics',complexity:{fascia_lavoratori:'10-49'}});assert.equal(response.status,200);const result=await response.json();assert.equal(result.typeStats[0].n,1);assert.equal(result.typeStats[0].mediana_ore,12);
 });
