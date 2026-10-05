@@ -183,7 +183,9 @@ const checklistEngine = (() => {
     let nonRisposte = 0;
 
     domandeComplete.forEach(({ sezione, domanda }) => {
-      const r = (sopralluogoDati.risposte || []).find((x) => x.domanda_id === domanda.id);
+      const r = (sopralluogoDati.risposte || []).find((x) =>
+        x && x.domanda_id != null && String(x.domanda_id) === String(domanda.id)
+      );
       const valore = r ? r.risposta : null;
 
       if (!rispostaHaValore(valore)) {
