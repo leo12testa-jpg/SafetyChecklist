@@ -467,8 +467,11 @@ const pdfImport = (() => {
       for (let i = 0; i < ops.fnArray.length; i += 1) {
         if (ops.fnArray[i] !== O.paintFormXObjectBegin) continue;
         const args = ops.argsArray[i] || [];
-        const bbox = args[1];
-        if (!Array.isArray(bbox) || bbox.length < 4) continue;
+        const bboxRaw = args[1];
+        const bbox = Array.isArray(bboxRaw)
+          ? bboxRaw
+          : (ArrayBuffer.isView(bboxRaw) ? Array.from(bboxRaw) : null);
+        if (!bbox || bbox.length < 4) continue;
         const w = Math.abs(bbox[2] - bbox[0]);
         const h = Math.abs(bbox[3] - bbox[1]);
         if (w >= larghezzaPagina * 0.72 && h >= Math.max(35, altezzaPagina * 0.04)) return true;
