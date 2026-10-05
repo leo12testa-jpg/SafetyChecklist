@@ -2,13 +2,13 @@
 // autoreferenziale, dato che modificare questo stesso file cambierebbe l'hash finale). Cambia sempre
 // a ogni pubblicazione, cosÃ¬ il browser rileva sempre un service-worker.js diverso byte per byte e
 // installa una cache nuova; l'activate qui sotto elimina da sÃ© quelle vecchie.
-const CACHE_NAME = 'safety-checklist-shell-20261005-194500';
+const CACHE_NAME = 'safety-checklist-shell-20261005-201500';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=20261005-194500',
+  './css/style.css?v=20261005-201500',
   './js/vendor/jspdf.umd.min.js',
   './js/vendor/jspdf.plugin.autotable.min.js',
   './js/vendor/jszip.min.js',
@@ -28,12 +28,12 @@ const APP_SHELL = [
   './js/checklist.js?v=20261005-180000',
   './js/question-navigator.js',
   './js/foto-sync.js',
-  './js/pdf.js?v=20261005-194500',
-  './js/pdf-import.js?v=20261005-194500',
-  './js/import-matching.js?v=20261005-180000',
+  './js/pdf.js?v=20261005-201500',
+  './js/pdf-import.js?v=20261005-201500',
+  './js/import-matching.js?v=20261005-201500',
   './js/camera.js',
-  './js/sync.js?v=20261005-194500',
-  './js/aggiornamento.js?v=20261005-194500',
+  './js/sync.js?v=20261005-201500',
+  './js/aggiornamento.js?v=20261005-201500',
   './checklists/index.json',
   './checklists/clients.json',
   './checklists/tecnici.json',
