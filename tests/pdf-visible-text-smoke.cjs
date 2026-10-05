@@ -78,7 +78,28 @@ if (!executablePath) throw new Error('CHROME_PATH mancante');
     assert.match(result.visual, /TESTO-NUOVO-VISIBILE/);
     assert.match(result.visual, /X/);
     assert.ok(result.visibleItems.length >= 2, JSON.stringify(result));
-    console.log(JSON.stringify({ status:'PASS', ...result }, null, 2));
+
+    const formResult = await page.evaluate(async () => {
+      const doc = new jspdf.jsPDF({ unit:'pt', format:'a4' });
+      doc.beginFormObject(0, 0, 595, 842, doc.unitMatrix);
+      doc.setFontSize(11);
+      doc.text('TESTO-DENTRO-FORM', 90, 120);
+      doc.endFormObject('pagina-base');
+      doc.doFormObject('pagina-base', doc.unitMatrix);
+      const parsed = await pdfjsLib.getDocument({ data:new Uint8Array(doc.output('arraybuffer')) }).promise;
+      try {
+        const p = await parsed.getPage(1);
+        const detected = await pdfImport._test.paginaHaFormClippatoGrande(p);
+        const visual = await pdfImport._test.estraiTestoVisibileRenderizzato(p);
+        return { detected, visual:visual.items.map(i => i.testo).join(' | ') };
+      } finally {
+        await parsed.destroy();
+      }
+    });
+    assert.equal(formResult.detected, true, JSON.stringify(formResult));
+    assert.match(formResult.visual, /TESTO-DENTRO-FORM/);
+
+    console.log(JSON.stringify({ status:'PASS', ...result, formResult }, null, 2));
   } finally {
     await browser.close();
     server.close();
