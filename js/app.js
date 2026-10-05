@@ -624,11 +624,26 @@ const nuovoSopralluogoScreen = (() => {
             'Aggiorna l\'app e riprova; nessun sopralluogo è stato creato.'
           );
         }
-        if (rilevamento.checklistId === 'interparking_sopralluogo' && ![73, 75].includes(righe.length)) {
-          throw new Error(
-            `Struttura Interparking non coerente: lette ${righe.length} righe, mentre una checklist completa deve averne 73 o 75. ` +
-            'Importazione bloccata: nessun dato è stato salvato.'
-          );
+        if (rilevamento.checklistId === 'interparking_sopralluogo') {
+          if (![73, 75].includes(righe.length)) {
+            throw new Error(
+              `Struttura Interparking non coerente: lette ${righe.length} righe, mentre una checklist completa deve averne 73 o 75. ` +
+              'Importazione bloccata: nessun dato è stato salvato.'
+            );
+          }
+          const legacy75 = righe.length === 75;
+          const atteseSicure = 73;
+          const atteseRitirate = legacy75 ? 2 : 0;
+          if (riepilogo.sicure !== atteseSicure ||
+              riepilogo.ritirate !== atteseRitirate ||
+              riepilogo.daVerificare !== 0 ||
+              riepilogo.nonRiconosciute !== 0 ||
+              riepilogo.conflitti !== 0) {
+            throw new Error(
+              'Controllo integrità Interparking non superato: il PDF non viene importato perché ' +
+              'non tutte le righe risultano associate in modo univoco alla checklist corretta.'
+            );
+          }
         }
       }
 
