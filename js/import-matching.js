@@ -117,6 +117,34 @@ const importMatching = (() => {
   }
 
   /**
+   * Compatibilità Interparking: due domande presenti nei PDF storici non esistono più.
+   * Le riconosciamo dal testo, non dal numero, perché il numero visibile era progressivo
+   * mentre il livello testo del PDF può conservare il vecchio id interno.
+   */
+  function rigaInterparkingRitirata(riga, checklistId) {
+    if (checklistId !== 'interparking_sopralluogo') return null;
+    const testo = normalizzaTesto(riga && riga.testo_originale);
+    if (!testo) return null;
+
+    if (testo.includes('registrazioni dei controlli') && testo.includes('impianto sprinkler')) {
+      return {
+        chiave: 'sprinkler',
+        avviso: 'Voce Interparking storica rimossa dalla checklist corrente: esclusa automaticamente dall’importazione.'
+      };
+    }
+
+    if (testo.includes('planimetrie di emergenza') &&
+        testo.includes('aggiornate le planimetrie esposte') &&
+        testo.includes('risultano conformi')) {
+      return {
+        chiave: 'planimetria-duplicata',
+        avviso: 'Vecchia domanda duplicata sulle planimetrie Interparking: esclusa automaticamente.'
+      };
+    }
+    return null;
+  }
+
+  /**
    * Costruisce il risolutore "sezione + numero locale" per il formato storico: la checklist target
    * viene divisa negli stessi due macro-gruppi usati in generazione (stesso punto di divisione di
    * js/pdf.js#calcolaPuntoDivisioneGruppi, passato dal chiamante per non introdurre qui una
@@ -232,7 +260,10 @@ const importMatching = (() => {
       : null;
 
     const righe = righeGrezze.map((rigaGrezza, indice) => {
-      const esito = abbinaRiga(rigaGrezza, domande, idValidi, risolutoreStorico);
+      const ritirata = rigaInterparkingRitirata(rigaGrezza, checklist && checklist.id);
+      const esito = ritirata
+        ? { domandaId: null, metodo: 'legacy_interparking', confidenza: 1, automatico: true, avviso: ritirata.avviso, ritirata: true }
+        : abbinaRiga(rigaGrezza, domande, idValidi, risolutoreStorico);
       return {
         indice,
         originale: {
@@ -248,6 +279,7 @@ const importMatching = (() => {
         confidenza: esito ? esito.confidenza : null,
         automatico: esito ? Boolean(esito.automatico) && !rigaGrezza.da_verificare : false,
         avviso: rigaGrezza.avviso || (esito && esito.avviso ? esito.avviso : null),
+        ritirata: Boolean(esito && esito.ritirata),
         // Valori proposti per il sopralluogo, modificabili liberamente in anteprima: partono
         // sempre dal dato originale così com'è, mai alterati dal matching.
         risposta: rigaGrezza.stato_originale ?? null,
@@ -284,6 +316,10 @@ const importMatching = (() => {
     });
 
     righe.forEach((riga) => {
+      if (riga.ritirata && riga.domanda_id == null) {
+        riga.stato_riga = 'ritirata';
+        return;
+      }
       if (riga.domanda_id == null) {
         riga.stato_riga = 'non_riconosciuta';
         return;
@@ -302,15 +338,17 @@ const importMatching = (() => {
   }
 
   function calcolaRiepilogo(righe) {
+    const valutate = righe.filter((r) => r.stato_riga !== 'ritirata');
     return {
       totaleRighe: righe.length,
       sicure: righe.filter((r) => r.stato_riga === 'sicuro').length,
       daVerificare: righe.filter((r) => r.stato_riga === 'da_verificare').length,
       nonRiconosciute: righe.filter((r) => r.stato_riga === 'non_riconosciuta').length,
       conflitti: righe.filter((r) => r.stato_riga === 'conflitto').length,
-      confidenzaComplessiva: righe.length
-        ? righe.reduce((somma, r) => somma + (r.confidenza || 0), 0) / righe.length
-        : 0
+      ritirate: righe.filter((r) => r.stato_riga === 'ritirata').length,
+      confidenzaComplessiva: valutate.length
+        ? valutate.reduce((somma, r) => somma + (r.confidenza || 0), 0) / valutate.length
+        : 1
     };
   }
 
@@ -553,6 +591,7 @@ const importMatching = (() => {
 
   /** Cambia soltanto la destinazione del pacchetto sorgente; stato e nota non si rimatchano. */
   function cambiaDomandaRiga(riga, domandaId, immagini = []) {
+    if (domandaId != null) riga.ritirata = false;
     riga.domanda_id = domandaId;
     riga.metodo = domandaId != null ? 'manuale' : null;
     riga.automatico = false;
@@ -577,6 +616,7 @@ const importMatching = (() => {
     applicaVincoloUnoAUno,
     calcolaRiepilogo,
     collegaImmaginiAlleDomande,
+    rigaInterparkingRitirata,
     SOGLIE: { ALTA: SOGLIA_ALTA, MINIMA: SOGLIA_MINIMA, SANITA: SOGLIA_SANITA, AMBIGUITA: MARGINE_AMBIGUITA }
   };
 })();

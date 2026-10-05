@@ -2488,3 +2488,17 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
   outline-offset: 2px;
 }
 .stato-connessione.is-retrying { opacity: .78; }
+
+
+/* Import PDF Interparking storico: vecchie domande ritirate, riconosciute ed escluse senza conflitti. */
+.import-riga-ritirata {
+  border-left-color: #7b8798 !important;
+  background: #f7f9fc;
+  opacity: .9;
+}
+.import-riga-ritirata .import-riga-info { color: #5f6b7b; }
+.import-riga-ritirata .import-riga-avviso { color: #455267; }
+.import-badge-ritirate {
+  background: #eef2f7 !important;
+  color: #4e5c70 !important;
+}

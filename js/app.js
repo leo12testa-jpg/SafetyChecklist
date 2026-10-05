@@ -782,14 +782,16 @@ const importPreviewScreen = (() => {
     sicuro: 'Sicuro',
     da_verificare: 'Da verificare',
     conflitto: 'Conflitto',
-    non_riconosciuta: 'Non riconosciuta/esclusa'
+    non_riconosciuta: 'Non riconosciuta/esclusa',
+    ritirata: 'Vecchia domanda rimossa'
   };
   const ETICHETTE_METODO = {
     id: 'id',
     sezione_numero: 'sezione + numero',
     testo: 'testo',
     fuzzy: 'testo (fuzzy)',
-    manuale: 'scelta manuale'
+    manuale: 'scelta manuale',
+    legacy_interparking: 'compatibilità Interparking storico'
   };
   const ETICHETTE_RISPOSTA = { C: 'C', PC: 'P.C', NC: 'N.C', NA: 'N.P' };
 
@@ -826,6 +828,7 @@ const importPreviewScreen = (() => {
       `<span class="import-badge import-badge-sicure">${r.sicure} riconosciute automaticamente</span>` +
       `<span class="import-badge import-badge-verificare">${r.daVerificare} da verificare</span>` +
       `<span class="import-badge import-badge-non-riconosciute">${r.nonRiconosciute} non riconosciute</span>` +
+      `<span class="import-badge import-badge-ritirate">${r.ritirate || 0} vecchie escluse automaticamente</span>` +
       `<span class="import-badge import-badge-conflitti">${r.conflitti} conflitti</span>` +
       `<span class="import-badge">Confidenza complessiva: ${confidenzaPct}%</span>`;
   }
