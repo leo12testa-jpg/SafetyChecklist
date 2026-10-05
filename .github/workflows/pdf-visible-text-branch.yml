@@ -1,0 +1,41 @@
+name: PDF visible text branch
+
+on:
+  push:
+    branches:
+      - fix/pdf-visible-text-interparking-20261005
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Core regression tests
+        run: |
+          set -euo pipefail
+          node --test tests/pdf-import-extraction.test.js tests/import-matching.test.js tests/pdf-source-rows.test.js tests/pdf-header-images.test.js
+
+      - name: Install browser driver
+        run: npm install --no-save playwright-core@1.55.0
+
+      - name: Find Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME"
+          echo "CHROME_PATH=$CHROME" >> "$GITHUB_ENV"
+
+      - name: Visible PDF text smoke
+        run: node tests/pdf-visible-text-smoke.cjs
