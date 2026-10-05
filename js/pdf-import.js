@@ -381,15 +381,56 @@ const pdfImport = (() => {
     return testoPerId;
   }
 
+  /**
+   * Consolida i segmenti orizzontali in veri bordi di riga. I PDF Interparking possono contenere
+   * una seconda tabella/testo invisibile che disegna piccoli segmenti SOLO dentro la cella "n.":
+   * se quei segmenti vengono scambiati per bordi di riga, una singola domanda viene spezzata in
+   * più celle. Un bordo reale, invece, copre complessivamente una parte sostanziale della tabella
+   * (anche quando AutoTable lo disegna come 7 segmenti adiacenti, uno per colonna).
+   */
+  function consolidaBordiOrizzontali(segmenti) {
+    if (!segmenti || !segmenti.length) return [];
+    const gruppi = [];
+    [...segmenti].sort((a, b) => b.y - a.y).forEach((segmento) => {
+      let gruppo = gruppi.find((g) => Math.abs(g.y - segmento.y) <= 0.8);
+      if (!gruppo) {
+        gruppo = { y: segmento.y, segmenti: [] };
+        gruppi.push(gruppo);
+      }
+      gruppo.segmenti.push(segmento);
+    });
+
+    const misurati = gruppi.map((gruppo) => {
+      const intervalli = gruppo.segmenti
+        .map((x) => [Math.min(x.x1, x.x2), Math.max(x.x1, x.x2)])
+        .sort((a, b) => a[0] - b[0]);
+      const uniti = [];
+      intervalli.forEach(([x1, x2]) => {
+        const ultimo = uniti[uniti.length - 1];
+        if (ultimo && x1 <= ultimo[1] + 1) ultimo[1] = Math.max(ultimo[1], x2);
+        else uniti.push([x1, x2]);
+      });
+      const copertura = uniti.reduce((somma, [x1, x2]) => somma + (x2 - x1), 0);
+      const x1 = Math.min(...uniti.map((x) => x[0]));
+      const x2 = Math.max(...uniti.map((x) => x[1]));
+      return { y: gruppo.y, x1, x2, copertura };
+    });
+    const coperturaMassima = Math.max(...misurati.map((x) => x.copertura));
+    const soglia = Math.max(80, coperturaMassima * 0.35);
+    return misurati
+      .filter((x) => x.copertura >= soglia)
+      .map(({ x1, x2, y }) => ({ x1, x2, y }));
+  }
+
   /** Bordi orizzontali reali delle celle, in coordinate PDF (prima del viewport). */
   async function estraiBordiTabella(pagina) {
     const ops = await pagina.getOperatorList(), O = pdfjsLib.OPS;
     let matrix = [1, 0, 0, 1, 0, 0];
-    const stack = [], bordi = [];
+    const stack = [], segmenti = [];
     const punto = (x, y) => pdfjsLib.Util.applyTransform([x, y], matrix);
     const segmento = (a, b) => {
       if (Math.abs(a[1] - b[1]) < 0.5 && Math.abs(a[0] - b[0]) > 5)
-        bordi.push({ x1: Math.min(a[0], b[0]), x2: Math.max(a[0], b[0]), y: (a[1] + b[1]) / 2 });
+        segmenti.push({ x1: Math.min(a[0], b[0]), x2: Math.max(a[0], b[0]), y: (a[1] + b[1]) / 2 });
     };
     for (let i = 0; i < ops.fnArray.length; i++) {
       const fn = ops.fnArray[i], args = ops.argsArray[i];
@@ -412,7 +453,7 @@ const pdfImport = (() => {
         }
       }
     }
-    return bordi;
+    return consolidaBordiOrizzontali(segmenti);
   }
 
   /** Una cella/riga sorgente contiene insieme domanda, stato e nota, anche tra pagine. */
@@ -1293,7 +1334,8 @@ const pdfImport = (() => {
       provaFormatoStorico,
       consolidaRigheNostre,
       raggruppaFrammentiAdiacenti,
-      estraiDatiGeneraliNostro
+      estraiDatiGeneraliNostro,
+      consolidaBordiOrizzontali
     }
   };
 })();
