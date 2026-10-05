@@ -2,13 +2,13 @@
 // autoreferenziale, dato che modificare questo stesso file cambierebbe l'hash finale). Cambia sempre
 // a ogni pubblicazione, cosÃ¬ il browser rileva sempre un service-worker.js diverso byte per byte e
 // installa una cache nuova; l'activate qui sotto elimina da sÃ© quelle vecchie.
-const CACHE_NAME = 'safety-checklist-shell-20261005-201500';
+const CACHE_NAME = 'safety-checklist-shell-20261005-211500';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=20261005-201500',
+  './css/style.css?v=20261005-211500',
   './js/vendor/jspdf.umd.min.js',
   './js/vendor/jspdf.plugin.autotable.min.js',
   './js/vendor/jszip.min.js',
@@ -21,19 +21,19 @@ const APP_SHELL = [
   './js/supabase-config.js',
   './js/vendor/pdf.min.js',
   './js/vendor/pdf.worker.min.js',
-  './js/app.js?v=20261005-180000',
+  './js/app.js?v=20261005-211500',
   './js/identity.js',
   './js/account-screens.js',
-  './js/db.js?v=20261005-180000',
-  './js/checklist.js?v=20261005-180000',
+  './js/db.js?v=20261005-211500',
+  './js/checklist.js?v=20261005-211500',
   './js/question-navigator.js',
   './js/foto-sync.js',
-  './js/pdf.js?v=20261005-201500',
-  './js/pdf-import.js?v=20261005-201500',
-  './js/import-matching.js?v=20261005-201500',
+  './js/pdf.js?v=20261005-211500',
+  './js/pdf-import.js?v=20261005-211500',
+  './js/import-matching.js?v=20261005-211500',
   './js/camera.js',
-  './js/sync.js?v=20261005-201500',
-  './js/aggiornamento.js?v=20261005-201500',
+  './js/sync.js?v=20261005-211500',
+  './js/aggiornamento.js?v=20261005-211500',
   './checklists/index.json',
   './checklists/clients.json',
   './checklists/tecnici.json',
@@ -51,9 +51,11 @@ const APP_SHELL = [
 async function precacheTutto(cache) {
   await cache.addAll(APP_SHELL);
 
-  const response = await fetch('./checklists/index.json');
+  const response = await fetch('./checklists/index.json', { cache: 'no-store' });
   const { checklists } = await response.json();
-  const urlChecklist = checklists.map((c) => `./checklists/${c.id}.json`);
+  const urlChecklist = checklists.map((c) =>
+    `./checklists/${c.id}.json?v=${encodeURIComponent(c.versione || '')}`
+  );
   await cache.addAll(urlChecklist);
 }
 
@@ -134,7 +136,7 @@ self.addEventListener('fetch', (event) => {
   // Evita che HTML/CSS/JS vecchi restino bloccati dopo un rilascio.
   event.respondWith(
     isChecklist
-      ? networkFirst(event.request)
+      ? networkFirst(event.request, { bypassHttpCache: true })
       : (isVersione || isDocumento || isCodice
           ? networkFirst(event.request, { bypassHttpCache: true })
           : cacheFirst(event.request))

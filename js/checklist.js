@@ -45,23 +45,54 @@ const checklistEngine = (() => {
     return Boolean(risposta && rispostaHaValore(risposta.risposta));
   }
 
-  /**
-   * Carica il JSON di una checklist da checklists/<id>.json (schema PROJECT.md §5),
-   * salvandone una copia in checklists_cache. Se la rete non è disponibile, usa la cache.
-   */
-  async function carica(checklistId) {
+  function validaChecklist(checklistId, dati, versioneAttesa = null) {
+    if (!dati || dati.id !== checklistId) {
+      throw new Error(`Checklist non valida o id non coerente: attesa "${checklistId}".`);
+    }
+    if (versioneAttesa && String(dati.versione || '') !== String(versioneAttesa)) {
+      throw new Error(
+        `Versione checklist non sincronizzata per "${checklistId}": attesa ${versioneAttesa}, trovata ${dati.versione || 'nessuna'}.`
+      );
+    }
+    const ids = appiattisciDomande(dati).map((voce) => String(voce.domanda.id));
+    if (ids.length !== new Set(ids).size) {
+      throw new Error(`Checklist "${checklistId}" non valida: contiene id domanda duplicati.`);
+    }
+    return dati;
+  }
+
+  async function versioneCorrente(checklistId) {
     try {
-      const response = await fetch(`checklists/${checklistId}.json`);
+      const response = await fetch('checklists/index.json', { cache: 'no-store' });
+      if (!response.ok) return null;
+      const voce = (await response.json()).checklists?.find((x) => x.id === checklistId);
+      return voce?.versione || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * Carica SEMPRE la revisione attesa della checklist. Online bypassa la cache HTTP e usa una
+   * URL versionata; offline accetta la copia IndexedDB solo se ha la stessa versione del manifest
+   * disponibile. In questo modo due dispositivi non possono compilare lo stesso sopralluogo con
+   * due revisioni diverse della checklist.
+   */
+  async function carica(checklistId, versioneAttesa = null) {
+    const versione = versioneAttesa || await versioneCorrente(checklistId);
+    const suffisso = versione ? `?v=${encodeURIComponent(versione)}` : '';
+    try {
+      const response = await fetch(`checklists/${checklistId}.json${suffisso}`, { cache: 'no-store' });
       if (!response.ok) {
         throw new Error(`Checklist non trovata: ${checklistId}`);
       }
-      const dati = await response.json();
+      const dati = validaChecklist(checklistId, await response.json(), versione);
       await db.salvaChecklistCache(dati);
       return dati;
     } catch (errore) {
       const dallaCache = await db.leggiChecklistCache(checklistId);
       if (dallaCache) {
-        return dallaCache;
+        return validaChecklist(checklistId, dallaCache, versione);
       }
       throw errore;
     }
@@ -224,6 +255,7 @@ const checklistEngine = (() => {
     getChecklist,
     calcolaRiepilogo,
     rispostaHaValore,
-    rispostaCompilata
+    rispostaCompilata,
+    _validaChecklist: validaChecklist
   };
 })();
