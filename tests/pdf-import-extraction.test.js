@@ -69,6 +69,23 @@ function paginaNostro() {
   ];
 }
 
+test('bordi PDF: i segmenti stretti della cella n. non spezzano una riga reale', () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const c = pdfImportPerTest._test.consolidaBordiOrizzontali;
+  const segmenti = [
+    // bordo reale composto da sette celle adiacenti
+    {x1:42,x2:71,y:200},{x1:71,x2:255,y:200},{x1:255,x2:275,y:200},
+    {x1:275,x2:295,y:200},{x1:295,x2:315,y:200},{x1:315,x2:335,y:200},{x1:335,x2:553,y:200},
+    // falso bordo del livello invisibile: solo dentro la cella numero
+    {x1:51,x2:62,y:190},
+    // secondo bordo reale
+    {x1:42,x2:71,y:180},{x1:71,x2:255,y:180},{x1:255,x2:275,y:180},
+    {x1:275,x2:295,y:180},{x1:295,x2:315,y:180},{x1:315,x2:335,y:180},{x1:335,x2:553,y:180}
+  ];
+  const bordi = c(segmenti);
+  assert.deepEqual(Array.from(bordi, b => b.y), [200,180]);
+});
+
 test('formato nostro: id/testo/stato/nota/sezione estratti correttamente per ogni riga', () => {
   const pdfImportPerTest = caricaPdfImport();
   const { righe, strutturaRiconosciuta } = pdfImportPerTest._test.provaFormatoNostro([paginaNostro()]);
