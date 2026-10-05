@@ -35,7 +35,10 @@ test('paired letterhead above general-data block excludes both graphics without 
   const result=classify([region({sopraDati:true}),region({indice:2,x:440,right:565,sopraDati:true})]);
   assert.equal(result.get(1).size,2);
 });
-test('a single first-page image or a captioned photograph above metadata is retained', () => {
-  assert.equal(classify([region({sopraDati:true})]).size,0);
-  assert.equal(classify([region({sopraDati:true,didascaliaFoto:true}),region({indice:2,x:440,right:565,sopraDati:true})]).size,0);
+test('combined wide letterhead above DATI GENERALI is excluded, ordinary/captioned images are retained', () => {
+  const wide=region({sopraDati:true,x:118,right:476,larghezza:358,altezza:48});
+  const result=classify([wide]);
+  assert.ok(result.get(1).has(1));
+  assert.equal(classify([region({sopraDati:true,larghezza:110,altezza:80})]).size,0);
+  assert.equal(classify([region({sopraDati:true,didascaliaFoto:true,larghezza:358,altezza:48})]).size,0);
 });
