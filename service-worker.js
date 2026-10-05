@@ -2,13 +2,13 @@
 // autoreferenziale, dato che modificare questo stesso file cambierebbe l'hash finale). Cambia sempre
 // a ogni pubblicazione, cosÃ¬ il browser rileva sempre un service-worker.js diverso byte per byte e
 // installa una cache nuova; l'activate qui sotto elimina da sÃ© quelle vecchie.
-const CACHE_NAME = 'safety-checklist-shell-20261005-163024';
+const CACHE_NAME = 'safety-checklist-shell-20261005-164800';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=20261002-150000',
+  './css/style.css?v=20261005-164800',
   './js/vendor/jspdf.umd.min.js',
   './js/vendor/jspdf.plugin.autotable.min.js',
   './js/vendor/jszip.min.js',
@@ -21,19 +21,19 @@ const APP_SHELL = [
   './js/supabase-config.js',
   './js/vendor/pdf.min.js',
   './js/vendor/pdf.worker.min.js',
-  './js/app.js?v=20261002-150000',
+  './js/app.js?v=20261005-164800',
   './js/identity.js',
   './js/account-screens.js',
-  './js/db.js?v=20261002-150000',
-  './js/checklist.js?v=20261002-150000',
+  './js/db.js?v=20261005-164800',
+  './js/checklist.js?v=20261005-164800',
   './js/question-navigator.js',
   './js/foto-sync.js',
-  './js/pdf.js?v=20261002-150000',
-  './js/pdf-import.js?v=20261002-150000',
-  './js/import-matching.js?v=20261002-150000',
+  './js/pdf.js?v=20261005-164800',
+  './js/pdf-import.js?v=20261005-164800',
+  './js/import-matching.js?v=20261005-164800',
   './js/camera.js',
-  './js/sync.js?v=20261002-150000',
-  './js/aggiornamento.js?v=20261002-150000',
+  './js/sync.js?v=20261005-164800',
+  './js/aggiornamento.js?v=20261005-164800',
   './checklists/index.json',
   './checklists/clients.json',
   './checklists/tecnici.json',
@@ -97,8 +97,9 @@ function cacheFirst(request) {
 }
 
 /** Checklist JSON: network-first con fallback cache, per riflettere subito eventuali aggiornamenti da remoto (PROJECT.md Â§6, Â§8). */
-function networkFirst(request) {
-  return fetch(request)
+function networkFirst(request, { bypassHttpCache = false } = {}) {
+  const richiesta = bypassHttpCache ? new Request(request, { cache: 'no-store' }) : request;
+  return fetch(richiesta)
     .then((response) => {
       if (response && response.ok) {
         const clone = response.clone();
@@ -132,8 +133,10 @@ self.addEventListener('fetch', (event) => {
   // Online prende sempre la versione pubblicata; offline usa la cache.
   // Evita che HTML/CSS/JS vecchi restino bloccati dopo un rilascio.
   event.respondWith(
-    isChecklist || isVersione || isDocumento || isCodice
+    isChecklist
       ? networkFirst(event.request)
-      : cacheFirst(event.request)
+      : (isVersione || isDocumento || isCodice
+          ? networkFirst(event.request, { bypassHttpCache: true })
+          : cacheFirst(event.request))
   );
 });
