@@ -518,9 +518,12 @@ const nuovoSopralluogoScreen = (() => {
   }
 
   async function caricaChecklistECliente() {
-    const richiestaClienti = fetch('checklists/clients.json');
-    const risChecklist = await fetch('checklists/index.json');
+    const richiestaClienti = fetch('checklists/clients.json', { cache: 'no-store' });
+    const risChecklist = await fetch('checklists/index.json', { cache: 'no-store' });
     checklistDisponibili = (await risChecklist.json()).checklists;
+    if (!Array.isArray(checklistDisponibili) || checklistDisponibili.some((c) => !c.id || !c.versione)) {
+      throw new Error('Manifest checklist non sincronizzato: id/versione mancanti.');
+    }
     popolaSelectChecklist(checklistDisponibili);
     associazioniClienti = (await (await richiestaClienti).json()).clienti;
   }
@@ -593,7 +596,12 @@ const nuovoSopralluogoScreen = (() => {
       // disponibili (non solo quella eventualmente già selezionata nel menu) e lascia che
       // rilevaChecklist scelga la più probabile, con relativa confidenza.
       const elencoChecklistConDati = await Promise.all(
-        checklistDisponibili.map(async ({ id, titolo }) => ({ id, titolo, checklist: await checklistEngine.carica(id) }))
+        checklistDisponibili.map(async ({ id, titolo, versione }) => ({
+          id,
+          titolo,
+          versione,
+          checklist: await checklistEngine.carica(id, versione)
+        }))
       );
       const rilevamento = importMatching.rilevaChecklist(righe, elencoChecklistConDati);
       if (!rilevamento.checklistId) {
@@ -687,7 +695,8 @@ const nuovoSopralluogoScreen = (() => {
       presenza_responsabile: selectPresenzaResponsabile.value,
       presenza_rls: selectPresenzaRls.value,
       ...(checklistAmmetteNomeRls(checklistId) && selectPresenzaRls.value === 'Sì' ? { nome_rls: inputNomeRls.value.trim() || null } : {}),
-      checklist_id: checklistId
+      checklist_id: checklistId,
+      checklist_version: checklistDisponibili.find((c) => c.id === checklistId)?.versione || null
     };
   }
 
@@ -722,7 +731,7 @@ const nuovoSopralluogoScreen = (() => {
       }
 
       try {
-        const checklist = await checklistEngine.carica(sopralluogo.checklist_id);
+        const checklist = await checklistEngine.carica(sopralluogo.checklist_id, sopralluogo.checklist_version || null);
         checklistEngine.avvia(checklist, sopralluogo);
         router.navigate('compilazione');
         compilazioneScreen.renderDomandaCorrente();
