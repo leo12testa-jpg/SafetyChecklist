@@ -65,7 +65,7 @@ while [ "$SECONDS" -lt "$scadenza" ]; do
     echo "Versione: $build_id"
     echo "GitHub Pages aggiornato"
     echo "Ora puoi ricaricare l'app"
-    if [ -n "${ORE_SMOKE_PASSWORD:-}" ] && [ -n "${ORE_SMOKE_FOREIGN_SESSION:-}" ]; then
+    if node tests/ore-live-permissions.cjs --check-config; then
       echo "==> Smoke permessi Ore sull'API pubblicata..."
       node tests/ore-live-permissions.cjs
     else
