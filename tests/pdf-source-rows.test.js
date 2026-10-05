@@ -51,6 +51,29 @@ test('nota prima del cambio pagina e continuazione senza numero sulla nuova pagi
   assert.equal(rows.length,2); assert.equal(rows[0].nota_originale,'Inizio nota Continua nota');
   assert.equal(rows[1].nota_originale,'Nota 18');
 });
+test('Interparking: id sovrapposti nella stessa cella producono una sola riga logica e seguono la sequenza', () => {
+  const p=page([{id:15,text:['Piano emergenza'],note:['Nota 15']},{id:16,text:['Registro antincendio'],note:['Nota 16']},{id:17,text:['Porte'],note:['Nota 17']}]);
+  // Sulla seconda e terza riga simuliamo un secondo livello testo con gli id stabili 18 e 19.
+  const y16=100, y17=40;
+  p.push(item('18',20.4,y16+1.2), item('19',20.4,y17+1.2));
+  const rows=parse([p]);
+  assert.deepEqual(Array.from(rows, r => r.numero_originale), [15,16,17]);
+  assert.deepEqual(Array.from(rows, r => r.nota_originale), ['Nota 15','Nota 16','Nota 17']);
+  assert.deepEqual(Array.from(rows, r => r.stato_originale), ['NC','NC','NC']);
+});
+
+test('Interparking: numero a due cifre spezzato non genera righe fantasma', () => {
+  const p=page([{id:51,text:['Domanda cinquantuno'],note:['Nota 51']}]);
+  const originale=p.findIndex(x => x.testo==='51' && x.x===20);
+  const y=p[originale].y;
+  p.splice(originale,1,item('5',20,y),item('1',24,y));
+  const rows=parse([p]);
+  assert.equal(rows.length,1);
+  assert.equal(rows[0].numero_originale,51);
+  assert.equal(rows[0].testo_originale,'Domanda cinquantuno');
+  assert.equal(rows[0].nota_originale,'Nota 51');
+});
+
 test('nota molto lunga continua su una pagina senza nuove domande', () => {
   const rows=parse([page([{id:17,text:['Estintori'],note:['Inizio']}]),page([{note:['Segue']}]),page([{note:['Fine']},{id:18,text:['Uscite']}])]);
   assert.equal(rows[0].nota_originale,'Inizio Segue Fine'); assert.equal(rows[1].nota_originale,null);

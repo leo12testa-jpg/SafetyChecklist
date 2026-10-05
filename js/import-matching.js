@@ -158,10 +158,11 @@ const importMatching = (() => {
       .map((riga) => Number(riga.numero_originale ?? riga.id_originale))
       .filter((numero) => Number.isInteger(numero) && numero >= 1 && numero <= 75);
     const massimo = numeri.length ? Math.max(...numeri) : 0;
-    // I PDF completi caricati arrivano fino alla numerazione 75. Non basta trovare una singola
-    // voce ritirata: estratti/parziali legacy più vecchi possono usare id interni differenti e in
-    // quel caso deve continuare a vincere il riconoscimento testuale conservativo.
-    return massimo >= 74;
+    // I quattro report Interparking legacy completi hanno 75 righe logiche. Il conteggio fisico
+    // è il segnale più robusto perché alcuni file espongono nel livello testo sia il progressivo
+    // sia un id stabile invisibile; in alternativa resta valido il vecchio segnale sul massimo.
+    const completo75 = righeNostre.length === 75;
+    return completo75 || massimo >= 74;
   }
 
   function mappaNumeroLegacyInterparking(numero) {
@@ -294,10 +295,18 @@ const importMatching = (() => {
       ? creaRisolutoreGruppoStorico(domande, opzioni.puntoDivisioneGruppi)
       : null;
     const numerazioneLegacyInterparking = eNumerazioneLegacyInterparking(righeGrezze, checklist && checklist.id);
+    const righeNostreLegacy = numerazioneLegacyInterparking
+      ? (righeGrezze || []).filter((riga) => riga && riga.formato === 'nostro')
+      : [];
+    const usaOrdineFisicoLegacy = numerazioneLegacyInterparking && righeNostreLegacy.length === 75;
 
     const righe = righeGrezze.map((rigaGrezza, indice) => {
+      // Per il corpus Interparking settembre 2026 completo la posizione fisica 1..75 è
+      // deterministica e indipendente dal numero stampato/invisibile nel PDF. Questo elimina
+      // definitivamente l'ambiguità fra progressivi legacy e id stabili sovrapposti.
+      const numeroFisicoLegacy = usaOrdineFisicoLegacy ? indice + 1 : (rigaGrezza.numero_originale ?? rigaGrezza.id_originale);
       const numeroLegacy = numerazioneLegacyInterparking
-        ? mappaNumeroLegacyInterparking(rigaGrezza.numero_originale ?? rigaGrezza.id_originale)
+        ? mappaNumeroLegacyInterparking(numeroFisicoLegacy)
         : null;
       const ritirataTestuale = rigaInterparkingRitirata(rigaGrezza, checklist && checklist.id);
       let esito;

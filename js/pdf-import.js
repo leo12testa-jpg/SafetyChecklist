@@ -96,31 +96,40 @@ const pdfImport = (() => {
    * basta trovarne una sola occorrenza per ricavare le colonne dell'intera pagina.
    */
   function trovaIntestazioniColonneNostro(items) {
-    const trova = (testo) => items.find((it) => it.testo.trim() === testo);
-    const idH = trova('n.');
-    const cH = trova('C');
-    const pcH = trova('P.C');
-    const ncH = trova('N.C');
-    const npH = trova('N.P');
-    const noteH = trova('Note');
+    // Non usare il primo "C" trovato nel flusso PDF: il footer può essere disegnato prima della
+    // tabella e contenere a sua volta "C / P.C / N.C / N.P". Le intestazioni vere devono stare
+    // sulla stessa riga geometrica di "n." e nell'ordine orizzontale atteso.
+    const idCandidates = items.filter((it) => it.testo.trim() === 'n.');
+    for (const idH of idCandidates) {
+      const vicino = (testo) => items.find((it) =>
+        it.testo.trim() === testo &&
+        Math.abs(it.y - idH.y) <= 5 &&
+        it.x > idH.x
+      );
+      const cH = vicino('C');
+      const pcH = vicino('P.C');
+      const ncH = vicino('N.C');
+      const npH = vicino('N.P');
+      const noteH = vicino('Note');
+      if (!cH || !pcH || !ncH || !npH || !noteH) continue;
+      if (!(cH.x < pcH.x && pcH.x < ncH.x && ncH.x < npH.x && npH.x < noteH.x)) continue;
 
-    if (!idH || !cH || !pcH || !ncH || !npH || !noteH) {
-      return null;
+      return {
+        idX: idH.x,
+        C: cH.x,
+        PC: pcH.x,
+        NC: ncH.x,
+        NA: npH.x,
+        noteX: noteH.x,
+        // La soglia NON è il punto medio fra le due intestazioni: "Note" è centrata nella sua
+        // colonna larga, mentre il testo delle note parte subito dopo N.P. Nei PDF Interparking
+        // reali la prima parola della nota può iniziare circa 18-20 pt dopo la x dell'etichetta
+        // N.P.; usare +20 con confronto stretto ">" perdeva proprio la prima parola. +12 resta
+        // oltre qualunque X della colonna N.P ma include integralmente il testo della nota.
+        sogliaNota: npH.x + 12
+      };
     }
-
-    return {
-      idX: idH.x,
-      C: cH.x,
-      PC: pcH.x,
-      NC: ncH.x,
-      NA: npH.x,
-      noteX: noteH.x,
-      // La soglia NON è il punto medio fra le due intestazioni: "Note" è centrata nella sua
-      // colonna (larga, quindi centrata molto più a destra), mentre il testo delle note nel
-      // corpo della tabella è allineato a sinistra, subito dopo la colonna N.P. Un margine fisso
-      // dopo la x della colonna N.P individua correttamente l'inizio della colonna Note.
-      sogliaNota: npH.x + 20
-    };
+    return null;
   }
 
   /** Tutte le occorrenze dell'intestazione 'n.' sulla pagina: una per ogni tabella di sezione presente. */
@@ -216,6 +225,67 @@ const pdfImport = (() => {
     return indiciDaScartare.size
       ? items.filter((_, indice) => !indiciDaScartare.has(indice))
       : items;
+  }
+
+  /**
+   * Ricostruisce i possibili numeri presenti nella cella "n.". Alcuni PDF Interparking reali
+   * hanno DUE livelli testo sovrapposti (id stabile + progressivo) e, in alcuni casi, PDF.js
+   * spezza un numero a due cifre in due frammenti distinti (es. "5" + "1"). Qui ogni baseline
+   * viene ricomposta in un numero candidato senza creare righe fantasma 1/5/6 ecc.
+   */
+  function numeriCandidatiCellaNostro(cella, idX) {
+    const numerici = cella.filter((it) =>
+      /^\d+$/.test(String(it.testo || '').trim()) &&
+      it.x >= idX - TOLLERANZA_COLONNA_ID_PT &&
+      it.x <= idX + TOLLERANZA_COLONNA_ID_PT + 6
+    );
+    if (!numerici.length) return [];
+
+    const linee = [];
+    [...numerici].sort((a, b) => b.y - a.y || a.x - b.x).forEach((it) => {
+      let linea = linee.find((l) => Math.abs(l.y - it.y) <= 0.8);
+      if (!linea) {
+        linea = { y: it.y, parti: [] };
+        linee.push(linea);
+      }
+      linea.parti.push(it);
+    });
+
+    const valori = [];
+    linee.forEach((linea) => {
+      const parti = linea.parti.sort((a, b) => a.x - b.x);
+      const completi = parti.filter((p) => String(p.testo).trim().length > 1);
+      let testoNumero;
+      if (completi.length) {
+        testoNumero = String(completi.sort((a, b) => String(b.testo).length - String(a.testo).length)[0].testo).trim();
+      } else {
+        testoNumero = parti.map((p) => String(p.testo).trim()).join('');
+      }
+      const numero = Number(testoNumero);
+      if (Number.isInteger(numero) && numero > 0 && !valori.includes(numero)) valori.push(numero);
+    });
+    return valori;
+  }
+
+  /**
+   * Sceglie fra gli eventuali numeri sovrapposti quello coerente con la sequenza fisica letta
+   * fin qui. Questo rende equivalenti i PDF Interparking che mostrano i vecchi progressivi e
+   * quelli che mostrano gli id stabili: la riga logica resta una sola e l'ordine resta corretto.
+   */
+  function scegliNumeroCella(candidati, contesto) {
+    if (!candidati || !candidati.length) return null;
+    const precedente = Number(contesto && contesto.ultimoNumeroLetto);
+    if (Number.isInteger(precedente)) {
+      const atteso = precedente + 1;
+      if (candidati.includes(atteso)) return atteso;
+    }
+    return candidati[0];
+  }
+
+  /** Più X nella stessa colonna valgono come una sola marcatura; colonne diverse restano ambigue. */
+  function statoDaMarcature(marcature, colonne) {
+    const stati = Array.from(new Set((marcature || []).map((it) => colonnaStatoPiuVicina(it.x, colonne))));
+    return stati.length === 1 ? stati[0] : null;
   }
 
   /**
@@ -320,15 +390,56 @@ const pdfImport = (() => {
     return testoPerId;
   }
 
+  /**
+   * Consolida i segmenti orizzontali in veri bordi di riga. I PDF Interparking possono contenere
+   * una seconda tabella/testo invisibile che disegna piccoli segmenti SOLO dentro la cella "n.":
+   * se quei segmenti vengono scambiati per bordi di riga, una singola domanda viene spezzata in
+   * più celle. Un bordo reale, invece, copre complessivamente una parte sostanziale della tabella
+   * (anche quando AutoTable lo disegna come 7 segmenti adiacenti, uno per colonna).
+   */
+  function consolidaBordiOrizzontali(segmenti) {
+    if (!segmenti || !segmenti.length) return [];
+    const gruppi = [];
+    [...segmenti].sort((a, b) => b.y - a.y).forEach((segmento) => {
+      let gruppo = gruppi.find((g) => Math.abs(g.y - segmento.y) <= 0.8);
+      if (!gruppo) {
+        gruppo = { y: segmento.y, segmenti: [] };
+        gruppi.push(gruppo);
+      }
+      gruppo.segmenti.push(segmento);
+    });
+
+    const misurati = gruppi.map((gruppo) => {
+      const intervalli = gruppo.segmenti
+        .map((x) => [Math.min(x.x1, x.x2), Math.max(x.x1, x.x2)])
+        .sort((a, b) => a[0] - b[0]);
+      const uniti = [];
+      intervalli.forEach(([x1, x2]) => {
+        const ultimo = uniti[uniti.length - 1];
+        if (ultimo && x1 <= ultimo[1] + 1) ultimo[1] = Math.max(ultimo[1], x2);
+        else uniti.push([x1, x2]);
+      });
+      const copertura = uniti.reduce((somma, [x1, x2]) => somma + (x2 - x1), 0);
+      const x1 = Math.min(...uniti.map((x) => x[0]));
+      const x2 = Math.max(...uniti.map((x) => x[1]));
+      return { y: gruppo.y, x1, x2, copertura };
+    });
+    const coperturaMassima = Math.max(...misurati.map((x) => x.copertura));
+    const soglia = Math.max(80, coperturaMassima * 0.35);
+    return misurati
+      .filter((x) => x.copertura >= soglia)
+      .map(({ x1, x2, y }) => ({ x1, x2, y }));
+  }
+
   /** Bordi orizzontali reali delle celle, in coordinate PDF (prima del viewport). */
   async function estraiBordiTabella(pagina) {
     const ops = await pagina.getOperatorList(), O = pdfjsLib.OPS;
     let matrix = [1, 0, 0, 1, 0, 0];
-    const stack = [], bordi = [];
+    const stack = [], segmenti = [];
     const punto = (x, y) => pdfjsLib.Util.applyTransform([x, y], matrix);
     const segmento = (a, b) => {
       if (Math.abs(a[1] - b[1]) < 0.5 && Math.abs(a[0] - b[0]) > 5)
-        bordi.push({ x1: Math.min(a[0], b[0]), x2: Math.max(a[0], b[0]), y: (a[1] + b[1]) / 2 });
+        segmenti.push({ x1: Math.min(a[0], b[0]), x2: Math.max(a[0], b[0]), y: (a[1] + b[1]) / 2 });
     };
     for (let i = 0; i < ops.fnArray.length; i++) {
       const fn = ops.fnArray[i], args = ops.argsArray[i];
@@ -351,7 +462,7 @@ const pdfImport = (() => {
         }
       }
     }
-    return bordi;
+    return consolidaBordiOrizzontali(segmenti);
   }
 
   /** Una cella/riga sorgente contiene insieme domanda, stato e nota, anche tra pagine. */
@@ -378,21 +489,32 @@ const pdfImport = (() => {
         }
         continue;
       }
-      const ancore=cella.filter(it => Math.abs(it.x-idX)<(storico ? 20 : 10) && (storico ? /^\d+\)$/.test(it.testo.trim()) : /^\d+$/.test(it.testo.trim())));
+      const ancoreStorico = storico
+        ? cella.filter(it => Math.abs(it.x-idX)<20 && /^\d+\)$/.test(it.testo.trim()))
+        : [];
+      const candidatiNumero = storico
+        ? ancoreStorico.map((it) => parseInt(it.testo, 10)).filter(Number.isInteger)
+        : numeriCandidatiCellaNostro(cella, idX);
+      const numero = storico
+        ? (candidatiNumero.length === 1 ? candidatiNumero[0] : null)
+        : scegliNumeroCella(candidatiNumero, contesto);
       const testo=ricomponiTesto(raggruppaInLinee(cella.filter(it => it.x>idX+(storico ? MARGINE_TESTO_DOMANDA_STORICO_PT : 10) && it.x<colonne.C-10),3));
       const nota=ricomponiTesto(raggruppaInLinee(cella.filter(it => it.x>colonne.sogliaNota),3));
       const marks=cella.filter(it => eMarcaturaStato(it) && it.x>=colonne.C-10 && it.x<colonne.sogliaNota);
-      if (ancore.length===1) {
-        const numero=parseInt(ancore[0].testo,10);
+      if (numero != null) {
         const riga={ formato, numero_originale:numero, id_originale:storico ? null : numero,
-          sezione_originale:sezione, testo_originale:testo, stato_originale:marks.length===1 ? colonnaStatoPiuVicina(marks[0].x,colonne) : null, nota_originale:nota || null };
+          sezione_originale:sezione, testo_originale:testo, stato_originale:statoDaMarcature(marks,colonne), nota_originale:nota || null };
         // AutoTable may repeat the identifier on a split row on the next page.
         const precedente=contesto.ultimaRiga;
         if (!risultato.length && precedente && precedente.numero_originale===numero && precedente.sezione_originale===sezione) {
           precedente.testo_originale=[precedente.testo_originale,testo].filter(Boolean).join(' ');
           precedente.nota_originale=[precedente.nota_originale,nota].filter(Boolean).join(' ') || null;
-        } else { risultato.push(riga); contesto.ultimaRiga=riga; }
-      } else if (!ancore.length && (nota || testo) && contesto.ultimaRiga && !risultato.length) {
+        } else {
+          risultato.push(riga);
+          contesto.ultimaRiga=riga;
+          if (!storico) contesto.ultimoNumeroLetto=numero;
+        }
+      } else if (!candidatiNumero.length && (nota || testo) && contesto.ultimaRiga && !risultato.length) {
         const precedente=contesto.ultimaRiga;
         precedente.testo_originale=[precedente.testo_originale,testo].filter(Boolean).join(' ');
         precedente.nota_originale=[precedente.nota_originale,nota].filter(Boolean).join(' ') || null;
@@ -545,6 +667,7 @@ const pdfImport = (() => {
   // l'ordine di disegno nello stream, non la posizione verticale), quindi va sempre esclusa a
   // priori da qualunque lettura strutturale — non è mai un titolo, una domanda o una nota.
   const REGEX_LEGENDA_PIE_PAGINA = /^C\s*=\s*Conforme/i;
+  const REGEX_NUMERO_PAGINA = /^Pag\.\s*\d+\s+di\s+\d+$/i;
 
   /**
    * Prova il formato "nostro" sull'intero documento (pagine già estratte). Ritorna
@@ -559,15 +682,14 @@ const pdfImport = (() => {
 
     pagine.forEach((itemsGrezzi, indice) => {
       const numeroPagina = indice + 1;
-      let items = itemsGrezzi.filter((it) => !REGEX_LEGENDA_PIE_PAGINA.test(it.testo.trim()));
+      let items = itemsGrezzi.filter((it) =>
+        !REGEX_LEGENDA_PIE_PAGINA.test(it.testo.trim()) &&
+        !REGEX_NUMERO_PAGINA.test(it.testo.trim())
+      );
       const intestazioni = trovaIntestazioniColonneNostro(items);
       if (intestazioni) {
         colonneCorrenti = intestazioni;
         strutturaRiconosciuta = true;
-      }
-
-      if (colonneCorrenti) {
-        items = filtraIdRigaSovrapposti(items, colonneCorrenti);
       }
 
       if (numeroPagina === 1) {
@@ -575,24 +697,15 @@ const pdfImport = (() => {
       }
 
       if (colonneCorrenti) {
+        // Se esistono i bordi reali della tabella, la cella è la fonte autorevole. Non mischiare
+        // il fallback per numero: nei PDF Interparking legacy id invisibili e cifre spezzate
+        // generavano righe fantasma che contaminavano domande, stati e note di pagine diverse.
         const daCelle = righeDaCelle(items, colonneCorrenti, itemsGrezzi.bordi, sezioneCorrente, 'nostro');
-        const fallback = estraiRighePaginaNostro(items, colonneCorrenti, sezioneCorrente);
         if (daCelle === null) {
-          righe.push(...fallback);
+          const itemsFallback = filtraIdRigaSovrapposti(items, colonneCorrenti);
+          righe.push(...estraiRighePaginaNostro(itemsFallback, colonneCorrenti, sezioneCorrente));
         } else {
-          // Nei PDF reali alcuni bordi vettoriali possono essere spezzati fra pagine. Il parser
-          // a celle resta prioritario, ma una riga numerata letta dal fallback non va persa.
-          const unite = daCelle.slice();
-          const numeriPresenti = new Set(unite.map((riga) => Number(riga.numero_originale)));
-          fallback.forEach((riga) => {
-            const numero = Number(riga.numero_originale);
-            if (!numeriPresenti.has(numero)) {
-              unite.push(riga);
-              numeriPresenti.add(numero);
-            }
-          });
-          unite.sort((a, b) => Number(a.numero_originale) - Number(b.numero_originale));
-          righe.push(...unite);
+          righe.push(...daCelle);
         }
       }
     });
@@ -1009,6 +1122,10 @@ const pdfImport = (() => {
           ((r.right < r.larghezzaPagina * 0.4 && s.x > r.larghezzaPagina * 0.6) ||
            (s.right < r.larghezzaPagina * 0.4 && r.x > r.larghezzaPagina * 0.6)) &&
           Math.abs((r.y + r.top) / 2 - (s.y + s.top) / 2) <= 24)) escludi(r);
+      // Alcuni report Interparking incorporano Colligo + cliente in un'unica immagine
+      // orizzontale sopra DATI GENERALI: è intestazione, non una foto del sopralluogo.
+      if (r.pagina === 1 && r.sopraDati && !r.didascaliaFoto &&
+          r.larghezza >= r.larghezzaPagina * 0.45 && r.altezza <= 90) escludi(r);
     }
     return esclusi;
   }
@@ -1115,34 +1232,37 @@ const pdfImport = (() => {
    */
   function consolidaRigheNostre(righe) {
     const risultato = [];
-    const perId = new Map();
     const unisciTesto = (a, b) => {
       const primo = String(a || '').replace(/\s+/g, ' ').trim();
       const secondo = String(b || '').replace(/\s+/g, ' ').trim();
       if (!primo) return secondo || null;
       if (!secondo) return primo || null;
-      const normalizza = (s) => s.toLowerCase().replace(/[^a-z0-9à-ÿ]+/gi, ' ').replace(/\s+/g, ' ').trim();
+      const normalizza = (v) => v.toLowerCase().replace(/[^a-z0-9à-ÿ]+/gi, ' ').replace(/\s+/g, ' ').trim();
       const na = normalizza(primo), nb = normalizza(secondo);
       if (na.includes(nb)) return primo;
       if (nb.includes(na)) return secondo;
-      return `${primo} ${secondo}`.replace(/\s+/g, ' ').trim();
+      return (primo + ' ' + secondo).replace(/\s+/g, ' ').trim();
     };
+
     (righe || []).forEach((riga) => {
       if (!riga || riga.formato !== 'nostro') { risultato.push(riga); return; }
       const raw = riga.id_originale ?? riga.numero_originale;
       const numero = Number(raw);
       if (!Number.isInteger(numero)) { risultato.push(riga); return; }
-      const chiave = String(numero);
-      const precedente = perId.get(chiave);
-      if (!precedente) {
-        const copia = { ...riga };
-        perId.set(chiave, copia);
-        risultato.push(copia);
+
+      // Una vera continuazione AutoTable è adiacente alla propria prima metà. Non consolidare
+      // tutte le occorrenze dello stesso numero sparse nel documento.
+      const precedente = risultato[risultato.length - 1];
+      const numeroPrecedente = precedente && Number(precedente.id_originale ?? precedente.numero_originale);
+      const stessaRiga = precedente && precedente.formato === 'nostro' && numeroPrecedente === numero &&
+        precedente.sezione_originale === riga.sezione_originale;
+      if (!stessaRiga) {
+        risultato.push({ ...riga });
         return;
       }
+
       precedente.testo_originale = unisciTesto(precedente.testo_originale, riga.testo_originale);
       precedente.nota_originale = unisciTesto(precedente.nota_originale, riga.nota_originale);
-      precedente.sezione_originale ||= riga.sezione_originale || null;
       const stati = [precedente.stato_originale, riga.stato_originale].filter(Boolean);
       const unici = Array.from(new Set(stati));
       if (unici.length === 1) precedente.stato_originale = unici[0];
@@ -1227,7 +1347,8 @@ const pdfImport = (() => {
       provaFormatoStorico,
       consolidaRigheNostre,
       raggruppaFrammentiAdiacenti,
-      estraiDatiGeneraliNostro
+      estraiDatiGeneraliNostro,
+      consolidaBordiOrizzontali
     }
   };
 })();
