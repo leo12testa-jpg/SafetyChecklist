@@ -624,7 +624,7 @@ const nuovoSopralluogoScreen = (() => {
             'Aggiorna l\'app e riprova; nessun sopralluogo è stato creato.'
           );
         }
-        if (rilevamento.checklistId === 'interparking_sopralluogo') {
+        if (rilevamento.checklistId === 'interparking_sopralluogo' && righe.length >= 70) {
           if (![73, 75].includes(righe.length)) {
             throw new Error(
               `Struttura Interparking non coerente: lette ${righe.length} righe, mentre una checklist completa deve averne 73 o 75. ` +
