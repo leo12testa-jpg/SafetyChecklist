@@ -101,6 +101,35 @@ test('formato nostro: 0 o 2+ marcature sulla stessa riga lasciano stato_original
   assert.equal(riga1.stato_originale, null);
 });
 
+test('formato nostro: marcature minuscole "x" vengono lette come stato valido', () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const pagina = paginaNostro();
+  const marcatura = pagina.find((el) => el.testo === 'X' && el.x === 300 && el.y === 190);
+  marcatura.testo = 'x';
+
+  const { righe } = pdfImportPerTest._test.provaFormatoNostro([pagina]);
+  const riga1 = righe.find((r) => r.id_originale === 1);
+  assert.equal(riga1.stato_originale, 'C');
+});
+
+test('formato nostro: un vecchio id nascosto sotto al numero progressivo visibile viene ignorato', () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const pagina = paginaNostro();
+  const indiceNumeroVisibile = pagina.findIndex((el) => el.testo === '1' && el.x === 20 && el.y === 190);
+  assert.notEqual(indiceNumeroVisibile, -1);
+
+  // Simula i PDF Interparking legacy reali: il vecchio id 18 è nel livello testo,
+  // disegnato prima e praticamente nella stessa posizione del numero progressivo 1 visibile.
+  pagina.splice(indiceNumeroVisibile, 0, it('18', 20.5, 191));
+
+  const { righe } = pdfImportPerTest._test.provaFormatoNostro([pagina]);
+  assert.equal(righe.length, 2);
+  assert.equal(righe.some((r) => r.id_originale === 18), false);
+  const riga1 = righe.find((r) => r.id_originale === 1);
+  assert.equal(riga1.testo_originale, 'Nomina del RSPP');
+  assert.equal(riga1.stato_originale, 'C');
+});
+
 test('formato nostro: titolo di sezione ereditato dalla pagina precedente se la tabella prosegue senza ripeterlo', () => {
   const pdfImportPerTest = caricaPdfImport();
   const pagina1 = paginaNostro();
