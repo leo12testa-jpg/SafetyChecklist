@@ -196,6 +196,13 @@ async function readAll(builder:()=>any){
  for(let offset=0;;offset+=1000){const {data,error}=await builder().order("id").range(offset,offset+999);if(error)return {data:null,error};rows.push(...(data||[]));if((data||[]).length<1000)break;}
  return {data:rows,error:null};
 }
+function sessionWrites(db:any,user:any){
+ const start=(operation:string,payload:any={})=>{let id:string|null=null,single=false;
+  const q:any={select(){return q;},eq(key:string,value:string){if(key!=="id")throw new Error("Filtro scrittura sessione non ammesso");id=value;return q;},single(){single=true;return q;},
+   then(resolve:any,reject:any){return db.rpc("ore_scrivi_sessione",{p_operation:operation,p_payload:payload,p_id:id,p_actor:user.uid,p_admin:user.profile.ruolo==="admin",p_reason:payload.motivo_modifica||null}).then((r:any)=>resolve({data:single?r.data:r.data?[r.data]:null,error:r.error}),reject);}};return q;
+ };
+ return {insert:(payload:any)=>start("insert",payload),upsert:(payload:any,_options:any)=>start("upsert",payload),update:(payload:any)=>start("update",payload),delete:()=>start("delete")};
+}
 function billability(rows:any[]) {
   const byTech=new Map<string,any>();
   let billable=0,denominator=0,absence=0;
@@ -599,7 +606,7 @@ Deno.serve(async (req: Request) => {
       const oggetto = body.oggetto === undefined ? current.crm_oggetto : String(body.oggetto || "").trim().slice(0, 500) || null;
       const attivita = body.attivitaRilevata === undefined ? current.attivita_rilevata : String(body.attivitaRilevata || "").trim().slice(0, 120) || null;
 
-      const { error } = await db.from("ore_sessioni").update({
+      const { error } = await sessionWrites(db,user).update({
         commessa_id: commessa.id,
         minuti_effettivi: m,
         crm_oggetto: oggetto,
@@ -627,7 +634,7 @@ Deno.serve(async (req: Request) => {
       if (!commessaId) bad("Seleziona una commessa.");
       const m = minutes(body.minutiEffettivi);
       if (m === 0) bad("Inserisci una durata.");
-      const { data, error } = await db.from("ore_sessioni").insert({
+      const { data, error } = await sessionWrites(db,user).insert({
         commessa_id: commessaId,
         tecnico_uid: user.uid,
         tecnico_nome: `${user.profile.nome || ""} ${user.profile.cognome || ""}`.trim(),
@@ -790,7 +797,7 @@ Deno.serve(async (req: Request) => {
           confermata_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
-        const { error } = await db.from("ore_sessioni").upsert(payload, { onConflict: "tecnico_uid,crm_event_id" });
+        const { error } = await sessionWrites(db,user).upsert(payload, { onConflict: "tecnico_uid,crm_event_id" });
         if (error) { skipped++; continue; }
         saved++;
       }
@@ -1207,10 +1214,10 @@ Deno.serve(async (req: Request) => {
 
         let saved:any = null, saveError:any = null;
         if (crmEventId) {
-          const up = await db.from("ore_sessioni").upsert(payload, { onConflict: "tecnico_uid,crm_event_id" }).select("id").single();
+          const up = await sessionWrites(db,user).upsert(payload, { onConflict: "tecnico_uid,crm_event_id" }).select("id").single();
           saved = up.data; saveError = up.error;
         } else {
-          const ins = await db.from("ore_sessioni").insert(payload).select("id").single();
+          const ins = await sessionWrites(db,user).insert(payload).select("id").single();
           saved = ins.data; saveError = ins.error;
         }
         if (saveError) {
@@ -1517,10 +1524,10 @@ Deno.serve(async (req: Request) => {
 
         let saved:any=null,saveError:any=null;
         if(crmEventId){
-          const up=await db.from("ore_sessioni").upsert(payload,{onConflict:"tecnico_uid,crm_event_id"}).select("id").single();
+          const up=await sessionWrites(db,user).upsert(payload,{onConflict:"tecnico_uid,crm_event_id"}).select("id").single();
           saved=up.data;saveError=up.error;
         } else {
-          const ins=await db.from("ore_sessioni").insert(payload).select("id").single();
+          const ins=await sessionWrites(db,user).insert(payload).select("id").single();
           saved=ins.data;saveError=ins.error;
         }
         if(saveError){
@@ -1646,10 +1653,10 @@ Deno.serve(async (req: Request) => {
 
       let session:any = null, saveError:any = null;
       if (issue.crm_event_id) {
-        const up = await db.from("ore_sessioni").upsert(payload, { onConflict: "tecnico_uid,crm_event_id" }).select("id").single();
+        const up = await sessionWrites(db,user).upsert(payload, { onConflict: "tecnico_uid,crm_event_id" }).select("id").single();
         session = up.data; saveError = up.error;
       } else {
-        const ins = await db.from("ore_sessioni").insert(payload).select("id").single();
+        const ins = await sessionWrites(db,user).insert(payload).select("id").single();
         session = ins.data; saveError = ins.error;
       }
       if (saveError) bad("Impossibile salvare l'attività.", 500);
@@ -2046,6 +2053,7 @@ Deno.serve(async (req: Request) => {
       ]);
       if(jobErr||!job) bad("Commessa non trovata.",404);
       if(sessionsErr) bad("Impossibile caricare le attività della commessa.",500);
+      const {data:sessionHistory,error:sessionHistoryError}=await readAll(()=>db.from("ore_sessioni_storia").select("*").eq("commessa_id",commessaId).order("created_at",{ascending:false}));if(sessionHistoryError)bad("Impossibile leggere lo storico sessioni.",500);
       const {data:closureHistory,error:historyError}=await readAll(()=>db.from("ore_pratiche_storia").select("*").eq("commessa_id",commessaId).order("created_at",{ascending:false}));
       if(historyError)bad("Impossibile caricare lo storico della pratica.",500);
 
@@ -2068,7 +2076,7 @@ Deno.serve(async (req: Request) => {
           tecnici:byTech.size
         },
         technicians:[...byTech.entries()].map(([uid,v])=>({nome:v.name,tecnico_uid:uid,ore:Math.round((v.minutes/60)*100)/100,attivita:v.sessions})).sort((a,b)=>a.nome.localeCompare(b.nome,"it")),
-        sessions:attributeIdentity(sessions||[],identityAliases,excludedTestUids),closureHistory
+        sessions:attributeIdentity(sessions||[],identityAliases,excludedTestUids),closureHistory,sessionHistory
       });
     }
 

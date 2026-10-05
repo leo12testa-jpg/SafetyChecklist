@@ -1,5 +1,6 @@
 -- Synthetic three-person pilot, rolled back in full. No Firebase accounts created.
 begin;
+select set_config('ore.actor','sql-test-fixture',true),set_config('ore.reason','Fixture sintetiche con rollback',true);
 do $$
 declare resource uuid; session uuid; job uuid; uid text; legacy text; sigla text; n integer; baseline bigint;
 begin

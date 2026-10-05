@@ -1,5 +1,6 @@
 -- Integration checks are rolled back: no permanent changes or historical corrections.
 begin;
+select set_config('ore.actor','sql-test-fixture',true),set_config('ore.reason','Fixture sintetiche con rollback',true);
 do $$
 declare rid uuid:=gen_random_uuid(); sid uuid:=gen_random_uuid(); job uuid;
  stamp timestamptz; result jsonb; approval timestamptz;

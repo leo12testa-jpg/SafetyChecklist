@@ -1,4 +1,5 @@
 begin;
+select set_config('ore.actor','sql-test-fixture',true),set_config('ore.reason','Fixture sintetiche con rollback',true);
 do $$
 declare sid uuid:=gen_random_uuid(); job uuid; uid text:='test-'||gen_random_uuid()::text; stamp timestamptz; result jsonb;
 begin

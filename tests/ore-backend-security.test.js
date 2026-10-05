@@ -66,6 +66,11 @@ test('account di test escluso anche quando possiede un alias storico',()=>{
  app.context.aliases=[{uid_storico:'legacy:TEST',tecnico_uid:'test'}];
  const result=vm.runInContext('attributeIdentity(rows,aliases,new Set(["test"]))',app.context);assert.equal(result.length,1);assert.equal(result[0].tecnico_uid,'real');assert.equal(app.context.rows.length,3);
 });
+test('scrittura sessione passa attore e ruolo server alla transazione atomica',async()=>{
+ const app=backend();let received;app.context.auditDb={rpc:async(name,args)=>{received={name,args};return {data:{id:'s1'},error:null};}};
+ const result=await vm.runInContext('sessionWrites(auditDb,{uid:"real-admin",profile:{ruolo:"admin"}}).update({minuti_effettivi:60,motivo_modifica:"Verifica"}).eq("id","s1").select("id").single()',app.context);
+ assert.equal(result.data.id,'s1');assert.equal(received.name,'ore_scrivi_sessione');assert.equal(received.args.p_actor,'real-admin');assert.equal(received.args.p_admin,true);assert.equal(received.args.p_reason,'Verifica');assert.equal(received.args.p_id,'s1');
+});
 test('candidati CRM ambigui non contengono riferimenti a variabili inesistenti',()=>{
  const app=backend();app.context.candidates=[{id:'j1',descrizione:'DVR',stato:'in_lavorazione',codice_lavoro:'1B'}];
  const result=vm.runInContext('compactJobCandidates(candidates)',app.context);assert.equal(result[0].stato,'in_lavorazione');assert.equal(result[0].codiceLavoro,'1B');assert.equal(result[0].clienteId,null);

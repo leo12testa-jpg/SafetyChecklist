@@ -485,7 +485,7 @@ async function loadDay(){
       inp.dataset.original=inp.value;
       inp.addEventListener("input",()=>{const changed=inp.value.trim()!==inp.dataset.original;const bad=inp.value.trim()!==""&&inputMinutes(inp.value)==null;row.classList.toggle("dirty",changed);inp.classList.toggle("invalid",bad);inp.title=bad?"Formato non valido: usa 2h30, 2:30 oppure 1,5":(changed?"= "+fmtMinutes(inputMinutes(inp.value)||0)+" · premi Invio o Salva":"")});
       inp.addEventListener("keydown",ev=>{if(ev.key==="Enter"){ev.preventDefault();btn.click()}if(ev.key==="Escape"){inp.value=inp.dataset.original;inp.dispatchEvent(new Event("input"))}});
-      btn.addEventListener("click",async()=>{if(btn.disabled)return;const m=inputMinutes(inp.value);if(m==null){notify("Durata non valida: usa ad esempio 2h30, 2:30 oppure 1,5.","warn");inp.focus();return}btn.disabled=true;try{await api("saveSession",{id:s.id,minutiEffettivi:m});inp.dataset.original=inp.value;row.classList.remove("dirty");notify("Ore salvate.","ok");await loadDay()}catch(e){notify(e.message)}finally{btn.disabled=false}});
+      btn.addEventListener("click",async()=>{if(btn.disabled)return;const m=inputMinutes(inp.value);if(m==null){notify("Durata non valida: usa ad esempio 2h30, 2:30 oppure 1,5.","warn");inp.focus();return}btn.disabled=true;try{await api("saveSession",{id:s.id,minutiEffettivi:m,motivo:row.querySelector(".phase-reason")?.value||null});inp.dataset.original=inp.value;row.classList.remove("dirty");notify("Ore salvate.","ok");await loadDay()}catch(e){notify(e.message)}finally{btn.disabled=false}});
       editBtn.addEventListener("click",async()=>{
         try{
           const data=await getAssignmentData();
@@ -833,6 +833,7 @@ async function openArchiveJob(id){
   try{
     const j=await api("archiveJobDetail",{commessaId:id});
     const job=j.job||{},cl=job.ore_clienti||{},tp=job.ore_tipologie||{};
+    if(typeof renderSessionHistory==="function")renderSessionHistory(j);
     if(typeof renderJobClosure==="function")renderJobClosure(j);
     if(typeof renderJobComplexity==="function")renderJobComplexity(j);
     $("#archiveDetailTitle").textContent=`${job.codice_lavoro||"—"} · ${cl.ragione_sociale||"Cliente"} · ${job.descrizione||"Commessa"}`;

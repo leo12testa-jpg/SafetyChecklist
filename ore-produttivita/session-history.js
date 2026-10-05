@@ -1,0 +1,5 @@
+function renderSessionHistory(data){
+ let host=$("#sessionHistory");if(!host){host=document.createElement("div");host.id="sessionHistory";$("#archiveTechSummary").insertAdjacentElement("afterend",host);}
+ const value=(row,key)=>row?.[key]??"non indicato";
+ host.innerHTML=html`<details><summary>Registro modifiche sessioni (${(data.sessionHistory||[]).length})</summary><p>Il registro parte da questo rilascio. Le modifiche precedenti non vengono ricostruite.</p><div class="table-wrap"><table><thead><tr><th>Quando / chi</th><th>Azione</th><th>Minuti prima → dopo</th><th>Commessa / fase prima → dopo</th><th>Motivo</th></tr></thead><tbody>${(data.sessionHistory||[]).map(r=>html`<tr><td>${new Date(r.created_at).toLocaleString("it-IT",{timeZone:"Europe/Rome"})}<br>${r.attore_uid}</td><td>${r.azione}</td><td>${value(r.prima,"minuti_effettivi")} → ${value(r.dopo,"minuti_effettivi")}</td><td>${value(r.prima,"commessa_id")} → ${value(r.dopo,"commessa_id")}<br>${value(r.prima,"fase")} → ${value(r.dopo,"fase")}</td><td>${r.motivo||"non indicato"}</td></tr>`)}</tbody></table></div></details>`;
+}

@@ -1,4 +1,5 @@
 begin;
+select set_config('ore.actor','sql-test-fixture',true),set_config('ore.reason','Fixture sintetiche con rollback',true);
 do $$
 declare uid text:='test-'||gen_random_uuid()::text; n integer;
 begin
