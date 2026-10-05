@@ -240,7 +240,7 @@ const pdfImport = (() => {
     if (!ctx || typeof ctx.getTransform !== 'function') return null;
 
     const originali = {};
-    const nomi = ['save','restore','beginPath','rect','clip','fill','stroke','fillRect','clearRect','fillText','strokeText'];
+    const nomi = ['save','restore','beginPath','moveTo','lineTo','closePath','rect','clip','fill','stroke','fillRect','clearRect','fillText','strokeText'];
     for (const nome of nomi) {
       if (typeof ctx[nome] !== 'function') return null;
       originali[nome] = ctx[nome].bind(ctx);
@@ -250,12 +250,47 @@ const pdfImport = (() => {
     let clip = { ...fullClip };
     const stackClip = [];
     let pathRects = [];
+    let pathPoligoni = [];
+    let poligonoCorrente = null;
     let ordine = 0;
     let testi = [];
     let rettangoliVisibili = [];
 
     const clipRect = (r) => intersezioneRettangoli(r, clip);
     const centro = (r) => ({ x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 });
+
+    const rettangoloDaPoligono = (punti) => {
+      if (!punti || punti.length < 4) return null;
+      const xs = punti.map((p) => p.x);
+      const ys = punti.map((p) => p.y);
+      const r = {
+        left: Math.min(...xs),
+        top: Math.min(...ys),
+        right: Math.max(...xs),
+        bottom: Math.max(...ys)
+      };
+      if (areaRettangolo(r) < 12) return null;
+      // Accetta solo poligoni rettangolari/ortogonali: niente glifi o forme decorative.
+      const toll = 1.2;
+      const suBordo = punti.every((p) =>
+        Math.abs(p.x - r.left) <= toll || Math.abs(p.x - r.right) <= toll ||
+        Math.abs(p.y - r.top) <= toll || Math.abs(p.y - r.bottom) <= toll
+      );
+      const haL = punti.some((p) => Math.abs(p.x - r.left) <= toll);
+      const haR = punti.some((p) => Math.abs(p.x - r.right) <= toll);
+      const haT = punti.some((p) => Math.abs(p.y - r.top) <= toll);
+      const haB = punti.some((p) => Math.abs(p.y - r.bottom) <= toll);
+      return suBordo && haL && haR && haT && haB ? r : null;
+    };
+
+    const rettangoliPathCorrente = () => {
+      const daPoligoni = pathPoligoni.map(rettangoloDaPoligono).filter(Boolean);
+      if (poligonoCorrente && poligonoCorrente.length) {
+        const ultimo = rettangoloDaPoligono(poligonoCorrente);
+        if (ultimo) daPoligoni.push(ultimo);
+      }
+      return [...pathRects, ...daPoligoni];
+    };
 
     const rimuoviCoperti = (r) => {
       if (!r || areaRettangolo(r) < 12) return;
@@ -324,37 +359,65 @@ const pdfImport = (() => {
       const valore = originali.restore(...args);
       clip = stackClip.pop() || { ...fullClip };
       pathRects = [];
+      pathPoligoni = [];
+      poligonoCorrente = null;
       return valore;
     };
     ctx.beginPath = (...args) => {
       pathRects = [];
+      pathPoligoni = [];
+      poligonoCorrente = null;
       return originali.beginPath(...args);
+    };
+    ctx.moveTo = (x, y) => {
+      if (poligonoCorrente && poligonoCorrente.length) pathPoligoni.push(poligonoCorrente);
+      poligonoCorrente = [trasformaPuntoCanvas(ctx.getTransform(), x, y)];
+      return originali.moveTo(x, y);
+    };
+    ctx.lineTo = (x, y) => {
+      if (!poligonoCorrente) poligonoCorrente = [];
+      poligonoCorrente.push(trasformaPuntoCanvas(ctx.getTransform(), x, y));
+      return originali.lineTo(x, y);
+    };
+    ctx.closePath = (...args) => {
+      if (poligonoCorrente && poligonoCorrente.length) {
+        pathPoligoni.push(poligonoCorrente);
+        poligonoCorrente = null;
+      }
+      return originali.closePath(...args);
     };
     ctx.rect = (x, y, w, h) => {
       pathRects.push(rettangoloCanvasDaPath(ctx, x, y, w, h));
       return originali.rect(x, y, w, h);
     };
     ctx.clip = (...args) => {
-      if (pathRects.length) {
-        const areaPath = unioneRettangoli(pathRects);
+      const rettangoli = rettangoliPathCorrente();
+      if (rettangoli.length) {
+        const areaPath = unioneRettangoli(rettangoli);
         const nuova = intersezioneRettangoli(clip, areaPath);
         if (nuova) clip = nuova;
       }
       const valore = originali.clip(...args);
       pathRects = [];
+      pathPoligoni = [];
+      poligonoCorrente = null;
       return valore;
     };
     ctx.fill = (...args) => {
       const opaco = (ctx.globalAlpha ?? 1) >= 0.96 && (!ctx.globalCompositeOperation || ctx.globalCompositeOperation === 'source-over');
-      pathRects.forEach((r) => registraRettangolo(r, opaco));
+      rettangoliPathCorrente().forEach((r) => registraRettangolo(r, opaco));
       const valore = originali.fill(...args);
       pathRects = [];
+      pathPoligoni = [];
+      poligonoCorrente = null;
       return valore;
     };
     ctx.stroke = (...args) => {
-      pathRects.forEach((r) => registraRettangolo(r, false));
+      rettangoliPathCorrente().forEach((r) => registraRettangolo(r, false));
       const valore = originali.stroke(...args);
       pathRects = [];
+      pathPoligoni = [];
+      poligonoCorrente = null;
       return valore;
     };
     ctx.fillRect = (x, y, w, h) => {
