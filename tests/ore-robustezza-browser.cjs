@@ -48,6 +48,8 @@ async function run(role,viewport,label,extra){
       case 'saveWorkSchedule':return ok({ok:true,id:'schedule2'});
       case 'companyPeriods':return ok({rows:[{id:'period1',nome:'Estate sintetica',data_inizio:'2090-05-15',data_fine:'2090-08-31',settimana_minuti:[540,540,540,540,240,0,0],updated_at:'2026-10-05T10:00:00Z'}]});
       case 'saveCompanyPeriod':return ok({id:'period2'});
+      case 'monthStatus':return ok({rows:[{mese:'2099-02-01',chiuso:false,updated_at:'2026-10-05T12:00:00Z'}],history:[{entita_id:'2099-02-01',azione:'riapri_mese',created_at:'2026-10-05T12:00:00Z',tecnico_uid:'u1',dettagli:{motivo:EVIL}}]});
+      case 'changeMonth':return ok({chiuso:b.operation==='close'});
       case 'missingDays':return ok({from:'2026-09-04',to:'2026-10-03',people:1,rows:[{tecnico_uid:'u1',tecnico_nome:'Leo '+EVIL,date:'2026-10-02',expectedMinutes:240,expectedSource:'configurato',reportedMinutes:120,absenceMinutes:60,confirmed:false,underHours:true}]});
       case 'confirmDay':return r.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:'Giornata già chiusa dal responsabile.'})});
       case 'adminSummary':return ok({totalMinutes:960,technicians:1,jobs:2,billability:{percent:80,technicians:[{tecnico_uid:'u1',tecnico_nome:'Leo '+EVIL,billableMinutes:480,reportedExcludingAbsence:600,percent:80}]},rows:[{data_lavoro:'2026-10-02',tecnico_nome:'Leo '+EVIL,commessa_id:'c1',minuti_effettivi:600,origine:'manuale',ore_commesse:{...job(1,'DVR sede'),stato:'completata'}}]});
@@ -95,6 +97,7 @@ async function run(role,viewport,label,extra){
       // le schede riservate all'amministratore non devono comparire al tecnico
       for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),false,id+' visibile al tecnico');
       assert.ok((await page.locator('#dayTotal').innerText()).endsWith('/ 4h 00m'),'ore previste personalizzate');
+      await page.evaluate(()=>renderMonthLock({monthClosed:true}));assert.equal(await page.locator('#confirmDay').isDisabled(),true);await page.evaluate(()=>renderMonthLock({monthClosed:false}));assert.equal(await page.locator('#confirmDay').isDisabled(),false);
       // testo del CRM mostrato come testo
       assert.ok((await page.locator('#sessions').innerText()).includes('<img src=x'),'il testo pericoloso deve apparire come testo');
       // 1h30 -> 90 minuti, Invio salva
@@ -158,6 +161,7 @@ async function run(role,viewport,label,extra){
       for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),false,id+' visibile al tecnico (mobile)');
     });
     await run('admin',{width:1366,height:900},'admin-desktop',async(page,calls)=>{
+      await page.click('#tabAdmin');await page.locator('#monthForm').evaluate(el=>el.closest('details').open=true);await page.fill('#monthForm [name="mese"]','2099-02');await page.click('#monthForm [value="reopen"]');assert.equal(calls.filter(c=>c.action==='changeMonth').length,0);await page.fill('#monthForm [name="motivo"]','Verifica sintetica');await page.click('#monthForm [value="close"]');await page.waitForTimeout(300);await page.click('#monthForm [value="reopen"]');await page.waitForTimeout(300);assert.deepEqual(calls.filter(c=>c.action==='changeMonth').map(c=>c.operation),['close','reopen']);assert.ok((await page.locator('#monthHistory').innerText()).includes('<img src=x'));
       for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),true,id+' non visibile all\'admin');
       await page.click('#tabAdmin');await page.waitForTimeout(800);
       assert.equal(await page.locator('#kpiBillable').innerText(),'80%');

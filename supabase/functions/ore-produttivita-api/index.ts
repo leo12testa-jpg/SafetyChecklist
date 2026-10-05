@@ -148,6 +148,7 @@ const ACTION_ROLES: Record<string, readonly string[]> = {
   me: ["admin", "tecnico"], myCrmResource: ["admin", "tecnico"],
   requestUnlock:["admin","tecnico"],unlockRequests:["admin"],decideUnlock:["admin"],
   companyPeriods:["admin"],saveCompanyPeriod:["admin"],
+  monthStatus:["admin"],changeMonth:["admin"],
   crmDebug: ["admin", "tecnico"], catalog: ["admin", "tecnico"],
   commesse: ["admin", "tecnico"], day: ["admin", "tecnico"],
   recentPersonal: ["admin", "tecnico"], saveSession: ["admin", "tecnico"],
@@ -241,6 +242,14 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "");
     authorizeAction(user, action);
+    if (action === "monthStatus"){
+      const {data,error}=await db.from("ore_chiusure_mensili").select("*").order("mese",{ascending:false});if(error)bad("Impossibile leggere le chiusure mensili.",500);
+      const {data:history,error:historyError}=await readAll(()=>db.from("ore_audit").select("*").eq("entita","mese").order("created_at",{ascending:false}));if(historyError)bad("Impossibile leggere lo storico mensile.",500);return json(req,{rows:data||[],history:history||[]});
+    }
+    if (action === "changeMonth"){
+      const month=String(body.mese||"");if(!/^\d{4}-\d{2}$/.test(month)||!["close","reopen"].includes(body.operation))bad("Mese o comando non valido.");dateOnly(month+"-01");const reason=String(body.motivo||"").trim();if(reason.length>500||body.operation==="reopen"&&!reason)bad("Indica il motivo della riapertura.");
+      const {data,error}=await db.rpc("ore_cambia_mese",{p_month:month+"-01",p_close:body.operation==="close",p_actor:user.uid,p_reason:reason||null});if(error)bad(error.message,409);return json(req,data);
+    }
     if (action === "companyPeriods"){
       const {data,error}=await readAll(()=>db.from("ore_periodi_aziendali").select("*").order("data_inizio",{ascending:false}));if(error)bad("Impossibile leggere i periodi aziendali.",500);return json(req,{rows:data||[]});
     }
@@ -576,7 +585,8 @@ Deno.serve(async (req: Request) => {
       const work=expectedWork(day,schedules||[],periods||[]);
       const total = (activities || []).reduce((s: number, x: any) => s + Number(x.minuti_effettivi || 0), 0);
       const { data: giornata } = await db.from("ore_giornate").select("stato,confermata_at").eq("tecnico_uid", user.uid).eq("data", day).maybeSingle();
-      return json(req, { date: day, sessions: data || [], internalActivities:(activities||[]).filter((r:any)=>r.tipo_record==="interna"),billability:billability(activities||[]),totalMinutes: total,expectedMinutes:work.minutes,workSchedule:work,dayStatus: giornata || { stato: "da_verificare", confermata_at: null } });
+      const {data:month,error:monthError}=await db.from("ore_chiusure_mensili").select("chiuso").eq("mese",day.slice(0,7)+"-01").maybeSingle();if(monthError)bad("Impossibile leggere lo stato del mese.",500);
+      return json(req, { date: day, monthClosed:month?.chiuso===true,sessions: data || [], internalActivities:(activities||[]).filter((r:any)=>r.tipo_record==="interna"),billability:billability(activities||[]),totalMinutes: total,expectedMinutes:work.minutes,workSchedule:work,dayStatus: giornata || { stato: "da_verificare", confermata_at: null } });
     }
 
     if (action === "recentPersonal") {

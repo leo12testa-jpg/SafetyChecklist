@@ -461,6 +461,7 @@ async function loadDay(){
     $("#dayScheduleNote").textContent=(schedule.holiday?`Festività nazionale: ${schedule.holiday}`:schedule.source==="aziendale"?`${schedule.periodName} · ${schedule.validFrom} → ${schedule.validTo}`:schedule.source==="configurato"?`Eccezione individuale dal ${schedule.validFrom}`:"Standard aziendale: 8h lun–ven.")+(schedule.needsVerification?" · orario da verificare":"");
     const confirmed=j.dayStatus?.stato==="confermata";
     if(typeof renderDayUnlock==="function")renderDayUnlock(j);
+    if(typeof renderMonthLock==="function")renderMonthLock(j);
     $("#dayStatus").textContent=confirmed?"Confermata":"Da verificare";
     $("#dayCompleteBadge").textContent=confirmed?"Completata":"Da completare";
     $("#dayCompleteBadge").classList.toggle("done",confirmed);

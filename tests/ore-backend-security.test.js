@@ -5,6 +5,9 @@ const vm = require('node:vm');
 const { stripTypeScriptTypes } = require('node:module');
 const source = fs.readFileSync('supabase/functions/ore-produttivita-api/index.ts', 'utf8');
 
+for(const action of ['monthStatus','changeMonth'])test(`tecnico: ${action} rifiutato prima delle query`,async()=>{const app=backend();assert.equal((await app.call({action,ruolo:'admin'})).status,403);assert.equal(app.dbCalls(),0);});
+test('riapertura mensile: motivo obbligatorio, mese valido e attore server',async()=>{let received;const app=backend({role:'admin',database:{rpc:async(name,args)=>{received={name,args};return {data:{chiuso:false},error:null};}}});for(const body of [{mese:'2026-13',operation:'close'},{mese:'2026-10',operation:'reopen',motivo:''},{mese:'2026-10',operation:'delete'}])assert.equal((await app.call({action:'changeMonth',...body})).status,400);assert.equal((await app.call({action:'changeMonth',mese:'2026-10',operation:'reopen',motivo:'Verificato',attore:'falso'})).status,200);assert.equal(received.name,'ore_cambia_mese');assert.equal(received.args.p_actor,'u1');assert.equal(received.args.p_month,'2026-10-01');assert.equal(received.args.p_close,false);});
+
 function backend({ role = 'tecnico', tokenValid = true, owner = 'other', database } = {}) {
   let handler, dbCalls = 0;
   const query = { select(){ return this; }, eq(){ return this; },
