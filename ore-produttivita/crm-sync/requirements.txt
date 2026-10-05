@@ -1,0 +1,3 @@
+playwright==1.55.0
+keyring==25.6.0
+cryptography==50.0.0

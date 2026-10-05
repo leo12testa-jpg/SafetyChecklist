@@ -583,17 +583,20 @@ async function loadAdmin(){
     crmBody.innerHTML="";
     let syncFresh=0,syncLate=0,syncNever=0;
     for(const r of resources){
-      const lastDate=r.ultima_sync?new Date(r.ultima_sync):null;
+      const lastStamp=r.ultima_lettura_at||r.ultima_sync;const lastDate=lastStamp?new Date(lastStamp):null;
+      const failure=r.ultimo_errore_lettura||(crm.agent?.failure_details||[]).find(f=>f.sigla===r.sigla_crm)?.reason||null;
       const last=lastDate?lastDate.toLocaleString("it-IT",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"Mai";
       const ageMinutes=lastDate?Math.max(0,(Date.now()-lastDate.getTime())/60000):Infinity;
       if(!lastDate)syncNever++;
       else if(ageMinutes<=15)syncFresh++;
       else syncLate++;
-      const state=!lastDate
-        ?'<span class="sync-state sync-never">Mai sincronizzato</span>'
+      const state=failure
+        ?html`<span class="sync-state sync-failed">Lettura fallita: ${failure}</span>`
+        :!lastDate
+        ?html`<span class="sync-state sync-never">Mai sincronizzato</span>`
         :ageMinutes<=15
-          ?'<span class="sync-state sync-ok">Aggiornato</span>'
-          :'<span class="sync-state sync-late">In ritardo</span>';
+          ?html`<span class="sync-state sync-ok">Aggiornato</span>`
+          :html`<span class="sync-state sync-late">In ritardo</span>`;
       const tr=document.createElement("tr");
       tr.innerHTML=html`<td><b>${r.sigla_crm||"—"}</b></td>
         <td>${r.tecnico_nome||r.nome_crm||"—"}</td>
@@ -612,13 +615,15 @@ async function loadAdmin(){
       const heartbeatAge=heartbeatAt?Math.max(0,(Date.now()-heartbeatAt.getTime())/60000):Infinity;
       const heartbeatFresh=heartbeatAge<=15;
       const heartbeatState=String(heartbeat?.state||"").toLowerCase();
-      const heartbeatError=["login_required","error"].includes(heartbeatState);
+      const heartbeatError=["login_required","error","partial"].includes(heartbeatState);
       const inactive=!heartbeatFresh||heartbeatError;
-      const partial=!inactive&&resources.length>0&&syncFresh<resources.length;
+      const partial=heartbeatState==="partial"||Number(heartbeat?.failures)>0||!inactive&&resources.length>0&&syncFresh<resources.length;
       agentAlert.hidden=!(inactive||partial);
       agentAlert.classList.toggle("partial",partial&&!inactive);
 
-      if(inactive){
+      if(heartbeatState==="recovery_pending"){
+        agentAlert.hidden=false;$("#crmAgentAlertTitle").textContent="CRM: recupero in attesa di conferma";$("#crmAgentAlertText").textContent=heartbeat?.message||"Lettura completata in anteprima, nessuna importazione.";
+      }else if(inactive){
         $("#crmAgentAlertTitle").textContent=heartbeatState==="login_required"
           ?"CRM: sessione scaduta"
           :"Sincronizzazione CRM automatica non attiva";

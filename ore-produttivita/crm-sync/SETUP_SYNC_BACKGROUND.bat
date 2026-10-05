@@ -14,7 +14,7 @@ if not defined PY (
 
 echo.
 echo Installo i componenti necessari...
-%PY% -m pip install --disable-pip-version-check --upgrade playwright keyring cryptography
+%PY% -m pip install --disable-pip-version-check -r "%~dp0requirements.txt"
 if errorlevel 1 goto :errore
 
 echo.
@@ -81,7 +81,7 @@ goto :errore
 
 :prima_ok
 echo.
-echo Primo ciclo invisibile completato correttamente.
+echo Primo ciclo: tutte le risorse attive lette. Recupero in anteprima, nessuna importazione.
 if exist "%STATUS_FILE%" type "%STATUS_FILE%"
 
 echo.

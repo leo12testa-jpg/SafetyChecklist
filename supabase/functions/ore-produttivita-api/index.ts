@@ -151,6 +151,7 @@ function requireAdmin(user: any) {
 // Role is always read from the server-side Firebase profile. Unknown actions fail closed.
 const ACTION_ROLES: Record<string, readonly string[]> = {
   oreRoles:["direzione"],setOreRole:["direzione"],
+  registerCrmResources:["direzione","admin_operativo"],
   dataQuality:["direzione","admin_operativo"],
   me: ["direzione", "admin_operativo", "tecnico"], myCrmResource: ["direzione", "admin_operativo", "tecnico"],
   requestUnlock:["direzione", "admin_operativo","tecnico"],unlockRequests:["direzione", "admin_operativo"],decideUnlock:["direzione", "admin_operativo"],
@@ -882,11 +883,19 @@ Deno.serve(async (req: Request) => {
       return respond( { ok: true, received: rows.length, saved, skipped });
     }
 
+    if(action === "registerCrmResources"){
+      const rows=body.resources;
+      if(!Array.isArray(rows)||rows.length<1||rows.length>100||rows.some((r:any)=>!/^\d{1,10}$/.test(String(r.crmId||""))||typeof r.nome!=="string"||r.nome.trim().length<3||r.nome.length>120)||new Set(rows.map((r:any)=>String(r.crmId))).size!==rows.length)bad("Inventario CRM non valido.");
+      const {data,error}=await db.rpc("ore_registra_inventario_crm",{p_resources:rows.map((r:any)=>({crmId:String(r.crmId),nome:r.nome.trim()})),p_actor:user.uid});
+      if(error)bad("Inventario CRM non aggiornato: verifica gli ID delle risorse.",409);
+      return respond(data);
+    }
+
     if (action === "crmResources") {
       requireAdmin(user);
       const [{ data, error }, { data: auditRows, error: auditErr }] = await Promise.all([
         db.from("ore_risorse_crm")
-          .select("id,sigla_crm,nome_crm,tecnico_uid,tecnico_nome,attiva,ultima_sync")
+          .select("id,sigla_crm,nome_crm,tecnico_uid,tecnico_nome,attiva,ultima_sync,crm_id,ultima_lettura_at,ultimo_tentativo_at,ultimo_errore_lettura")
           .eq("attiva", true)
           .order("nome_crm"),
         db.from("ore_audit")
@@ -927,22 +936,23 @@ Deno.serve(async (req: Request) => {
     if (action === "crmAgentHeartbeat") {
       requireAdmin(user);
       const state = String(body.state || "").trim().toLowerCase();
-      const allowed = new Set(["starting","running","ok","login_required","error"]);
+      const allowed = new Set(["starting","running","ok","partial","recovery_pending","login_required","error"]);
       if (!allowed.has(state)) bad("Stato agente CRM non valido.");
       const details = {
-        state,
+        state:state==="ok"&&Number(body.failures)>0?"partial":state,
+        scanned_resources:(Array.isArray(body.scannedResources)?body.scannedResources:[]).map((v:any)=>String(v).trim()).filter((v:string)=>/^[A-Z0-9:_-]{1,20}$/.test(v)).slice(0,100),
         message: String(body.message || "").trim().slice(0, 300) || null,
         scanned: Math.max(0, Number(body.scanned || 0) || 0),
         events: Math.max(0, Number(body.events || 0) || 0),
         saved: Math.max(0, Number(body.saved || 0) || 0),
         failures: Math.max(0, Number(body.failures || 0) || 0),
-        failure_details: (Array.isArray(body.failureDetails) ? body.failureDetails : []).slice(0, 12).map((x:any)=>({
+        failure_details: (Array.isArray(body.failureDetails) ? body.failureDetails : []).slice(0, 100).map((x:any)=>({
           sigla: String(x?.sigla || "").trim().slice(0, 20),
           reason: String(x?.reason || "").trim().slice(0, 180)
         })).filter((x:any)=>x.sigla || x.reason),
         agent_version: String(body.agentVersion || "").trim().slice(0, 40) || null
       };
-      await writeAudit(db,user.uid,"crm_agent_heartbeat","agent","company",details);
+      const {error:heartbeatError}=await db.rpc("ore_registra_esito_crm",{p_actor:user.uid,p_details:details});if(heartbeatError)bad("Impossibile registrare lo stato delle letture CRM.",500);
       return respond({ok:true,heartbeatAt:new Date().toISOString(),...details});
     }
 
@@ -1181,18 +1191,28 @@ Deno.serve(async (req: Request) => {
         const activityDetected=detectActivity(source,typeCode);
 
         // A resource with no real account stays in review; no invented ownership.
-        if (!resource.tecnico_uid || String(resource.tecnico_uid).startsWith("legacy:")) {
+        if (resource.attiva===false || !resource.collegamento_approvato_at || !resource.tecnico_uid || String(resource.tecnico_uid).startsWith("legacy:")) {
           await saveIssue("unassigned:" + resource.id, {
             crm_event_id: crmEventId || null, data_lavoro: day,
             inizio: startIso, fine: endIso, minuti: computed, titolo: title,
             codice_lavoro: suppliedCode || null, codice_commessa_crm: commessaCrm || null,
             attivita_rilevata: activityDetected || null, motivo: "unmatched",
-            candidati: [{ resource_id: resource.id, sigla: resource.sigla_crm, collegamento: "da_verificare" }]
+            candidati: [{ resource_id: resource.id, sigla: resource.sigla_crm, collegamento: "da_verificare",risorsa_inattiva:resource.attiva===false }]
           });
           results.push({ crmEventId, status: "resource_unmatched", tecnicoNome: resource.nome_crm, tecnicoSigla: resource.sigla_crm });
           continue;
         }
 
+        const [{data:lockedDay,error:dayError},{data:lockedMonth,error:monthError},{data:previousSession,error:previousError}]=await Promise.all([
+          db.from("ore_giornate").select("stato").eq("tecnico_uid",targetUid).eq("data",day).maybeSingle(),
+          db.from("ore_chiusure_mensili").select("chiuso").eq("mese",day.slice(0,7)+"-01").maybeSingle(),
+          crmEventId?db.from("ore_sessioni").select("id,confermata,commessa_id").eq("tecnico_uid",targetUid).eq("crm_event_id",crmEventId).maybeSingle():Promise.resolve({data:null,error:null})]);
+        if(dayError||monthError||previousError)bad("Impossibile verificare i blocchi della giornata CRM.",500);
+        const lockReason=lockedMonth?.chiuso?"mese_chiuso":lockedDay?.stato==="confermata"||previousSession?.confermata?"giornata_confermata":null;
+        if(lockReason){
+          await saveIssue(targetUid,{crm_event_id:crmEventId||null,data_lavoro:day,inizio:startIso,fine:endIso,minuti:computed,titolo:title,codice_lavoro:suppliedCode||null,codice_commessa_crm:commessaCrm||null,motivo:"unmatched",candidati:[{blocco:lockReason,sessione_id:previousSession?.id||null,commessa_id:previousSession?.commessa_id||null}]});
+          results.push({crmEventId,status:"locked_review",tecnicoUid:targetUid,reason:lockReason});continue;
+        }
         let commessa:any=null;
         let detectedWorkCode="";
         let detectedClient:any=null;

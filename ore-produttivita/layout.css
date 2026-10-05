@@ -1,3 +1,5 @@
+/* Fallimento lettura: visibile anche con heartbeat recente. */
+.sync-state.sync-failed{color:#a61b1b;background:#fff0f0;border:1px solid #d99;white-space:normal}
 /* Colligo Ore & Produttività — canonical UI layout v2
    Unica fonte di verità per impaginazione e responsive.
    style.css conserva componenti/colore; questo file decide geometria, spazi e gerarchie. */

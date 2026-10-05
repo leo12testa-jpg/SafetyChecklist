@@ -57,7 +57,7 @@ async function run(role,viewport,label,extra){
       case 'missingDays':return ok({from:'2026-09-04',to:'2026-10-03',people:1,rows:[{tecnico_uid:'u1',tecnico_nome:'Leo '+EVIL,date:'2026-10-02',expectedMinutes:240,expectedSource:'configurato',reportedMinutes:120,absenceMinutes:60,confirmed:false,underHours:true}]});
       case 'confirmDay':return r.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:'Giornata già chiusa dal responsabile.'})});
       case 'adminSummary':return ok({totalMinutes:960,technicians:1,jobs:2,billability:{percent:80,technicians:[{tecnico_uid:'u1',tecnico_nome:'Leo '+EVIL,billableMinutes:480,reportedExcludingAbsence:600,percent:80}]},rows:[{data_lavoro:'2026-10-02',tecnico_nome:'Leo '+EVIL,commessa_id:'c1',minuti_effettivi:600,origine:'manuale',ore_commesse:{...job(1,'DVR sede'),stato:'completata'}}]});
-      case 'crmResources':return ok({resources:[],agent:{heartbeat_at:new Date().toISOString(),state:'ok'}});
+      case 'crmResources':return ok({resources:[{sigla_crm:'XX',nome_crm:'Risorsa '+EVIL,attiva:true,ultimo_errore_lettura:'agenda_identica_sospetta'}],agent:{heartbeat_at:new Date().toISOString(),state:'partial',failures:1,failure_details:[{sigla:'XX',reason:'agenda_identica_sospetta'}]}});
       case 'crmLinks':return ok({rows:[{id:'r1',sigla_crm:'XX',nome_crm:'Risorsa '+EVIL,tecnico_uid:'u1',tecnico_nome:'Leo',account_reale:true,stato_collegamento:'da confermare',sessioni_risorsa:1,sessioni_uid_storiche:2}],technicians:[{uid:'u1',nome:'Leo'},{uid:'u2',nome:'Nuovo tecnico'}],ambigui:{},pending:[]});
       case 'previewCrmLink':return ok({resource:{tecnico_uid:'u1',collegamento_approvato_at:null},sessions:[{id:'move1',tecnico_uid:'u1',data_lavoro:'2026-10-02',minuti_effettivi:60,updated_at:'2026-10-03T10:00:00Z'}],nota:'Le sessioni confermate non vengono spostate.'});
       case 'approveCrmLink':return ok({ok:true,riassegnate:b.sessions.length});
@@ -171,6 +171,9 @@ async function run(role,viewport,label,extra){
       for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),true,id+' non visibile all\'admin');
       await page.click('#tabAdmin');await page.waitForTimeout(800);
       assert.equal(await page.locator('#kpiBillable').innerText(),'80%');
+      assert.match(await page.locator('.sync-failed').textContent(),/Lettura fallita: agenda_identica_sospetta/);
+      await page.locator('.sync-failed').evaluate(el=>el.closest('details').open=true);
+      assert.equal(await page.locator('.sync-failed').isVisible(),true);
       assert.ok((await page.locator('#billabilityRows').innerText()).includes('80%'));
       await page.locator('#loadMissingDays').evaluate(el=>el.closest('details').open=true);await page.click('#loadMissingDays');await page.waitForTimeout(250);assert.match(await page.locator('#missingAdminRows').innerText(),/Non confermata/);assert.match(await page.locator('#missingAdminRows').innerText(),/Ore sotto il previsto/);
       await page.locator('#loadUnlockRequests').evaluate(el=>el.closest('details').open=true);await page.click('#loadUnlockRequests');await page.waitForSelector('[data-unlock-reason="unlock1"]');await page.fill('[data-unlock-reason="unlock1"]','Richiesta verificata');await page.click('[data-unlock-id="unlock1"][data-approve="true"]');await page.waitForTimeout(250);assert.equal(calls.find(c=>c.action==='decideUnlock').approve,true);

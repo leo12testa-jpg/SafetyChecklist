@@ -10,7 +10,7 @@ import urllib.error
 import urllib.request
 from datetime import date
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse, parse_qs
 
 import keyring
 from cryptography.fernet import Fernet, InvalidToken
@@ -26,6 +26,11 @@ CRM_FILE_KEY = "company-crm-file-key"
 
 class LoginRequiredError(RuntimeError):
     pass
+
+class PartialReadError(RuntimeError):
+    pass
+
+AGENT_VERSION="20261005-resource-selector"
 
 APP_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "ColligoOreProduttivita"
 CONFIG_FILE = APP_DIR / "company-agent.json"
@@ -302,54 +307,115 @@ def norm(v):
     return re.sub(r"\s+", " ", str(v or "").strip().casefold())
 
 
-async def select_resource(page, name, sigla):
-    targets = {"name": norm(name), "sigla": norm(sigla)}
+async def agenda_toolbar(page):
     for frame in page.frames:
+        if await frame.locator('#cboAgendaToolbar').count():
+            return frame
+    raise RuntimeError('selettore_agenda_non_trovato')
+
+
+async def discover_resources(page):
+    toolbar=await agenda_toolbar(page)
+    options=await toolbar.locator('#cboAgendaToolbar option').evaluate_all("els=>els.map(o=>({nome:o.textContent.trim(),value:o.value}))")
+    resources=[]
+    for option in options:
+        match=re.fullmatch(r'id=(\d+)',option['value'])
+        if match and option['nome']:
+            resources.append({'crmId':match.group(1),'nome':option['nome']})
+    if not resources or len({r['crmId'] for r in resources})!=len(resources):
+        raise RuntimeError('inventario_agenda_non_valido')
+    return resources
+
+
+async def select_resource(page, name, sigla, crm_id=None):
+    toolbar=await agenda_toolbar(page)
+    resources=await discover_resources(page)
+    matches=[r for r in resources if r['crmId']==str(crm_id)] if crm_id is not None else [r for r in resources if norm(r['nome'])==norm(name)]
+    if len(matches)!=1:
+        return False
+    target=matches[0]['crmId']
+    # The dedicated CRM onchange navigates frmAgendaHid, then refreshes toolbar/calendar.
+    calendar=lambda frame: urlparse(frame.url).path.lower().endswith('/plage001.asp') and parse_qs(urlparse(frame.url).query).get('id')==[target]
+    current=[f for f in page.frames if calendar(f)]
+    selected=await toolbar.locator('#cboAgendaToolbar').input_value()
+    if selected!='id='+target or not current:
+        async with page.expect_event('framenavigated',predicate=calendar,timeout=25000) as loaded:
+            await toolbar.locator('#cboAgendaToolbar').select_option('id='+target)
+        frame=await loaded.value
+        await frame.wait_for_load_state('domcontentloaded',timeout=25000)
+    toolbar=await agenda_toolbar(page)
+    await toolbar.locator('#cboAgendaToolbar').wait_for(state='visible',timeout=25000)
+    if await toolbar.locator('#cboAgendaToolbar').input_value()!='id='+target:
+        raise RuntimeError('risorsa_selezionata_diversa')
+    checked=[]
+    for frame in page.frames:
+        checked.extend(await frame.locator('input[id^="chkAge"]:checked').evaluate_all('els=>els.map(e=>e.value)'))
+    if checked!=[target]:
+        raise RuntimeError('selezione_agenda_multipla_o_diversa')
+    frames=[f for f in page.frames if calendar(f)]
+    if len(frames)!=1:
+        raise RuntimeError('agenda_risorsa_non_verificata')
+    await frames[0].locator('[data-giorno]').first.wait_for(state='visible',timeout=25000)
+    return True
+
+
+async def select_month(page, month):
+    if not re.fullmatch(r'20\d{4}',month):
+        raise RuntimeError('mese_non_valido')
+    toolbar=await agenda_toolbar(page)
+    selected=await toolbar.locator('#cboAgendaToolbar').input_value()
+    target=selected.split('=',1)[1]
+    control=toolbar.locator('#cboCambioM')
+    if await control.input_value()!=month+'01':
+        predicate=lambda frame:urlparse(frame.url).path.lower().endswith('/plage001.asp') and parse_qs(urlparse(frame.url).query).get('id')==[target]
+        async with page.expect_event('framenavigated',predicate=predicate,timeout=25000) as loaded:
+            await control.select_option(month+'01')
+        frame=await loaded.value
+        await frame.wait_for_load_state('domcontentloaded',timeout=25000)
+    toolbar=await agenda_toolbar(page)
+    if await toolbar.locator('#cboCambioM').input_value()!=month+'01':
+        raise RuntimeError('mese_agenda_non_verificato')
+
+
+async def scan_resources(page, resources, month):
+    events=[];scanned=[];failures=[];fingerprints={}
+    for resource in resources:
+        sigla=str(resource.get('sigla_crm') or '').strip()
         try:
-            hit = await frame.evaluate(r"""(targets) => {
-              const norm = v => (v||'').toString().trim().toLocaleLowerCase('it-IT').replace(/\s+/g,' ');
-              const visible = el => {
-                if(!el) return false;
-                const s=getComputedStyle(el), r=el.getBoundingClientRect();
-                return s.display!=='none' && s.visibility!=='hidden' && r.width>0 && r.height>0;
-              };
-              const nameTarget=norm(targets.name), siglaTarget=norm(targets.sigla);
-              const nodes=[...document.querySelectorAll('a,button,[onclick],[ondblclick],[role="button"],li,td,div,span')];
-              let best=null, bestScore=-1;
-              for(const node of nodes){
-                if(!visible(node)) continue;
-                const text=norm(node.innerText||node.textContent||'');
-                if(!text || text.length>160) continue;
-                let score=-1;
-                if(nameTarget){
-                  if(text===nameTarget) score=Math.max(score,120);
-                  else if(nameTarget.length>=5 && text.includes(nameTarget)) score=Math.max(score,90);
-                }
-                if(siglaTarget){
-                  if(text===siglaTarget) score=Math.max(score,80);
-                  else if(siglaTarget.length>=2 && text.split(/[^a-z0-9]+/).includes(siglaTarget)) score=Math.max(score,55);
-                }
-                if(score<0) continue;
-                const clicker=node.closest('a,button,[onclick],[ondblclick],[role="button"],li,td')||node;
-                if(!visible(clicker)) continue;
-                if(score>bestScore){best=clicker;bestScore=score;}
-              }
-              if(!best) return null;
-              best.scrollIntoView({block:'nearest'});
-              best.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}));
-              return {score:bestScore,text:(best.innerText||best.textContent||'').trim().slice(0,160)};
-            }""", targets)
-            if hit:
-                await page.wait_for_timeout(900)
-                return True
-        except Exception:
-            pass
-    return False
+            if not await select_resource(page,resource.get('nome_crm') or '',sigla,resource.get('crm_id')):
+                failures.append({'sigla':sigla,'reason':'risorsa_non_trovata'});continue
+            await select_month(page,month)
+            cells=await month_cells(page)
+            resource_events=[]
+            for key,texts in cells.items():
+                if key.startswith(month):resource_events.extend(parse_day(texts,iso_day(key),sigla))
+            if len(resource_events)>120:
+                failures.append({'sigla':sigla,'reason':'troppi_eventi','count':len(resource_events)});continue
+            fingerprint=agenda_fingerprint(resource_events)
+            if fingerprint:
+                same=fingerprints.setdefault(fingerprint,[])
+                if len(same)>=3:
+                    failures.append({'sigla':sigla,'reason':'agenda_identica_sospetta','same_as':same[:3]});continue
+                same.append(sigla)
+            for ev in resource_events:
+                ev['tecnicoSigla']=sigla;ev['tecnicoNome']=resource.get('nome_crm') or ''
+            events.extend(resource_events);scanned.append(sigla)
+        except Exception as exc:
+            # Never log event titles, CRM HTML, URLs, credentials or arbitrary exceptions.
+            reason=str(exc) if re.fullmatch(r'[a-z_]{3,80}',str(exc)) else 'errore_selezione_o_caricamento'
+            failures.append({'sigla':sigla,'reason':reason})
+    return {'events':events,'scanned':scanned,'failures':failures,'total':len(resources)}
+
+
+def scan_summary(result):
+    failed=', '.join(f"{x['sigla']} ({x['reason']})" for x in result['failures']) or 'nessuna'
+    return f"Lette {len(result['scanned'])} su {result['total']}, fallite: {failed}"
 
 
 async def month_cells(page):
     result = {}
-    for frame in page.frames:
+    calendars=[f for f in page.frames if urlparse(f.url).path.lower().endswith("/plage001.asp")]
+    for frame in calendars:
         try:
             rows = await frame.evaluate(r"""() => {
               const visible = el => {
@@ -490,7 +556,7 @@ async def setup(username):
     if not resources:
         raise RuntimeError("Nessuna risorsa CRM disponibile o account non amministratore.")
     APP_DIR.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps({"username":username},indent=2),encoding="utf-8")
+    CONFIG_FILE.write_text(json.dumps({"username":username,"recovery_hold":True},indent=2),encoding="utf-8")
 
     async with async_playwright() as p:
         browser=await p.chromium.launch_persistent_context(
@@ -506,129 +572,52 @@ async def setup(username):
             raise RuntimeError("Il CRM risulta ancora sulla schermata di accesso.")
         await save_crm_auth(browser, page)
         await browser.close()
-    write_status("ready","Configurazione completata.",{"resources":len(resources)})
-    print(f"Configurazione completata: {len(resources)} risorse CRM rilevate.")
+    write_status("ready","Login salvato; lettura completa da verificare.",{"resources":len(resources)})
+    print("Login salvato. Il setup deve verificare tutte le risorse in modalita invisibile.")
 
 
 async def run_once():
-    if not CONFIG_FILE.exists():
-        raise RuntimeError("Agente non configurato. Esegui SETUP_SYNC_BACKGROUND.bat.")
-    username=json.loads(CONFIG_FILE.read_text(encoding="utf-8")).get("username","").strip()
-    if not username:
-        raise RuntimeError("Username agente mancante.")
-    token=app_token(username, interactive=False)
-    resources=api(token,"crmResources").get("resources",[])
-    if not resources:
-        raise RuntimeError("Nessuna risorsa CRM attiva.")
-
-    api(token,"crmAgentHeartbeat",state="starting",message="Avvio sincronizzazione CRM aziendale.")
-    write_status("running","Sincronizzazione in corso.",{"resources":len(resources)})
-    today=date.today().strftime("%Y%m")
-    events=[]
-    scanned=[]
-    failures=[]
-    fingerprints={}
-
+    if not CONFIG_FILE.exists():raise RuntimeError('Agente non configurato. Esegui SETUP_SYNC_BACKGROUND.bat.')
+    config=json.loads(CONFIG_FILE.read_text(encoding='utf-8'))
+    username=str(config.get('username') or '').strip()
+    if not username:raise RuntimeError('Username agente mancante.')
+    token=app_token(username,interactive=False)
+    api(token,'crmAgentHeartbeat',state='starting',message='Avvio lettura CRM aziendale.',agentVersion=AGENT_VERSION)
     crm_state=load_crm_state()
     if not crm_state:
-        api(token,"crmAgentHeartbeat",state="login_required",message="Sessione CRM background non disponibile: rieseguire la configurazione.")
-        raise LoginRequiredError("Sessione CRM background non disponibile.")
-
+        api(token,'crmAgentHeartbeat',state='login_required',message='Sessione CRM background non disponibile: rieseguire la configurazione.',agentVersion=AGENT_VERSION)
+        raise LoginRequiredError('Sessione CRM background non disponibile.')
     async with async_playwright() as p:
-        browser=await p.chromium.launch(headless=True,channel="msedge")
-        context=await browser.new_context(
-            storage_state=crm_state,
-            viewport={"width":1440,"height":950}
-        )
-        await restore_crm_session_storage(context)
-        page=await context.new_page()
-        await page.goto(AGENDA_URL,wait_until="domcontentloaded",timeout=60000)
-        await page.wait_for_timeout(1200)
-        if await login_visible(page):
-            await browser.close()
-            api(token,"crmAgentHeartbeat",state="login_required",message="Sessione CRM scaduta: serve nuova configurazione.")
-            raise LoginRequiredError("Sessione CRM scaduta: eseguire una volta SETUP_SYNC_BACKGROUND.bat.")
-
-        for index, resource in enumerate(resources,1):
-            sigla=str(resource.get("sigla_crm") or "").strip()
-            name=str(resource.get("nome_crm") or resource.get("tecnico_nome") or sigla).strip()
-            if not sigla:
-                continue
-            try:
-                selected=await select_resource(page,name,sigla)
-                if not selected:
-                    failures.append({"sigla":sigla,"reason":"risorsa_non_trovata"})
-                    continue
-                cells=await month_cells(page)
-                resource_events=[]
-                for day_key,texts in cells.items():
-                    if not day_key.startswith(today):
-                        continue
-                    resource_events.extend(parse_day(texts,iso_day(day_key),sigla))
-                if len(resource_events)>120:
-                    failures.append({"sigla":sigla,"reason":"troppi_eventi","count":len(resource_events)})
-                    continue
-                fingerprint=agenda_fingerprint(resource_events)
-                if fingerprint:
-                    same=fingerprints.setdefault(fingerprint,[])
-                    if len(same)>=3:
-                        failures.append({
-                            "sigla":sigla,
-                            "reason":"agenda_identica_sospetta",
-                            "same_as":same[:3]
-                        })
-                        continue
-                    same.append(sigla)
-
-                for ev in resource_events:
-                    ev["tecnicoSigla"]=sigla
-                    ev["tecnicoNome"]=name
-                events.extend(resource_events)
-                scanned.append(sigla)
-
-                if index % 4 == 0 or index == len(resources):
-                    api(token,"crmAgentHeartbeat",
-                        state="running",
-                        message=f"Lettura CRM in corso: {index}/{len(resources)} risorse.",
-                        scanned=len(scanned),
-                        events=len(events),
-                        failures=len(failures))
-            except Exception as exc:
-                failures.append({"sigla":sigla,"reason":str(exc)[:160]})
-                if index % 4 == 0 or index == len(resources):
-                    try:
-                        api(token,"crmAgentHeartbeat",
-                            state="running",
-                            message=f"Lettura CRM in corso: {index}/{len(resources)} risorse.",
-                            scanned=len(scanned),
-                            events=len(events),
-                            failures=len(failures))
-                    except Exception:
-                        pass
-
-        await save_crm_auth(context, page)
-        await browser.close()
-
-    if len(events)>1500:
-        api(token,"crmAgentHeartbeat",state="error",message=f"Lettura anomala: {len(events)} eventi complessivi.",scanned=len(scanned),events=len(events),failures=len(failures))
-        raise RuntimeError(f"Lettura anomala: {len(events)} eventi complessivi.")
-
-    result=api(token,"ingestAgendaCompany",events=events,scannedResources=scanned,date=date.today().isoformat())
-    api(token,"crmAgentHeartbeat",
-        state="ok",
-        message="Sincronizzazione CRM aziendale completata.",
-        scanned=len(scanned),
-        events=len(events),
-        saved=result.get("saved",0),
-        failures=len(failures))
-    write_status("ok","Sincronizzazione completata.",{
-        "scanned":len(scanned),
-        "events":len(events),
-        "saved":result.get("saved",0),
-        "unmatched":result.get("unmatched",0),
-        "ambiguous":result.get("ambiguous",0),
-        "failures":failures[:20]
-    })
+        browser=await p.chromium.launch(headless=True,channel='msedge')
+        try:
+            context=await browser.new_context(storage_state=crm_state,viewport={'width':1440,'height':950})
+            await restore_crm_session_storage(context)
+            page=await context.new_page();await page.goto(AGENDA_URL,wait_until='domcontentloaded',timeout=60000)
+            if await login_visible(page):raise LoginRequiredError('Sessione CRM scaduta: eseguire SETUP_SYNC_BACKGROUND.bat.')
+            await (await agenda_toolbar(page)).locator('#cboAgendaToolbar').wait_for(state='visible')
+            inventory=await discover_resources(page)
+            api(token,'registerCrmResources',resources=inventory)
+            resources=api(token,'crmResources').get('resources',[])
+            result=await scan_resources(page,resources,date.today().strftime('%Y%m'))
+            await save_crm_auth(context,page)
+        finally:await browser.close()
+    if len(result['events'])>1500:raise RuntimeError('troppi_eventi_nel_ciclo')
+    message=scan_summary(result)
+    failed=bool(result['failures'])
+    # Recovery requires a separate human approval; a repaired selector must not trigger backfill.
+    preview=config.get('recovery_hold',True) or '--preview' in sys.argv
+    state='partial' if failed else 'recovery_pending' if preview else 'ok'
+    saved=0
+    if not failed and not preview:
+        response=api(token,'ingestAgendaCompany',events=result['events'],scannedResources=result['scanned'],date=date.today().isoformat())
+        saved=response.get('saved',0)
+    if preview:
+        (APP_DIR/'recovery-preview.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
+        message+='; anteprima, nessuna importazione.'
+    api(token,'crmAgentHeartbeat',state=state,message=message,scanned=len(result['scanned']),events=len(result['events']),saved=saved,failures=len(result['failures']),failureDetails=result['failures'],scannedResources=result['scanned'],agentVersion=AGENT_VERSION)
+    write_status(state,message,{'scanned':len(result['scanned']),'total':result['total'],'events':len(result['events']),'saved':saved,'failures':result['failures'],'agentVersion':AGENT_VERSION})
+    print(message)
+    if failed:raise PartialReadError(message)
 
 
 async def main():
@@ -660,6 +649,7 @@ if __name__=="__main__":
         asyncio.run(main())
     except Exception as exc:
         login_required=isinstance(exc, LoginRequiredError)
+        if isinstance(exc,PartialReadError):sys.exit(1)
         write_status("login_required" if login_required else "error",str(exc))
         if "--setup" not in sys.argv and not login_required:
             try:

@@ -15,7 +15,7 @@ if errorlevel 1 (
 
 echo.
 echo Installo/aggiorno Playwright...
-py -m pip install --upgrade playwright
+py -m pip install playwright==1.55.0
 if errorlevel 1 goto :errore
 
 echo.

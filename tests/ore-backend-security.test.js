@@ -4,6 +4,25 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const { stripTypeScriptTypes } = require('node:module');
 const source = fs.readFileSync('supabase/functions/ore-produttivita-api/index.ts', 'utf8');
+test('tecnico: aggiornamento inventario CRM rifiutato prima del database',async()=>{const app=backend();assert.equal((await app.call({action:'registerCrmResources'})).status,403);assert.equal(app.dbCalls(),0);});
+test('inventario CRM: ID validati, account nel body ignorato e attore imposto dal server',async()=>{
+ let args;const app=backend({role:'admin',database:{rpc:async(name,value)=>{assert.equal(name,'ore_registra_inventario_crm');args=value;return {data:{ok:true},error:null};}}});
+ assert.equal((await app.call({action:'registerCrmResources',resources:[{crmId:'bad',nome:'Stefano Tagliatti'}]})).status,400);
+ assert.equal((await app.call({action:'registerCrmResources',resources:[{crmId:'48',nome:'Stefano Tagliatti',tecnico_uid:'inventato'}],actor:'inventato'})).status,200);
+ assert.equal(args.p_actor,'u1');assert.deepEqual(JSON.parse(JSON.stringify(args.p_resources)),[{crmId:'48',nome:'Stefano Tagliatti'}]);
+});
+test('heartbeat: fallimenti rendono parziale il ciclo e tutti i dettagli sono conservati',async()=>{
+ let args;const app=backend({role:'admin',database:{rpc:async(name,value)=>{assert.equal(name,'ore_registra_esito_crm');args=value;return {error:null};}}});
+ const failures=Array.from({length:21},(_,i)=>({sigla:'R'+i,reason:'risorsa_non_trovata'}));
+ const response=await app.call({action:'crmAgentHeartbeat',state:'ok',failures:21,failureDetails:failures,scannedResources:['LT'],attore:'falso'});
+ assert.equal(response.status,200);assert.equal(args.p_actor,'u1');assert.equal(args.p_details.state,'partial');assert.equal(args.p_details.failure_details.length,21);assert.deepEqual(Array.from(args.p_details.scanned_resources),['LT']);
+});
+for(const mode of ['inactive','day','month','session'])test(`import CRM: ${mode} crea segnalazione senza scrivere ore`,async()=>{
+ const writes=[];const database={from(table){const query={select(){return this;},eq(){return this;},neq(){return this;},order(){return this;},range(){return this;},in(){return this;},limit(){return this;},update(v){assert.notEqual(table,'ore_sessioni');writes.push({table,v});return this;},insert(v){assert.notEqual(table,'ore_sessioni');writes.push({table,v});return this;},maybeSingle:async()=>({data:table==='ore_giornate'?{stato:mode==='day'?'confermata':'aperta'}:table==='ore_chiusure_mensili'?{chiuso:mode==='month'}:table==='ore_sessioni'?{id:'s',confermata:mode==='session'}:null,error:null}),then(resolve){resolve({data:table==='ore_risorse_crm'?[{id:'r',sigla_crm:'XX',nome_crm:'Risorsa',tecnico_uid:'real-uid',collegamento_approvato_at:'2026-10-05T12:00:00Z',attiva:mode!=='inactive'}]:[],error:null});}};return query;}};
+ const response=await backend({role:'admin',database}).call({action:'ingestAgendaCompany',events:[{tecnicoSigla:'XX',crmEventId:'ev',date:'2026-10-05',minutes:60,title:'1B DVR'}]});
+ const result=await response.json();assert.equal(response.status,200,JSON.stringify(result));assert.equal(result.saved,0);const issue=writes.find(w=>w.table==='ore_sync_issues');assert.ok(issue);assert.equal(issue.v.stato,'aperta');
+ if(mode==='inactive')assert.equal(issue.v.candidati[0].risorsa_inattiva,true);else assert.equal(issue.v.candidati[0].blocco,mode==='month'?'mese_chiuso':'giornata_confermata');
+});
 
 test('tecnico: qualità dati vietata prima di accedere ai dati',async()=>{const app=backend();assert.equal((await app.call({action:'dataQuality',ruolo:'admin'})).status,403);assert.equal(app.dbCalls(),0);});
 test('qualità dati: storico oltre 1000, pagina esatta e link a caso remoto senza costi',async()=>{const rows=Array.from({length:1501},(_,i)=>({id:'s'+i,tecnico_uid:'u',commessa_id:'j',data_lavoro:'2026-10-01',minuti_effettivi:1,fase:null}));const columns=[];const database={from(table){let first=0,last=999;const q={select(c){columns.push([table,c]);return this;},order(){return this;},range(a,b){first=a;last=b;return this;},then(resolve){resolve({data:(table==='ore_sessioni'?rows:[]).slice(first,last+1),error:null});}};return q;}};const app=backend({role:'admin',oreRole:'admin_operativo',database});const response=await app.call({action:'dataQuality',kind:'without_phase',offset:1499,limit:2});assert.equal(response.status,200);const data=await response.json();assert.equal(data.groups[0].count,1501);assert.deepEqual(data.groups[0].rows.map(r=>r.id),['s1499','s1500']);const specific=await app.call({action:'dataQuality',kind:'without_phase',caseId:'s1500'});assert.equal((await specific.json()).groups[0].rows[0].id,'s1500');assert.ok(columns.some(([t])=>t==='ore_costi_tecnici'));assert.ok(columns.every(([,c])=>!c.includes('costo_orario')));assert.equal((await app.call({action:'dataQuality',kind:'constructor'})).status,400);});

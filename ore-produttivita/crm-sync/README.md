@@ -9,7 +9,7 @@ Su un solo PC aziendale che rimane normalmente acceso eseguire una volta:
 `SETUP_SYNC_BACKGROUND.bat`
 
 La configurazione:
-- installa/aggiorna Playwright e il gestore credenziali Windows;
+- installa le versioni indicate in requirements.txt (Playwright 1.55.0, keyring 25.6.0, cryptography 50.0.0);
 - memorizza in modo protetto il refresh token dell'account amministratore Ore & Produttività;
 - crea un profilo Edge dedicato alla sessione CRM aziendale;
 - richiede il login CRM soltanto nella configurazione iniziale o quando Innova fa realmente scadere la sessione;
@@ -63,7 +63,7 @@ Se la sessione CRM scade, l'agente non apre finestre agli utenti: si ferma e ric
 
 L'agente aziendale usa un mutex Windows per impedire due sincronizzazioni contemporanee. L'attività pianificata è inoltre configurata con `MultipleInstances=IgnoreNew`.
 
-Durante un ciclo viene inviato un heartbeat al backend ogni 4 risorse, così la Dashboard distingue un agente realmente fermo da un ciclo ancora in corso.
+Il ciclo comunica avvio ed esito al backend. Ogni risorsa ha ultimo tentativo, ultima lettura riuscita e motivo di errore separati. Un ciclo parziale non è un successo.
 
 Come protezione aggiuntiva, se quattro risorse diverse restituiscono esattamente la stessa agenda non vuota, le successive vengono marcate come sospette invece di essere importate automaticamente. Questo evita di attribuire a più tecnici la stessa agenda nel caso in cui il cambio risorsa nel CRM non sia avvenuto correttamente.
 
@@ -106,3 +106,11 @@ La web app mostra anche l'heartbeat backend dell'agente e distingue servizio att
 Lo stato browser viene salvato in `%LOCALAPPDATA%\ColligoOreProduttivita\crm-auth.bin`
 cifrato con Fernet. Nel Gestore credenziali Windows resta solo la piccola chiave di
 cifratura, evitando il limite `CredWrite 1783`.
+
+## Correzione selettore e recupero del 5 ottobre 2026
+
+La risorsa viene selezionata con cboAgendaToolbar e identificativo CRM, attendendo il frame calendario corretto. Si verificano valore del select, URL del calendario e un’unica checkbox selezionata. Il controllo agenda_identica_sospetta resta attivo.
+
+Il setup dichiara completamento solo dopo una lettura di tutte le risorse attive; altrimenti restituisce errore e il riepilogo completo Lette X su Y, fallite: .... L’elenco viene riletto dal CRM a ogni ciclo. Nuove risorse restano senza account finché l’admin approva il collegamento.
+
+La configurazione recovery_hold=true è obbligatoria durante il recupero: il ciclo salva recovery-preview.json sul PC, aggiorna solo stato e inventario e non importa appuntamenti. Anche --preview forza questo comportamento. Non disattivare il blocco prima della conferma umana dell’anteprima. Giorni confermati e mesi chiusi non sono modificati dall’import.
