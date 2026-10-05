@@ -158,8 +158,10 @@ const importMatching = (() => {
       .map((riga) => Number(riga.numero_originale ?? riga.id_originale))
       .filter((numero) => Number.isInteger(numero) && numero >= 1 && numero <= 75);
     const massimo = numeri.length ? Math.max(...numeri) : 0;
-    const contieneVoceRitirata = righeNostre.some((riga) => Boolean(rigaInterparkingRitirata(riga, checklistId)));
-    return massimo >= 74 || contieneVoceRitirata;
+    // I PDF completi caricati arrivano fino alla numerazione 75. Non basta trovare una singola
+    // voce ritirata: estratti/parziali legacy più vecchi possono usare id interni differenti e in
+    // quel caso deve continuare a vincere il riconoscimento testuale conservativo.
+    return massimo >= 74;
   }
 
   function mappaNumeroLegacyInterparking(numero) {
