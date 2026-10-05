@@ -51,9 +51,11 @@ const APP_SHELL = [
 async function precacheTutto(cache) {
   await cache.addAll(APP_SHELL);
 
-  const response = await fetch('./checklists/index.json');
+  const response = await fetch('./checklists/index.json', { cache: 'no-store' });
   const { checklists } = await response.json();
-  const urlChecklist = checklists.map((c) => `./checklists/${c.id}.json`);
+  const urlChecklist = checklists.map((c) =>
+    `./checklists/${c.id}.json?v=${encodeURIComponent(c.versione || '')}`
+  );
   await cache.addAll(urlChecklist);
 }
 
@@ -134,7 +136,7 @@ self.addEventListener('fetch', (event) => {
   // Evita che HTML/CSS/JS vecchi restino bloccati dopo un rilascio.
   event.respondWith(
     isChecklist
-      ? networkFirst(event.request)
+      ? networkFirst(event.request, { bypassHttpCache: true })
       : (isVersione || isDocumento || isCodice
           ? networkFirst(event.request, { bypassHttpCache: true })
           : cacheFirst(event.request))
