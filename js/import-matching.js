@@ -145,6 +145,39 @@ const importMatching = (() => {
   }
 
   /**
+   * I PDF Interparking di settembre 2026 caricati nell'app appartengono alla generazione legacy
+   * con 75 numeri progressivi visibili. La checklist corrente ha 73 domande: le vecchie righe
+   * 25 (sprinkler) e 49 (planimetria duplicata) sono state ritirate, mentre la vecchia riga 44
+   * è conservata con id stabile 77. In questa famiglia nota il numero visibile è più affidabile
+   * del testo estratto dal PDF, che può essere spezzato o ricomposto in modo diverso.
+   */
+  function eNumerazioneLegacyInterparking(righeGrezze, checklistId) {
+    if (checklistId !== 'interparking_sopralluogo') return false;
+    const righeNostre = (righeGrezze || []).filter((riga) => riga && riga.formato === 'nostro');
+    const numeri = righeNostre
+      .map((riga) => Number(riga.numero_originale ?? riga.id_originale))
+      .filter((numero) => Number.isInteger(numero) && numero >= 1 && numero <= 75);
+    const massimo = numeri.length ? Math.max(...numeri) : 0;
+    const contieneVoceRitirata = righeNostre.some((riga) => Boolean(rigaInterparkingRitirata(riga, checklistId)));
+    return massimo >= 74 || contieneVoceRitirata;
+  }
+
+  function mappaNumeroLegacyInterparking(numero) {
+    const n = Number(numero);
+    if (!Number.isInteger(n) || n < 1 || n > 75) return null;
+    if (n <= 15) return { domandaId: n };
+    if (n <= 24) return { domandaId: n + 2 };
+    if (n === 25) return { domandaId: null, ritirata: true,
+      avviso: 'Voce Interparking storica “Impianto sprinkler” rimossa dalla checklist corrente: esclusa automaticamente.' };
+    if (n <= 43) return { domandaId: n + 2 };
+    if (n === 44) return { domandaId: 77 };
+    if (n <= 48) return { domandaId: n + 1 };
+    if (n === 49) return { domandaId: null, ritirata: true,
+      avviso: 'Vecchia domanda duplicata sulle planimetrie Interparking: esclusa automaticamente.' };
+    return { domandaId: n + 1 };
+  }
+
+  /**
    * Costruisce il risolutore "sezione + numero locale" per il formato storico: la checklist target
    * viene divisa negli stessi due macro-gruppi usati in generazione (stesso punto di divisione di
    * js/pdf.js#calcolaPuntoDivisioneGruppi, passato dal chiamante per non introdurre qui una
@@ -258,12 +291,28 @@ const importMatching = (() => {
     const risolutoreStorico = Number.isInteger(opzioni.puntoDivisioneGruppi)
       ? creaRisolutoreGruppoStorico(domande, opzioni.puntoDivisioneGruppi)
       : null;
+    const numerazioneLegacyInterparking = eNumerazioneLegacyInterparking(righeGrezze, checklist && checklist.id);
 
     const righe = righeGrezze.map((rigaGrezza, indice) => {
-      const ritirata = rigaInterparkingRitirata(rigaGrezza, checklist && checklist.id);
-      const esito = ritirata
-        ? { domandaId: null, metodo: 'legacy_interparking', confidenza: 1, automatico: true, avviso: ritirata.avviso, ritirata: true }
-        : abbinaRiga(rigaGrezza, domande, idValidi, risolutoreStorico);
+      const numeroLegacy = numerazioneLegacyInterparking
+        ? mappaNumeroLegacyInterparking(rigaGrezza.numero_originale ?? rigaGrezza.id_originale)
+        : null;
+      const ritirataTestuale = rigaInterparkingRitirata(rigaGrezza, checklist && checklist.id);
+      let esito;
+      if (numeroLegacy && (numeroLegacy.ritirata || idValidi.has(numeroLegacy.domandaId))) {
+        esito = {
+          domandaId: numeroLegacy.domandaId,
+          metodo: numeroLegacy.ritirata ? 'legacy_interparking' : 'legacy_interparking_numero',
+          confidenza: 1,
+          automatico: true,
+          avviso: numeroLegacy.avviso || null,
+          ritirata: Boolean(numeroLegacy.ritirata)
+        };
+      } else if (ritirataTestuale) {
+        esito = { domandaId: null, metodo: 'legacy_interparking', confidenza: 1, automatico: true, avviso: ritirataTestuale.avviso, ritirata: true };
+      } else {
+        esito = abbinaRiga(rigaGrezza, domande, idValidi, risolutoreStorico);
+      }
       return {
         indice,
         originale: {
@@ -617,6 +666,8 @@ const importMatching = (() => {
     calcolaRiepilogo,
     collegaImmaginiAlleDomande,
     rigaInterparkingRitirata,
+    eNumerazioneLegacyInterparking,
+    mappaNumeroLegacyInterparking,
     SOGLIE: { ALTA: SOGLIA_ALTA, MINIMA: SOGLIA_MINIMA, SANITA: SOGLIA_SANITA, AMBIGUITA: MARGINE_AMBIGUITA }
   };
 })();

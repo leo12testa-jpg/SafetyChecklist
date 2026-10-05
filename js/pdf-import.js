@@ -512,7 +512,24 @@ const pdfImport = (() => {
 
       if (colonneCorrenti) {
         const daCelle = righeDaCelle(items, colonneCorrenti, itemsGrezzi.bordi, sezioneCorrente, 'nostro');
-        righe.push(...(daCelle === null ? estraiRighePaginaNostro(items, colonneCorrenti, sezioneCorrente) : daCelle));
+        const fallback = estraiRighePaginaNostro(items, colonneCorrenti, sezioneCorrente);
+        if (daCelle === null) {
+          righe.push(...fallback);
+        } else {
+          // Nei PDF reali alcuni bordi vettoriali possono essere spezzati fra pagine. Il parser
+          // a celle resta prioritario, ma una riga numerata letta dal fallback non va persa.
+          const unite = daCelle.slice();
+          const numeriPresenti = new Set(unite.map((riga) => Number(riga.numero_originale)));
+          fallback.forEach((riga) => {
+            const numero = Number(riga.numero_originale);
+            if (!numeriPresenti.has(numero)) {
+              unite.push(riga);
+              numeriPresenti.add(numero);
+            }
+          });
+          unite.sort((a, b) => Number(a.numero_originale) - Number(b.numero_originale));
+          righe.push(...unite);
+        }
       }
     });
 

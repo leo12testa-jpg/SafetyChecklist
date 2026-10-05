@@ -413,7 +413,7 @@ const db = (() => {
     const rispostaConTimestamp = { ...risposta, aggiornato_il: adesso };
 
     const risposte = normalizzaRisposte(sopralluogo.risposte);
-    const idx = risposte.findIndex((r) => r.domanda_id === risposta.domanda_id);
+    const idx = risposte.findIndex((r) => String(r.domanda_id) === String(risposta.domanda_id));
     const precedente = idx >= 0 ? risposte[idx] : null;
     if (idx >= 0) {
       risposte[idx] = { ...risposte[idx], ...rispostaConTimestamp };
@@ -432,7 +432,7 @@ const db = (() => {
     // risposta, note e foto-id sono rileggibili da una transazione indipendente.
     const rispostaSalvata = risposte[idx >= 0 ? idx : risposte.length - 1];
     const verificato = await leggiSopralluogoGrezzo(sopralluogoId);
-    const rispostaVerificata = verificato && normalizzaRisposte(verificato.risposte).find((r) => r.domanda_id === risposta.domanda_id);
+    const rispostaVerificata = verificato && normalizzaRisposte(verificato.risposte).find((r) => String(r.domanda_id) === String(risposta.domanda_id));
     if (!rispostaVerificata || rispostaVerificata.aggiornato_il !== adesso) {
       throw new Error(`Salvataggio locale non verificabile per la risposta alla domanda ${risposta.domanda_id} del sopralluogo ${sopralluogoId}.`);
     }

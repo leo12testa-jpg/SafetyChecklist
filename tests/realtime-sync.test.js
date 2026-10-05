@@ -308,3 +308,11 @@ test('final reconciliation clears phantom pending entries but preserves real loc
   reconcile([{id:'REAL',risposte:[]}]);
   assert.equal(s.api.dettaglioInAttesa().dati,0);
 });
+
+
+test('sync ritenta subito una transazione auth dopo refresh token senza cancellare revisioni locali', () => {
+  const source = fs.readFileSync('js/sync.js','utf8');
+  assert.match(source, /tentativoAuth === 0/);
+  assert.match(source, /getIdToken\(true\)/);
+  assert.match(source, /confermaSincronizzato\(id, rev\)/);
+});
