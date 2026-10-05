@@ -1523,3 +1523,4 @@ body{background:var(--ui-bg)}
 .complexity-fields>label{display:flex;flex-direction:column;gap:5px;min-width:0}
 .complexity-fields select,.complexity-fields input:not([type=checkbox]){width:100%;min-width:0;box-sizing:border-box}
 #estimateComplexityFilters{grid-column:1/-1}
+#missingPersonal button{margin:4px;white-space:normal}

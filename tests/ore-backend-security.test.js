@@ -140,3 +140,24 @@ test('simulatore: filtra pratiche complete e conta casi, non sessioni',async()=>
  const database={from(table){const q={select(){return this;},order(){return this;},limit(){return this;},range(){return this;},then(resolve){resolve({data:table==='ore_sessioni'?sessions:[],error:null});}};return q;}};
  const response=await backend({role:'admin',database}).call({action:'adminEconomics',complexity:{fascia_lavoratori:'10-49'}});assert.equal(response.status,200);const result=await response.json();assert.equal(result.typeStats[0].n,1);assert.equal(result.typeStats[0].mediana_ore,12);
 });
+test('giornate: part-time con decorrenza, assenze separate e conferme',()=>{
+ const app=backend();app.context.people=[{uid:'u1',nome:'Leo'}];app.context.schedules=[{tecnico_uid:'u1',valido_dal:'2026-10-01',settimana_minuti:[240,240,240,240,240,0,0]}];
+ app.context.activities=[{tecnico_uid:'u1',data_lavoro:'2026-09-30',minuti_effettivi:480},{tecnico_uid:'u1',data_lavoro:'2026-10-01',minuti_effettivi:240},{tecnico_uid:'u1',data_lavoro:'2026-10-02',minuti_effettivi:120},{tecnico_uid:'u1',data_lavoro:'2026-10-02',minuti_effettivi:120,assenza:true}];
+ app.context.statuses=['2026-09-30','2026-10-01','2026-10-02'].map(data=>({tecnico_uid:'u1',data,stato:'confermata'}));
+ const rows=vm.runInContext("missingWorkDays(people,activities,statuses,schedules,'2026-10-05')",app.context);assert.equal(rows.some(r=>r.date==='2026-10-01'),false);assert.equal(rows.some(r=>r.date==='2026-09-30'),false);
+ const friday=rows.find(r=>r.date==='2026-10-02');assert.equal(friday.expectedMinutes,240);assert.equal(friday.reportedMinutes,120);assert.equal(friday.absenceMinutes,120);assert.equal(friday.underHours,true);assert.equal(friday.confirmed,true);
+ assert.ok(rows.every(r=>r.date<'2026-10-05'&&!['2026-10-03','2026-10-04'].includes(r.date)));
+ assert.equal(vm.runInContext("shiftWorkDate('2026-10-26',-1)",app.context),'2026-10-25');
+ assert.equal(vm.runInContext("new Date('2026-10-04T22:30:00Z').toLocaleDateString('sv-SE',{timeZone:'Europe/Rome'})",app.context),'2026-10-05');
+});
+test('giornate: festività escluse anche con orario sette giorni e tecnici senza ore previsti esclusi',()=>{
+ const app=backend();app.context.people=[{uid:'u1',nome:'Leo'},{uid:'u2',nome:'Zero'}];app.context.schedules=[{tecnico_uid:'u1',valido_dal:'2026-01-01',settimana_minuti:[480,480,480,480,480,480,480]},{tecnico_uid:'u2',valido_dal:'2026-01-01',settimana_minuti:[0,0,0,0,0,0,0]}];
+ const rows=vm.runInContext("missingWorkDays(people,[],[],schedules,'2026-06-03')",app.context);assert.ok(rows.every(r=>r.date!=='2026-06-02'&&r.tecnico_uid==='u1'));
+});
+test('tecnico: vista giornate di tutti rifiutata prima delle query',async()=>{
+ const app=backend();assert.equal((await app.call({action:'missingDays',scope:'all',ruolo:'admin'})).status,403);assert.equal(app.dbCalls(),0);
+});
+test('giornate personali: filtri UID imposti dal server, body altrui ignorato',async()=>{
+ const filters=[];const database={from(table){const q={select(){return this;},eq(k,v){filters.push([table,k,v]);return this;},gte(){return this;},lte(){return this;},order(){return this;},range(){return this;},in(k,v){filters.push([table,k,v]);return this;},then(resolve){resolve({data:[],error:null});}};return q;}};
+ const response=await backend({database}).call({action:'missingDays',scope:'mine',tecnicoUid:'other'});assert.equal(response.status,200);assert.ok(filters.some(f=>f[0]==='ore_rendicontazioni'&&f[2][0]==='u1'));assert.ok(!filters.some(f=>JSON.stringify(f).includes('other')));
+});

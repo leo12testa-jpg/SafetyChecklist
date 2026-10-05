@@ -61,6 +61,19 @@ function minutes(v: unknown) {
   if (!Number.isInteger(n) || n < 0 || n > 1440) bad("Durata non valida.");
   return n;
 }
+function shiftWorkDate(day:string,delta:number){const date=new Date(day+"T12:00:00Z");date.setUTCDate(date.getUTCDate()+delta);return date.toISOString().slice(0,10);}
+function missingWorkDays(people:any[],activities:any[],statuses:any[],schedules:any[],today:string){
+ const totals=new Map<string,any>(),confirmed=new Set<string>();
+ for(const row of activities){const key=row.tecnico_uid+"|"+row.data_lavoro,value=totals.get(key)||{worked:0,absence:0};if(row.assenza)value.absence+=Number(row.minuti_effettivi||0);else value.worked+=Number(row.minuti_effettivi||0);totals.set(key,value);}
+ for(const row of statuses)if(row.stato==="confermata")confirmed.add(row.tecnico_uid+"|"+row.data);
+ const rows:any[]=[];
+ for(const person of people){const week=schedules.filter(s=>s.tecnico_uid===person.uid);
+  for(let offset=30;offset>=1;offset--){const day=shiftWorkDate(today,-offset),expected=expectedWork(day,week);if(!expected.minutes)continue;
+   const key=person.uid+"|"+day,total=totals.get(key)||{worked:0,absence:0},isConfirmed=confirmed.has(key),underHours=total.worked<expected.minutes;
+   if(!isConfirmed||underHours)rows.push({tecnico_uid:person.uid,tecnico_nome:person.nome,date:day,expectedMinutes:expected.minutes,expectedSource:expected.source,reportedMinutes:total.worked,absenceMinutes:total.absence,confirmed:isConfirmed,underHours});
+  }
+ }return rows.sort((a,b)=>String(a.tecnico_nome).localeCompare(String(b.tecnico_nome),"it")||a.date.localeCompare(b.date));
+}
 let firebaseKeyCache:{keys:JsonWebKey[],until:number}|null=null;
 function jwtBytes(value:string){return Uint8Array.from(atob(value.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0));}
 async function verifyFirebaseJwt(token:string){
@@ -144,7 +157,7 @@ const ACTION_ROLES: Record<string, readonly string[]> = {
   adminEconomics: ["admin"], archiveJobs: ["admin"], archiveJobDetail: ["admin"],
   adminSummary: ["admin"], crmLinks: ["admin"], previewCrmLink: ["admin"], approveCrmLink: ["admin"],
   saveInternal: ["admin", "tecnico"], workSchedules: ["admin"], saveWorkSchedule: ["admin"],
-  savePhase: ["admin", "tecnico"], previewIdentity: ["admin"], approveIdentity: ["admin"], changeJobState: ["admin"], saveJobComplexity: ["admin"]
+  savePhase: ["admin", "tecnico"], previewIdentity: ["admin"], approveIdentity: ["admin"], changeJobState: ["admin"], saveJobComplexity: ["admin"], missingDays: ["admin", "tecnico"]
 };
 function authorizeAction(user: any, action: string) {
   if (!Object.hasOwn(ACTION_ROLES, action)) bad("Operazione non riconosciuta.");
@@ -209,6 +222,27 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "");
     authorizeAction(user, action);
+
+    if(action === "missingDays"){
+      const all=body.scope==="all";if(all)requireAdmin(user);
+      const today=new Date().toLocaleDateString("sv-SE",{timeZone:"Europe/Rome"}),from=shiftWorkDate(today,-30),to=shiftWorkDate(today,-1);
+      let people:any[]=[{uid:user.uid,nome:`${user.profile.nome||""} ${user.profile.cognome||""}`.trim()||user.uid}];
+      if(all){people=[];let pageToken="";do{
+        const response=await fetch(`${FIRESTORE}/utenti?pageSize=1000${pageToken?"&pageToken="+encodeURIComponent(pageToken):""}`,{headers:{authorization:`Bearer ${user.token}`}});
+        if(!response.ok)bad("Impossibile leggere gli account attivi.",500);const page=await response.json();
+        people.push(...(page.documents||[]).map(fromDoc).filter((p:any)=>p.attivo===true&&["admin","tecnico"].includes(p.ruolo)).map((p:any)=>({uid:p.uid,nome:`${p.nome||""} ${p.cognome||""}`.trim()||p.uid})));pageToken=page.nextPageToken||"";
+      }while(pageToken);}
+      let aliasesQuery=db.from("ore_identita_alias").select("*");if(!all)aliasesQuery=aliasesQuery.eq("tecnico_uid",user.uid);
+      const {data:aliases,error:aliasError}=await aliasesQuery;if(aliasError)bad("Impossibile leggere le identita.",500);
+      const ownedUids=[user.uid,...(aliases||[]).map((a:any)=>a.uid_storico)];
+      const scoped=(table:string,column:string)=>{let query=db.from(table).select("*").gte(column,from).lte(column,to);if(!all)query=query.in("tecnico_uid",ownedUids);return query;};
+      const [{data:activities,error:activityError},{data:statuses,error:statusError},{data:schedules,error:scheduleError}]=await Promise.all([
+        readAll(()=>scoped("ore_rendicontazioni","data_lavoro")),readAll(()=>scoped("ore_giornate","data")),
+        readAll(()=>{let query=db.from("ore_orari_tecnici").select("*").lte("valido_dal",to);if(!all)query=query.eq("tecnico_uid",user.uid);return query;})
+      ]);
+      if(activityError||statusError||scheduleError)bad("Impossibile verificare le giornate.",500);
+      return json(req,{from,to,today,people:people.length,rows:missingWorkDays(people,attributeIdentity(activities||[],aliases||[]),attributeIdentity(statuses||[],aliases||[]),schedules||[],today)});
+    }
 
     if(action === "saveJobComplexity"){
       if(!body.complexity||typeof body.complexity!=="object"||Array.isArray(body.complexity))bad("Indica i fattori di complessita.");

@@ -11,8 +11,8 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="../assets/icon-192.png">
   <link rel="apple-touch-icon" href="../assets/icon-512.png">
-  <link rel="stylesheet" href="./style.css?v=20261004-130000">
-  <link rel="stylesheet" href="./layout.css?v=20261004-130000">
+  <link rel="stylesheet" href="./style.css?v=20261004-140000">
+  <link rel="stylesheet" href="./layout.css?v=20261004-140000">
 </head>
 <body>
   <main id="loginView" class="login-shell">
@@ -133,6 +133,7 @@
           </section>
 
           <div id="dayMessage" class="notice" hidden></div>
+          <div id="missingPersonal" class="notice" hidden></div>
 
           <div id="manualCard" class="proto-card quick-entry-card" hidden>
             <div class="proto-card-head">
@@ -252,6 +253,7 @@
             <article class="summary-card"><span class="summary-icon">◆</span><div><small>Clienti attivi</small><strong id="kpiClients">0</strong><span>Clienti con almeno un’attività</span></div></article>
           </div>
 
+          <details class="panel"><summary>Giornate da verificare</summary><p>I 30 giorni precedenti, senza oggi. Sono inclusi solo i giorni con ore previste positive, escluse le festività. Le assenze non sono ore lavorate e sono indicate separatamente; il confronto usa il monte ore previsto. Solo account attivi; risorse senza account da verificare nei collegamenti CRM.</p><button id="loadMissingDays" type="button">Carica giornate</button><p id="missingPeriod"></p><div class="table-wrap"><table><thead><tr><th>Tecnico</th><th>Data</th><th>Previste</th><th>Ore senza assenze</th><th>Assenze</th><th>Stato</th></tr></thead><tbody id="missingAdminRows"></tbody></table></div></details>
           <div class="admin-visual-grid">
             <div class="panel admin-chart-card">
               <div class="panel-heading compact"><div><span class="eyebrow">DOCUMENTI</span><h2>Ore per tipo di documento</h2></div></div>
@@ -601,14 +603,15 @@
   <script src="../js/vendor/firebase-app-compat.js"></script>
   <script src="../js/vendor/firebase-firestore-compat.js"></script>
   <script src="../js/vendor/firebase-auth-compat.js"></script>
-  <script src="./aggiornamento.js?v=20261004-130000"></script>
-  <script src="./app.js?v=20261004-130000"></script>
-  <script src="./crm-links.js?v=20261004-130000"></script>
-  <script src="./internal-activities.js?v=20261004-130000"></script>
-  <script src="./work-schedules.js?v=20261004-130000"></script>
-  <script src="./work-phases.js?v=20261004-130000"></script>
-  <script src="./identities.js?v=20261004-130000"></script>
-  <script src="./job-closure.js?v=20261004-130000"></script>
-  <script src="./job-complexity.js?v=20261004-130000"></script>
+  <script src="./aggiornamento.js?v=20261004-140000"></script>
+  <script src="./app.js?v=20261004-140000"></script>
+  <script src="./crm-links.js?v=20261004-140000"></script>
+  <script src="./internal-activities.js?v=20261004-140000"></script>
+  <script src="./work-schedules.js?v=20261004-140000"></script>
+  <script src="./work-phases.js?v=20261004-140000"></script>
+  <script src="./identities.js?v=20261004-140000"></script>
+  <script src="./job-closure.js?v=20261004-140000"></script>
+  <script src="./job-complexity.js?v=20261004-140000"></script>
+  <script src="./missing-days.js?v=20261004-140000"></script>
 </body>
 </html>

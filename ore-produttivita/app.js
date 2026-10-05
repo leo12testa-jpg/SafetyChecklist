@@ -24,6 +24,7 @@ function notify(message,type="error",ms){
 const READ_ACTIONS=new Set(["day","syncStatus","catalog","commesse","recentPersonal","adminSummary","crmResources","archiveJobs","archiveJob","economicsCatalog","adminEconomics"]);
 READ_ACTIONS.add("crmLinks");READ_ACTIONS.add("previewCrmLink");
 READ_ACTIONS.add("archiveJobDetail");READ_ACTIONS.add("previewIdentity");
+READ_ACTIONS.add("missingDays");
 const API_TIMEOUT_MS=25000;
 function friendlyError(status,body){
   if(body&&body.error)return body.error;
@@ -505,7 +506,7 @@ async function loadDay(){
       box.appendChild(row);
       if(typeof addPhaseEditor==="function")addPhaseEditor(row,s,confirmed);
     });
-    await Promise.all([loadSyncStatus(),renderRecentActivities()]);
+    await Promise.all([loadSyncStatus(),renderRecentActivities(),typeof loadMissingPersonal==="function"?loadMissingPersonal():Promise.resolve()]);
   }catch(e){if(seq!==daySeq)return;$("#dayMessage").textContent=e.message;$("#dayMessage").hidden=false;renderEmpty()}
 }
 $("#confirmDay").addEventListener("click",async()=>{

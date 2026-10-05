@@ -43,6 +43,7 @@ async function run(role,viewport,label,extra){
       case 'saveInternal':return ok({ok:true,id:'int2'});
       case 'workSchedules':return ok({technicians:[{uid:'u1',nome:'Leo'}],schedules:[{tecnico_uid:'u1',tecnico_nome:'Leo',valido_dal:'2026-01-01',settimana_minuti:[240,240,240,240,240,0,0]}]});
       case 'saveWorkSchedule':return ok({ok:true,id:'schedule2'});
+      case 'missingDays':return ok({from:'2026-09-04',to:'2026-10-03',people:1,rows:[{tecnico_uid:'u1',tecnico_nome:'Leo '+EVIL,date:'2026-10-02',expectedMinutes:240,expectedSource:'configurato',reportedMinutes:120,absenceMinutes:60,confirmed:false,underHours:true}]});
       case 'confirmDay':return r.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:'Giornata già chiusa dal responsabile.'})});
       case 'adminSummary':return ok({totalMinutes:960,technicians:1,jobs:2,billability:{percent:80,technicians:[{tecnico_uid:'u1',tecnico_nome:'Leo '+EVIL,billableMinutes:480,reportedExcludingAbsence:600,percent:80}]},rows:[{data_lavoro:'2026-10-02',tecnico_nome:'Leo '+EVIL,commessa_id:'c1',minuti_effettivi:600,origine:'manuale',ore_commesse:{...job(1,'DVR sede'),stato:'completata'}}]});
       case 'crmResources':return ok({resources:[],agent:{heartbeat_at:new Date().toISOString(),state:'ok'}});
@@ -141,6 +142,9 @@ async function run(role,viewport,label,extra){
       assert.equal(calls.find(c=>c.action==='savePhase').fase,'trasferta');
       assert.equal(await page.locator('#sessions .proto-hours input').first().inputValue(),'1h45','salvare fase preserva ore aperte');
       assert.equal(await phase.inputValue(),'trasferta');
+      await page.locator('#sessions .proto-hours input').first().press('Escape');
+      await page.click('#missingPersonal [data-missing-date="2026-10-02"]');await page.waitForTimeout(250);
+      assert.equal(await page.locator('#dayDate').inputValue(),'2026-10-02');assert.equal(calls.filter(c=>c.action==='day').at(-1).date,'2026-10-02');
     });
     await run('tecnico',{width:390,height:844},'tecnico-mobile',async(page)=>{
       for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),false,id+' visibile al tecnico (mobile)');
@@ -150,6 +154,7 @@ async function run(role,viewport,label,extra){
       await page.click('#tabAdmin');await page.waitForTimeout(800);
       assert.equal(await page.locator('#kpiBillable').innerText(),'80%');
       assert.ok((await page.locator('#billabilityRows').innerText()).includes('80%'));
+      await page.locator('#loadMissingDays').evaluate(el=>el.closest('details').open=true);await page.click('#loadMissingDays');await page.waitForTimeout(250);assert.match(await page.locator('#missingAdminRows').innerText(),/Non confermata/);assert.match(await page.locator('#missingAdminRows').innerText(),/Ore sotto il previsto/);
       const prod=await page.locator('#productivityRows').innerText();
       assert.match(prod,/B · DVR/);assert.match(prod,/30 h/,'mediana sullo storico (40 e 20) = 30 h');
       assert.ok(!prod.includes('99'),'pratiche aperte escluse');
