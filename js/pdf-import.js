@@ -96,32 +96,40 @@ const pdfImport = (() => {
    * basta trovarne una sola occorrenza per ricavare le colonne dell'intera pagina.
    */
   function trovaIntestazioniColonneNostro(items) {
-    const trova = (testo) => items.find((it) => it.testo.trim() === testo);
-    const idH = trova('n.');
-    const cH = trova('C');
-    const pcH = trova('P.C');
-    const ncH = trova('N.C');
-    const npH = trova('N.P');
-    const noteH = trova('Note');
+    // Non usare il primo "C" trovato nel flusso PDF: il footer può essere disegnato prima della
+    // tabella e contenere a sua volta "C / P.C / N.C / N.P". Le intestazioni vere devono stare
+    // sulla stessa riga geometrica di "n." e nell'ordine orizzontale atteso.
+    const idCandidates = items.filter((it) => it.testo.trim() === 'n.');
+    for (const idH of idCandidates) {
+      const vicino = (testo) => items.find((it) =>
+        it.testo.trim() === testo &&
+        Math.abs(it.y - idH.y) <= 5 &&
+        it.x > idH.x
+      );
+      const cH = vicino('C');
+      const pcH = vicino('P.C');
+      const ncH = vicino('N.C');
+      const npH = vicino('N.P');
+      const noteH = vicino('Note');
+      if (!cH || !pcH || !ncH || !npH || !noteH) continue;
+      if (!(cH.x < pcH.x && pcH.x < ncH.x && ncH.x < npH.x && npH.x < noteH.x)) continue;
 
-    if (!idH || !cH || !pcH || !ncH || !npH || !noteH) {
-      return null;
+      return {
+        idX: idH.x,
+        C: cH.x,
+        PC: pcH.x,
+        NC: ncH.x,
+        NA: npH.x,
+        noteX: noteH.x,
+        // La soglia NON è il punto medio fra le due intestazioni: "Note" è centrata nella sua
+        // colonna larga, mentre il testo delle note parte subito dopo N.P. Nei PDF Interparking
+        // reali la prima parola della nota può iniziare circa 18-20 pt dopo la x dell'etichetta
+        // N.P.; usare +20 con confronto stretto ">" perdeva proprio la prima parola. +12 resta
+        // oltre qualunque X della colonna N.P ma include integralmente il testo della nota.
+        sogliaNota: npH.x + 12
+      };
     }
-
-    return {
-      idX: idH.x,
-      C: cH.x,
-      PC: pcH.x,
-      NC: ncH.x,
-      NA: npH.x,
-      noteX: noteH.x,
-      // La soglia NON è il punto medio fra le due intestazioni: "Note" è centrata nella sua
-      // colonna larga, mentre il testo delle note parte subito dopo N.P. Nei PDF Interparking
-      // reali la prima parola della nota può iniziare circa 18-20 pt dopo la x dell'etichetta
-      // N.P.; usare +20 con confronto stretto ">" perdeva proprio la prima parola. +12 resta
-      // oltre qualunque X della colonna N.P ma include integralmente il testo della nota.
-      sogliaNota: npH.x + 12
-    };
+    return null;
   }
 
   /** Tutte le occorrenze dell'intestazione 'n.' sulla pagina: una per ogni tabella di sezione presente. */
@@ -659,6 +667,7 @@ const pdfImport = (() => {
   // l'ordine di disegno nello stream, non la posizione verticale), quindi va sempre esclusa a
   // priori da qualunque lettura strutturale — non è mai un titolo, una domanda o una nota.
   const REGEX_LEGENDA_PIE_PAGINA = /^C\s*=\s*Conforme/i;
+  const REGEX_NUMERO_PAGINA = /^Pag\.\s*\d+\s+di\s+\d+$/i;
 
   /**
    * Prova il formato "nostro" sull'intero documento (pagine già estratte). Ritorna
@@ -673,7 +682,10 @@ const pdfImport = (() => {
 
     pagine.forEach((itemsGrezzi, indice) => {
       const numeroPagina = indice + 1;
-      let items = itemsGrezzi.filter((it) => !REGEX_LEGENDA_PIE_PAGINA.test(it.testo.trim()));
+      let items = itemsGrezzi.filter((it) =>
+        !REGEX_LEGENDA_PIE_PAGINA.test(it.testo.trim()) &&
+        !REGEX_NUMERO_PAGINA.test(it.testo.trim())
+      );
       const intestazioni = trovaIntestazioniColonneNostro(items);
       if (intestazioni) {
         colonneCorrenti = intestazioni;
