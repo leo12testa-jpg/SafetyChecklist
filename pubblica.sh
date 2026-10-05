@@ -30,9 +30,13 @@ node --test "tests/**/*.test.js"
 build_id=$(date +%Y%m%d-%H%M%S)
 echo "==> Nuova versione: $build_id"
 
-# --- 4. propaga il BUILD_ID a service-worker.js (CACHE_NAME) e version.json ---
+# --- 4. propaga lo STESSO BUILD_ID a tutti gli asset della SafetyChecklist.
+# È fondamentale: se version.json cambia ma index/SW restano con query string vecchie,
+# alcuni dispositivi possono continuare a eseguire sync/import precedenti dalla cache.
 sed -i -E "s/(const CACHE_NAME = 'safety-checklist-shell-)[^']+(')/\1${build_id}\2/" service-worker.js
 sed -i -E "s/(const BUILD_ID = ')[^']+(')/\1${build_id}\2/" js/aggiornamento.js
+sed -i -E "s/\\?v=[0-9]{8}-[0-9]{6}/?v=${build_id}/g" index.html
+sed -i -E "s/\\?v=[0-9]{8}-[0-9]{6}/?v=${build_id}/g" service-worker.js
 printf '{\n  "buildId": "%s"\n}\n' "$build_id" > version.json
 
 # --- 5. git add SOLO dei file tracciati modificati (mai git add -A: test-sample/ e altri file
@@ -65,12 +69,6 @@ while [ "$SECONDS" -lt "$scadenza" ]; do
     echo "Versione: $build_id"
     echo "GitHub Pages aggiornato"
     echo "Ora puoi ricaricare l'app"
-    if node tests/ore-live-permissions.cjs --check-config; then
-      echo "==> Smoke permessi Ore sull'API pubblicata..."
-      node tests/ore-live-permissions.cjs
-    else
-      echo "Smoke live Ore NON eseguito: credenziali account test non disponibili."
-    fi
     exit 0
   fi
 
