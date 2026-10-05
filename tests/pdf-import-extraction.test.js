@@ -343,7 +343,7 @@ test('nessuna struttura riconosciuta (PDF estraneo): strutturaRiconosciuta false
 });
 
 
-test('formato nostro: 103 righe grezze con 28 continuazioni diventano 75 righe logiche', () => {
+test('formato nostro: 103 righe grezze con 28 continuazioni adiacenti diventano 75 righe logiche', () => {
   const pdfImportPerTest = caricaPdfImport();
   const base = Array.from({ length: 75 }, (_, i) => ({
     formato: 'nostro',
@@ -354,16 +354,28 @@ test('formato nostro: 103 righe grezze con 28 continuazioni diventano 75 righe l
     stato_originale: 'C',
     nota_originale: null
   }));
-  const duplicati = base.slice(0, 28).map((r) => ({
-    ...r,
-    stato_originale: null,
-    nota_originale: 'continuazione nota'
-  }));
-  const consolidate = pdfImportPerTest._test.consolidaRigheNostre([...base, ...duplicati]);
+  const conContinuazioni = [];
+  base.forEach((r, i) => {
+    conContinuazioni.push(r);
+    if (i < 28) conContinuazioni.push({ ...r, stato_originale:null, nota_originale:'continuazione nota' });
+  });
+  const consolidate = pdfImportPerTest._test.consolidaRigheNostre(conContinuazioni);
   assert.equal(consolidate.length, 75);
   assert.equal(consolidate[0].stato_originale, 'C');
   assert.equal(consolidate[0].nota_originale, 'continuazione nota');
   assert.equal(consolidate[0].duplicati_consolidati, 1);
+});
+
+test('formato nostro: stesso numero ricomparso lontano non contamina la riga precedente', () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const consolidate = pdfImportPerTest._test.consolidaRigheNostre([
+    { formato:'nostro', id_originale:1, numero_originale:1, sezione_originale:'S', testo_originale:'Prima', stato_originale:'NC' },
+    { formato:'nostro', id_originale:2, numero_originale:2, sezione_originale:'S', testo_originale:'Seconda', stato_originale:'C' },
+    { formato:'nostro', id_originale:1, numero_originale:1, sezione_originale:'S', testo_originale:'Riga fantasma lontana', stato_originale:'C' }
+  ]);
+  assert.equal(consolidate.length,3);
+  assert.equal(consolidate[0].testo_originale,'Prima');
+  assert.equal(consolidate[0].stato_originale,'NC');
 });
 
 test('formato nostro: marcature discordanti su frammenti duplicati restano da verificare', () => {
