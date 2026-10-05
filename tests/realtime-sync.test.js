@@ -329,3 +329,10 @@ test('sync usa il conteggio delle sole foto realmente referenziate', () => {
   assert.match(source, /fotoSync\.contaFotoInSospeso/);
   assert.match(source, /await riconciliaAtteseFinali\(\);[\s\S]*if \(pendenti\.size && online\(\)\)/);
 });
+
+
+test('errore su un record locale mantiene stato parziale anche dopo la riconciliazione dei pending', () => {
+  const source = fs.readFileSync('js/sync.js','utf8');
+  assert.match(source, /erroriLocali \+= 1/);
+  assert.match(source, /erroreDati = nonApplicati > 0 \|\| erroriLocali > 0/);
+});

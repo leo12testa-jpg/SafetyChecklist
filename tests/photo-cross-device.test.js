@@ -128,7 +128,11 @@ test('foto pending: gli upload vengono ritentati automaticamente in parallelo li
     elencaFotoSenzaUrl: async () => pending,
     impostaUrlFoto: async () => {},
     impostaUrlFotoSopralluogo: async () => {},
-    elencaTuttiSopralluoghi: async () => []
+    elencaTuttiSopralluoghi: async () => [{
+      id:'s-1',
+      risposte: pending.map((foto) => ({ domanda_id: foto.domanda_id, foto:[foto.id] })),
+      altri_aspetti_foto:[]
+    }]
   };
   const storage = {
     upload: async () => {

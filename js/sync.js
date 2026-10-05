@@ -595,7 +595,7 @@ const sync = (() => {
         // ALL local records first, including legacy entries and the trash.
         const locali = await db.elencaTuttiSopralluoghi();
         riconciliaPendentiLocali(locali);
-        let remoti, nonApplicati = 0;
+        let remoti, nonApplicati = 0, erroriLocali = 0;
         if (!verificaServer && realtimeAllineato && unsubscribe) {
           // The listener already applied every server document it delivered.
           await codaSnapshot;
@@ -623,16 +623,18 @@ const sync = (() => {
               pendenti.delete(locale.id);
             }
           } catch (errore) {
-            // Never skip the remaining records; this one stays pending and is retried.
+            // Never skip the remaining records. Un record illeggibile resta locale e mantiene
+            // lo stato parziale tramite erroreCloud, senza trasformarsi in un "pending fantasma".
+            erroriLocali += 1;
             pendenti.set(locale.id, true);
             esiti.push(Promise.resolve(false));
             console.warn('Sync: confronto locale/cloud non riuscito, record conservato', locale.id, errore);
           }
         }
         datiVerificati = true;
-        erroreDati = nonApplicati > 0;
+        erroreDati = nonApplicati > 0 || erroriLocali > 0;
         avviaRealtime();
-        return (await Promise.all(esiti)).every(Boolean) && !nonApplicati;
+        return (await Promise.all(esiti)).every(Boolean) && !nonApplicati && !erroriLocali;
       } catch (errore) {
         erroreDati = true;
         console.warn('Sync: cloud non disponibile, dati locali conservati', errore);
