@@ -49,12 +49,13 @@ function italianHoliday(day:string){
   const monday=new Date(easter+"T12:00:00Z");monday.setUTCDate(monday.getUTCDate()+1);
   return day===monday.toISOString().slice(0,10)?"Lunedì dell’Angelo":null;
 }
-function expectedWork(day:string,schedules:any[]){
+function expectedWork(day:string,schedules:any[],periods:any[]=[]){
   const holiday=italianHoliday(day);
   const applicable=schedules.filter(s=>s.valido_dal<=day).sort((a,b)=>String(b.valido_dal).localeCompare(String(a.valido_dal)))[0];
   const weekday=(new Date(day+"T12:00:00Z").getUTCDay()+6)%7;
-  const week=applicable?.settimana_minuti||[480,480,480,480,480,0,0];
-  return {minutes:holiday?0:week[weekday],holiday,source:applicable?"configurato":"default",validFrom:applicable?.valido_dal||null};
+  const period=periods.find(p=>p.data_inizio<=day&&p.data_fine>=day);
+  const week=applicable?.settimana_minuti||period?.settimana_minuti||[480,480,480,480,480,0,0];
+  return {minutes:holiday?0:week[weekday],holiday,source:applicable?"configurato":period?"aziendale":"default",validFrom:applicable?.valido_dal||period?.data_inizio||null,validTo:period?.data_fine||null,periodName:period?.nome||null,needsVerification:!applicable&&!period&&day>="2026-05-01"&&day<="2026-08-31"};
 }
 function minutes(v: unknown) {
   const n = Number(v);
@@ -62,15 +63,15 @@ function minutes(v: unknown) {
   return n;
 }
 function shiftWorkDate(day:string,delta:number){const date=new Date(day+"T12:00:00Z");date.setUTCDate(date.getUTCDate()+delta);return date.toISOString().slice(0,10);}
-function missingWorkDays(people:any[],activities:any[],statuses:any[],schedules:any[],today:string){
+function missingWorkDays(people:any[],activities:any[],statuses:any[],schedules:any[],today:string,periods:any[]=[]){
  const totals=new Map<string,any>(),confirmed=new Set<string>();
  for(const row of activities){const key=row.tecnico_uid+"|"+row.data_lavoro,value=totals.get(key)||{worked:0,absence:0};if(row.assenza)value.absence+=Number(row.minuti_effettivi||0);else value.worked+=Number(row.minuti_effettivi||0);totals.set(key,value);}
  for(const row of statuses)if(row.stato==="confermata")confirmed.add(row.tecnico_uid+"|"+row.data);
  const rows:any[]=[];
  for(const person of people){const week=schedules.filter(s=>s.tecnico_uid===person.uid);
-  for(let offset=30;offset>=1;offset--){const day=shiftWorkDate(today,-offset),expected=expectedWork(day,week);if(!expected.minutes)continue;
+  for(let offset=30;offset>=1;offset--){const day=shiftWorkDate(today,-offset),expected=expectedWork(day,week,periods);if(!expected.minutes)continue;
    const key=person.uid+"|"+day,total=totals.get(key)||{worked:0,absence:0},isConfirmed=confirmed.has(key),underHours=total.worked<expected.minutes;
-   if(!isConfirmed||underHours)rows.push({tecnico_uid:person.uid,tecnico_nome:person.nome,date:day,expectedMinutes:expected.minutes,expectedSource:expected.source,reportedMinutes:total.worked,absenceMinutes:total.absence,confirmed:isConfirmed,underHours});
+   if(!isConfirmed||underHours)rows.push({tecnico_uid:person.uid,tecnico_nome:person.nome,date:day,expectedMinutes:expected.minutes,expectedSource:expected.source,scheduleNeedsVerification:expected.needsVerification,reportedMinutes:total.worked,absenceMinutes:total.absence,confirmed:isConfirmed,underHours});
   }
  }return rows.sort((a,b)=>String(a.tecnico_nome).localeCompare(String(b.tecnico_nome),"it")||a.date.localeCompare(b.date));
 }
@@ -146,6 +147,7 @@ function requireAdmin(user: any) {
 const ACTION_ROLES: Record<string, readonly string[]> = {
   me: ["admin", "tecnico"], myCrmResource: ["admin", "tecnico"],
   requestUnlock:["admin","tecnico"],unlockRequests:["admin"],decideUnlock:["admin"],
+  companyPeriods:["admin"],saveCompanyPeriod:["admin"],
   crmDebug: ["admin", "tecnico"], catalog: ["admin", "tecnico"],
   commesse: ["admin", "tecnico"], day: ["admin", "tecnico"],
   recentPersonal: ["admin", "tecnico"], saveSession: ["admin", "tecnico"],
@@ -239,6 +241,15 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "");
     authorizeAction(user, action);
+    if (action === "companyPeriods"){
+      const {data,error}=await readAll(()=>db.from("ore_periodi_aziendali").select("*").order("data_inizio",{ascending:false}));if(error)bad("Impossibile leggere i periodi aziendali.",500);return json(req,{rows:data||[]});
+    }
+    if (action === "saveCompanyPeriod"){
+      const start=dateOnly(body.dataInizio),end=dateOnly(body.dataFine),name=String(body.nome||"").trim(),week=body.settimanaMinuti;
+      if(!name||name.length>80||start>end||!Array.isArray(week)||week.length!==7||week.some((v:any)=>typeof v!=="number"))bad("Periodo aziendale non valido.");week.forEach(minutes);
+      if(body.id&&(!body.updatedAt||!Number.isFinite(Date.parse(body.updatedAt))))bad("Versione periodo non valida.");const reason=String(body.motivo||"").trim();if(reason.length>500)bad("Motivo troppo lungo.");
+      const {data,error}=await db.rpc("ore_salva_periodo",{p_id:body.id||null,p_name:name,p_start:start,p_end:end,p_week:week,p_actor:user.uid,p_expected:body.updatedAt||null,p_reason:reason||null});if(error)bad(error.message,409);return json(req,data);
+    }
     if(action === "requestUnlock"){
       const reason=String(body.motivo||"").trim();if(!reason||reason.length>500)bad("Indica il motivo dello sblocco (massimo 500 caratteri).");
       const {data,error}=await db.rpc("ore_richiedi_sblocco",{p_uid:user.uid,p_day:dateOnly(body.date),p_reason:reason,p_actor:user.uid});if(error)bad(error.message,409);return json(req,data);
@@ -269,7 +280,8 @@ Deno.serve(async (req: Request) => {
         readAll(()=>{let query=db.from("ore_orari_tecnici").select("*").lte("valido_dal",to);if(!all)query=query.eq("tecnico_uid",user.uid);return query;})
       ]);
       if(activityError||statusError||scheduleError)bad("Impossibile verificare le giornate.",500);
-      return json(req,{from,to,today,people:people.length,rows:missingWorkDays(people,attributeIdentity(activities||[],aliases||[]),attributeIdentity(statuses||[],aliases||[]),schedules||[],today)});
+      const {data:periods,error:periodError}=await readAll(()=>db.from("ore_periodi_aziendali").select("*").lte("data_inizio",to).gte("data_fine",from));if(periodError)bad("Impossibile leggere i periodi aziendali.",500);
+      return json(req,{from,to,today,people:people.length,rows:missingWorkDays(people,attributeIdentity(activities||[],aliases||[]),attributeIdentity(statuses||[],aliases||[]),schedules||[],today,periods||[])});
     }
 
     if(action === "saveJobComplexity"){
@@ -560,7 +572,8 @@ Deno.serve(async (req: Request) => {
       if(activitiesError)bad("Impossibile caricare le attività interne.",500);
       const {data:schedules,error:scheduleError}=await db.from("ore_orari_tecnici").select("valido_dal,settimana_minuti").eq("tecnico_uid",user.uid).lte("valido_dal",day).order("valido_dal",{ascending:false}).limit(1);
       if(scheduleError)bad("Impossibile caricare l'orario previsto.",500);
-      const work=expectedWork(day,schedules||[]);
+      const {data:periods,error:periodError}=await db.from("ore_periodi_aziendali").select("*").lte("data_inizio",day).gte("data_fine",day);if(periodError)bad("Impossibile leggere i periodi aziendali.",500);
+      const work=expectedWork(day,schedules||[],periods||[]);
       const total = (activities || []).reduce((s: number, x: any) => s + Number(x.minuti_effettivi || 0), 0);
       const { data: giornata } = await db.from("ore_giornate").select("stato,confermata_at").eq("tecnico_uid", user.uid).eq("data", day).maybeSingle();
       return json(req, { date: day, sessions: data || [], internalActivities:(activities||[]).filter((r:any)=>r.tipo_record==="interna"),billability:billability(activities||[]),totalMinutes: total,expectedMinutes:work.minutes,workSchedule:work,dayStatus: giornata || { stato: "da_verificare", confermata_at: null } });
@@ -2094,6 +2107,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "adminSummary") {
+      const {data:companyPeriods,error:periodError}=await readAll(()=>db.from("ore_periodi_aziendali").select("*"));if(periodError)bad("Impossibile verificare gli orari storici.",500);
       requireAdmin(user);
       const from = dateOnly(body.from), to = dateOnly(body.to);
       const rows:any[]=[];
@@ -2113,7 +2127,8 @@ Deno.serve(async (req: Request) => {
       const totalMinutes = activities.reduce((s: number, x: any) => s + Number(x.minuti_effettivi || 0), 0);
       const technicians = new Set(activities.map((x: any) => x.tecnico_uid)).size;
       const jobs = new Set(rows.map((x: any) => x.commessa_id)).size;
-      return json(req, { from, to, totalMinutes, sessions: rows.length, technicians, jobs, rows,billability:billability(activities),internalActivities:activities.filter((r:any)=>r.tipo_record==="interna") });
+      const scheduleWarnings:string[]=[];for(let day=from>"2026-05-01"?from:"2026-05-01";day<=to&&day<="2026-08-31";day=shiftWorkDate(day,1)){if(expectedWork(day,[],companyPeriods||[]).needsVerification){scheduleWarnings.push("Maggio–agosto 2026: orario da verificare nelle date senza periodo aziendale configurato.");break;}}
+      return json(req, { from, to, totalMinutes, sessions: rows.length, technicians, jobs, rows,scheduleWarnings,billability:billability(activities),internalActivities:activities.filter((r:any)=>r.tipo_record==="interna") });
     }
 
     bad("Operazione non riconosciuta.");

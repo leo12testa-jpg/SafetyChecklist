@@ -457,7 +457,8 @@ async function loadDay(){
     $("#dayTotalBottom").textContent=totalText;
     $("#dayProgressBar").style.width=pct+"%";
     $("#dayProgressText").textContent=expected>0?pct+"%":"—";
-    $("#dayScheduleNote").textContent=j.workSchedule?.holiday?`Festività nazionale: ${j.workSchedule.holiday}`:j.workSchedule?.source==="default"?"Orario non configurato: default 8h lun–ven.":j.workSchedule?.validFrom?`Orario valido dal ${j.workSchedule.validFrom}`:"Orario non indicato.";
+    const schedule=j.workSchedule||{};
+    $("#dayScheduleNote").textContent=(schedule.holiday?`Festività nazionale: ${schedule.holiday}`:schedule.source==="aziendale"?`${schedule.periodName} · ${schedule.validFrom} → ${schedule.validTo}`:schedule.source==="configurato"?`Eccezione individuale dal ${schedule.validFrom}`:"Standard aziendale: 8h lun–ven.")+(schedule.needsVerification?" · orario da verificare":"");
     const confirmed=j.dayStatus?.stato==="confermata";
     if(typeof renderDayUnlock==="function")renderDayUnlock(j);
     $("#dayStatus").textContent=confirmed?"Confermata":"Da verificare";
@@ -499,7 +500,7 @@ async function loadDay(){
             jobId:s.commessa_id||"",
             minutes:s.minuti_effettivi,
             title:s.crm_oggetto||"",
-            onSave:async values=>{await api("saveSession",{id:s.id,...values,motivo:"Correzione manuale attività importata"});await loadDay();},
+            onSave:async values=>{await api("saveSession",{id:s.id,...values,motivo:row.querySelector(".phase-reason")?.value||(s.confermata||confirmed?null:"Correzione manuale attività importata")});await loadDay();},
             onCancel:()=>{editPanel.hidden=true;row.classList.remove("editing")}
           });
         }catch(e){notify(e.message)}
@@ -561,6 +562,7 @@ async function loadAdmin(){
   try{
     const [j,crm]=await Promise.all([api("adminSummary",{from,to}),api("crmResources")]);
     if(seq!==adminSeq)return;
+    if(typeof renderScheduleWarnings==="function")renderScheduleWarnings(j);
     j.rows=Array.isArray(j.rows)?j.rows:[];
     if(typeof renderPhaseSummary==="function")renderPhaseSummary(j.rows);
     const totalHours=j.totalMinutes/60;

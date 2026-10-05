@@ -19,7 +19,7 @@ function backend({ role = 'tecnico', tokenValid = true, owner = 'other', databas
   return { call: body => handler(new Request('https://test/', {method:'POST',headers:{authorization:'Bearer test','content-type':'application/json'},body:JSON.stringify(body)})),
     dbCalls: () => dbCalls, context };
 }
-for (const action of ['unlockRequests','decideUnlock','adminSummary','adminEconomics','saveJobEconomics','archiveJobs','importPlanner','importHistoryBatch','crmResources','crmAgentHeartbeat','ingestAgendaCompany','economicsCatalog','saveTechnicianCost','archiveJobDetail','crmLinks','previewCrmLink','approveCrmLink','workSchedules','saveWorkSchedule','previewIdentity','approveIdentity','changeJobState','saveJobComplexity']) {
+for (const action of ['companyPeriods','saveCompanyPeriod','unlockRequests','decideUnlock','adminSummary','adminEconomics','saveJobEconomics','archiveJobs','importPlanner','importHistoryBatch','crmResources','crmAgentHeartbeat','ingestAgendaCompany','economicsCatalog','saveTechnicianCost','archiveJobDetail','crmLinks','previewCrmLink','approveCrmLink','workSchedules','saveWorkSchedule','previewIdentity','approveIdentity','changeJobState','saveJobComplexity']) {
   test(`tecnico: ${action} restituisce 403 prima di accedere ai dati`, async () => {
     const app=backend();
     assert.equal((await app.call({action,ruolo:'admin'})).status,403);
@@ -103,7 +103,7 @@ test('assenza: nessun motivo inviato al database, ruolo nel body ignorato',async
 test('day usa vista unificata per totale e quota e filtra sempre sul chiamante',async()=>{
   const filters=[];
   const activities=[{id:'s1',tipo_record:'sessione',tecnico_uid:'u1',minuti_effettivi:480,fatturabile:true,assenza:false},{id:'i1',tipo_record:'interna',tecnico_uid:'u1',minuti_effettivi:120,fatturabile:false,assenza:false},{id:'a1',tipo_record:'interna',tecnico_uid:'u1',minuti_effettivi:240,fatturabile:false,assenza:true}];
-  const database={from(table){const q={select(){return this;},eq(k,v){filters.push([table,k,v]);return this;},lte(){return this;},limit(){return this;},order(){return this;},maybeSingle:async()=>({data:null}),then(resolve){resolve({data:table==='ore_rendicontazioni'?activities:table==='ore_sessioni'?[activities[0]]:[],error:null});}};return q;}};
+  const database={from(table){const q={select(){return this;},eq(k,v){filters.push([table,k,v]);return this;},lte(){return this;},gte(){return this;},limit(){return this;},order(){return this;},maybeSingle:async()=>({data:null}),then(resolve){resolve({data:table==='ore_rendicontazioni'?activities:table==='ore_sessioni'?[activities[0]]:[],error:null});}};return q;}};
   const app=backend({database});const response=await app.call({action:'day',date:'2026-10-03',tecnicoUid:'other'});assert.equal(response.status,200);const data=await response.json();
   assert.equal(data.totalMinutes,840);assert.equal(data.sessions.length,1);assert.equal(data.internalActivities.length,2);assert.equal(data.billability.percent,80);
   assert.ok(filters.some(f=>f[0]==='ore_rendicontazioni'&&f[1]==='tecnico_uid'&&f[2]==='u1'));
@@ -113,6 +113,19 @@ test('orario default, part-time e decorrenze rispettano lo storico',()=>{
   for(const [day,expected] of [['2025-12-29',480],['2026-08-31',240],['2026-09-01',360],['2026-10-03',0]]){
     assert.equal(vm.runInContext(`expectedWork('${day}',schedules).minutes`,app.context),expected);
   }
+});
+test('periodo estivo: venerdi 4h completo, giovedi 8h sotto, fuori periodo 4h sotto',()=>{
+ const app=backend();app.context.periods=[{nome:'Estate sintetica',data_inizio:'2026-05-25',data_fine:'2026-08-31',settimana_minuti:[540,540,540,540,240,0,0]}];
+ app.context.people=[{uid:'u1',nome:'Test'}];app.context.activities=[{tecnico_uid:'u1',data_lavoro:'2026-06-04',minuti_effettivi:480},{tecnico_uid:'u1',data_lavoro:'2026-06-05',minuti_effettivi:240}];app.context.statuses=app.context.activities.map(a=>({tecnico_uid:'u1',data:a.data_lavoro,stato:'confermata'}));
+ const summer=vm.runInContext("missingWorkDays(people,activities,statuses,[],'2026-06-06',periods)",app.context);
+ assert.ok(!summer.some(r=>r.date==='2026-06-05'));assert.equal(summer.find(r=>r.date==='2026-06-04').expectedMinutes,540);assert.equal(summer.find(r=>r.date==='2026-06-04').underHours,true);
+ app.context.activities=[{tecnico_uid:'u1',data_lavoro:'2026-09-04',minuti_effettivi:240}];app.context.statuses=[{tecnico_uid:'u1',data:'2026-09-04',stato:'confermata'}];
+ const outside=vm.runInContext("missingWorkDays(people,activities,statuses,[],'2026-09-07',periods)",app.context);assert.equal(outside.find(r=>r.date==='2026-09-04').expectedMinutes,480);assert.equal(outside.find(r=>r.date==='2026-09-04').underHours,true);
+});
+test('eccezione individuale prevale sul periodo aziendale; 2026 non configurato segnalato',()=>{
+ const app=backend();app.context.periods=[{nome:'Estate test',data_inizio:'2026-05-25',data_fine:'2026-08-31',settimana_minuti:[540,540,540,540,240,0,0]}];app.context.personal=[{valido_dal:'2026-01-01',settimana_minuti:[360,360,360,360,360,0,0]}];
+ const result=vm.runInContext("expectedWork('2026-06-05',personal,periods)",app.context);assert.equal(result.minutes,360);assert.equal(result.source,'configurato');assert.equal(result.needsVerification,false);
+ const missing=vm.runInContext("expectedWork('2026-06-05',[],[])",app.context);assert.equal(missing.minutes,480);assert.equal(missing.needsVerification,true);
 });
 test('festività italiane: Pasqua, lunedì Angelo e 4 ottobre solo dal 2026',()=>{
   const app=backend();for(const day of ['2026-01-01','2026-04-05','2026-04-06','2026-04-25','2026-10-04','2027-10-04','2026-12-25'])assert.equal(vm.runInContext(`expectedWork('${day}',[]).minutes`,app.context),0);

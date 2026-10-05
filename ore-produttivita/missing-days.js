@@ -15,7 +15,7 @@ async function loadMissingAdmin(){
  const button=$("#loadMissingDays");button.disabled=true;
  try{
   const data=await api("missingDays",{scope:"all"});$("#missingPeriod").textContent=`${archiveDate(data.from)} – ${archiveDate(data.to)} · ${data.people} account attivi · ${data.rows.length} giornate da verificare`;
-  $("#missingAdminRows").innerHTML=html`${(data.rows||[]).map(r=>html`<tr><td>${r.tecnico_nome}</td><td>${archiveDate(r.date)}</td><td>${fmtMinutes(r.expectedMinutes)}<br><small>${r.expectedSource}</small></td><td>${fmtMinutes(r.reportedMinutes)}</td><td>${fmtMinutes(r.absenceMinutes)}</td><td>${r.confirmed?"Confermata":"Non confermata"}${r.underHours?html`<br>Ore sotto il previsto`:""}</td></tr>`)}`;
+  $("#missingAdminRows").innerHTML=html`${(data.rows||[]).map(r=>html`<tr><td>${r.tecnico_nome}</td><td>${archiveDate(r.date)}</td><td>${fmtMinutes(r.expectedMinutes)}<br><small>${r.expectedSource}${r.scheduleNeedsVerification?" ? orario da verificare":""}</small></td><td>${fmtMinutes(r.reportedMinutes)}</td><td>${fmtMinutes(r.absenceMinutes)}</td><td>${r.confirmed?"Confermata":"Non confermata"}${r.underHours?html`<br>Ore sotto il previsto`:""}</td></tr>`)}`;
  }catch(e){notify(e.message);}finally{button.disabled=false;}
 }
 $("#loadMissingDays").addEventListener("click",loadMissingAdmin);
