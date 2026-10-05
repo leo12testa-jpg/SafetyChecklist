@@ -56,6 +56,12 @@ const pdfImport = (() => {
   const TOLLERANZA_RIGA_NOTA_PT = 40;
   const TOLLERANZA_RIGA_MULTILINEA_PT = 12;
   const TOLLERANZA_TITOLO_SEZIONE_PT = 18;
+  // Alcuni PDF Interparking legacy contengono due numeri sovrapposti nella colonna "n.":
+  // il vecchio id stabile viene disegnato per primo e il numero progressivo visibile viene
+  // sovrapposto dopo. PDF.js restituisce entrambi gli elementi testo, anche se a video se ne vede
+  // uno solo. Li consideriamo la stessa posizione fisica e teniamo l'ultimo elemento disegnato.
+  const TOLLERANZA_ID_SOVRAPPOSTO_X_PT = 3;
+  const TOLLERANZA_ID_SOVRAPPOSTO_Y_PT = 8;
 
   /**
    * Gap (in pt) oltre il quale due righe consecutive di testo (colonna Note o Descrizione
@@ -156,6 +162,60 @@ const pdfImport = (() => {
     ];
     candidate.sort((a, b) => Math.abs(x - a[1]) - Math.abs(x - b[1]));
     return candidate[0][0];
+  }
+
+  /** Una marcatura di stato è valida sia come "X" sia come "x": nei PDF reali esistono entrambe. */
+  function eMarcaturaStato(item) {
+    return String(item && item.testo != null ? item.testo : '').trim().toUpperCase() === 'X';
+  }
+
+  /**
+   * Elimina esclusivamente i numeri della colonna "n." che occupano praticamente la stessa
+   * posizione. È un artefatto del livello testo di alcuni PDF Interparking: sotto al numero
+   * progressivo visibile resta il vecchio id stabile. L'ordine degli elementi di getTextContent()
+   * segue l'ordine di disegno, quindi l'ultimo è il valore effettivamente sovrapposto e visibile.
+   *
+   * La deduplicazione è volutamente geometrica e limitata alla sola colonna id: non tocca numeri
+   * presenti nel testo delle domande o nelle note e non fonde due righe reali adiacenti.
+   */
+  function filtraIdRigaSovrapposti(items, colonne) {
+    if (!colonne || !Number.isFinite(colonne.idX)) return items;
+
+    const candidati = items
+      .map((it, indice) => ({ it, indice }))
+      .filter(({ it }) =>
+        /^\d+$/.test(String(it.testo || '').trim()) &&
+        Math.abs(it.x - colonne.idX) < TOLLERANZA_COLONNA_ID_PT
+      );
+
+    const gruppi = [];
+    candidati.forEach((candidato) => {
+      let gruppo = gruppi.find((g) =>
+        Math.abs(candidato.it.x - g.x) <= TOLLERANZA_ID_SOVRAPPOSTO_X_PT &&
+        Math.abs(candidato.it.y - g.y) <= TOLLERANZA_ID_SOVRAPPOSTO_Y_PT
+      );
+      if (!gruppo) {
+        gruppo = { x: candidato.it.x, y: candidato.it.y, voci: [] };
+        gruppi.push(gruppo);
+      }
+      gruppo.voci.push(candidato);
+    });
+
+    const indiciDaScartare = new Set();
+    gruppi.forEach((gruppo) => {
+      if (gruppo.voci.length < 2) return;
+      const daTenere = gruppo.voci.reduce(
+        (ultimo, voce) => (voce.indice > ultimo.indice ? voce : ultimo),
+        gruppo.voci[0]
+      );
+      gruppo.voci.forEach((voce) => {
+        if (voce.indice !== daTenere.indice) indiciDaScartare.add(voce.indice);
+      });
+    });
+
+    return indiciDaScartare.size
+      ? items.filter((_, indice) => !indiciDaScartare.has(indice))
+      : items;
   }
 
   /**
@@ -321,7 +381,7 @@ const pdfImport = (() => {
       const ancore=cella.filter(it => Math.abs(it.x-idX)<(storico ? 20 : 10) && (storico ? /^\d+\)$/.test(it.testo.trim()) : /^\d+$/.test(it.testo.trim())));
       const testo=ricomponiTesto(raggruppaInLinee(cella.filter(it => it.x>idX+(storico ? MARGINE_TESTO_DOMANDA_STORICO_PT : 10) && it.x<colonne.C-10),3));
       const nota=ricomponiTesto(raggruppaInLinee(cella.filter(it => it.x>colonne.sogliaNota),3));
-      const marks=cella.filter(it => it.testo.trim()==='X' && it.x>=colonne.C-10 && it.x<colonne.sogliaNota);
+      const marks=cella.filter(it => eMarcaturaStato(it) && it.x>=colonne.C-10 && it.x<colonne.sogliaNota);
       if (ancore.length===1) {
         const numero=parseInt(ancore[0].testo,10);
         const riga={ formato, numero_originale:numero, id_originale:storico ? null : numero,
@@ -378,7 +438,7 @@ const pdfImport = (() => {
     const marcaturePerRiga = new Map();
     righe.forEach((riga) => {
       const marcature = items.filter(
-        (it) => it.testo.trim() === 'X' && Math.abs(it.y - riga.y) <= TOLLERANZA_RIGA_PT
+        (it) => eMarcaturaStato(it) && Math.abs(it.y - riga.y) <= TOLLERANZA_RIGA_PT
       );
       if (marcature.length === 1) {
         marcaturePerRiga.set(riga.id, colonnaStatoPiuVicina(marcature[0].x, colonne));
@@ -499,11 +559,15 @@ const pdfImport = (() => {
 
     pagine.forEach((itemsGrezzi, indice) => {
       const numeroPagina = indice + 1;
-      const items = itemsGrezzi.filter((it) => !REGEX_LEGENDA_PIE_PAGINA.test(it.testo.trim()));
+      let items = itemsGrezzi.filter((it) => !REGEX_LEGENDA_PIE_PAGINA.test(it.testo.trim()));
       const intestazioni = trovaIntestazioniColonneNostro(items);
       if (intestazioni) {
         colonneCorrenti = intestazioni;
         strutturaRiconosciuta = true;
+      }
+
+      if (colonneCorrenti) {
+        items = filtraIdRigaSovrapposti(items, colonneCorrenti);
       }
 
       if (numeroPagina === 1) {
@@ -789,7 +853,7 @@ const pdfImport = (() => {
       const yFine = eventi[indice + 1] ? eventi[indice + 1].y : -Infinity;
       const nellaRiga = (it) => it.y > yFine + 2 && it.y <= evento.y + 2;
 
-      const marcature = items.filter((it) => it.testo.trim() === 'X' && nellaRiga(it));
+      const marcature = items.filter((it) => eMarcaturaStato(it) && nellaRiga(it));
       const stato = marcature.length === 1 ? colonnaStatoPiuVicina(marcature[0].x, colonne) : null;
 
       const candidatiTesto = items.filter(
