@@ -1,4 +1,4 @@
-import ast,asyncio,hashlib,json,pathlib,re,unittest
+import ast,asyncio,hashlib,json,pathlib,re,unittest,tempfile,types
 from urllib.parse import urlparse,parse_qs
 source=pathlib.Path('ore-produttivita/crm-sync/crm_company_agent.py').read_text(encoding='utf-8')
 names={'norm','agenda_fingerprint','scan_summary','scan_resources','select_resource','agenda_toolbar','discover_resources','select_month'}
@@ -50,5 +50,17 @@ class AgentTests(unittest.IsolatedAsyncioTestCase):
   self.assertIn("config.get('recovery_hold',True)",source)
   self.assertIn('if not failed and not preview:',source)
   self.assertIn('if failed:raise PartialReadError(message)',source)
+ def test_expired_login_updates_backend_before_exiting(self):
+  main=next(n for n in tree.body if isinstance(n,ast.If) and isinstance(n.test,ast.Compare) and isinstance(n.test.left,ast.Name) and n.test.left.id=='__name__')
+  handler=next(n for n in main.body if isinstance(n,ast.Try)).handlers[0]
+  calls=[]
+  class Expired(RuntimeError):pass
+  class Partial(RuntimeError):pass
+  def stopped(code):raise SystemExit(code)
+  with tempfile.TemporaryDirectory() as d:
+   config=pathlib.Path(d)/'agent.json';config.write_text('{"username":"synthetic-admin"}')
+   env={'exc':Expired('Sessione CRM scaduta'),'LoginRequiredError':Expired,'PartialReadError':Partial,'sys':types.SimpleNamespace(argv=['agent.py','--run'],exit=stopped),'write_status':lambda *args:None,'CONFIG_FILE':config,'json':json,'app_token':lambda *args,**kwargs:'synthetic-token','api':lambda *args,**kwargs:calls.append(kwargs),'AGENT_VERSION':'test'}
+   with self.assertRaises(SystemExit) as exited:exec(compile(ast.Module(body=handler.body,type_ignores=[]),'agent-handler','exec'),env)
+   self.assertEqual(exited.exception.code,2);self.assertEqual(calls[0]['state'],'login_required');self.assertEqual(calls[0]['agentVersion'],'test')
 
 if __name__=='__main__':unittest.main()

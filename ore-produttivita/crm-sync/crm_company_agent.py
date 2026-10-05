@@ -651,13 +651,13 @@ if __name__=="__main__":
         login_required=isinstance(exc, LoginRequiredError)
         if isinstance(exc,PartialReadError):sys.exit(1)
         write_status("login_required" if login_required else "error",str(exc))
-        if "--setup" not in sys.argv and not login_required:
+        if "--setup" not in sys.argv:
             try:
                 if CONFIG_FILE.exists():
                     username=json.loads(CONFIG_FILE.read_text(encoding="utf-8")).get("username","").strip()
                     if username:
                         token=app_token(username, interactive=False)
-                        api(token,"crmAgentHeartbeat",state="error",message=str(exc)[:300])
+                        api(token,"crmAgentHeartbeat",state="login_required" if login_required else "error",message=str(exc)[:300],agentVersion=AGENT_VERSION)
             except Exception:
                 pass
         if "--setup" in sys.argv:
