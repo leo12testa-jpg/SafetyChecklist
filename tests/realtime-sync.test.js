@@ -316,3 +316,9 @@ test('sync ritenta subito una transazione auth dopo refresh token senza cancella
   assert.match(source, /getIdToken\(true\)/);
   assert.match(source, /confermaSincronizzato\(id, rev\)/);
 });
+
+
+test('final repair performs an authoritative server recheck when pending revisions survive retry', () => {
+  const source = fs.readFileSync('js/sync.js','utf8');
+  assert.match(source, /if \(pendenti\.size && online\(\)\) \{\s*await sincronizzaTutto\(\{ verificaServer: true \}\)/);
+});

@@ -674,6 +674,14 @@ const sync = (() => {
             if (!invii.has(id)) await invia(id);
           }
           await riconciliaAtteseFinali();
+
+          // Se restano revisioni reali pendenti, non fidarti del listener/cache: esegui un ultimo
+          // confronto autorevole col server. Serve soprattutto ai dispositivi rimasti aperti per
+          // giorni o con token rinnovato, che in passato potevano mostrare 4/5/6 elementi fermi.
+          if (pendenti.size && online()) {
+            await sincronizzaTutto({ verificaServer: true });
+            await riconciliaAtteseFinali();
+          }
         }
       } else {
         attesaFoto = (await db.elencaFotoSenzaUrl()).length;

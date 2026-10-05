@@ -2,7 +2,7 @@
  * A controller change alone is not an update. Never reload unsaved input automatically.
  */
 const aggiornamentoApp = (() => {
-  const BUILD_ID = '20261005-172500';
+  const BUILD_ID = '20261005-174000';
   let buildServer = null;
   // "import-preview" (anteprima importazione PDF, vedi js/pdf-import.js + js/import-matching.js
   // in app.js) esiste SOLO in memoria finchÃ© non si preme "Conferma importazione": un reload lÃ¬
@@ -21,15 +21,20 @@ const aggiornamentoApp = (() => {
     return !!(schermata && SCHERMATE_A_RISCHIO.has(schermata.dataset.screen));
   }
 
-  function schermataHomeSicura() {
-    if (document.body.dataset.authenticated !== 'true') return false;
-    const home = document.querySelector('[data-screen="home"]');
+  function schermataSicuraPerAggiornamento() {
     const dialogAperto = document.querySelector('dialog[open]');
-    return !!home && !home.hidden && !dialogAperto && !schermataARischioAttiva();
+    if (dialogAperto || schermataARischioAttiva()) return false;
+
+    // Login, home, storico, impostazioni e schermate di sola lettura possono essere aggiornate
+    // senza perdere dati: IndexedDB resta intatto dopo il reload. In questo modo i tecnici che
+    // tengono l'app aperta per giorni ricevono automaticamente le correzioni di sincronizzazione.
+    if (document.body.dataset.authenticated !== 'true') return true;
+    const schermata = document.querySelector('.screen:not([hidden])');
+    return !!schermata;
   }
 
   async function provaAggiornamentoAutomatico() {
-    if (!buildServer || buildServer === BUILD_ID || !schermataHomeSicura()) return false;
+    if (!buildServer || buildServer === BUILD_ID || !schermataSicuraPerAggiornamento()) return false;
     const chiave = `safety-auto-update:${BUILD_ID}->${buildServer}`;
     try {
       if (sessionStorage.getItem(chiave)) return false;
