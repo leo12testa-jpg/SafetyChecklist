@@ -254,7 +254,8 @@ const db = (() => {
     presenza_responsabile,
     presenza_rls,
     nome_rls = null,
-    checklist_id
+    checklist_id,
+    checklist_version = null
   }) {
     const { tx, store } = await transazioneConHandle('sopralluoghi', 'readwrite');
     const adesso = new Date().toISOString();
@@ -281,6 +282,7 @@ const db = (() => {
       // quando presenza_rls = "Sì" (vedi checklistAmmetteNomeRls in app.js).
       nome_rls,
       checklist_id,
+      checklist_version: checklist_version || null,
       data: adesso,
       stato: 'in corso',
       risposte: [],
@@ -351,6 +353,7 @@ const db = (() => {
       // dell'originale non va perso nella copia.
       nome_rls: originale.nome_rls ?? null,
       checklist_id: originale.checklist_id,
+      checklist_version: originale.checklist_version ?? null,
       data: adesso,
       stato: 'in corso',
       risposte: normalizzaRisposte(originale.risposte).map((risposta) => ({ ...risposta, foto: [] })),
