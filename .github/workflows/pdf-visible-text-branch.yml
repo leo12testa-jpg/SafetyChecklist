@@ -24,7 +24,7 @@ jobs:
       - name: Core regression tests
         run: |
           set -euo pipefail
-          node --test tests/pdf-import-extraction.test.js tests/import-matching.test.js tests/pdf-source-rows.test.js tests/pdf-header-images.test.js
+          find tests -maxdepth 1 -name '*.test.js' ! -name 'ore-ui-contract.test.js' -print0 | xargs -0 node --test
 
       - name: Install browser driver
         run: npm install --no-save playwright-core@1.55.0
