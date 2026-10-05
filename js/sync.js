@@ -256,11 +256,12 @@ const sync = (() => {
   let erroreDati = false;
   let retry = null;
   const pendenti = new Map();
+  const erroriPendenti = new Map();
   const invii = new Map();
   let codaSnapshot = Promise.resolve();
 
   function dettaglioInAttesa() {
-    return { dati: pendenti.size, foto: attesaFoto, erroreCloud: erroreDati ? 1 : 0 };
+    return { dati: pendenti.size, foto: attesaFoto, erroreCloud: erroreDati ? 1 : 0, erroriDati: erroriPendenti.size };
   }
   function elementiInAttesa() {
     const dettaglio = dettaglioInAttesa();
@@ -271,7 +272,10 @@ const sync = (() => {
     const perId = new Map((locali || []).map((record) => [record.id, record]));
     for (const id of Array.from(pendenti.keys())) {
       const record = perId.get(id);
-      if (!record || !record._sync_rev) pendenti.delete(id);
+      if (!record || !record._sync_rev) {
+        pendenti.delete(id);
+        erroriPendenti.delete(id);
+      }
     }
     (locali || []).filter((record) => record._sync_rev).forEach((record) => pendenti.set(record.id, true));
   }
@@ -400,6 +404,29 @@ const sync = (() => {
     return risultato;
   }
 
+  /**
+   * Via di autoriparazione per vecchie revisioni locali che non passano più come patch
+   * incrementale: rilegge il server, unisce per domanda/foto e scrive con merge:true.
+   * Non cancella mai il dato locale e non perde modifiche più recenti di altri tecnici.
+   */
+  async function inviaRiparazioneCompleta(ref, locale) {
+    return conScadenza(firestoreDb.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const remoto = snap.exists ? { ...snap.data(), id: locale.id } : null;
+      let record;
+      let soloPulizia = false;
+      if (!remoto) {
+        record = preparaCreazioneCloud(unisciDocumenti(locale, null));
+      } else {
+        const unito = unisciDocumenti(locale, remoto);
+        if (haDifferenzeOperative(unito, remoto)) record = preparaAggiornamentoCloud(unito, remoto);
+        else { record = remotoNormalizzato(remoto); soloPulizia = true; }
+      }
+      if (!soloPulizia) tx.set(ref, datiCloud(record), { merge: true });
+      return { record, soloPulizia };
+    }));
+  }
+
   async function applicaRemoto(remoto) {
     // Se non esiste una revisione locale esplicitamente pendente, il server è autorevole.
     // Questo evita che differenze di normalizzazione/cache di un dispositivo passivo vengano
@@ -467,6 +494,17 @@ const sync = (() => {
                   continue;
                 }
               }
+              // Il refresh token non ha risolto: prova una sola scrittura autoriparante
+              // completa. Su errori di rete/timeout lasciamo invece lavorare il retry normale.
+              if (!/timeout|unavailable|network|offline|deadline-exceeded/i.test(codiceTx)) {
+                try {
+                  esitoTx = await inviaRiparazioneCompleta(ref, locale);
+                  break;
+                } catch (erroreRiparazione) {
+                  erroriPendenti.set(id, String(erroreRiparazione && (erroreRiparazione.code || erroreRiparazione.message) || codiceTx || 'errore sincronizzazione'));
+                  throw erroreRiparazione;
+                }
+              }
               throw erroreTx;
             }
           }
@@ -483,12 +521,16 @@ const sync = (() => {
           await db.confermaSincronizzato(id, rev);
           const attuale = await db.leggiSopralluogo(id);
           ancora = !!attuale?._sync_rev;
-          if (!ancora) pendenti.delete(id);
+          if (!ancora) {
+            pendenti.delete(id);
+            erroriPendenti.delete(id);
+          }
         } while (ancora && online());
         return !ancora;
       } catch (errore) {
         pendenti.set(id, true);
         const codice = String(errore && (errore.code || errore.message) || '');
+        erroriPendenti.set(id, codice || 'errore sincronizzazione');
         if (/permission-denied|unauthenticated/i.test(codice)) {
           try {
             const utente = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
@@ -510,7 +552,10 @@ const sync = (() => {
         try {
           const corrente = await db.leggiSopralluogo(id);
           if (corrente?._sync_rev) invia(id);
-          else pendenti.delete(id);
+          else {
+            pendenti.delete(id);
+            erroriPendenti.delete(id);
+          }
         } catch (_) {
           riprovaDopo();
         }
@@ -745,6 +790,6 @@ const sync = (() => {
   return {
     init, sincronizzaTutto, sincronizzaCompleto, onCambioStato, onDatiAggiornati,
     elementiInAttesa, dettaglioInAttesa, statoAttuale: () => statoAttuale,
-    _test: { arrayRisposteInMappa, mappaRisposteInArray, unisciRisposte, unisciFotoUrl, estraiMetadati, timestampDi, unisciDocumenti, stabile, contenutoOperativo, haDifferenzeOperative, preparaAggiornamentoCloud, riconciliaPendentiLocali, riconciliaAtteseFinali }
+    _test: { arrayRisposteInMappa, mappaRisposteInArray, unisciRisposte, unisciFotoUrl, estraiMetadati, timestampDi, unisciDocumenti, stabile, contenutoOperativo, haDifferenzeOperative, preparaAggiornamentoCloud, inviaRiparazioneCompleta, riconciliaPendentiLocali, riconciliaAtteseFinali }
   };
 })();

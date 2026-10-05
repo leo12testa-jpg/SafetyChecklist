@@ -554,3 +554,40 @@ test('Interparking legacy completo: 75 righe storiche diventano 73 domande corre
   assert.equal(riepilogo.nonRiconosciute, 0);
   assert.equal(riepilogo.conflitti, 0);
 });
+
+
+test('Interparking storico: testo certo vince sul numero slittato e conserva risposta + nota', () => {
+  const im = caricaImportMatching();
+  const checklist = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'checklists', 'interparking_sopralluogo.json'), 'utf8'));
+  const domandaDpi = checklist.sezioni.flatMap(s => s.domande).find(d => d.id === 73);
+  assert.ok(domandaDpi);
+  const righe = [{
+    formato: 'nostro',
+    id_originale: 74,
+    numero_originale: 74,
+    sezione_originale: 'Macchine / Attrezzature',
+    testo_originale: domandaDpi.testo,
+    stato_originale: 'PC',
+    nota_originale: 'Nota proveniente dalla checklist storica'
+  }];
+  const { righe: risultato } = im.abbinaRighe(righe, checklist);
+  assert.equal(risultato[0].domanda_id, 73);
+  assert.equal(risultato[0].metodo, 'testo');
+  assert.equal(risultato[0].stato_riga, 'sicuro');
+  assert.equal(risultato[0].risposta, 'PC');
+  assert.equal(risultato[0].note, 'Nota proveniente dalla checklist storica');
+});
+
+test('checklist sorgente più corta: importa le righe presenti per testo e lascia assenti le altre', () => {
+  const im = caricaImportMatching();
+  const checklist = clonaChecklist();
+  const righe = [
+    rigaNostro({ id: 1, testo: checklist.sezioni[0].domande[0].testo, stato: 'C', nota: 'prima' }),
+    rigaNostro({ id: 2, testo: checklist.sezioni[1].domande[0].testo, stato: 'NC', nota: 'quarta domanda corrente' }),
+    rigaNostro({ id: 3, testo: checklist.sezioni[1].domande[2].testo, stato: 'PC', nota: 'sesta domanda corrente' })
+  ];
+  const { righe: risultato } = im.abbinaRighe(righe, checklist);
+  assert.deepEqual(Array.from(risultato, r => r.domanda_id), [1,4,6]);
+  assert.deepEqual(Array.from(risultato, r => r.risposta), ['C','NC','PC']);
+  assert.deepEqual(Array.from(risultato, r => r.note), ['prima','quarta domanda corrente','sesta domanda corrente']);
+});

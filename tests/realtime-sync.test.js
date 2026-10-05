@@ -16,15 +16,19 @@ function setup(initial = []) {
     collection:()=>({doc:id=>({id}),get:async()=>{gets++;if(fail)throw Error('cloud down');return snapshot();},onSnapshot:(_,fn)=>{listeners.push(fn);fn(snapshot());return ()=>{};}}),
     runTransaction:async fn=>{
       if(fail)throw Error('cloud down');
-      return fn({get:async ref=>doc(ref.id),set:(ref,patch,options)=>{
+      return fn({get:async ref=>doc(ref.id),set:(ref,patch,options={})=>{
         const invalid=v=>v===undefined||(Array.isArray(v)?v.some(x=>Array.isArray(x)||invalid(x)):v&&typeof v==='object'&&!(v instanceof Date)&&Object.values(v).some(invalid));
         if(invalid(patch))throw Error('Function Transaction.set() called with invalid data. Unsupported field value: undefined');
         writes++;
         const record=copy(remote.get(ref.id))||{};
-        for(const field of options.mergeFields) {
-          const keys=field.keys;
-          if(keys.length===1)record[keys[0]]=copy(patch[keys[0]]);
-          else (record[keys[0]]||={})[keys[1]]=copy(patch[keys[0]][keys[1]]);
+        if(options.merge===true) {
+          Object.assign(record,copy(patch));
+        } else {
+          for(const field of options.mergeFields || []) {
+            const keys=field.keys;
+            if(keys.length===1)record[keys[0]]=copy(patch[keys[0]]);
+            else (record[keys[0]]||={})[keys[1]]=copy(patch[keys[0]][keys[1]]);
+          }
         }
         remote.set(ref.id,record);
         queueMicrotask(()=>listeners.forEach(fn=>fn(snapshot())));
@@ -335,4 +339,13 @@ test('errore su un record locale mantiene stato parziale anche dopo la riconcili
   const source = fs.readFileSync('js/sync.js','utf8');
   assert.match(source, /erroriLocali \+= 1/);
   assert.match(source, /erroreDati = nonApplicati > 0 \|\| erroriLocali > 0/);
+});
+
+
+test('stuck legacy revision has a full-merge repair path without losing shared data', () => {
+  const source = fs.readFileSync('js/sync.js','utf8');
+  assert.match(source, /async function inviaRiparazioneCompleta/);
+  assert.match(source, /tx\.set\(ref, datiCloud\(record\), \{ merge: true \}\)/);
+  assert.match(source, /const unito = unisciDocumenti\(locale, remoto\)/);
+  assert.match(source, /erroriPendenti\.set\(id/);
 });

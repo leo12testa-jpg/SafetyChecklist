@@ -612,39 +612,15 @@ const nuovoSopralluogoScreen = (() => {
       const puntoDivisioneGruppi = pdf.calcolaPuntoDivisioneGruppi(vociChecklist.checklist);
       const { righe: righeAbbinate, riepilogo } = importMatching.abbinaRighe(righe, vociChecklist.checklist, { puntoDivisioneGruppi });
 
-      // Un PDF generato dall'app deve essere deterministico: conflitti o un conteggio strutturale
-      // impossibile indicano un problema di lettura, non una scelta che l'utente debba sistemare a
-      // mano. Interparking ammette esattamente 75 righe nel legacy (73 correnti + 2 ritirate) o
-      // 73 righe nella revisione corrente. In caso diverso blocchiamo l'importazione invece di
-      // mostrare una falsa "confidenza 100%" su dati contaminati.
-      if (formatoRilevato === 'nostro') {
-        if (riepilogo.conflitti > 0) {
-          throw new Error(
-            `Il PDF contiene ${riepilogo.conflitti} conflitti di estrazione: importazione bloccata per evitare associazioni errate. ` +
-            'Aggiorna l\'app e riprova; nessun sopralluogo è stato creato.'
-          );
-        }
-        if (rilevamento.checklistId === 'interparking_sopralluogo' && righe.length >= 70) {
-          if (![73, 75].includes(righe.length)) {
-            throw new Error(
-              `Struttura Interparking non coerente: lette ${righe.length} righe, mentre una checklist completa deve averne 73 o 75. ` +
-              'Importazione bloccata: nessun dato è stato salvato.'
-            );
-          }
-          const legacy75 = righe.length === 75;
-          const atteseSicure = 73;
-          const atteseRitirate = legacy75 ? 2 : 0;
-          if (riepilogo.sicure !== atteseSicure ||
-              riepilogo.ritirate !== atteseRitirate ||
-              riepilogo.daVerificare !== 0 ||
-              riepilogo.nonRiconosciute !== 0 ||
-              riepilogo.conflitti !== 0) {
-            throw new Error(
-              'Controllo integrità Interparking non superato: il PDF non viene importato perché ' +
-              'non tutte le righe risultano associate in modo univoco alla checklist corretta.'
-            );
-          }
-        }
+      // La checklist sorgente può avere domande in più o in meno rispetto a quella corrente:
+      // importiamo solo le righe realmente presenti, abbinate tramite il testo visibile, e
+      // manteniamo risposta e note. Le domande correnti assenti nel PDF restano semplicemente
+      // senza risposta. Blocchiamo soltanto un vero conflitto uno-a-uno.
+      if (formatoRilevato === 'nostro' && riepilogo.conflitti > 0) {
+        throw new Error(
+          `Il PDF contiene ${riepilogo.conflitti} conflitti di estrazione: importazione bloccata per evitare associazioni errate. ` +
+          'Le differenze nel numero di domande tra checklist storica e corrente sono invece ammesse.'
+        );
       }
 
       anteprimaImportazionePendente = {

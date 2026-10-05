@@ -148,7 +148,16 @@ const fotoSync = (() => {
   async function elencaFotoInSospesoReferenziate() {
     const [foto, sopralluoghi] = await Promise.all([db.elencaFotoSenzaUrl(), db.elencaTuttiSopralluoghi()]);
     const riferimenti = idFotoReferenziati(sopralluoghi);
-    return (foto || []).filter((voce) => voce && riferimenti.has(String(voce.id)));
+    return (foto || []).filter((voce) => {
+      if (!voce || !riferimenti.has(String(voce.id))) return false;
+      // Vecchi record foto senza blob (o con blob vuoto) non sono più materialmente caricabili:
+      // non vengono eliminati, ma non devono tenere il badge "in attesa" bloccato per sempre.
+      if (!voce.blob || !Number(voce.blob.size)) {
+        console.warn('FotoSync: riferimento foto senza blob recuperabile, escluso dalla coda upload', voce.id);
+        return false;
+      }
+      return true;
+    });
   }
   async function contaFotoInSospeso() {
     return (await elencaFotoInSospesoReferenziate()).length;

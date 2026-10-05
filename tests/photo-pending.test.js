@@ -20,7 +20,7 @@ function setup(foto, sopralluoghi) {
 
 test('foto pending: conta solo blob ancora referenziati', async()=>{
   const api=setup(
-    [{id:'usata'},{id:'orfana-1'},{id:'orfana-2'}],
+    [{id:'usata',blob:{size:10}},{id:'orfana-1',blob:{size:10}},{id:'orfana-2',blob:{size:10}}],
     [{id:'s1',risposte:[{domanda_id:1,foto:['usata']}],altri_aspetti_foto:[]}]
   );
   assert.equal(await api.contaFotoInSospeso(),1);
@@ -30,11 +30,20 @@ test('foto pending: conta solo blob ancora referenziati', async()=>{
 
 test('foto pending: include altri aspetti e ignora record eliminati definitivamente', async()=>{
   const api=setup(
-    [{id:'allegato'},{id:'eliminata'}],
+    [{id:'allegato',blob:{size:10}},{id:'eliminata',blob:{size:10}}],
     [
       {id:'s1',risposte:[],altri_aspetti_foto:['allegato']},
       {id:'s2',eliminato_definitivamente:true,risposte:[{foto:['eliminata']}],altri_aspetti_foto:[]}
     ]
   );
   assert.equal(await api.contaFotoInSospeso(),1);
+});
+
+
+test('foto pending: un vecchio riferimento senza blob non resta in attesa per sempre', async()=>{
+  const api=setup(
+    [{id:'vuota',blob:{size:0}},{id:'mancante'}],
+    [{id:'s1',risposte:[{domanda_id:1,foto:['vuota','mancante']}],altri_aspetti_foto:[]}]
+  );
+  assert.equal(await api.contaFotoInSospeso(),0);
 });

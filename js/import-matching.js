@@ -309,8 +309,19 @@ const importMatching = (() => {
         ? mappaNumeroLegacyInterparking(numeroFisicoLegacy)
         : null;
       const ritirataTestuale = rigaInterparkingRitirata(rigaGrezza, checklist && checklist.id);
+      const perTesto = abbinaPerTesto(rigaGrezza.testo_originale, domande);
       let esito;
-      if (numeroLegacy && (numeroLegacy.ritirata || idValidi.has(numeroLegacy.domandaId))) {
+
+      // La domanda realmente leggibile nel PDF è la fonte primaria. Nelle checklist storiche
+      // con alcune voci in più/in meno i numeri possono slittare, mentre testo + risposta + nota
+      // restano affidabili. Le voci Interparking ritirate vengono riconosciute per prime.
+      if (ritirataTestuale) {
+        esito = { domandaId: null, metodo: 'legacy_interparking', confidenza: 1, automatico: true, avviso: ritirataTestuale.avviso, ritirata: true };
+      } else if (perTesto && perTesto.automatico) {
+        esito = { ...perTesto, avviso: null };
+      } else if (numeroLegacy && (numeroLegacy.ritirata || idValidi.has(numeroLegacy.domandaId))) {
+        // Il mapping numerico storico è solo un fallback quando il testo estratto non è
+        // abbastanza forte/univoco; non può sovrascrivere una corrispondenza testuale certa.
         esito = {
           domandaId: numeroLegacy.domandaId,
           metodo: numeroLegacy.ritirata ? 'legacy_interparking' : 'legacy_interparking_numero',
@@ -319,8 +330,6 @@ const importMatching = (() => {
           avviso: numeroLegacy.avviso || null,
           ritirata: Boolean(numeroLegacy.ritirata)
         };
-      } else if (ritirataTestuale) {
-        esito = { domandaId: null, metodo: 'legacy_interparking', confidenza: 1, automatico: true, avviso: ritirataTestuale.avviso, ritirata: true };
       } else {
         esito = abbinaRiga(rigaGrezza, domande, idValidi, risolutoreStorico);
       }
