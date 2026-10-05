@@ -16,7 +16,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 function caricaPdfImport() {
-  const context = { console, pdfjsLib: { GlobalWorkerOptions: {} } };
+  const context = { console, pdfjsLib: { GlobalWorkerOptions: {}, OPS: { paintFormXObjectBegin: 9001 } } };
   vm.createContext(context);
   const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'pdf-import.js'), 'utf8');
   vm.runInContext(`${source}\nglobalThis.pdfImportPerTest = pdfImport;`, context);
@@ -68,6 +68,51 @@ function paginaNostro() {
     it('X', 330, 175) // colonna N.C
   ];
 }
+
+test('testo renderizzato: i glifi adiacenti si ricompongono senza fondere colonne diverse', () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const viewport = { convertToPdfPoint: (x, y) => [x, 842 - y] };
+  const rec = (testo, x, y, w, ordine) => ({
+    testo,
+    baseline: { x, y },
+    end: { x: x + w, y },
+    bbox: { left:x, top:y-8, right:x+w, bottom:y+2 },
+    ordine
+  });
+  const items = pdfImportPerTest._test.consolidaTestoRenderizzato([
+    rec('N',40,100,5,1), rec('o',45.2,100,5,2), rec('t',50.4,100,3,3), rec('a',53.6,100,5,4),
+    rec('X',300,100,6,5),
+    // doppio paint dello stesso glifo: non deve duplicarsi
+    rec('X',300,100,6,6)
+  ], viewport);
+  assert.equal(items.length,2);
+  assert.equal(items[0].testo,'Nota');
+  assert.equal(items[1].testo,'X');
+});
+
+test('pagina composita: un Form XObject grande e clippato attiva il percorso di estrazione visiva', async () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const pagina = {
+    view:[0,0,595,842],
+    getOperatorList: async () => ({
+      fnArray:[9001],
+      argsArray:[[[1,0,0,1,0,0],[0,420,595,842]]]
+    })
+  };
+  assert.equal(await pdfImportPerTest._test.paginaHaFormClippatoGrande(pagina),true);
+});
+
+test('pagina normale: piccoli Form XObject non attivano inutilmente il rendering testuale', async () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const pagina = {
+    view:[0,0,595,842],
+    getOperatorList: async () => ({
+      fnArray:[9001],
+      argsArray:[[[1,0,0,1,0,0],[10,10,100,60]]]
+    })
+  };
+  assert.equal(await pdfImportPerTest._test.paginaHaFormClippatoGrande(pagina),false);
+});
 
 test('bordi PDF: i segmenti stretti della cella n. non spezzano una riga reale', () => {
   const pdfImportPerTest = caricaPdfImport();
