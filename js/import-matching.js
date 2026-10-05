@@ -317,7 +317,7 @@ const importMatching = (() => {
       // restano affidabili. Le voci Interparking ritirate vengono riconosciute per prime.
       if (ritirataTestuale) {
         esito = { domandaId: null, metodo: 'legacy_interparking', confidenza: 1, automatico: true, avviso: ritirataTestuale.avviso, ritirata: true };
-      } else if (perTesto && perTesto.automatico) {
+      } else if (numerazioneLegacyInterparking && perTesto && perTesto.automatico) {
         esito = { ...perTesto, avviso: null };
       } else if (numeroLegacy && (numeroLegacy.ritirata || idValidi.has(numeroLegacy.domandaId))) {
         // Il mapping numerico storico è solo un fallback quando il testo estratto non è
