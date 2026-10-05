@@ -85,9 +85,9 @@ async function api(action,body={},attempt=0){
   if(!j||typeof j!=="object")throw new Error("Risposta del server non valida.");
   return j;
 }
-async function loadProfile(user){const snap=await db.collection("utenti").doc(user.uid).get({source:"server"});if(!snap.exists)throw new Error("Profilo utente non disponibile.");const p=snap.data();if(p.attivo!==true||!["admin","tecnico"].includes(p.ruolo))throw new Error("Account non attivo.");return {...p,uid:user.uid}}
+async function loadProfile(user){const snap=await db.collection("utenti").doc(user.uid).get({source:"server"});if(!snap.exists)throw new Error("Profilo utente non disponibile.");const p=snap.data();if(p.attivo!==true||!["admin","tecnico"].includes(p.ruolo))throw new Error("Account non attivo.");const verified=await api("me");return {...p,...verified.profile,uid:user.uid}}
 function showLogin(msg=""){profile=null;loginView.hidden=false;appView.hidden=true;loginError.textContent=msg;loginError.hidden=!msg}
-async function showApp(p){profile=p;loginView.hidden=true;appView.hidden=false;$("#userName").textContent=[p.nome,p.cognome].filter(Boolean).join(" ")||p.username;$("#userRole").textContent=p.ruolo==="admin"?"Amministratore":"Tecnico";$("#tabAdmin").hidden=p.ruolo!=="admin";$("#tabArchive").hidden=p.ruolo!=="admin";$("#tabEconomics").hidden=p.ruolo!=="admin";$("#panelTitle").textContent=p.ruolo==="admin"?"Pannello Amministratore":"Pannello Tecnico";$("#panelSubtitle").textContent=p.ruolo==="admin"?"Report, produttività e analisi per decisioni strategiche":"Inserisci le tue ore in pochi secondi";await loadDay();if(p.ruolo==="admin")await loadAdmin()}
+async function showApp(p){profile=p;loginView.hidden=true;appView.hidden=false;$("#userName").textContent=[p.nome,p.cognome].filter(Boolean).join(" ")||p.username;$("#userRole").textContent=p.ore_ruolo==="direzione"?"Direzione":p.ore_ruolo==="admin_operativo"?"Admin operativo":"Tecnico";$("#tabAdmin").hidden=p.ruolo!=="admin";$("#tabArchive").hidden=p.ruolo!=="admin";$("#tabEconomics").hidden=p.ore_ruolo!=="direzione";if($("#oreRolesPanel"))$("#oreRolesPanel").hidden=p.ore_ruolo!=="direzione";$("#panelTitle").textContent=p.ruolo==="admin"?"Pannello Amministratore":"Pannello Tecnico";$("#panelSubtitle").textContent=p.ruolo==="admin"?"Report, produttività e analisi per decisioni strategiche":"Inserisci le tue ore in pochi secondi";await loadDay();if(p.ruolo==="admin")await loadAdmin()}
 loginForm.addEventListener("submit",async e=>{
   e.preventDefault();loginBtn.disabled=true;loginError.hidden=true;
   try{
@@ -1078,7 +1078,7 @@ function updateEstimator(setHistoricalHours=false){
 
 let economicsSeq=0;
 async function loadEconomics(){
-  if(!profile||profile.ruolo!=="admin")return;
+  if(!profile||profile.ore_ruolo!=="direzione")return;
   try{
     const seq=++economicsSeq,complexity=typeof readComplexity==="function"?readComplexity($("#estimateComplexityFilters")):{};
     const [catalog,summary]=await Promise.all([api("economicsCatalog"),api("adminEconomics",{complexity})]);

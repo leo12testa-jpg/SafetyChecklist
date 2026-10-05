@@ -132,6 +132,7 @@ async function caller(req: Request) {
   if (!p.ok) bad("Profilo non disponibile.", 403);
   const profile = fromDoc(await p.json());
   if (profile.attivo !== true || !["admin", "tecnico"].includes(profile.ruolo)) bad("Account non attivo.", 403);
+  if(profile.ruolo==="admin"){const {data:access,error}=await adminClient().from("ore_ruoli_utenti").select("ruolo").eq("tecnico_uid",user.uid).maybeSingle();if(error)bad("Impossibile verificare i permessi Ore.",503);profile.ore_ruolo=access?.ruolo||"admin_operativo";}else profile.ore_ruolo="tecnico";
   return { ...user, token, profile };
 }
 function adminClient() {
@@ -140,32 +141,37 @@ function adminClient() {
   const key = secretJson ? JSON.parse(secretJson).default : Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
+function isOperations(user:any){return ["admin_operativo","direzione"].includes(user.profile.ore_ruolo);}
+function hasDirection(user:any){return user.profile.ore_ruolo==="direzione";}
+const ECONOMIC_KEYS=new Set(["costo_orario","costo_sessione","costo_tecnico","costo_totale","costi_esterni","valore_vendita","note_economiche","margine","margine_pct","prezzo","blendedHourlyCost"]);
+function withoutEconomics(value:any):any{if(Array.isArray(value))return value.map(withoutEconomics);if(value&&typeof value==="object")return Object.fromEntries(Object.entries(value).filter(([key])=>!ECONOMIC_KEYS.has(key)).map(([key,v])=>[key,withoutEconomics(v)]));return value;}
 function requireAdmin(user: any) {
-  if (user.profile.ruolo !== "admin") bad("Operazione riservata agli amministratori.", 403);
+  if (!isOperations(user)) bad("Operazione riservata agli amministratori.", 403);
 }
 // Role is always read from the server-side Firebase profile. Unknown actions fail closed.
 const ACTION_ROLES: Record<string, readonly string[]> = {
-  me: ["admin", "tecnico"], myCrmResource: ["admin", "tecnico"],
-  requestUnlock:["admin","tecnico"],unlockRequests:["admin"],decideUnlock:["admin"],
-  companyPeriods:["admin"],saveCompanyPeriod:["admin"],
-  monthStatus:["admin"],changeMonth:["admin"],
-  crmDebug: ["admin", "tecnico"], catalog: ["admin", "tecnico"],
-  commesse: ["admin", "tecnico"], day: ["admin", "tecnico"],
-  recentPersonal: ["admin", "tecnico"], saveSession: ["admin", "tecnico"],
-  addManual: ["admin", "tecnico"], confirmDay: ["admin", "tecnico"],
-  ingestAgenda: ["admin", "tecnico"], syncStatus: ["admin", "tecnico"],
-  resolveSyncIssue: ["admin", "tecnico"],
-  importPlanner: ["admin"], importHistoryBatch: ["admin"],
-  crmResources: ["admin"], crmAgentHeartbeat: ["admin"], ingestAgendaCompany: ["admin"],
-  economicsCatalog: ["admin"], saveTechnicianCost: ["admin"], saveJobEconomics: ["admin"],
-  adminEconomics: ["admin"], archiveJobs: ["admin"], archiveJobDetail: ["admin"],
-  adminSummary: ["admin"], crmLinks: ["admin"], previewCrmLink: ["admin"], approveCrmLink: ["admin"],
-  saveInternal: ["admin", "tecnico"], workSchedules: ["admin"], saveWorkSchedule: ["admin"],
-  savePhase: ["admin", "tecnico"], previewIdentity: ["admin"], approveIdentity: ["admin"], changeJobState: ["admin"], saveJobComplexity: ["admin"], missingDays: ["admin", "tecnico"]
+  oreRoles:["direzione"],setOreRole:["direzione"],
+  me: ["direzione", "admin_operativo", "tecnico"], myCrmResource: ["direzione", "admin_operativo", "tecnico"],
+  requestUnlock:["direzione", "admin_operativo","tecnico"],unlockRequests:["direzione", "admin_operativo"],decideUnlock:["direzione", "admin_operativo"],
+  companyPeriods:["direzione", "admin_operativo"],saveCompanyPeriod:["direzione", "admin_operativo"],
+  monthStatus:["direzione", "admin_operativo"],changeMonth:["direzione", "admin_operativo"],
+  crmDebug: ["direzione", "admin_operativo", "tecnico"], catalog: ["direzione", "admin_operativo", "tecnico"],
+  commesse: ["direzione", "admin_operativo", "tecnico"], day: ["direzione", "admin_operativo", "tecnico"],
+  recentPersonal: ["direzione", "admin_operativo", "tecnico"], saveSession: ["direzione", "admin_operativo", "tecnico"],
+  addManual: ["direzione", "admin_operativo", "tecnico"], confirmDay: ["direzione", "admin_operativo", "tecnico"],
+  ingestAgenda: ["direzione", "admin_operativo", "tecnico"], syncStatus: ["direzione", "admin_operativo", "tecnico"],
+  resolveSyncIssue: ["direzione", "admin_operativo", "tecnico"],
+  importPlanner: ["direzione", "admin_operativo"], importHistoryBatch: ["direzione", "admin_operativo"],
+  crmResources: ["direzione", "admin_operativo"], crmAgentHeartbeat: ["direzione", "admin_operativo"], ingestAgendaCompany: ["direzione", "admin_operativo"],
+  economicsCatalog: ["direzione"], saveTechnicianCost: ["direzione"], saveJobEconomics: ["direzione"],
+  adminEconomics: ["direzione"], archiveJobs: ["direzione", "admin_operativo"], archiveJobDetail: ["direzione", "admin_operativo"],
+  adminSummary: ["direzione", "admin_operativo"], crmLinks: ["direzione", "admin_operativo"], previewCrmLink: ["direzione", "admin_operativo"], approveCrmLink: ["direzione", "admin_operativo"],
+  saveInternal: ["direzione", "admin_operativo", "tecnico"], workSchedules: ["direzione", "admin_operativo"], saveWorkSchedule: ["direzione", "admin_operativo"],
+  savePhase: ["direzione", "admin_operativo", "tecnico"], previewIdentity: ["direzione", "admin_operativo"], approveIdentity: ["direzione", "admin_operativo"], changeJobState: ["direzione", "admin_operativo"], saveJobComplexity: ["direzione", "admin_operativo"], missingDays: ["direzione", "admin_operativo", "tecnico"]
 };
 function authorizeAction(user: any, action: string) {
   if (!Object.hasOwn(ACTION_ROLES, action)) bad("Operazione non riconosciuta.");
-  if (!ACTION_ROLES[action].includes(user.profile.ruolo)) bad("Operazione riservata agli amministratori.", 403);
+  if (!ACTION_ROLES[action].includes(user.profile.ore_ruolo)) bad("Operazione riservata agli amministratori.", 403);
   if(user.profile.account_test===true&&["addManual","saveInternal","confirmDay","ingestAgenda","resolveSyncIssue"].includes(action))bad("Account di test: rendicontazione disabilitata.",403);
 }
 const INTERNAL_CATEGORIES = new Set(["formazione_interna","amministrazione","commerciale_preventivi","aggiornamento_normativo","riunioni_interne","altro_interno","assenza"]);
@@ -203,7 +209,7 @@ async function readAll(builder:()=>any){
 function sessionWrites(db:any,user:any){
  const start=(operation:string,payload:any={})=>{let id:string|null=null,single=false;
   const q:any={select(){return q;},eq(key:string,value:string){if(key!=="id")throw new Error("Filtro scrittura sessione non ammesso");id=value;return q;},single(){single=true;return q;},
-   then(resolve:any,reject:any){return db.rpc("ore_scrivi_sessione",{p_operation:operation,p_payload:payload,p_id:id,p_actor:user.uid,p_admin:user.profile.ruolo==="admin",p_reason:payload.motivo_modifica||null}).then((r:any)=>resolve({data:single?r.data:r.data?[r.data]:null,error:r.error}),reject);}};return q;
+   then(resolve:any,reject:any){return db.rpc("ore_scrivi_sessione",{p_operation:operation,p_payload:payload,p_id:id,p_actor:user.uid,p_admin:isOperations(user),p_reason:payload.motivo_modifica||null}).then((r:any)=>resolve({data:single?r.data:r.data?[r.data]:null,error:r.error}),reject);}};return q;
  };
  return {insert:(payload:any)=>start("insert",payload),upsert:(payload:any,_options:any)=>start("upsert",payload),update:(payload:any)=>start("update",payload),delete:()=>start("delete")};
 }
@@ -242,33 +248,44 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "");
     authorizeAction(user, action);
+    const respond=(value:any,status=200)=>json(req,hasDirection(user)?value:withoutEconomics(value),status);
+    if(action === "oreRoles"){
+      const profiles:any[]=[];let next="";do{const response=await fetch(`${FIRESTORE}/utenti?pageSize=1000${next?`&pageToken=${encodeURIComponent(next)}`:""}`,{headers:{authorization:`Bearer ${user.token}`}});if(!response.ok)bad("Impossibile leggere gli account.",500);const page=await response.json();profiles.push(...(page.documents||[]).map(fromDoc));next=page.nextPageToken||"";}while(next);
+      const {data:roles,error}=await db.from("ore_ruoli_utenti").select("*");if(error)bad("Impossibile leggere i ruoli Ore.",500);
+      return respond({rows:profiles.filter(p=>p.attivo===true&&p.ruolo==="admin"&&p.account_test!==true).map(p=>({uid:p.uid,nome:`${p.nome||""} ${p.cognome||""}`.trim(),username:p.username,ore_ruolo:(roles||[]).find((r:any)=>r.tecnico_uid===p.uid)?.ruolo||"admin_operativo"}))});
+    }
+    if(action === "setOreRole"){
+      const uid=String(body.tecnicoUid||"").trim(),role=String(body.oreRuolo||"");if(!uid||!["admin_operativo","direzione"].includes(role))bad("Ruolo Ore non valido.");
+      const response=await fetch(`${FIRESTORE}/utenti/${encodeURIComponent(uid)}`,{headers:{authorization:`Bearer ${user.token}`}});if(!response.ok)bad("Account non trovato.",404);const target=fromDoc(await response.json());if(target.attivo!==true||target.ruolo!=="admin"||target.account_test===true)bad("Scegli un account admin reale attivo.");
+      const {data,error}=await db.rpc("ore_assegna_ruolo",{p_uid:uid,p_role:role,p_actor:user.uid});if(error)bad(error.message,409);return respond(data);
+    }
     if (action === "monthStatus"){
       const {data,error}=await db.from("ore_chiusure_mensili").select("*").order("mese",{ascending:false});if(error)bad("Impossibile leggere le chiusure mensili.",500);
-      const {data:history,error:historyError}=await readAll(()=>db.from("ore_audit").select("*").eq("entita","mese").order("created_at",{ascending:false}));if(historyError)bad("Impossibile leggere lo storico mensile.",500);return json(req,{rows:data||[],history:history||[]});
+      const {data:history,error:historyError}=await readAll(()=>db.from("ore_audit").select("*").eq("entita","mese").order("created_at",{ascending:false}));if(historyError)bad("Impossibile leggere lo storico mensile.",500);return respond({rows:data||[],history:history||[]});
     }
     if (action === "changeMonth"){
       const month=String(body.mese||"");if(!/^\d{4}-\d{2}$/.test(month)||!["close","reopen"].includes(body.operation))bad("Mese o comando non valido.");dateOnly(month+"-01");const reason=String(body.motivo||"").trim();if(reason.length>500||body.operation==="reopen"&&!reason)bad("Indica il motivo della riapertura.");
-      const {data,error}=await db.rpc("ore_cambia_mese",{p_month:month+"-01",p_close:body.operation==="close",p_actor:user.uid,p_reason:reason||null});if(error)bad(error.message,409);return json(req,data);
+      const {data,error}=await db.rpc("ore_cambia_mese",{p_month:month+"-01",p_close:body.operation==="close",p_actor:user.uid,p_reason:reason||null});if(error)bad(error.message,409);return respond(data);
     }
     if (action === "companyPeriods"){
-      const {data,error}=await readAll(()=>db.from("ore_periodi_aziendali").select("*").order("data_inizio",{ascending:false}));if(error)bad("Impossibile leggere i periodi aziendali.",500);return json(req,{rows:data||[]});
+      const {data,error}=await readAll(()=>db.from("ore_periodi_aziendali").select("*").order("data_inizio",{ascending:false}));if(error)bad("Impossibile leggere i periodi aziendali.",500);return respond({rows:data||[]});
     }
     if (action === "saveCompanyPeriod"){
       const start=dateOnly(body.dataInizio),end=dateOnly(body.dataFine),name=String(body.nome||"").trim(),week=body.settimanaMinuti;
       if(!name||name.length>80||start>end||!Array.isArray(week)||week.length!==7||week.some((v:any)=>typeof v!=="number"))bad("Periodo aziendale non valido.");week.forEach(minutes);
       if(body.id&&(!body.updatedAt||!Number.isFinite(Date.parse(body.updatedAt))))bad("Versione periodo non valida.");const reason=String(body.motivo||"").trim();if(reason.length>500)bad("Motivo troppo lungo.");
-      const {data,error}=await db.rpc("ore_salva_periodo",{p_id:body.id||null,p_name:name,p_start:start,p_end:end,p_week:week,p_actor:user.uid,p_expected:body.updatedAt||null,p_reason:reason||null});if(error)bad(error.message,409);return json(req,data);
+      const {data,error}=await db.rpc("ore_salva_periodo",{p_id:body.id||null,p_name:name,p_start:start,p_end:end,p_week:week,p_actor:user.uid,p_expected:body.updatedAt||null,p_reason:reason||null});if(error)bad(error.message,409);return respond(data);
     }
     if(action === "requestUnlock"){
       const reason=String(body.motivo||"").trim();if(!reason||reason.length>500)bad("Indica il motivo dello sblocco (massimo 500 caratteri).");
-      const {data,error}=await db.rpc("ore_richiedi_sblocco",{p_uid:user.uid,p_day:dateOnly(body.date),p_reason:reason,p_actor:user.uid});if(error)bad(error.message,409);return json(req,data);
+      const {data,error}=await db.rpc("ore_richiedi_sblocco",{p_uid:user.uid,p_day:dateOnly(body.date),p_reason:reason,p_actor:user.uid});if(error)bad(error.message,409);return respond(data);
     }
     if(action === "unlockRequests"){
-      const {data,error}=await readAll(()=>db.from("ore_richieste_sblocco").select("*").order("created_at",{ascending:false}));if(error)bad("Impossibile leggere le richieste.",500);return json(req,{rows:data||[]});
+      const {data,error}=await readAll(()=>db.from("ore_richieste_sblocco").select("*").order("created_at",{ascending:false}));if(error)bad("Impossibile leggere le richieste.",500);return respond({rows:data||[]});
     }
     if(action === "decideUnlock"){
       if(!body.id||typeof body.approve!=="boolean")bad("Decisione non valida.");const reason=String(body.motivo||"").trim();if(!reason||reason.length>500)bad("Indica il motivo della decisione.");
-      const {data,error}=await db.rpc("ore_decidi_sblocco",{p_id:body.id,p_approve:body.approve,p_reason:reason,p_actor:user.uid});if(error)bad(error.message,409);return json(req,data);
+      const {data,error}=await db.rpc("ore_decidi_sblocco",{p_id:body.id,p_approve:body.approve,p_reason:reason,p_actor:user.uid});if(error)bad(error.message,409);return respond(data);
     }
 
     if(action === "missingDays"){
@@ -290,14 +307,14 @@ Deno.serve(async (req: Request) => {
       ]);
       if(activityError||statusError||scheduleError)bad("Impossibile verificare le giornate.",500);
       const {data:periods,error:periodError}=await readAll(()=>db.from("ore_periodi_aziendali").select("*").lte("data_inizio",to).gte("data_fine",from));if(periodError)bad("Impossibile leggere i periodi aziendali.",500);
-      return json(req,{from,to,today,people:people.length,rows:missingWorkDays(people,attributeIdentity(activities||[],aliases||[]),attributeIdentity(statuses||[],aliases||[]),schedules||[],today,periods||[])});
+      return respond({from,to,today,people:people.length,rows:missingWorkDays(people,attributeIdentity(activities||[],aliases||[]),attributeIdentity(statuses||[],aliases||[]),schedules||[],today,periods||[])});
     }
 
     if(action === "saveJobComplexity"){
       if(!body.complexity||typeof body.complexity!=="object"||Array.isArray(body.complexity))bad("Indica i fattori di complessita.");
       const values=validateComplexity(body.complexity);
       if(!body.commessaId||!body.updatedAt||!Number.isFinite(Date.parse(body.updatedAt)))bad("Pratica o versione non valide.");
-      const {data,error}=await db.rpc("ore_salva_complessita",{p_id:body.commessaId,p_data:values,p_actor:user.uid,p_expected:body.updatedAt});if(error)bad(error.message,409);return json(req,data);
+      const {data,error}=await db.rpc("ore_salva_complessita",{p_id:body.commessaId,p_data:values,p_actor:user.uid,p_expected:body.updatedAt});if(error)bad(error.message,409);return respond(data);
     }
 
     if(action === "changeJobState"){
@@ -306,7 +323,7 @@ Deno.serve(async (req: Request) => {
       if(close&&(typeof revisions!=="number"||!Number.isInteger(revisions)||revisions<0||revisions>100000))bad("Numero di revisioni non valido.");
       const note=String(body.nota||"").trim();if(note.length>2000)bad("Nota troppo lunga.");
       const {data,error}=await db.rpc("ore_cambia_stato_pratica",{p_id:body.commessaId,p_close:close,p_delivery:delivery,p_revisions:revisions,p_note:note||null,p_actor:user.uid,p_expected:body.updatedAt});
-      if(error)bad(error.message,409);return json(req,data);
+      if(error)bad(error.message,409);return respond(data);
     }
 
     if(action === "previewIdentity"||action === "approveIdentity"){
@@ -317,7 +334,7 @@ Deno.serve(async (req: Request) => {
       if(action === "previewIdentity"){
         let sessions=0,minutes=0;
         for(let offset=0;;offset+=1000){const {data,error}=await db.from("ore_sessioni").select("minuti_effettivi").eq("tecnico_uid",legacyUid).order("id").range(offset,offset+999);if(error)bad("Impossibile leggere lo storico.",500);sessions+=(data||[]).length;minutes+=(data||[]).reduce((sum:number,s:any)=>sum+s.minuti_effettivi,0);if((data||[]).length<1000)break;}
-        return json(req,{resource,alias,legacyUid,sessions,minutes});
+        return respond({resource,alias,legacyUid,sessions,minutes});
       }
       const uid=String(body.tecnicoUid||"");if(!uid||uid.startsWith("legacy:")||uid.includes("/"))bad("Account non valido.");
       const response=await fetch(`${FIRESTORE}/utenti/${encodeURIComponent(uid)}`,{headers:{authorization:`Bearer ${user.token}`}});
@@ -325,7 +342,7 @@ Deno.serve(async (req: Request) => {
       if(target.account_test===true)bad("Gli account di test non possono essere collegati al CRM.");
       if(target.attivo!==true||!["admin","tecnico"].includes(target.ruolo))bad("Account non attivo.");
       const {data,error:saveError}=await db.rpc("ore_collega_identita",{p_resource:resource.id,p_uid:uid,p_name:`${target.nome||""} ${target.cognome||""}`.trim(),p_actor:user.uid,p_previous_uid:body.previousUid??null,p_previous_approval:body.previousApproval??null,p_previous_alias:body.previousAlias??null});
-      if(saveError)bad(saveError.message,409);return json(req,data);
+      if(saveError)bad(saveError.message,409);return respond(data);
     }
 
     if (action === "savePhase") {
@@ -333,12 +350,12 @@ Deno.serve(async (req: Request) => {
       if(!id||(phase!==null&&!WORK_PHASES.has(phase)))bad("Fase di lavoro non valida.");
       const {data:current,error}=await db.from("ore_sessioni").select("tecnico_uid,confermata").eq("id",id).maybeSingle();
       if(error||!current)bad("Sessione non trovata.",404);
-      if(current.tecnico_uid!==user.uid&&user.profile.ruolo!=="admin")bad("Non autorizzato.",403);
-      if(current.confermata&&user.profile.ruolo!=="admin")bad("Giornata confermata: serve sblocco amministratore.",403);
+      if(current.tecnico_uid!==user.uid&&!isOperations(user))bad("Non autorizzato.",403);
+      if(current.confermata&&!isOperations(user))bad("Giornata confermata: serve sblocco amministratore.",403);
       if(!body.updatedAt||!Number.isFinite(Date.parse(String(body.updatedAt))))bad("Versione della sessione non valida: ricarica.");
-      const {data,error:saveError}=await db.rpc("ore_salva_fase",{p_id:id,p_phase:phase,p_actor:user.uid,p_admin:user.profile.ruolo==="admin",p_expected:body.updatedAt,p_reason:String(body.motivo||"").trim().slice(0,300)||null});
+      const {data,error:saveError}=await db.rpc("ore_salva_fase",{p_id:id,p_phase:phase,p_actor:user.uid,p_admin:isOperations(user),p_expected:body.updatedAt,p_reason:String(body.motivo||"").trim().slice(0,300)||null});
       if(saveError)bad(saveError.message||"Impossibile salvare la fase.",409);
-      return json(req,data);
+      return respond(data);
     }
 
     if (action === "workSchedules") {
@@ -348,7 +365,7 @@ Deno.serve(async (req: Request) => {
       if(!response.ok)bad("Impossibile caricare gli account tecnici.",500);
       const body=await response.json();if(body.nextPageToken)bad("Elenco account troppo lungo: serve paginazione.",500);
       const technicians=(body.documents||[]).map(fromDoc).filter((p:any)=>p.account_test!==true&&p.attivo===true&&["tecnico","admin"].includes(p.ruolo)).map((p:any)=>({uid:p.uid,nome:`${p.nome||""} ${p.cognome||""}`.trim()}));
-      return json(req,{schedules:schedules||[],technicians});
+      return respond({schedules:schedules||[],technicians});
     }
     if (action === "saveWorkSchedule") {
       const uid=String(body.tecnicoUid||"").trim(),from=dateOnly(body.validoDal);
@@ -361,7 +378,7 @@ Deno.serve(async (req: Request) => {
       if(target.attivo!==true||!["admin","tecnico"].includes(target.ruolo))bad("Account tecnico non attivo.");
       const {data,error}=await db.rpc("ore_aggiungi_orario",{p_uid:uid,p_name:`${target.nome||""} ${target.cognome||""}`.trim(),p_from:from,p_week:week,p_actor:user.uid});
       if(error)bad(error.message||"Impossibile salvare l'orario.",409);
-      return json(req,data);
+      return respond(data);
     }
 
     if (action === "saveInternal") {
@@ -373,7 +390,7 @@ Deno.serve(async (req: Request) => {
       if(id){
         const {data:current,error}=await db.from("ore_attivita_interne").select("tecnico_uid,tecnico_nome,data_lavoro").eq("id",id).maybeSingle();
         if(error||!current)bad("Attività interna non trovata.",404);
-        if(current.tecnico_uid!==user.uid&&user.profile.ruolo!=="admin")bad("Non autorizzato.",403);
+        if(current.tecnico_uid!==user.uid&&!isOperations(user))bad("Non autorizzato.",403);
         targetUid=current.tecnico_uid;targetName=current.tecnico_nome||"";
         if(current.data_lavoro!==day)bad("La data dell'attività non è modificabile.");
       }
@@ -386,9 +403,9 @@ Deno.serve(async (req: Request) => {
       if(target.attivo!==true||!["admin","tecnico"].includes(target.ruolo))bad("Account tecnico non attivo.");
         targetName=`${target.nome||""} ${target.cognome||""}`.trim();
       }
-      const {data,error}=await db.rpc("ore_salva_attivita_interna",{p_id:id,p_uid:targetUid,p_name:targetName,p_day:day,p_category:category,p_minutes:duration,p_actor:user.uid,p_admin:user.profile.ruolo==="admin"});
+      const {data,error}=await db.rpc("ore_salva_attivita_interna",{p_id:id,p_uid:targetUid,p_name:targetName,p_day:day,p_category:category,p_minutes:duration,p_actor:user.uid,p_admin:isOperations(user)});
       if(error)bad(error.message||"Impossibile salvare l'attività interna.",409);
-      return json(req,data);
+      return respond(data);
     }
 
     if (action === "crmLinks") {
@@ -428,7 +445,7 @@ Deno.serve(async (req: Request) => {
         if(a.some((word:string)=>b.includes(word)))similar.push({a:rows[i].sigla_crm,b:rows[j].sigla_crm,motivo:"parole del nome in comune: da verificare"});
       }
       const multiple=technicians.map((t:any)=>({...t,risorse:rows.filter((r:any)=>r.tecnico_uid===t.uid).map((r:any)=>r.sigla_crm)})).filter((t:any)=>t.risorse.length>1);
-      return json(req,{rows,technicians,ambigui:{nomi_simili:similar,senza_tecnico:rows.filter((r:any)=>!r.account_reale).map((r:any)=>r.sigla_crm),tecnici_con_piu_risorse:multiple},pending:pending||[],limiti:{storico:(history||[]).length===1000,attivita:(pending||[]).length===1000}});
+      return respond({rows,technicians,ambigui:{nomi_simili:similar,senza_tecnico:rows.filter((r:any)=>!r.account_reale).map((r:any)=>r.sigla_crm),tecnici_con_piu_risorse:multiple},pending:pending||[],limiti:{storico:(history||[]).length===1000,attivita:(pending||[]).length===1000}});
     }
 
     if (action === "previewCrmLink" || action === "approveCrmLink") {
@@ -441,7 +458,7 @@ Deno.serve(async (req: Request) => {
           .eq("crm_risorsa_id",resourceId).eq("confermata",false).order("data_lavoro").limit(501);
         if(sessionError)bad("Impossibile caricare l'anteprima.",500);
         if((sessions||[]).length>500)bad("Oltre 500 sessioni: restringere prima la riassegnazione.");
-        return json(req,{resource,sessions:sessions||[],nota:"Le sessioni storiche senza risorsa indicata e le sessioni confermate non vengono spostate."});
+        return respond({resource,sessions:sessions||[],nota:"Le sessioni storiche senza risorsa indicata e le sessioni confermate non vengono spostate."});
       }
       const targetUid=String(body.tecnicoUid||"").trim();
       if(!targetUid||targetUid.startsWith("legacy:")||targetUid.includes("/"))bad("Scegli un account tecnico attivo.");
@@ -458,7 +475,7 @@ Deno.serve(async (req: Request) => {
         p_sessions:sessions.map((s:any)=>({id:s.id,updated_at:s.updated_at}))
       });
       if(saveError)bad(saveError.message||"Impossibile approvare il collegamento.",409);
-      return json(req,data);
+      return respond(data);
     }
 
     const identityAliases:any[]=[];let excludedTestUids=new Set<string>();
@@ -522,11 +539,11 @@ Deno.serve(async (req: Request) => {
       return created;
     };
 
-    if (action === "me") return json(req, { profile: user.profile });
+    if (action === "me") return respond( { profile: user.profile });
 
     if (action === "myCrmResource") {
       const resource:any = await bindCallerResource(db,user);
-      return json(req, {
+      return respond( {
         resource: resource ? {
           id: resource.id,
           sigla: resource.sigla_crm,
@@ -550,7 +567,7 @@ Deno.serve(async (req: Request) => {
         samples
       };
       await writeAudit(db, user.uid, "crm_debug", "agenda", day, details);
-      return json(req, { ok: true });
+      return respond( { ok: true });
     }
 
     if (action === "catalog") {
@@ -559,7 +576,7 @@ Deno.serve(async (req: Request) => {
         db.from("ore_tipologie").select("id,codice,nome,categoria").eq("attiva", true).order("codice")
       ]);
       if (e1 || e2) bad("Impossibile caricare l'anagrafica.", 500);
-      return json(req, { clienti, tipologie });
+      return respond( { clienti, tipologie });
     }
 
     if (action === "commesse") {
@@ -567,7 +584,7 @@ Deno.serve(async (req: Request) => {
       if (body.clienteId) q = q.eq("cliente_id", String(body.clienteId));
       const { data, error } = await q;
       if (error) bad("Impossibile caricare le commesse.", 500);
-      return json(req, { commesse: data });
+      return respond( { commesse: data });
     }
 
     if (action === "day") {
@@ -586,7 +603,7 @@ Deno.serve(async (req: Request) => {
       const total = (activities || []).reduce((s: number, x: any) => s + Number(x.minuti_effettivi || 0), 0);
       const { data: giornata } = await db.from("ore_giornate").select("stato,confermata_at").eq("tecnico_uid", user.uid).eq("data", day).maybeSingle();
       const {data:month,error:monthError}=await db.from("ore_chiusure_mensili").select("chiuso").eq("mese",day.slice(0,7)+"-01").maybeSingle();if(monthError)bad("Impossibile leggere lo stato del mese.",500);
-      return json(req, { date: day, monthClosed:month?.chiuso===true,sessions: data || [], internalActivities:(activities||[]).filter((r:any)=>r.tipo_record==="interna"),billability:billability(activities||[]),totalMinutes: total,expectedMinutes:work.minutes,workSchedule:work,dayStatus: giornata || { stato: "da_verificare", confermata_at: null } });
+      return respond( { date: day, monthClosed:month?.chiuso===true,sessions: data || [], internalActivities:(activities||[]).filter((r:any)=>r.tipo_record==="interna"),billability:billability(activities||[]),totalMinutes: total,expectedMinutes:work.minutes,workSchedule:work,dayStatus: giornata || { stato: "da_verificare", confermata_at: null } });
     }
 
     if (action === "recentPersonal") {
@@ -606,7 +623,7 @@ Deno.serve(async (req: Request) => {
         rows.push(s);
         if(rows.length>=6) break;
       }
-      return json(req,{rows});
+      return respond({rows});
     }
 
     if (action === "saveSession") {
@@ -617,8 +634,8 @@ Deno.serve(async (req: Request) => {
         .select("id,tecnico_uid,data_lavoro,minuti_effettivi,commessa_id,crm_oggetto,attivita_rilevata,confermata")
         .eq("id", id).maybeSingle();
       if (findError || !current) bad("Sessione non trovata.", 404);
-      if (current.tecnico_uid !== user.uid && user.profile.ruolo !== "admin") bad("Non autorizzato.", 403);
-      if(current.confermata&&user.profile.ruolo!=="admin")bad("Giornata confermata: richiedi lo sblocco all amministratore.",403);
+      if (current.tecnico_uid !== user.uid && !isOperations(user)) bad("Non autorizzato.", 403);
+      if(current.confermata&&!isOperations(user))bad("Giornata confermata: richiedi lo sblocco all amministratore.",403);
 
       const requestedCommessaId = String(body.commessaId || "").trim();
       let commessa:any = null;
@@ -661,7 +678,7 @@ Deno.serve(async (req: Request) => {
         commessa_dopo: commessa.id,
         motivo
       });
-      return json(req, { ok: true, commessa });
+      return respond( { ok: true, commessa });
     }
 
     if (action === "addManual") {
@@ -683,14 +700,14 @@ Deno.serve(async (req: Request) => {
       }).select("id").single();
       if (error) bad("Impossibile aggiungere l'attività.", 500);
       await writeAudit(db, user.uid, "aggiunta_manuale", "sessione", data.id, { minuti: m });
-      return json(req, { ok: true, id: data.id });
+      return respond( { ok: true, id: data.id });
     }
 
     if (action === "confirmDay") {
       const day=dateOnly(body.date);
       const {data,error}=await db.rpc("ore_conferma_giornata",{p_uid:user.uid,p_name:`${user.profile.nome||""} ${user.profile.cognome||""}`.trim(),p_day:day});
       if(error)bad(error.message||"Impossibile confermare la giornata.",409);
-      return json(req,data);
+      return respond(data);
     }
 
     if (action === "importPlanner") {
@@ -792,7 +809,7 @@ Deno.serve(async (req: Request) => {
       }
 
       await writeAudit(db, user.uid, "import_planner", "planner", null, { rows: rows.length, createdClients, createdJobs, updatedJobs });
-      return json(req, { ok: true, received: rows.length, createdClients, createdJobs, updatedJobs });
+      return respond( { ok: true, received: rows.length, createdClients, createdJobs, updatedJobs });
     }
 
     if (action === "importHistoryBatch") {
@@ -838,7 +855,7 @@ Deno.serve(async (req: Request) => {
         saved++;
       }
       await writeAudit(db, user.uid, "import_storico", "planner", null, { received: rows.length, saved, skipped });
-      return json(req, { ok: true, received: rows.length, saved, skipped });
+      return respond( { ok: true, received: rows.length, saved, skipped });
     }
 
     if (action === "crmResources") {
@@ -859,7 +876,7 @@ Deno.serve(async (req: Request) => {
 
       const heartbeat:any = (auditRows || []).find((r:any)=>r.azione === "crm_agent_heartbeat") || null;
       const companySync:any = (auditRows || []).find((r:any)=>r.azione === "sync_agende_azienda") || null;
-      return json(req, {
+      return respond( {
         resources: data || [],
         agent: heartbeat ? {
           heartbeat_at: heartbeat.created_at,
@@ -902,7 +919,7 @@ Deno.serve(async (req: Request) => {
         agent_version: String(body.agentVersion || "").trim().slice(0, 40) || null
       };
       await writeAudit(db,user.uid,"crm_agent_heartbeat","agent","company",details);
-      return json(req,{ok:true,heartbeatAt:new Date().toISOString(),...details});
+      return respond({ok:true,heartbeatAt:new Date().toISOString(),...details});
     }
 
     if (action === "ingestAgendaCompany") {
@@ -1301,7 +1318,7 @@ Deno.serve(async (req: Request) => {
         scanned_resources:[...scannedResources]
       });
 
-      return json(req,{
+      return respond({
         ok:true,
         received:events.length,
         saved:savedCount,
@@ -1593,7 +1610,7 @@ Deno.serve(async (req: Request) => {
         }).eq("id",callerResource.id);
       }
 
-      return json(req,{
+      return respond({
         ok:true,received:events.length,saved:savedCount,unmatched:unmatchedCount,ambiguous:ambiguousCount,
         autoClassified:results.filter(x=>x.status==="saved"&&x.classifiedWithoutCode).length,results
       });
@@ -1621,7 +1638,7 @@ Deno.serve(async (req: Request) => {
       const { data: issues, error } = await q;
       if (error) bad("Impossibile caricare lo stato della sincronizzazione.", 500);
 
-      return json(req, {
+      return respond( {
         lastSync: lastSync || null,
         openIssues: issues || [],
         resource: callerResource ? {
@@ -1712,7 +1729,7 @@ Deno.serve(async (req: Request) => {
         codice_commessa_crm: commessa.codice_commessa_crm
       });
 
-      return json(req, { ok: true, sessionId: session.id, commessa });
+      return respond( { ok: true, sessionId: session.id, commessa });
     }
 
     if (action === "economicsCatalog") {
@@ -1746,7 +1763,7 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      return json(req, {
+      return respond( {
         technicians: [...techMap.values()],
         rates: attributeIdentity(rates || [],identityAliases,excludedTestUids),
         jobs: jobs || []
@@ -1782,7 +1799,7 @@ Deno.serve(async (req: Request) => {
         valido_dal: validoDal,
         valido_al: validoAl
       });
-      return json(req, { ok: true, id: data.id });
+      return respond( { ok: true, id: data.id });
     }
 
     if (action === "saveJobEconomics") {
@@ -1825,7 +1842,7 @@ Deno.serve(async (req: Request) => {
         prima: before || null,
         dopo: { valore_vendita: valoreVendita, costi_esterni: costiEsterni, budget_ore: budgetOre }
       });
-      return json(req, { ok: true });
+      return respond( { ok: true });
     }
 
     if (action === "adminEconomics") {
@@ -1978,7 +1995,7 @@ Deno.serve(async (req: Request) => {
         };
       }).sort((a,b)=>a.codice.localeCompare(b.codice));
 
-      return json(req, {
+      return respond( {
         coverage: {
           totalHours: totalMinutes / 60,
           coveredHours: coveredMinutes / 60,
@@ -2061,7 +2078,7 @@ Deno.serve(async (req: Request) => {
         };
       });
 
-      return json(req,{
+      return respond({
         totals:{
           commesse:rows.length,
           attivita:attributeIdentity(sessions||[],identityAliases,excludedTestUids).length,
@@ -2104,7 +2121,7 @@ Deno.serve(async (req: Request) => {
         totalMinutes+=Number(s.minuti_effettivi||0);
       }
 
-      return json(req,{
+      return respond({
         job,
         totals:{
           attivita:(sessions||[]).length,
@@ -2138,7 +2155,7 @@ Deno.serve(async (req: Request) => {
       const technicians = new Set(activities.map((x: any) => x.tecnico_uid)).size;
       const jobs = new Set(rows.map((x: any) => x.commessa_id)).size;
       const scheduleWarnings:string[]=[];for(let day=from>"2026-05-01"?from:"2026-05-01";day<=to&&day<="2026-08-31";day=shiftWorkDate(day,1)){if(expectedWork(day,[],companyPeriods||[]).needsVerification){scheduleWarnings.push("Maggio–agosto 2026: orario da verificare nelle date senza periodo aziendale configurato.");break;}}
-      return json(req, { from, to, totalMinutes, sessions: rows.length, technicians, jobs, rows,scheduleWarnings,billability:billability(activities),internalActivities:activities.filter((r:any)=>r.tipo_record==="interna") });
+      return respond( { from, to, totalMinutes, sessions: rows.length, technicians, jobs, rows,scheduleWarnings,billability:billability(activities),internalActivities:activities.filter((r:any)=>r.tipo_record==="interna") });
     }
 
     bad("Operazione non riconosciuta.");

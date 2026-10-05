@@ -22,13 +22,16 @@ async function run(role,viewport,label,extra){
   const errors=[],calls=[];
   page.on('pageerror',e=>errors.push('pageerror: '+e.message));
   page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource|produttivit|recent activities/.test(m.text()))errors.push('console: '+m.text())});
-  await page.route('**/js/vendor/firebase-app-compat.js',r=>r.fulfill({contentType:'text/javascript',body:FIREBASE_STUB(role)}));
+  await page.route('**/js/vendor/firebase-app-compat.js',r=>r.fulfill({contentType:'text/javascript',body:FIREBASE_STUB(role==="admin_operativo"?"admin":role)}));
   await page.route(/firebase-(firestore|auth)-compat\.js/,r=>r.fulfill({contentType:'text/javascript',body:''}));
   await page.route('**/functions/v1/manage-users',r=>{const body=JSON.parse(r.request().postData());calls.push(body);return r.fulfill({contentType:'application/json',body:JSON.stringify({user:{uid:'new-test-user'}})});});
   await page.route('**/functions/v1/ore-produttivita-api',async r=>{
     const b=JSON.parse(r.request().postData()||'{}');calls.push(b);
     const ok=o=>r.fulfill({contentType:'application/json',body:JSON.stringify(o)});
     switch(b.action){
+      case 'me':return ok({profile:{attivo:true,ruolo:role==='admin_operativo'?'admin':role,ore_ruolo:role==='admin'?'direzione':role}});
+      case 'oreRoles':return ok({rows:[{uid:'u1',nome:'Leo '+EVIL,username:'leo.test',ore_ruolo:'direzione'}]});
+      case 'setOreRole':return ok({ruolo:b.oreRuolo});
       case 'day':{
         if(b.date==='2026-10-01'){await new Promise(x=>setTimeout(x,1500));return ok({totalMinutes:60,sessions:[{id:'old',origine:'manuale',minuti_effettivi:60,commessa_id:'c9',ore_commesse:job(9,'RISPOSTA VECCHIA')}]})}
         return ok({totalMinutes:360,expectedMinutes:240,workSchedule:{source:'configurato',validFrom:'2026-09-01'},internalActivities:[{id:'int1',categoria:'amministrazione',minuti_effettivi:30},{id:'abs1',categoria:'assenza',minuti_effettivi:60}],dayStatus:{stato:'aperta'},sessions:[
@@ -75,7 +78,7 @@ async function run(role,viewport,label,extra){
   await page.waitForSelector('#sessions .proto-hour-row',{timeout:10000});
   await page.waitForTimeout(600);
   await extra(page,calls);
-  if(role==='admin')for(const [tab,panel] of [['#tabDay','#dayPanel'],['#tabAdmin','#adminPanel'],['#tabArchive','#archivePanel'],['#tabEconomics','#economicsPanel']]){
+  if(role==='admin'||role==='admin_operativo')for(const [tab,panel] of [['#tabDay','#dayPanel'],['#tabAdmin','#adminPanel'],['#tabArchive','#archivePanel'],...(role==='admin'?[['#tabEconomics','#economicsPanel']]:[])]){
     await page.click(tab);await page.waitForTimeout(450);assert.equal(await page.locator(panel).isVisible(),true);
     const size=await page.evaluate(()=>({vw:innerWidth,doc:document.documentElement.scrollWidth}));
     assert.ok(size.doc<=size.vw+2,`${label} ${panel}: overflow ${JSON.stringify(size)}`);
@@ -161,6 +164,7 @@ async function run(role,viewport,label,extra){
       for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),false,id+' visibile al tecnico (mobile)');
     });
     await run('admin',{width:1366,height:900},'admin-desktop',async(page,calls)=>{
+      await page.click('#tabAdmin');await page.locator('#oreRolesPanel').evaluate(el=>el.open=true);await page.click('#loadOreRoles');await page.waitForSelector('[data-ore-role="u1"]');assert.equal(await page.locator('[data-ore-role="u1"]').inputValue(),'direzione');assert.ok((await page.locator('#oreRolesRows').innerText()).includes('<img src=x'));
       await page.click('#tabAdmin');await page.locator('#monthForm').evaluate(el=>el.closest('details').open=true);await page.fill('#monthForm [name="mese"]','2099-02');await page.click('#monthForm [value="reopen"]');assert.equal(calls.filter(c=>c.action==='changeMonth').length,0);await page.fill('#monthForm [name="motivo"]','Verifica sintetica');await page.click('#monthForm [value="close"]');await page.waitForTimeout(300);await page.click('#monthForm [value="reopen"]');await page.waitForTimeout(300);assert.deepEqual(calls.filter(c=>c.action==='changeMonth').map(c=>c.operation),['close','reopen']);assert.ok((await page.locator('#monthHistory').innerText()).includes('<img src=x'));
       for(const id of ['#tabAdmin','#tabArchive','#tabEconomics'])assert.equal(await page.locator(id).isVisible(),true,id+' non visibile all\'admin');
       await page.click('#tabAdmin');await page.waitForTimeout(800);
@@ -221,6 +225,7 @@ async function run(role,viewport,label,extra){
       assert.equal(await page.locator('#kpiBillable').innerText(),'80%');
       await page.click('#tabArchive');await page.waitForSelector('.archive-open');await page.locator('.archive-open').first().click();await page.waitForSelector('#jobClosureForm');
     });
+    for(const viewport of [{width:1366,height:900},{width:390,height:844}])await run('admin_operativo',viewport,`operativo-${viewport.width}`,async(page,calls)=>{assert.equal(await page.locator('#tabAdmin').isVisible(),true);assert.equal(await page.locator('#tabArchive').isVisible(),true);assert.equal(await page.locator('#tabEconomics').isVisible(),false);assert.equal(await page.locator('#oreRolesPanel').isVisible(),false);await page.evaluate(()=>loadEconomics());assert.ok(!calls.some(c=>['adminEconomics','economicsCatalog'].includes(c.action)));});
     console.log('TUTTI I TEST BROWSER SUPERATI');
   }finally{server.close()}
 })().catch(e=>{console.error('FALLITO:',e.message);server.close();process.exit(1)});

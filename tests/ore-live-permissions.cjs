@@ -19,7 +19,7 @@ async function post(url,body,token){
 }
 function adminActions(source){
  const block=source.match(/const ACTION_ROLES[^=]*=\s*\{([\s\S]*?)\n\};/);assert.ok(block,'ACTION_ROLES missing');
- return [...block[1].matchAll(/(\w+):\s*\["admin"\]/g)].map(m=>m[1]);
+ return [...block[1].matchAll(/(\w+):\s*\[([^\]]+)\]/g)].filter(m=>!m[2].includes('"tecnico"')).map(m=>m[1]);
 }
 async function run(){
  localCredentials();

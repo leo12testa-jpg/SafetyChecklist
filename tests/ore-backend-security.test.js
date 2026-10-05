@@ -5,17 +5,23 @@ const vm = require('node:vm');
 const { stripTypeScriptTypes } = require('node:module');
 const source = fs.readFileSync('supabase/functions/ore-produttivita-api/index.ts', 'utf8');
 
+for(const action of ['economicsCatalog','adminEconomics','saveTechnicianCost','saveJobEconomics','oreRoles','setOreRole'])test(`admin operativo: ${action} restituisce 403 senza letture economiche`,async()=>{const app=backend({role:'admin',oreRole:'admin_operativo'});assert.equal((await app.call({action,oreRuolo:'direzione',ruolo:'admin'})).status,403);assert.equal(app.dbCalls(),0);});
+test('admin senza ruolo Ore esplicito non acquisisce direzione',async()=>{const app=backend({role:'admin',oreRole:null});assert.equal((await app.call({action:'adminEconomics'})).status,403);});
+test('archivio: admin operativo riceve ore e pratiche, senza valori economici',async()=>{const database={from(table){const q={select(){return this;},order(){return this;},range(){return this;},then(resolve){resolve({data:table==='ore_commesse'?[{id:'job',descrizione:'Pratica',budget_ore:20,valore_vendita:1500,costi_esterni:100}]:[],error:null});}};return q;}};const response=await backend({role:'admin',oreRole:'admin_operativo',database}).call({action:'archiveJobs'});assert.equal(response.status,200);const result=await response.json();assert.equal(result.rows[0].descrizione,'Pratica');assert.equal(result.rows[0].budget_ore,20);assert.ok(!('valore_vendita' in result.rows[0]));assert.ok(!('costi_esterni' in result.rows[0]));});
+test('risposta archivio operativa rimuove dati economici anche dagli audit annidati',()=>{const app=backend();app.context.example={job:{budget_ore:40,valore_vendita:900,costi_esterni:150,note_economiche:'Riservato'},history:[{prima:{valore_vendita:800,costo_orario:50},dopo:{margine:400},ore:12}]};const clean=vm.runInContext('withoutEconomics(example)',app.context);assert.equal(clean.job.budget_ore,40);assert.ok(!JSON.stringify(clean).includes('Riservato'));for(const key of ['valore_vendita','costi_esterni','costo_orario','margine'])assert.ok(!JSON.stringify(clean).includes(key));assert.equal(app.context.example.job.valore_vendita,900);});
+test('admin operativo mantiene le operazioni, direzione include tutte le azioni',()=>{for(const oreRole of ['direzione','admin_operativo']){const app=backend({role:'admin',oreRole});app.context.testUser={profile:{ruolo:'admin',ore_ruolo:oreRole}};for(const action of ['adminSummary','archiveJobs','archiveJobDetail','crmLinks','saveCompanyPeriod','changeJobState','saveSession'])vm.runInContext(`authorizeAction(testUser,${JSON.stringify(action)})`,app.context);if(oreRole==='direzione')vm.runInContext('for(const action of Object.keys(ACTION_ROLES))authorizeAction(testUser,action)',app.context);}});
+
 for(const action of ['monthStatus','changeMonth'])test(`tecnico: ${action} rifiutato prima delle query`,async()=>{const app=backend();assert.equal((await app.call({action,ruolo:'admin'})).status,403);assert.equal(app.dbCalls(),0);});
 test('riapertura mensile: motivo obbligatorio, mese valido e attore server',async()=>{let received;const app=backend({role:'admin',database:{rpc:async(name,args)=>{received={name,args};return {data:{chiuso:false},error:null};}}});for(const body of [{mese:'2026-13',operation:'close'},{mese:'2026-10',operation:'reopen',motivo:''},{mese:'2026-10',operation:'delete'}])assert.equal((await app.call({action:'changeMonth',...body})).status,400);assert.equal((await app.call({action:'changeMonth',mese:'2026-10',operation:'reopen',motivo:'Verificato',attore:'falso'})).status,200);assert.equal(received.name,'ore_cambia_mese');assert.equal(received.args.p_actor,'u1');assert.equal(received.args.p_month,'2026-10-01');assert.equal(received.args.p_close,false);});
 
-function backend({ role = 'tecnico', tokenValid = true, owner = 'other', database } = {}) {
+function backend({ role = 'tecnico', oreRole = 'direzione', tokenValid = true, owner = 'other', database } = {}) {
   let handler, dbCalls = 0;
   const query = { select(){ return this; }, eq(){ return this; },
     maybeSingle: async () => ({ data: { id: 's1', tecnico_uid: owner, data_lavoro: '2026-10-03', minuti_effettivi: 60 } }) };
   const context = vm.createContext({ Request, Response, fetch: async url => {
     if (url.includes('accounts:lookup')) return new Response(JSON.stringify(tokenValid ? { users: [{localId:'u1'}] } : {}), {status: tokenValid ? 200 : 400});
     return new Response(JSON.stringify({fields:{attivo:{booleanValue:true},ruolo:{stringValue:role}}}));
-  }, createClient: () => database || ({from(){ dbCalls++; return query; }}),
+  }, createClient: () => {const db=database || ({from(){ dbCalls++; return query; }});return {...db,from:table=>table==='ore_ruoli_utenti'?{select(){return this;},eq(){return this;},maybeSingle:async()=>({data:oreRole?{ruolo:oreRole}:null,error:null})}:db.from(table)};},
   Deno: {env:{get:name=> name==='SUPABASE_SECRET_KEYS' ? undefined : 'test'},serve: fn => {handler=fn;}} });
   vm.runInContext(stripTypeScriptTypes(source.replace(/^import .*;\r?\n/, ''), {mode:'transform'}), context);
   vm.runInContext('verifyFirebaseJwt=async()=>"u1"',context); // Auth is exercised separately with real RSA signatures.
@@ -77,7 +83,7 @@ test('richiesta sblocco impone UID chiamante e motivo',async()=>{
 });
 test('scrittura sessione passa attore e ruolo server alla transazione atomica',async()=>{
  const app=backend();let received;app.context.auditDb={rpc:async(name,args)=>{received={name,args};return {data:{id:'s1'},error:null};}};
- const result=await vm.runInContext('sessionWrites(auditDb,{uid:"real-admin",profile:{ruolo:"admin"}}).update({minuti_effettivi:60,motivo_modifica:"Verifica"}).eq("id","s1").select("id").single()',app.context);
+ const result=await vm.runInContext('sessionWrites(auditDb,{uid:"real-admin",profile:{ruolo:"admin",ore_ruolo:"direzione"}}).update({minuti_effettivi:60,motivo_modifica:"Verifica"}).eq("id","s1").select("id").single()',app.context);
  assert.equal(result.data.id,'s1');assert.equal(received.name,'ore_scrivi_sessione');assert.equal(received.args.p_actor,'real-admin');assert.equal(received.args.p_admin,true);assert.equal(received.args.p_reason,'Verifica');assert.equal(received.args.p_id,'s1');
 });
 test('candidati CRM ambigui non contengono riferimenti a variabili inesistenti',()=>{
