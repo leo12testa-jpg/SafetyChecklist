@@ -470,3 +470,49 @@ test('PDF legacy: id stabile resta prioritario quando id e testo concordano', ()
   assert.equal(righe[0].metodo, 'id');
   assert.equal(righe[0].stato_riga, 'sicuro');
 });
+
+
+// ---------------------------------------------------------------------------------------------
+// Interparking legacy reale: PDF di settembre 2026 con le due domande poi rimosse.
+// ---------------------------------------------------------------------------------------------
+
+test('Interparking storico: sprinkler e planimetria duplicata vengono escluse, le altre righe restano associate correttamente', () => {
+  const im = caricaImportMatching();
+  const checklist = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'checklists', 'interparking_sopralluogo.json'), 'utf8'));
+
+  const righeVecchie = [
+    rigaNostro({ id: 25, testo: 'Sono Presenti le registrazioni dei controlli semestrali effettuati a: Impianto sprinkler:', stato: 'NC' }),
+    rigaNostro({ id: 26, testo: 'Sono Presenti le registrazioni dei controlli effettuati a: Eventuali altri impianti:', stato: 'C' }),
+    rigaNostro({ id: 27, testo: 'Planimetrie antincendio? Sono aggiornate le planimetrie esposte?', stato: 'PC' }),
+    rigaNostro({ id: 28, testo: "Verbali delle Prove annuali di evacuazione e gestione delle emergenze È stata eseguita la prova annuale d'evacuazione? Indicare nelle note la data dell'ultimo verbale", stato: 'NC' }),
+    rigaNostro({ id: 49, testo: 'Planimetrie di Emergenza: sono aggiornate le planimetrie esposte? Risultano conformi?', stato: 'NA' }),
+    rigaNostro({ id: 50, testo: 'Le zone filtro sono mantenute sgombre da materiale stoccato?', stato: 'C' }),
+    rigaNostro({ id: 44, testo: "Sono presenti materiali combustibili all'interno dei box?", stato: 'NA' })
+  ];
+
+  const { righe, riepilogo } = im.abbinaRighe(righeVecchie, checklist);
+  assert.equal(righe[0].stato_riga, 'ritirata');
+  assert.equal(righe[0].domanda_id, null);
+  assert.equal(righe[4].stato_riga, 'ritirata');
+  assert.equal(righe[4].domanda_id, null);
+  assert.equal(righe[1].domanda_id, 28);
+  assert.equal(righe[2].domanda_id, 29);
+  assert.equal(righe[3].domanda_id, 30);
+  assert.equal(righe[5].domanda_id, 51);
+  assert.equal(righe[6].domanda_id, 77);
+  assert.equal(riepilogo.ritirate, 2);
+  assert.equal(riepilogo.conflitti, 0);
+  assert.equal(riepilogo.nonRiconosciute, 0);
+});
+
+test('Interparking storico: riconosce le domande ritirate anche se il PDF conserva i vecchi id interni', () => {
+  const im = caricaImportMatching();
+  const checklist = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'checklists', 'interparking_sopralluogo.json'), 'utf8'));
+  const { righe, riepilogo } = im.abbinaRighe([
+    rigaNostro({ id: 27, testo: 'Sono Presenti le registrazioni dei controlli semestrali effettuati a: Impianto sprinkler:', stato: 'NC' }),
+    rigaNostro({ id: 50, testo: 'Planimetrie di Emergenza: sono aggiornate le planimetrie esposte? Risultano conformi?', stato: 'PC' })
+  ], checklist);
+  assert.deepEqual(Array.from(righe, r => r.stato_riga), ['ritirata', 'ritirata']);
+  assert.equal(riepilogo.ritirate, 2);
+  assert.equal(riepilogo.conflitti, 0);
+});
