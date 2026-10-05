@@ -130,6 +130,30 @@ const fotoSync = (() => {
     }
   }
 
+  function idFotoReferenziati(sopralluoghi) {
+    const riferimenti = new Set();
+    (sopralluoghi || []).forEach((sopralluogo) => {
+      if (!sopralluogo || sopralluogo.eliminato_definitivamente) return;
+      const risposte = Array.isArray(sopralluogo.risposte) ? sopralluogo.risposte : Object.values(sopralluogo.risposte || {});
+      risposte.forEach((risposta) => (risposta && risposta.foto || []).forEach((id) => riferimenti.add(String(id))));
+      (sopralluogo.altri_aspetti_foto || []).forEach((id) => riferimenti.add(String(id)));
+    });
+    return riferimenti;
+  }
+
+  /**
+   * Vecchie versioni potevano lasciare blob fotografici locali ormai non più referenziati.
+   * Non sono elementi da sincronizzare: restano locali, ma non bloccano più il badge in attesa.
+   */
+  async function elencaFotoInSospesoReferenziate() {
+    const [foto, sopralluoghi] = await Promise.all([db.elencaFotoSenzaUrl(), db.elencaTuttiSopralluoghi()]);
+    const riferimenti = idFotoReferenziati(sopralluoghi);
+    return (foto || []).filter((voce) => voce && riferimenti.has(String(voce.id)));
+  }
+  async function contaFotoInSospeso() {
+    return (await elencaFotoInSospesoReferenziate()).length;
+  }
+
   /**
    * Ritenta l'upload di tutte le foto salvate in locale ma senza ancora un url Supabase (vedi
    * db.elencaFotoSenzaUrl): chiamata all'avvio dell'app e al ritorno della connessione, stesso
@@ -148,7 +172,7 @@ const fotoSync = (() => {
     if (!supa) {
       return;
     }
-    const inSospeso = await db.elencaFotoSenzaUrl();
+    const inSospeso = await elencaFotoInSospesoReferenziate();
     const coda = inSospeso.slice();
     const lavoratori = Array.from({ length: Math.min(3, coda.length) }, async () => {
       while (coda.length) {
@@ -308,6 +332,8 @@ const fotoSync = (() => {
     eliminaFotoDiSopralluoghi,
     risolviFoto,
     statoDi,
-    onCambioStato
+    onCambioStato,
+    contaFotoInSospeso,
+    _test: { idFotoReferenziati, elencaFotoInSospesoReferenziate }
   };
 })();

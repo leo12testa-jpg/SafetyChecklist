@@ -3745,7 +3745,7 @@ const connessioneIndicatore = (() => {
         ? sync.dettaglioInAttesa()
         : { dati: sync.elementiInAttesa(), foto: 0, erroreCloud: 0 };
       const parti = [];
-      if (dettaglio.dati) parti.push(`${dettaglio.dati} dati`);
+      if (dettaglio.dati) parti.push(`${dettaglio.dati} sopralluoghi`);
       if (dettaglio.foto) parti.push(`${dettaglio.foto} foto`);
       if (dettaglio.erroreCloud) parti.push('cloud da ritentare');
       testo.textContent = `Sincronizzazione parziale: ${parti.join(' · ') || 'verifica in corso'}`;

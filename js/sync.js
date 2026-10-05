@@ -276,12 +276,19 @@ const sync = (() => {
     (locali || []).filter((record) => record._sync_rev).forEach((record) => pendenti.set(record.id, true));
   }
 
+  async function contaFotoPendentiReali() {
+    if (typeof fotoSync !== 'undefined' && typeof fotoSync.contaFotoInSospeso === 'function') {
+      return fotoSync.contaFotoInSospeso();
+    }
+    return (await db.elencaFotoSenzaUrl()).length;
+  }
+
   async function riconciliaAtteseFinali() {
     // Riconta sempre dal dato persistito reale. In questo modo un vecchio elemento rimasto
     // soltanto nella mappa in memoria non può lasciare il badge "in attesa" per tutta la sessione.
     const locali = await db.elencaTuttiSopralluoghi();
     riconciliaPendentiLocali(locali);
-    attesaFoto = (await db.elencaFotoSenzaUrl()).length;
+    attesaFoto = await contaFotoPendentiReali();
     return dettaglioInAttesa();
   }
 
@@ -656,35 +663,25 @@ const sync = (() => {
       // porta i riferimenti appena creati su Firestore.
       const secondo = await sincronizzaTutto({ verificaServer: false });
 
-      // Riconcilia il contatore soltanto dopo un passaggio dati riuscito: se un record non è
-      // leggibile/corrotto deve restare visibilmente pendente e non essere mascherato come sync OK.
-      if (secondo) {
+      // Riconta sempre dal dato persistito reale, anche se un altro documento remoto ha dato
+      // errore: una singola anomalia cloud non deve impedire l'autoriparazione locale.
+      await riconciliaAtteseFinali();
+
+      if (pendenti.size && online()) {
+        try {
+          const utente = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
+          if (utente) await utente.getIdToken(true);
+        } catch (_) {}
+        const daRitentare = Array.from(pendenti.keys());
+        for (const id of daRitentare) {
+          if (!invii.has(id)) await invia(id);
+        }
         await riconciliaAtteseFinali();
 
-        // Se una revisione era rimasta pendente per una sessione/token appena rinnovato, facciamo
-        // un solo secondo tentativo immediato. Non cancelliamo mai una _sync_rev ancora reale:
-        // invia() la rimuove esclusivamente dopo conferma/riconciliazione col server.
         if (pendenti.size && online()) {
-          try {
-            const utente = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
-            if (utente) await utente.getIdToken(true);
-          } catch (_) {}
-          const daRitentare = Array.from(pendenti.keys());
-          for (const id of daRitentare) {
-            if (!invii.has(id)) await invia(id);
-          }
+          await sincronizzaTutto({ verificaServer: true });
           await riconciliaAtteseFinali();
-
-          // Se restano revisioni reali pendenti, non fidarti del listener/cache: esegui un ultimo
-          // confronto autorevole col server. Serve soprattutto ai dispositivi rimasti aperti per
-          // giorni o con token rinnovato, che in passato potevano mostrare 4/5/6 elementi fermi.
-          if (pendenti.size && online()) {
-            await sincronizzaTutto({ verificaServer: true });
-            await riconciliaAtteseFinali();
-          }
         }
-      } else {
-        attesaFoto = (await db.elencaFotoSenzaUrl()).length;
       }
 
       // Scaricare foto già presenti sul cloud serve solo a scaldare la cache locale e non deve
@@ -736,7 +733,7 @@ const sync = (() => {
       }, 30000);
     }
     if (typeof fotoSync !== 'undefined') fotoSync.onCambioStato(async () => {
-      attesaFoto = (await db.elencaFotoSenzaUrl()).length;
+      attesaFoto = await contaFotoPendentiReali();
       aggiornaStato();
       if (attesaFoto) riprovaDopo();
     });

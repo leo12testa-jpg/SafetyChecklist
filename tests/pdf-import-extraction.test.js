@@ -295,3 +295,38 @@ test('nessuna struttura riconosciuta (PDF estraneo): strutturaRiconosciuta false
   assert.equal(risultatoStorico.strutturaRiconosciuta, false);
   assert.equal(risultatoStorico.righe.length, 0);
 });
+
+
+test('formato nostro: 103 righe grezze con 28 continuazioni diventano 75 righe logiche', () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const base = Array.from({ length: 75 }, (_, i) => ({
+    formato: 'nostro',
+    id_originale: i + 1,
+    numero_originale: i + 1,
+    sezione_originale: 'SEZIONE',
+    testo_originale: `Domanda ${i + 1}`,
+    stato_originale: 'C',
+    nota_originale: null
+  }));
+  const duplicati = base.slice(0, 28).map((r) => ({
+    ...r,
+    stato_originale: null,
+    nota_originale: 'continuazione nota'
+  }));
+  const consolidate = pdfImportPerTest._test.consolidaRigheNostre([...base, ...duplicati]);
+  assert.equal(consolidate.length, 75);
+  assert.equal(consolidate[0].stato_originale, 'C');
+  assert.equal(consolidate[0].nota_originale, 'continuazione nota');
+  assert.equal(consolidate[0].duplicati_consolidati, 1);
+});
+
+test('formato nostro: marcature discordanti su frammenti duplicati restano da verificare', () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const consolidate = pdfImportPerTest._test.consolidaRigheNostre([
+    { formato:'nostro', id_originale:7, numero_originale:7, testo_originale:'Domanda sette', stato_originale:'C' },
+    { formato:'nostro', id_originale:7, numero_originale:7, testo_originale:'Domanda sette', stato_originale:'NC' }
+  ]);
+  assert.equal(consolidate.length, 1);
+  assert.equal(consolidate[0].stato_originale, null);
+  assert.equal(consolidate[0].da_verificare, true);
+});

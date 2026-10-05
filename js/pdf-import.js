@@ -1043,6 +1043,56 @@ const pdfImport = (() => {
   }
 
   /**
+   * I PDF generati dall'app possono spezzare una riga di AutoTable fra due pagine. Alcune versioni
+   * legacy ripetevano il numero della domanda sulla pagina successiva: l'estrazione vede quindi
+   * due righe con lo stesso numero/id, anche se nel PDF logico è UNA sola domanda. Prima del
+   * matching consolidiamo questi frammenti. Nel formato "nostro" il numero/id è globale e univoco,
+   * quindi una ripetizione è sempre una continuazione/duplicazione della stessa riga.
+   */
+  function consolidaRigheNostre(righe) {
+    const risultato = [];
+    const perId = new Map();
+    const unisciTesto = (a, b) => {
+      const primo = String(a || '').replace(/\s+/g, ' ').trim();
+      const secondo = String(b || '').replace(/\s+/g, ' ').trim();
+      if (!primo) return secondo || null;
+      if (!secondo) return primo || null;
+      const normalizza = (s) => s.toLowerCase().replace(/[^a-z0-9à-ÿ]+/gi, ' ').replace(/\s+/g, ' ').trim();
+      const na = normalizza(primo), nb = normalizza(secondo);
+      if (na.includes(nb)) return primo;
+      if (nb.includes(na)) return secondo;
+      return `${primo} ${secondo}`.replace(/\s+/g, ' ').trim();
+    };
+    (righe || []).forEach((riga) => {
+      if (!riga || riga.formato !== 'nostro') { risultato.push(riga); return; }
+      const raw = riga.id_originale ?? riga.numero_originale;
+      const numero = Number(raw);
+      if (!Number.isInteger(numero)) { risultato.push(riga); return; }
+      const chiave = String(numero);
+      const precedente = perId.get(chiave);
+      if (!precedente) {
+        const copia = { ...riga };
+        perId.set(chiave, copia);
+        risultato.push(copia);
+        return;
+      }
+      precedente.testo_originale = unisciTesto(precedente.testo_originale, riga.testo_originale);
+      precedente.nota_originale = unisciTesto(precedente.nota_originale, riga.nota_originale);
+      precedente.sezione_originale ||= riga.sezione_originale || null;
+      const stati = [precedente.stato_originale, riga.stato_originale].filter(Boolean);
+      const unici = Array.from(new Set(stati));
+      if (unici.length === 1) precedente.stato_originale = unici[0];
+      else if (unici.length > 1) {
+        precedente.stato_originale = null;
+        precedente.da_verificare = true;
+        precedente.avviso = 'La stessa riga del PDF è stata spezzata fra pagine con marcature discordanti: verifica lo stato.';
+      }
+      precedente.duplicati_consolidati = (precedente.duplicati_consolidati || 0) + 1;
+    });
+    return risultato;
+  }
+
+  /**
    * Estrae le righe grezze da un PDF, provando prima il formato "nostro" e poi (se la struttura
    * non viene riconosciuta) quello "storico". NON prende in input nessuna checklist: l'abbinamento
    * a domande specifiche è compito di js/import-matching.js, a valle del rilevamento cliente.
@@ -1078,7 +1128,7 @@ const pdfImport = (() => {
         return {
           formatoRilevato: 'nostro',
           immagini,
-          righe: risultatoNostro.righe,
+          righe: consolidaRigheNostre(risultatoNostro.righe),
           anagrafica: risultatoNostro.anagrafica,
           conversioneStatoRilevata: null
         };
@@ -1111,6 +1161,7 @@ const pdfImport = (() => {
       analizzaHeader,
       provaFormatoNostro,
       provaFormatoStorico,
+      consolidaRigheNostre,
       raggruppaFrammentiAdiacenti,
       estraiDatiGeneraliNostro
     }

@@ -322,3 +322,10 @@ test('final repair performs an authoritative server recheck when pending revisio
   const source = fs.readFileSync('js/sync.js','utf8');
   assert.match(source, /if \(pendenti\.size && online\(\)\) \{\s*await sincronizzaTutto\(\{ verificaServer: true \}\)/);
 });
+
+
+test('sync usa il conteggio delle sole foto realmente referenziate', () => {
+  const source = fs.readFileSync('js/sync.js','utf8');
+  assert.match(source, /fotoSync\.contaFotoInSospeso/);
+  assert.match(source, /await riconciliaAtteseFinali\(\);[\s\S]*if \(pendenti\.size && online\(\)\)/);
+});
