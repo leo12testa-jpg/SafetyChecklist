@@ -116,10 +116,11 @@ const pdfImport = (() => {
       NA: npH.x,
       noteX: noteH.x,
       // La soglia NON è il punto medio fra le due intestazioni: "Note" è centrata nella sua
-      // colonna (larga, quindi centrata molto più a destra), mentre il testo delle note nel
-      // corpo della tabella è allineato a sinistra, subito dopo la colonna N.P. Un margine fisso
-      // dopo la x della colonna N.P individua correttamente l'inizio della colonna Note.
-      sogliaNota: npH.x + 20
+      // colonna larga, mentre il testo delle note parte subito dopo N.P. Nei PDF Interparking
+      // reali la prima parola della nota può iniziare circa 18-20 pt dopo la x dell'etichetta
+      // N.P.; usare +20 con confronto stretto ">" perdeva proprio la prima parola. +12 resta
+      // oltre qualunque X della colonna N.P ma include integralmente il testo della nota.
+      sogliaNota: npH.x + 12
     };
   }
 
