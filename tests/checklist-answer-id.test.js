@@ -41,3 +41,17 @@ test('Interparking legacy: id risposta stringa equivale all id numerico della ch
   api.indietro();
   assert.equal(api.domandaCorrente().risposta.risposta, 'C');
 });
+
+
+test('riepilogo riconosce domanda_id numerico salvato come stringa', () => {
+  const { api } = carica();
+  const checklist = { id:'interparking_sopralluogo', sezioni:[{ titolo:'Test', domande:[
+    { id:12, testo:'Domanda 12', tipo:'C-PC-NC-NA' }
+  ]}]};
+  const riepilogo = api.calcolaRiepilogo(checklist, {
+    risposte:[{ domanda_id:'12', risposta:'NC', note:'legacy', foto:[] }]
+  });
+  assert.equal(riepilogo.nonRisposte, 0);
+  assert.equal(riepilogo.conteggi.NC, 1);
+  assert.equal(riepilogo.nonConformita.length, 1);
+});

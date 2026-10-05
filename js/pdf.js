@@ -572,7 +572,7 @@ const pdf = (() => {
   function disegnaTabellaSezione(doc, layout, sezione, sopralluogo, y, mappaFotoPerDomanda, hookLegenda, gruppo, mappaNumeroDomanda = null) {
     const coloreGruppo = gruppo && ((gruppo.configCliente && gruppo.configCliente.coloreBanner) || COLORE_BANNER_DEFAULT);
     const corpo = sezione.domande.map((domanda) => {
-      const risposta = risposteComeArray(sopralluogo.risposte).find((r) => r.domanda_id === domanda.id);
+      const risposta = risposteComeArray(sopralluogo.risposte).find((r) => r && r.domanda_id != null && String(r.domanda_id) === String(domanda.id));
       const valore = risposta ? risposta.risposta : '';
       const nota = (risposta && risposta.note) || '';
       const vediFoto = suffissoVediFoto(domanda.id, mappaFotoPerDomanda);
@@ -784,7 +784,7 @@ const pdf = (() => {
       if (!risposta.foto || !risposta.foto.length) {
         return;
       }
-      const info = domandeComplete.find((d) => d.domanda.id === risposta.domanda_id);
+      const info = domandeComplete.find((d) => String(d.domanda.id) === String(risposta.domanda_id));
       risposta.foto.forEach((fotoId) => {
         fotoDomande.push({
           fotoId,
@@ -1021,7 +1021,7 @@ const pdf = (() => {
       y += 6;
 
       sezione.domande.forEach((domanda) => {
-        const risposta = risposteComeArray(sopralluogo.risposte).find((r) => r.domanda_id === domanda.id);
+        const risposta = risposteComeArray(sopralluogo.risposte).find((r) => r && r.domanda_id != null && String(r.domanda_id) === String(domanda.id));
         const valoreTesto = formattaValoreRaccoltaDati(risposta ? risposta.risposta : undefined);
         const notaTesto = risposta && risposta.note ? ` (Note: ${risposta.note})` : '';
 

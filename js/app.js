@@ -791,7 +791,8 @@ const importPreviewScreen = (() => {
     testo: 'testo',
     fuzzy: 'testo (fuzzy)',
     manuale: 'scelta manuale',
-    legacy_interparking: 'compatibilità Interparking storico'
+    legacy_interparking: 'compatibilità Interparking storico',
+    legacy_interparking_numero: 'numerazione Interparking storica'
   };
   const ETICHETTE_RISPOSTA = { C: 'C', PC: 'P.C', NC: 'N.C', NA: 'N.P' };
 
@@ -1056,7 +1057,7 @@ const importPreviewScreen = (() => {
     const risposte = stato.righe
       .filter((r) => r.domanda_id != null && importMatching.rigaImportabile(r) && (r.risposta || r.note))
       .map((r) => {
-        const voce = domande.find((d) => d.domanda.id === r.domanda_id);
+        const voce = domande.find((d) => String(d.domanda.id) === String(r.domanda_id));
         return {
           domanda_id: r.domanda_id,
           sezione: voce ? voce.sezione : null,

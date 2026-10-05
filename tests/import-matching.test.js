@@ -516,3 +516,24 @@ test('Interparking storico: riconosce le domande ritirate anche se il PDF conser
   assert.equal(riepilogo.ritirate, 2);
   assert.equal(riepilogo.conflitti, 0);
 });
+
+
+test('Interparking legacy completo: 75 righe storiche diventano 73 domande correnti e 2 ritirate', () => {
+  const im = caricaImportMatching();
+  const checklist = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'checklists', 'interparking_sopralluogo.json'), 'utf8'));
+  const righeLegacy = Array.from({ length: 75 }, (_, indice) =>
+    rigaNostro({ id: indice + 1, testo: `Riga Interparking legacy ${indice + 1}`, stato: 'C' })
+  );
+  const { righe, riepilogo } = im.abbinaRighe(righeLegacy, checklist);
+  const idsAttesi = checklist.sezioni.flatMap((sezione) => sezione.domande.map((domanda) => domanda.id));
+  const idsImportati = righe.filter((riga) => riga.stato_riga !== 'ritirata').map((riga) => riga.domanda_id);
+  assert.deepEqual(Array.from(idsImportati), Array.from(idsAttesi));
+  assert.equal(righe[24].stato_riga, 'ritirata');
+  assert.equal(righe[48].stato_riga, 'ritirata');
+  assert.equal(righe[43].domanda_id, 77);
+  assert.equal(riepilogo.sicure, 73);
+  assert.equal(riepilogo.ritirate, 2);
+  assert.equal(riepilogo.daVerificare, 0);
+  assert.equal(riepilogo.nonRiconosciute, 0);
+  assert.equal(riepilogo.conflitti, 0);
+});
