@@ -151,6 +151,7 @@ function requireAdmin(user: any) {
 // Role is always read from the server-side Firebase profile. Unknown actions fail closed.
 const ACTION_ROLES: Record<string, readonly string[]> = {
   oreRoles:["direzione"],setOreRole:["direzione"],
+  dataQuality:["direzione","admin_operativo"],
   me: ["direzione", "admin_operativo", "tecnico"], myCrmResource: ["direzione", "admin_operativo", "tecnico"],
   requestUnlock:["direzione", "admin_operativo","tecnico"],unlockRequests:["direzione", "admin_operativo"],decideUnlock:["direzione", "admin_operativo"],
   companyPeriods:["direzione", "admin_operativo"],saveCompanyPeriod:["direzione", "admin_operativo"],
@@ -177,6 +178,21 @@ function authorizeAction(user: any, action: string) {
 const INTERNAL_CATEGORIES = new Set(["formazione_interna","amministrazione","commerciale_preventivi","aggiornamento_normativo","riunioni_interne","altro_interno","assenza"]);
 const WORK_PHASES = new Set(["sopralluogo","trasferta","redazione","revisione","riunione_cliente","misurazioni","formazione_erogata","altro"]);
 const COMPLEXITY_FIELDS=["fascia_lavoratori","numero_sedi","numero_mansioni","tipo_intervento","settore"];
+const QUALITY_LABELS:Record<string,string>={without_phase:"Sessioni senza fase",closed_without_complexity:"Pratiche completate con complessità non indicata",old_unmatched:"Attività CRM non abbinate da oltre 7 giorni",long_session:"Sessioni oltre 10 ore",long_day:"Giornate rendicontate oltre 12 ore",overlaps:"Sessioni con sovrapposizioni orarie",closed_hours:"Sessioni su pratiche attualmente completate",closed_zero:"Pratiche completate con zero ore",rate_overlaps:"Periodi di costo orario sovrapposti"};
+function qualityCases(input:any,now:Date){
+ const {jobs=[],sessions=[],activities=[],issues=[],rates=[]}=input;
+ const result:any=Object.fromEntries(Object.keys(QUALITY_LABELS).map(key=>[key,[]]));
+ const jobById=new Map(jobs.map((j:any)=>[j.id,j]));const totals=new Map<string,number>();
+ const sessionCase=(s:any)=>({id:s.id,jobId:s.commessa_id||null,tecnicoUid:s.tecnico_uid,tecnicoNome:s.tecnico_nome||s.tecnico_uid||"non indicato",date:s.data_lavoro||null,minutes:Number(s.minuti_effettivi||0),title:s.crm_oggetto||"Sessione",start:s.inizio||null,end:s.fine||null});
+ for(const s of sessions){totals.set(s.commessa_id,(totals.get(s.commessa_id)||0)+Number(s.minuti_effettivi||0));const row=sessionCase(s);if(!s.fase)result.without_phase.push(row);if(Number(s.minuti_effettivi)>600)result.long_session.push(row);if((jobById.get(s.commessa_id) as any)?.stato==="completata")result.closed_hours.push(row);}
+ for(const j of jobs)if(j.stato==="completata"){const row={id:j.id,jobId:j.id,title:j.descrizione||j.codice_lavoro||"Pratica",date:j.data_completamento||null};if(COMPLEXITY_FIELDS.some(key=>j[key]===null||j[key]===undefined||j[key]===""))result.closed_without_complexity.push({...row,missing:COMPLEXITY_FIELDS.filter(key=>j[key]===null||j[key]===undefined||j[key]==="")});if(!(totals.get(j.id)||0))result.closed_zero.push(row);}
+ for(const issue of issues){const created=Date.parse(issue.created_at);if(issue.stato==="aperta"&&Number.isFinite(created)&&now.getTime()-created>7*86400000)result.old_unmatched.push({id:issue.id,tecnicoUid:issue.tecnico_uid,tecnicoNome:issue.tecnico_nome||issue.tecnico_uid,date:issue.data_lavoro||null,title:issue.titolo||"Attività CRM",createdAt:issue.created_at,minutes:Number(issue.minuti||0)});}
+ const days=new Map<string,any>();for(const a of activities){const key=a.tecnico_uid+":"+a.data_lavoro;const row=days.get(key)||{id:key,tecnicoUid:a.tecnico_uid,tecnicoNome:a.tecnico_nome||a.tecnico_uid,date:a.data_lavoro,minutes:0,absenceMinutes:0,records:[]};row.records.push({id:a.id,tipo_record:a.tipo_record,categoria:a.categoria,jobId:a.commessa_id,minutes:Number(a.minuti_effettivi||0)});row.minutes+=Number(a.minuti_effettivi||0);if(a.assenza)row.absenceMinutes+=Number(a.minuti_effettivi||0);days.set(key,row);}result.long_day=[...days.values()].filter(r=>r.minutes>720);
+ const groups=new Map<string,any[]>();for(const s of sessions){const start=Date.parse(s.inizio),end=Date.parse(s.fine);if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start)continue;const group=groups.get(s.tecnico_uid)||[];group.push({s,start,end});groups.set(s.tecnico_uid,group);}
+ const overlapRows=new Map<string,any>();for(const group of groups.values()){group.sort((a,b)=>a.start-b.start);for(let i=0;i<group.length;i++)for(let j=i+1;j<group.length&&group[j].start<group[i].end;j++){const a=group[i].s,b=group[j].s;for(const [s,other]of [[a,b],[b,a]]){const row=overlapRows.get(s.id)||{...sessionCase(s),overlappingIds:[]};if(!row.overlappingIds.includes(other.id))row.overlappingIds.push(other.id);overlapRows.set(s.id,row);}}}result.overlaps=[...overlapRows.values()];
+ const rateGroups=new Map<string,any[]>();for(const r of rates){if(!r.valido_dal)continue;const group=rateGroups.get(r.tecnico_uid)||[];group.push(r);rateGroups.set(r.tecnico_uid,group);}for(const group of rateGroups.values()){group.sort((a,b)=>a.valido_dal.localeCompare(b.valido_dal));for(let i=0;i<group.length;i++)for(let j=i+1;j<group.length&&group[j].valido_dal<=(group[i].valido_al||"9999-12-31");j++)result.rate_overlaps.push({id:group[i].id+":"+group[j].id,tecnicoUid:group[i].tecnico_uid,tecnicoNome:group[i].tecnico_nome||group[i].tecnico_uid,date:group[j].valido_dal,firstRateId:group[i].id,secondRateId:group[j].id,title:`${group[i].valido_dal} → ${group[i].valido_al||"senza fine"}; ${group[j].valido_dal} → ${group[j].valido_al||"senza fine"}`});}
+ return result;
+}
 function complexityOf(job:any){return Object.fromEntries(COMPLEXITY_FIELDS.map(key=>[key,job[key]??null]));}
 function validateComplexity(data:any,filter=false){
  const result:any={};for(const key of COMPLEXITY_FIELDS){let value=data?.[key];if(value===null||value===undefined||value===""){result[key]=null;continue;}
@@ -201,9 +217,9 @@ async function testAccountUids(user:any){
  pageToken=page.nextPageToken||"";}while(pageToken);return result;
 }
 function compactJobCandidates(candidates:any[]){return candidates.map(c=>({id:c.id,codiceComm:c.codice_commessa_crm,descrizione:c.descrizione,stato:c.stato,codiceLavoro:c.codice_lavoro,clienteId:c.cliente_id||null,tipologiaId:c.tipologia_id||null}));}
-async function readAll(builder:()=>any){
+async function readAll(builder:()=>any,orderColumn="id"){
  const rows:any[]=[];
- for(let offset=0;;offset+=1000){const {data,error}=await builder().order("id").range(offset,offset+999);if(error)return {data:null,error};rows.push(...(data||[]));if((data||[]).length<1000)break;}
+ for(let offset=0;;offset+=1000){const {data,error}=await builder().order(orderColumn).range(offset,offset+999);if(error)return {data:null,error};rows.push(...(data||[]));if((data||[]).length<1000)break;}
  return {data:rows,error:null};
 }
 function sessionWrites(db:any,user:any){
@@ -249,6 +265,14 @@ Deno.serve(async (req: Request) => {
     const action = String(body.action || "");
     authorizeAction(user, action);
     const respond=(value:any,status=200)=>json(req,hasDirection(user)?value:withoutEconomics(value),status);
+    if(action === "dataQuality"){
+      const caseId=body.caseId?String(body.caseId):null;const kind=body.kind?String(body.kind):null,offset=body.offset??0,limit=body.limit??25;if(caseId&&!kind||kind&&!Object.hasOwn(QUALITY_LABELS,kind)||!Number.isInteger(offset)||offset<0||offset>1000000||!Number.isInteger(limit)||limit<1||limit>100)bad("Filtro qualità dati non valido.");
+      const [{data:sessions,error:e1},{data:jobs,error:e2},{data:activities,error:e3},{data:issues,error:e4},{data:rates,error:e5},{data:aliases,error:e6}]=await Promise.all([
+        readAll(()=>db.from("ore_sessioni").select("id,commessa_id,tecnico_uid,tecnico_nome,data_lavoro,minuti_effettivi,fase,inizio,fine,crm_oggetto")),readAll(()=>db.from("ore_commesse").select("id,descrizione,codice_lavoro,stato,data_completamento,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore")),readAll(()=>db.from("ore_rendicontazioni").select("id,tecnico_uid,tecnico_nome,data_lavoro,minuti_effettivi,assenza,tipo_record,categoria,commessa_id")),readAll(()=>db.from("ore_sync_issues").select("id,tecnico_uid,data_lavoro,titolo,minuti,stato,created_at")),readAll(()=>db.from("ore_costi_tecnici").select("id,tecnico_uid,tecnico_nome,valido_dal,valido_al")),readAll(()=>db.from("ore_identita_alias").select("*"),"uid_storico")]);
+      if(e1||e2||e3||e4||e5||e6)bad("Impossibile verificare la qualità dei dati.",500);const excluded=await testAccountUids(user);const all=qualityCases({jobs:jobs||[],sessions:attributeIdentity(sessions||[],aliases||[],excluded),activities:attributeIdentity(activities||[],aliases||[],excluded),issues:attributeIdentity(issues||[],aliases||[],excluded),rates:attributeIdentity(rates||[],aliases||[],excluded)},new Date());
+      if(caseId&&!all[kind!].some((r:any)=>r.id===caseId))bad("Segnalazione non trovata.",404);
+      return respond({checkedAt:new Date().toISOString(),definitions:{long_day:"Ore rendicontate, assenze incluse; assenze mostrate separatamente",old_unmatched:"Età della segnalazione dalla creazione",closed_hours:"Pratiche attualmente completate, comprese ore antecedenti alla chiusura; non prova una modifica successiva"},groups:Object.entries(QUALITY_LABELS).filter(([key])=>!kind||key===kind).map(([key,label])=>({kind:key,label,count:all[key].length,selectedCase:caseId||null,offset:kind?offset:0,rows:caseId?all[key].filter((r:any)=>r.id===caseId):all[key].slice(kind?offset:0,(kind?offset:0)+limit)}))});
+    }
     if(action === "oreRoles"){
       const profiles:any[]=[];let next="";do{const response=await fetch(`${FIRESTORE}/utenti?pageSize=1000${next?`&pageToken=${encodeURIComponent(next)}`:""}`,{headers:{authorization:`Bearer ${user.token}`}});if(!response.ok)bad("Impossibile leggere gli account.",500);const page=await response.json();profiles.push(...(page.documents||[]).map(fromDoc));next=page.nextPageToken||"";}while(next);
       const {data:roles,error}=await db.from("ore_ruoli_utenti").select("*");if(error)bad("Impossibile leggere i ruoli Ore.",500);

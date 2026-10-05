@@ -1524,3 +1524,7 @@ body{background:var(--ui-bg)}
 .complexity-fields select,.complexity-fields input:not([type=checkbox]){width:100%;min-width:0;box-sizing:border-box}
 #estimateComplexityFilters{grid-column:1/-1}
 #missingPersonal button{margin:4px;white-space:normal}
+.quality-case { max-width: min(90vw, 700px); max-height: 85vh; overflow: auto; overflow-wrap: anywhere; }
+.quality-case::backdrop { background: #10223899; }
+.quality-case dd { margin: 0 0 12px; }
+.quality-case dt { font-weight: 700; }
