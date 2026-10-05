@@ -418,7 +418,11 @@ const sync = (() => {
           }
           const rev = locale._sync_rev;
           const ref = firestoreDb.collection(COLLECTION).doc(id);
-          const esitoTx = await conScadenza(firestoreDb.runTransaction(async tx => {
+          let esitoTx;
+          let tentativoAuth = 0;
+          while (true) {
+            try {
+              esitoTx = await conScadenza(firestoreDb.runTransaction(async tx => {
             const snap = await tx.get(ref);
             const remoto = snap.exists ? { ...snap.data(), id } : null;
             const haRevisioneLocale = !!locale._sync_rev;
@@ -444,7 +448,21 @@ const sync = (() => {
               : { patch: {}, campi: [] };
             if (campi.length) tx.set(ref, patch, { mergeFields: campi });
             return { record, soloPulizia };
-          }));
+              }));
+              break;
+            } catch (erroreTx) {
+              const codiceTx = String(erroreTx && (erroreTx.code || erroreTx.message) || '');
+              if (tentativoAuth === 0 && /permission-denied|unauthenticated/i.test(codiceTx)) {
+                tentativoAuth += 1;
+                const utente = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
+                if (utente) {
+                  await utente.getIdToken(true);
+                  continue;
+                }
+              }
+              throw erroreTx;
+            }
+          }
 
           if (esitoTx.soloPulizia) {
             const esito = await db.unisciSopralluogoRemoto(
