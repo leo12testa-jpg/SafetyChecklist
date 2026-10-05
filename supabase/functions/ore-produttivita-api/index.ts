@@ -145,6 +145,7 @@ function requireAdmin(user: any) {
 // Role is always read from the server-side Firebase profile. Unknown actions fail closed.
 const ACTION_ROLES: Record<string, readonly string[]> = {
   me: ["admin", "tecnico"], myCrmResource: ["admin", "tecnico"],
+  requestUnlock:["admin","tecnico"],unlockRequests:["admin"],decideUnlock:["admin"],
   crmDebug: ["admin", "tecnico"], catalog: ["admin", "tecnico"],
   commesse: ["admin", "tecnico"], day: ["admin", "tecnico"],
   recentPersonal: ["admin", "tecnico"], saveSession: ["admin", "tecnico"],
@@ -238,6 +239,17 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || "");
     authorizeAction(user, action);
+    if(action === "requestUnlock"){
+      const reason=String(body.motivo||"").trim();if(!reason||reason.length>500)bad("Indica il motivo dello sblocco (massimo 500 caratteri).");
+      const {data,error}=await db.rpc("ore_richiedi_sblocco",{p_uid:user.uid,p_day:dateOnly(body.date),p_reason:reason,p_actor:user.uid});if(error)bad(error.message,409);return json(req,data);
+    }
+    if(action === "unlockRequests"){
+      const {data,error}=await readAll(()=>db.from("ore_richieste_sblocco").select("*").order("created_at",{ascending:false}));if(error)bad("Impossibile leggere le richieste.",500);return json(req,{rows:data||[]});
+    }
+    if(action === "decideUnlock"){
+      if(!body.id||typeof body.approve!=="boolean")bad("Decisione non valida.");const reason=String(body.motivo||"").trim();if(!reason||reason.length>500)bad("Indica il motivo della decisione.");
+      const {data,error}=await db.rpc("ore_decidi_sblocco",{p_id:body.id,p_approve:body.approve,p_reason:reason,p_actor:user.uid});if(error)bad(error.message,409);return json(req,data);
+    }
 
     if(action === "missingDays"){
       const all=body.scope==="all";if(all)requireAdmin(user);
@@ -281,7 +293,7 @@ Deno.serve(async (req: Request) => {
       if(error||!resource)bad("Risorsa non trovata.",404);
       const legacyUid="legacy:"+resource.sigla_crm;
       const {data:alias}=await db.from("ore_identita_alias").select("*").eq("uid_storico",legacyUid).maybeSingle();
-      if(action==="previewIdentity"){
+      if(action === "previewIdentity"){
         let sessions=0,minutes=0;
         for(let offset=0;;offset+=1000){const {data,error}=await db.from("ore_sessioni").select("minuti_effettivi").eq("tecnico_uid",legacyUid).order("id").range(offset,offset+999);if(error)bad("Impossibile leggere lo storico.",500);sessions+=(data||[]).length;minutes+=(data||[]).reduce((sum:number,s:any)=>sum+s.minuti_effettivi,0);if((data||[]).length<1000)break;}
         return json(req,{resource,alias,legacyUid,sessions,minutes});
@@ -402,7 +414,7 @@ Deno.serve(async (req: Request) => {
       const resourceId=String(body.resourceId||"");
       const {data:resource,error}=await db.from("ore_risorse_crm").select("*").eq("id",resourceId).eq("attiva",true).maybeSingle();
       if(error||!resource)bad("Risorsa non trovata.",404);
-      if(action==="previewCrmLink"){
+      if(action === "previewCrmLink"){
         const {data:sessions,error:sessionError}=await db.from("ore_sessioni")
           .select("id,data_lavoro,tecnico_uid,tecnico_nome,minuti_effettivi,confermata,updated_at,ore_commesse(descrizione)")
           .eq("crm_risorsa_id",resourceId).eq("confermata",false).order("data_lavoro").limit(501);
@@ -583,6 +595,7 @@ Deno.serve(async (req: Request) => {
         .eq("id", id).maybeSingle();
       if (findError || !current) bad("Sessione non trovata.", 404);
       if (current.tecnico_uid !== user.uid && user.profile.ruolo !== "admin") bad("Non autorizzato.", 403);
+      if(current.confermata&&user.profile.ruolo!=="admin")bad("Giornata confermata: richiedi lo sblocco all amministratore.",403);
 
       const requestedCommessaId = String(body.commessaId || "").trim();
       let commessa:any = null;

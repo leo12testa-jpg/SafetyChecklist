@@ -41,6 +41,9 @@ async function run(role,viewport,label,extra){
       case 'saveSession':return ok({ok:true});
       case 'savePhase':return ok({ok:true,updatedAt:'2026-10-03T11:00:00Z'});
       case 'saveInternal':return ok({ok:true,id:'int2'});
+      case 'requestUnlock':return ok({id:'unlock1'});
+      case 'unlockRequests':return ok({rows:[{id:'unlock1',tecnico_uid:'u1',data:'2026-10-02',motivo:'Verifica '+EVIL,stato:'aperta'}]});
+      case 'decideUnlock':return ok({ok:true});
       case 'workSchedules':return ok({technicians:[{uid:'u1',nome:'Leo'}],schedules:[{tecnico_uid:'u1',tecnico_nome:'Leo',valido_dal:'2026-01-01',settimana_minuti:[240,240,240,240,240,0,0]}]});
       case 'saveWorkSchedule':return ok({ok:true,id:'schedule2'});
       case 'missingDays':return ok({from:'2026-09-04',to:'2026-10-03',people:1,rows:[{tecnico_uid:'u1',tecnico_nome:'Leo '+EVIL,date:'2026-10-02',expectedMinutes:240,expectedSource:'configurato',reportedMinutes:120,absenceMinutes:60,confirmed:false,underHours:true}]});
@@ -144,6 +147,9 @@ async function run(role,viewport,label,extra){
       assert.equal(await phase.inputValue(),'trasferta');
       await page.locator('#sessions .proto-hours input').first().press('Escape');
       await page.click('#missingPersonal [data-missing-date="2026-10-02"]');await page.waitForTimeout(250);
+      await page.evaluate(()=>renderDayUnlock({date:'2026-10-02',dayStatus:{stato:'confermata'},sessions:[{confermata:true},{confermata:true}],internalActivities:[]}));
+      assert.equal(await page.locator('#sessions .proto-hours input').first().isDisabled(),true);
+      await page.fill('#dayUnlockRequest input','Correzione ore');await page.click('#dayUnlockRequest button');await page.waitForTimeout(250);assert.equal(calls.find(c=>c.action==='requestUnlock').date,'2026-10-02');
       assert.equal(await page.locator('#dayDate').inputValue(),'2026-10-02');assert.equal(calls.filter(c=>c.action==='day').at(-1).date,'2026-10-02');
     });
     await run('tecnico',{width:390,height:844},'tecnico-mobile',async(page)=>{
@@ -155,6 +161,7 @@ async function run(role,viewport,label,extra){
       assert.equal(await page.locator('#kpiBillable').innerText(),'80%');
       assert.ok((await page.locator('#billabilityRows').innerText()).includes('80%'));
       await page.locator('#loadMissingDays').evaluate(el=>el.closest('details').open=true);await page.click('#loadMissingDays');await page.waitForTimeout(250);assert.match(await page.locator('#missingAdminRows').innerText(),/Non confermata/);assert.match(await page.locator('#missingAdminRows').innerText(),/Ore sotto il previsto/);
+      await page.locator('#loadUnlockRequests').evaluate(el=>el.closest('details').open=true);await page.click('#loadUnlockRequests');await page.waitForSelector('[data-unlock-reason="unlock1"]');await page.fill('[data-unlock-reason="unlock1"]','Richiesta verificata');await page.click('[data-unlock-id="unlock1"][data-approve="true"]');await page.waitForTimeout(250);assert.equal(calls.find(c=>c.action==='decideUnlock').approve,true);
       const prod=await page.locator('#productivityRows').innerText();
       assert.match(prod,/B · DVR/);assert.match(prod,/30 h/,'mediana sullo storico (40 e 20) = 30 h');
       assert.ok(!prod.includes('99'),'pratiche aperte escluse');

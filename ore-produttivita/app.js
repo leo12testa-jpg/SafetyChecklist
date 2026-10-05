@@ -459,6 +459,7 @@ async function loadDay(){
     $("#dayProgressText").textContent=expected>0?pct+"%":"—";
     $("#dayScheduleNote").textContent=j.workSchedule?.holiday?`Festività nazionale: ${j.workSchedule.holiday}`:j.workSchedule?.source==="default"?"Orario non configurato: default 8h lun–ven.":j.workSchedule?.validFrom?`Orario valido dal ${j.workSchedule.validFrom}`:"Orario non indicato.";
     const confirmed=j.dayStatus?.stato==="confermata";
+    if(typeof renderDayUnlock==="function")renderDayUnlock(j);
     $("#dayStatus").textContent=confirmed?"Confermata":"Da verificare";
     $("#dayCompleteBadge").textContent=confirmed?"Completata":"Da completare";
     $("#dayCompleteBadge").classList.toggle("done",confirmed);

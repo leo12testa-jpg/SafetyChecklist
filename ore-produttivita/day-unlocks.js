@@ -1,0 +1,17 @@
+function renderDayUnlock(data){
+ let host=$("#dayUnlockRequest");if(!host){host=document.createElement("div");host.id="dayUnlockRequest";$("#dayMessage").insertAdjacentElement("afterend",host);}
+ const confirmed=data.dayStatus?.stato==="confermata"||(data.sessions||[]).some(s=>s.confermata)||(data.internalActivities||[]).some(s=>s.confermata);
+ host.hidden=!confirmed;host.innerHTML=confirmed?html`<p>Giornata confermata. Per correggerla richiedi lo sblocco all’admin. Non inserire motivi delle assenze.</p><form><label>Motivo della richiesta<input name="motivo" required maxlength="500"></label><button type="submit">Richiedi sblocco</button></form>`:html``;
+ queueMicrotask(()=>{if(profile?.ruolo!=="tecnico")return;const dayConfirmed=data.dayStatus?.stato==="confermata";
+  for(const input of document.querySelectorAll('#manualForm input,#manualForm select,#manualForm button,#internalForm input,#internalForm select,#internalForm button'))input.disabled=dayConfirmed;
+  document.querySelectorAll('#sessions .proto-hour-row').forEach((row,i)=>{for(const input of row.querySelectorAll('input,.save,.session-edit'))input.disabled=dayConfirmed||!!data.sessions[i]?.confermata;});
+  document.querySelectorAll('#internalActivities .internal-entry').forEach((row,i)=>{for(const input of row.querySelectorAll('input,select,button'))input.disabled=dayConfirmed||!!data.internalActivities[i]?.confermata;});
+ });
+ host.querySelector("form")?.addEventListener("submit",async e=>{e.preventDefault();const button=e.currentTarget.querySelector("button");button.disabled=true;try{await api("requestUnlock",{date:data.date,motivo:e.currentTarget.elements.motivo.value});notify("Richiesta inviata all’admin.","ok");}catch(error){notify(error.message);button.disabled=false;}});
+}
+async function loadUnlockRequests(){
+ try{const data=await api("unlockRequests");const host=$("#unlockRequestsRows");host.innerHTML=html`${data.rows.map(r=>html`<tr><td>${r.tecnico_uid}<br>${r.data}</td><td>${r.motivo}</td><td>${r.stato}${r.motivo_admin?html`<br>${r.motivo_admin}`:""}</td><td>${r.stato==="aperta"?html`<label>Motivo decisione<input data-unlock-reason="${r.id}" maxlength="500"></label><button data-unlock-id="${r.id}" data-approve="true">Sblocca</button><button data-unlock-id="${r.id}" data-approve="false">Rifiuta</button>`:html`${r.risolto_da||"non indicato"}<br>${r.risolto_at||"non indicato"}`}</td></tr>`)}`;
+ for(const button of host.querySelectorAll("[data-unlock-id]"))button.addEventListener("click",async()=>{const motivo=host.querySelector(`[data-unlock-reason="${button.dataset.unlockId}"]`).value.trim();if(!motivo){notify("Indica il motivo della decisione.","warn");return;}button.disabled=true;try{await api("decideUnlock",{id:button.dataset.unlockId,approve:button.dataset.approve==="true",motivo});notify("Decisione registrata.","ok");await loadUnlockRequests();}catch(e){notify(e.message);button.disabled=false;}});
+ }catch(e){notify(e.message);}
+}
+const unlockHost=document.createElement("details");unlockHost.innerHTML=html`<summary>Richieste di sblocco giornate</summary><button id="loadUnlockRequests" type="button">Carica richieste</button><div class="table-wrap"><table><thead><tr><th>Tecnico / data</th><th>Richiesta</th><th>Stato</th><th>Decisione admin</th></tr></thead><tbody id="unlockRequestsRows"></tbody></table></div>`;$("#adminPanel").appendChild(unlockHost);$("#loadUnlockRequests").addEventListener("click",loadUnlockRequests);

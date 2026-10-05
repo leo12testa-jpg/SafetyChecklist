@@ -19,7 +19,7 @@ function backend({ role = 'tecnico', tokenValid = true, owner = 'other', databas
   return { call: body => handler(new Request('https://test/', {method:'POST',headers:{authorization:'Bearer test','content-type':'application/json'},body:JSON.stringify(body)})),
     dbCalls: () => dbCalls, context };
 }
-for (const action of ['adminSummary','adminEconomics','saveJobEconomics','archiveJobs','importPlanner','importHistoryBatch','crmResources','crmAgentHeartbeat','ingestAgendaCompany','economicsCatalog','saveTechnicianCost','archiveJobDetail','crmLinks','previewCrmLink','approveCrmLink','workSchedules','saveWorkSchedule','previewIdentity','approveIdentity','changeJobState','saveJobComplexity']) {
+for (const action of ['unlockRequests','decideUnlock','adminSummary','adminEconomics','saveJobEconomics','archiveJobs','importPlanner','importHistoryBatch','crmResources','crmAgentHeartbeat','ingestAgendaCompany','economicsCatalog','saveTechnicianCost','archiveJobDetail','crmLinks','previewCrmLink','approveCrmLink','workSchedules','saveWorkSchedule','previewIdentity','approveIdentity','changeJobState','saveJobComplexity']) {
   test(`tecnico: ${action} restituisce 403 prima di accedere ai dati`, async () => {
     const app=backend();
     assert.equal((await app.call({action,ruolo:'admin'})).status,403);
@@ -37,7 +37,7 @@ test('azioni sconosciute e nomi ereditati falliscono senza accesso DB',async()=>
 });
 test('ogni azione implementata è presente nella tabella centralizzata',()=>{
   const app=backend();const roles=vm.runInContext('ACTION_ROLES',app.context);
-  const actions=[...source.matchAll(/action === "([^"]+)"/g)].map(m=>m[1]);
+  const actions=[...new Set([...source.matchAll(/action\s*===\s*"([^"]+)"/g)].map(m=>m[1]))];
   assert.deepEqual(Object.keys(roles).sort(),actions.sort());
 });
 test('lettura risorsa CRM usa solo UID e non trasferisce o cancella sessioni',async()=>{
@@ -65,6 +65,12 @@ test('account di test escluso anche quando possiede un alias storico',()=>{
  const app=backend();app.context.rows=[{tecnico_uid:'real',minuti_effettivi:60},{tecnico_uid:'test',minuti_effettivi:120},{tecnico_uid:'legacy:TEST',minuti_effettivi:240}];
  app.context.aliases=[{uid_storico:'legacy:TEST',tecnico_uid:'test'}];
  const result=vm.runInContext('attributeIdentity(rows,aliases,new Set(["test"]))',app.context);assert.equal(result.length,1);assert.equal(result[0].tecnico_uid,'real');assert.equal(app.context.rows.length,3);
+});
+test('richiesta sblocco impone UID chiamante e motivo',async()=>{
+ let received;const app=backend({database:{rpc:async(name,args)=>{received={name,args};return {data:{id:'request1'},error:null};}}});
+ assert.equal((await app.call({action:'requestUnlock',date:'2026-10-05',motivo:''})).status,400);
+ assert.equal((await app.call({action:'requestUnlock',date:'2026-10-05',motivo:'Correzione',tecnicoUid:'other'})).status,200);
+ assert.equal(received.args.p_uid,'u1');assert.equal(received.args.p_actor,'u1');
 });
 test('scrittura sessione passa attore e ruolo server alla transazione atomica',async()=>{
  const app=backend();let received;app.context.auditDb={rpc:async(name,args)=>{received={name,args};return {data:{id:'s1'},error:null};}};
