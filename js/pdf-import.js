@@ -89,6 +89,333 @@ const pdfImport = (() => {
 
   const TESTI_HEAD_TABELLA_NOSTRO = ['n.', 'C', 'P.C', 'N.C', 'N.P', 'Note', 'Descrizione attività'];
 
+  // ======================================================================================
+  // TESTO VISIBILE — PDF COMPOSITI / FORM XOBJECT
+  // ======================================================================================
+
+  function intersezioneRettangoli(a, b) {
+    if (!a || !b) return null;
+    const left = Math.max(a.left, b.left);
+    const top = Math.max(a.top, b.top);
+    const right = Math.min(a.right, b.right);
+    const bottom = Math.min(a.bottom, b.bottom);
+    return right > left && bottom > top ? { left, top, right, bottom } : null;
+  }
+
+  function areaRettangolo(r) {
+    return r ? Math.max(0, r.right - r.left) * Math.max(0, r.bottom - r.top) : 0;
+  }
+
+  function puntoNelRettangolo(x, y, r, margine = 0) {
+    return !!r && x >= r.left - margine && x <= r.right + margine &&
+      y >= r.top - margine && y <= r.bottom + margine;
+  }
+
+  function trasformaPuntoCanvas(matrix, x, y) {
+    return {
+      x: matrix.a * x + matrix.c * y + matrix.e,
+      y: matrix.b * x + matrix.d * y + matrix.f
+    };
+  }
+
+  function rettangoloCanvasDaPath(ctx, x, y, w, h) {
+    const m = ctx.getTransform();
+    const punti = [
+      trasformaPuntoCanvas(m, x, y),
+      trasformaPuntoCanvas(m, x + w, y),
+      trasformaPuntoCanvas(m, x, y + h),
+      trasformaPuntoCanvas(m, x + w, y + h)
+    ];
+    return {
+      left: Math.min(...punti.map((p) => p.x)),
+      top: Math.min(...punti.map((p) => p.y)),
+      right: Math.max(...punti.map((p) => p.x)),
+      bottom: Math.max(...punti.map((p) => p.y))
+    };
+  }
+
+  function unioneRettangoli(rettangoli) {
+    if (!rettangoli || !rettangoli.length) return null;
+    return {
+      left: Math.min(...rettangoli.map((r) => r.left)),
+      top: Math.min(...rettangoli.map((r) => r.top)),
+      right: Math.max(...rettangoli.map((r) => r.right)),
+      bottom: Math.max(...rettangoli.map((r) => r.bottom))
+    };
+  }
+
+  /**
+   * Ricompatta le chiamate Canvas fillText/strokeText (PDF.js spesso disegna un glifo alla volta)
+   * in frammenti testuali simili a quelli restituiti da getTextContent. Le colonne restano
+   * separate: un gap orizzontale ampio apre un nuovo frammento.
+   */
+  function consolidaTestoRenderizzato(registrati, viewport) {
+    const convertiti = (registrati || []).map((r) => {
+      const origine = viewport.convertToPdfPoint(r.baseline.x, r.baseline.y);
+      const fine = viewport.convertToPdfPoint(r.end.x, r.end.y);
+      return {
+        testo: String(r.testo || ''),
+        x: Math.min(origine[0], fine[0]),
+        y: origine[1],
+        w: Math.max(0.1, Math.abs(fine[0] - origine[0])),
+        ordine: r.ordine
+      };
+    }).filter((r) => r.testo !== '');
+
+    // Doppio fill/stroke sullo stesso glifo: tenerne uno solo.
+    const deduplicati = [];
+    [...convertiti].sort((a, b) => a.ordine - b.ordine).forEach((r) => {
+      const duplicato = deduplicati.findLast
+        ? deduplicati.findLast((p) =>
+            p.testo === r.testo && Math.abs(p.x - r.x) <= 0.7 &&
+            Math.abs(p.y - r.y) <= 0.7 && Math.abs(p.w - r.w) <= 1.2)
+        : [...deduplicati].reverse().find((p) =>
+            p.testo === r.testo && Math.abs(p.x - r.x) <= 0.7 &&
+            Math.abs(p.y - r.y) <= 0.7 && Math.abs(p.w - r.w) <= 1.2);
+      if (!duplicato) deduplicati.push(r);
+    });
+
+    const linee = [];
+    [...deduplicati].sort((a, b) => b.y - a.y || a.x - b.x).forEach((item) => {
+      let linea = linee.find((l) => Math.abs(l.y - item.y) <= 1.6);
+      if (!linea) {
+        linea = { y: item.y, items: [] };
+        linee.push(linea);
+      }
+      linea.items.push(item);
+    });
+
+    const risultato = [];
+    linee.forEach((linea) => {
+      const items = linea.items.sort((a, b) => a.x - b.x);
+      let run = null;
+      const chiudi = () => {
+        if (!run) return;
+        run.testo = run.testo.replace(/\s+/g, ' ').trim();
+        if (run.testo) risultato.push(run);
+        run = null;
+      };
+      items.forEach((item) => {
+        const testo = item.testo.replace(/\s+/g, ' ');
+        if (!testo) return;
+        if (!run) {
+          run = { testo, x: item.x, y: linea.y, w: item.w, ordine: item.ordine };
+          return;
+        }
+        const fineRun = run.x + run.w;
+        const gap = item.x - fineRun;
+        if (gap > 8 || item.x < run.x - 1) {
+          chiudi();
+          run = { testo, x: item.x, y: linea.y, w: item.w, ordine: item.ordine };
+          return;
+        }
+        const separatore = gap > 0.9 && !/\s$/.test(run.testo) && !/^\s/.test(testo) ? ' ' : '';
+        run.testo += separatore + testo;
+        run.w = Math.max(run.w, item.x + item.w - run.x);
+        run.ordine = Math.max(run.ordine, item.ordine);
+      });
+      chiudi();
+    });
+    return risultato;
+  }
+
+  /**
+   * PDF.js getTextContent include anche il testo di Form XObject fuori dal loro BBox e il testo
+   * poi coperto da rettangoli opachi disegnati successivamente. Nei PDF Interparking legacy
+   * questo produce righe fantasma e note sovrapposte pur con una pagina visivamente corretta.
+   *
+   * Qui sfruttiamo il renderer Canvas di PDF.js come fonte della verità VISIVA: intercettiamo
+   * fillText/strokeText, rispettiamo i clip applicati dal renderer e cancelliamo dal modello
+   * testuale gli elementi poi coperti da rettangoli opachi. Nessun OCR: il testo resta quello
+   * vettoriale del PDF, ma filtrato con la stessa sequenza grafica usata per disegnare la pagina.
+   */
+  async function estraiTestoVisibileRenderizzato(pagina) {
+    if (typeof document === 'undefined' || !document.createElement) return null;
+
+    const viewport = pagina.getViewport({ scale: 1 });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.ceil(viewport.width));
+    canvas.height = Math.max(1, Math.ceil(viewport.height));
+    const ctx = canvas.getContext('2d');
+    if (!ctx || typeof ctx.getTransform !== 'function') return null;
+
+    const originali = {};
+    const nomi = ['save','restore','beginPath','rect','clip','fill','stroke','fillRect','clearRect','fillText','strokeText'];
+    for (const nome of nomi) {
+      if (typeof ctx[nome] !== 'function') return null;
+      originali[nome] = ctx[nome].bind(ctx);
+    }
+
+    const fullClip = { left: 0, top: 0, right: canvas.width, bottom: canvas.height };
+    let clip = { ...fullClip };
+    const stackClip = [];
+    let pathRects = [];
+    let ordine = 0;
+    let testi = [];
+    let rettangoliVisibili = [];
+
+    const clipRect = (r) => intersezioneRettangoli(r, clip);
+    const centro = (r) => ({ x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 });
+
+    const rimuoviCoperti = (r) => {
+      if (!r || areaRettangolo(r) < 12) return;
+      testi = testi.filter((t) => {
+        const inter = intersezioneRettangoli(t.bbox, r);
+        if (!inter) return true;
+        const ratio = areaRettangolo(inter) / Math.max(1, areaRettangolo(t.bbox));
+        return ratio < 0.62;
+      });
+      rettangoliVisibili = rettangoliVisibili.filter((vecchio) => {
+        const c = centro(vecchio);
+        return !puntoNelRettangolo(c.x, c.y, r, 0.5);
+      });
+    };
+
+    const registraRettangolo = (r, opaco) => {
+      const visibile = clipRect(r);
+      if (!visibile || areaRettangolo(visibile) < 12) return;
+      if (opaco) rimuoviCoperti(visibile);
+      const larghezza = visibile.right - visibile.left;
+      const altezza = visibile.bottom - visibile.top;
+      // Solo rettangoli utili come celle/bordi: niente sfondo pagina intera o micro-elementi.
+      if (larghezza >= 8 && altezza >= 3 &&
+          larghezza < canvas.width * 0.97 && altezza < canvas.height * 0.75) {
+        rettangoliVisibili.push(visibile);
+      }
+    };
+
+    const registraTesto = (testo, x, y) => {
+      const valore = String(testo ?? '');
+      if (!valore) return;
+      const m = ctx.getTransform();
+      const metriche = ctx.measureText(valore);
+      const larghezza = Math.max(0.5, metriche.width || valore.length * 3);
+      const fontPx = Math.max(6, Number.parseFloat(String(ctx.font || '').match(/[\d.]+/)?.[0] || '10'));
+      const salita = metriche.actualBoundingBoxAscent || fontPx * 0.78;
+      const discesa = metriche.actualBoundingBoxDescent || fontPx * 0.22;
+      let xSinistra = x;
+      if (ctx.textAlign === 'center') xSinistra -= larghezza / 2;
+      else if (ctx.textAlign === 'right' || ctx.textAlign === 'end') xSinistra -= larghezza;
+      const punti = [
+        trasformaPuntoCanvas(m, xSinistra, y - salita),
+        trasformaPuntoCanvas(m, xSinistra + larghezza, y - salita),
+        trasformaPuntoCanvas(m, xSinistra, y + discesa),
+        trasformaPuntoCanvas(m, xSinistra + larghezza, y + discesa)
+      ];
+      const bbox = {
+        left: Math.min(...punti.map((p) => p.x)),
+        top: Math.min(...punti.map((p) => p.y)),
+        right: Math.max(...punti.map((p) => p.x)),
+        bottom: Math.max(...punti.map((p) => p.y))
+      };
+      const inter = intersezioneRettangoli(bbox, clip);
+      if (!inter || areaRettangolo(inter) / Math.max(1, areaRettangolo(bbox)) < 0.18) return;
+
+      const baseline = trasformaPuntoCanvas(m, xSinistra, y);
+      const end = trasformaPuntoCanvas(m, xSinistra + larghezza, y);
+      testi.push({ testo: valore, bbox, baseline, end, ordine: ordine += 1 });
+    };
+
+    ctx.save = (...args) => {
+      stackClip.push({ ...clip });
+      return originali.save(...args);
+    };
+    ctx.restore = (...args) => {
+      const valore = originali.restore(...args);
+      clip = stackClip.pop() || { ...fullClip };
+      pathRects = [];
+      return valore;
+    };
+    ctx.beginPath = (...args) => {
+      pathRects = [];
+      return originali.beginPath(...args);
+    };
+    ctx.rect = (x, y, w, h) => {
+      pathRects.push(rettangoloCanvasDaPath(ctx, x, y, w, h));
+      return originali.rect(x, y, w, h);
+    };
+    ctx.clip = (...args) => {
+      if (pathRects.length) {
+        const areaPath = unioneRettangoli(pathRects);
+        const nuova = intersezioneRettangoli(clip, areaPath);
+        if (nuova) clip = nuova;
+      }
+      const valore = originali.clip(...args);
+      pathRects = [];
+      return valore;
+    };
+    ctx.fill = (...args) => {
+      const opaco = (ctx.globalAlpha ?? 1) >= 0.96 && (!ctx.globalCompositeOperation || ctx.globalCompositeOperation === 'source-over');
+      pathRects.forEach((r) => registraRettangolo(r, opaco));
+      const valore = originali.fill(...args);
+      pathRects = [];
+      return valore;
+    };
+    ctx.stroke = (...args) => {
+      pathRects.forEach((r) => registraRettangolo(r, false));
+      const valore = originali.stroke(...args);
+      pathRects = [];
+      return valore;
+    };
+    ctx.fillRect = (x, y, w, h) => {
+      const r = rettangoloCanvasDaPath(ctx, x, y, w, h);
+      const opaco = (ctx.globalAlpha ?? 1) >= 0.96 && (!ctx.globalCompositeOperation || ctx.globalCompositeOperation === 'source-over');
+      registraRettangolo(r, opaco);
+      return originali.fillRect(x, y, w, h);
+    };
+    ctx.clearRect = (x, y, w, h) => {
+      rimuoviCoperti(clipRect(rettangoloCanvasDaPath(ctx, x, y, w, h)));
+      return originali.clearRect(x, y, w, h);
+    };
+    ctx.fillText = (testo, x, y, ...resto) => {
+      registraTesto(testo, x, y);
+      return originali.fillText(testo, x, y, ...resto);
+    };
+    ctx.strokeText = (testo, x, y, ...resto) => {
+      registraTesto(testo, x, y);
+      return originali.strokeText(testo, x, y, ...resto);
+    };
+
+    try {
+      await pagina.render({ canvasContext: ctx, viewport }).promise;
+      const items = consolidaTestoRenderizzato(testi, viewport);
+      const segmenti = [];
+      rettangoliVisibili.forEach((r) => {
+        const p1 = viewport.convertToPdfPoint(r.left, r.top);
+        const p2 = viewport.convertToPdfPoint(r.right, r.bottom);
+        const x1 = Math.min(p1[0], p2[0]);
+        const x2 = Math.max(p1[0], p2[0]);
+        const y1 = Math.min(p1[1], p2[1]);
+        const y2 = Math.max(p1[1], p2[1]);
+        segmenti.push({ x1, x2, y: y1 }, { x1, x2, y: y2 });
+      });
+      return { items, bordi: consolidaBordiOrizzontali(segmenti) };
+    } finally {
+      canvas.width = canvas.height = 0;
+    }
+  }
+
+  async function paginaHaFormClippatoGrande(pagina) {
+    try {
+      const ops = await pagina.getOperatorList();
+      const O = pdfjsLib.OPS;
+      const larghezzaPagina = Math.abs(pagina.view[2] - pagina.view[0]);
+      const altezzaPagina = Math.abs(pagina.view[3] - pagina.view[1]);
+      for (let i = 0; i < ops.fnArray.length; i += 1) {
+        if (ops.fnArray[i] !== O.paintFormXObjectBegin) continue;
+        const args = ops.argsArray[i] || [];
+        const bbox = args[1];
+        if (!Array.isArray(bbox) || bbox.length < 4) continue;
+        const w = Math.abs(bbox[2] - bbox[0]);
+        const h = Math.abs(bbox[3] - bbox[1]);
+        if (w >= larghezzaPagina * 0.72 && h >= Math.max(35, altezzaPagina * 0.04)) return true;
+      }
+    } catch (_) {
+      // Il percorso tradizionale getTextContent resta sempre disponibile come fallback.
+    }
+    return false;
+  }
+
   /**
    * Trova sulla pagina le intestazioni di colonna della tabella sezione ('n.', 'C', 'P.C',
    * 'N.C', 'N.P', 'Note') e ne ricava la coordinata x di riferimento. Le intestazioni si
@@ -1298,10 +1625,28 @@ const pdfImport = (() => {
       for (let numeroPagina = 1; numeroPagina <= documento.numPages; numeroPagina += 1) {
         const pagina = await documento.getPage(numeroPagina);
         const contenuto = await pagina.getTextContent();
-        const items = contenuto.items
-          .map((it) => ({ testo: it.str, x: it.transform[4], y: it.transform[5], w: it.width }))
+        let items = contenuto.items
+          .map((it, ordine) => ({ testo: it.str, x: it.transform[4], y: it.transform[5], w: it.width, ordine }))
           .filter((it) => it.testo.trim() !== '');
-        items.bordi = await estraiBordiTabella(pagina);
+        let bordi = null;
+
+        // I PDF compositi creati da vecchie versioni possono contenere pagine intere dentro
+        // Form XObject ritagliati: getTextContent ne restituisce anche il testo FUORI dal ritaglio
+        // e quello successivamente coperto. In quelle sole pagine usiamo il testo effettivamente
+        // renderizzato e i bordi visibili, mantenendo il percorso veloce tradizionale altrove.
+        if (await paginaHaFormClippatoGrande(pagina)) {
+          try {
+            const visibile = await estraiTestoVisibileRenderizzato(pagina);
+            if (visibile && visibile.items && visibile.items.length >= 5) {
+              items = visibile.items;
+              bordi = visibile.bordi;
+            }
+          } catch (erroreVisivo) {
+            console.warn('Import PDF: fallback al testo grezzo per la pagina', numeroPagina, erroreVisivo);
+          }
+        }
+
+        items.bordi = bordi && bordi.length ? bordi : await estraiBordiTabella(pagina);
         pagine.push(items);
         immagini.push(...await estraiImmaginiPagina(pagina, items, numeroPagina, { ...opzioni, headerEsclusi }));
         pagina.cleanup();
@@ -1348,7 +1693,10 @@ const pdfImport = (() => {
       consolidaRigheNostre,
       raggruppaFrammentiAdiacenti,
       estraiDatiGeneraliNostro,
-      consolidaBordiOrizzontali
+      consolidaBordiOrizzontali,
+      consolidaTestoRenderizzato,
+      estraiTestoVisibileRenderizzato,
+      paginaHaFormClippatoGrande
     }
   };
 })();
