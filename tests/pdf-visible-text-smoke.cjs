@@ -25,6 +25,18 @@ if (!executablePath) throw new Error('CHROME_PATH mancante');
       typeof jspdf !== 'undefined'
     );
 
+    const capabilities = await page.evaluate(() => {
+      const d = new jspdf.jsPDF({ unit:'pt', format:'a4' });
+      return {
+        beginFormObject: typeof d.beginFormObject,
+        endFormObject: typeof d.endFormObject,
+        doFormObject: typeof d.doFormObject,
+        Matrix: typeof d.Matrix,
+        unitMatrix: Boolean(d.unitMatrix)
+      };
+    });
+    console.log('jsPDF form capabilities', JSON.stringify(capabilities));
+
     const result = await page.evaluate(async () => {
       const doc = new jspdf.jsPDF({ unit:'pt', format:'a4' });
       doc.setFont('helvetica', 'normal');
