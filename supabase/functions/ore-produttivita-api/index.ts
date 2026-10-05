@@ -162,6 +162,7 @@ const ACTION_ROLES: Record<string, readonly string[]> = {
 function authorizeAction(user: any, action: string) {
   if (!Object.hasOwn(ACTION_ROLES, action)) bad("Operazione non riconosciuta.");
   if (!ACTION_ROLES[action].includes(user.profile.ruolo)) bad("Operazione riservata agli amministratori.", 403);
+  if(user.profile.account_test===true&&["addManual","saveInternal","confirmDay","ingestAgenda","resolveSyncIssue"].includes(action))bad("Account di test: rendicontazione disabilitata.",403);
 }
 const INTERNAL_CATEGORIES = new Set(["formazione_interna","amministrazione","commerciale_preventivi","aggiornamento_normativo","riunioni_interne","altro_interno","assenza"]);
 const WORK_PHASES = new Set(["sopralluogo","trasferta","redazione","revisione","riunione_cliente","misurazioni","formazione_erogata","altro"]);
@@ -178,10 +179,18 @@ function validateComplexity(data:any,filter=false){
  }return result;
 }
 function matchesComplexity(job:any,filters:any){return COMPLEXITY_FIELDS.every(key=>{const f=filters[key],value=job[key]??null;return f===null||f===undefined?true:f==="__missing__"?value===null:key==="settore"?String(value||"").toLocaleLowerCase("it-IT")===String(f).toLocaleLowerCase("it-IT"):value===f;});}
-function attributeIdentity(rows:any[],aliases:any[]){
+function attributeIdentity(rows:any[],aliases:any[],excluded=new Set<string>()){
   const byUid=new Map(aliases.map(a=>[a.uid_storico,a]));
-  return rows.map(row=>{const alias:any=byUid.get(row.tecnico_uid);return alias?{...row,tecnico_uid_originale:row.tecnico_uid,tecnico_uid:alias.tecnico_uid,tecnico_nome:alias.tecnico_nome||row.tecnico_nome}:row;});
+  return rows.map(row=>{const alias:any=byUid.get(row.tecnico_uid);return alias?{...row,tecnico_uid_originale:row.tecnico_uid,tecnico_uid:alias.tecnico_uid,tecnico_nome:alias.tecnico_nome||row.tecnico_nome}:row;}).filter(row=>!excluded.has(row.tecnico_uid));
 }
+async function testAccountUids(user:any){
+ const result=new Set<string>();let pageToken="";
+ do{const response=await fetch(`${FIRESTORE}/utenti?pageSize=1000${pageToken?"&pageToken="+encodeURIComponent(pageToken):""}`,{headers:{authorization:`Bearer ${user.token}`}});
+ if(!response.ok)bad("Impossibile verificare gli account di test.",500);const page=await response.json();
+ for(const p of (page.documents||[]).map(fromDoc))if(p.account_test===true)result.add(p.uid);
+ pageToken=page.nextPageToken||"";}while(pageToken);return result;
+}
+function compactJobCandidates(candidates:any[]){return candidates.map(c=>({id:c.id,codiceComm:c.codice_commessa_crm,descrizione:c.descrizione,stato:c.stato,codiceLavoro:c.codice_lavoro,clienteId:c.cliente_id||null,tipologiaId:c.tipologia_id||null}));}
 async function readAll(builder:()=>any){
  const rows:any[]=[];
  for(let offset=0;;offset+=1000){const {data,error}=await builder().order("id").range(offset,offset+999);if(error)return {data:null,error};rows.push(...(data||[]));if((data||[]).length<1000)break;}
@@ -230,7 +239,7 @@ Deno.serve(async (req: Request) => {
       if(all){people=[];let pageToken="";do{
         const response=await fetch(`${FIRESTORE}/utenti?pageSize=1000${pageToken?"&pageToken="+encodeURIComponent(pageToken):""}`,{headers:{authorization:`Bearer ${user.token}`}});
         if(!response.ok)bad("Impossibile leggere gli account attivi.",500);const page=await response.json();
-        people.push(...(page.documents||[]).map(fromDoc).filter((p:any)=>p.attivo===true&&["admin","tecnico"].includes(p.ruolo)).map((p:any)=>({uid:p.uid,nome:`${p.nome||""} ${p.cognome||""}`.trim()||p.uid})));pageToken=page.nextPageToken||"";
+        people.push(...(page.documents||[]).map(fromDoc).filter((p:any)=>p.account_test!==true&&p.attivo===true&&["admin","tecnico"].includes(p.ruolo)).map((p:any)=>({uid:p.uid,nome:`${p.nome||""} ${p.cognome||""}`.trim()||p.uid})));pageToken=page.nextPageToken||"";
       }while(pageToken);}
       let aliasesQuery=db.from("ore_identita_alias").select("*");if(!all)aliasesQuery=aliasesQuery.eq("tecnico_uid",user.uid);
       const {data:aliases,error:aliasError}=await aliasesQuery;if(aliasError)bad("Impossibile leggere le identita.",500);
@@ -273,6 +282,7 @@ Deno.serve(async (req: Request) => {
       const uid=String(body.tecnicoUid||"");if(!uid||uid.startsWith("legacy:")||uid.includes("/"))bad("Account non valido.");
       const response=await fetch(`${FIRESTORE}/utenti/${encodeURIComponent(uid)}`,{headers:{authorization:`Bearer ${user.token}`}});
       if(!response.ok)bad("Account non trovato.",404);const target=fromDoc(await response.json());
+      if(target.account_test===true)bad("Gli account di test non possono essere collegati al CRM.");
       if(target.attivo!==true||!["admin","tecnico"].includes(target.ruolo))bad("Account non attivo.");
       const {data,error:saveError}=await db.rpc("ore_collega_identita",{p_resource:resource.id,p_uid:uid,p_name:`${target.nome||""} ${target.cognome||""}`.trim(),p_actor:user.uid,p_previous_uid:body.previousUid??null,p_previous_approval:body.previousApproval??null,p_previous_alias:body.previousAlias??null});
       if(saveError)bad(saveError.message,409);return json(req,data);
@@ -297,7 +307,7 @@ Deno.serve(async (req: Request) => {
       const response=await fetch(`${FIRESTORE}/utenti?pageSize=1000`,{headers:{authorization:`Bearer ${user.token}`}});
       if(!response.ok)bad("Impossibile caricare gli account tecnici.",500);
       const body=await response.json();if(body.nextPageToken)bad("Elenco account troppo lungo: serve paginazione.",500);
-      const technicians=(body.documents||[]).map(fromDoc).filter((p:any)=>p.attivo===true&&["tecnico","admin"].includes(p.ruolo)).map((p:any)=>({uid:p.uid,nome:`${p.nome||""} ${p.cognome||""}`.trim()}));
+      const technicians=(body.documents||[]).map(fromDoc).filter((p:any)=>p.account_test!==true&&p.attivo===true&&["tecnico","admin"].includes(p.ruolo)).map((p:any)=>({uid:p.uid,nome:`${p.nome||""} ${p.cognome||""}`.trim()}));
       return json(req,{schedules:schedules||[],technicians});
     }
     if (action === "saveWorkSchedule") {
@@ -307,7 +317,8 @@ Deno.serve(async (req: Request) => {
       week.forEach(minutes);
       const response=await fetch(`${FIRESTORE}/utenti/${encodeURIComponent(uid)}`,{headers:{authorization:`Bearer ${user.token}`}});
       if(!response.ok)bad("Account tecnico non trovato.",404);
-      const target=fromDoc(await response.json());if(target.attivo!==true||!["admin","tecnico"].includes(target.ruolo))bad("Account tecnico non attivo.");
+      const target=fromDoc(await response.json());if(target.account_test===true)bad("Gli account di test non possono essere collegati al CRM.");
+      if(target.attivo!==true||!["admin","tecnico"].includes(target.ruolo))bad("Account tecnico non attivo.");
       const {data,error}=await db.rpc("ore_aggiungi_orario",{p_uid:uid,p_name:`${target.nome||""} ${target.cognome||""}`.trim(),p_from:from,p_week:week,p_actor:user.uid});
       if(error)bad(error.message||"Impossibile salvare l'orario.",409);
       return json(req,data);
@@ -331,7 +342,8 @@ Deno.serve(async (req: Request) => {
         const response=await fetch(`${FIRESTORE}/utenti/${encodeURIComponent(targetUid)}`,{headers:{authorization:`Bearer ${user.token}`}});
         if(!response.ok)bad("Account tecnico non trovato.",404);
         const target=fromDoc(await response.json());
-        if(target.attivo!==true||!["admin","tecnico"].includes(target.ruolo))bad("Account tecnico non attivo.");
+        if(target.account_test===true)bad("Gli account di test non possono essere collegati al CRM.");
+      if(target.attivo!==true||!["admin","tecnico"].includes(target.ruolo))bad("Account tecnico non attivo.");
         targetName=`${target.nome||""} ${target.cognome||""}`.trim();
       }
       const {data,error}=await db.rpc("ore_salva_attivita_interna",{p_id:id,p_uid:targetUid,p_name:targetName,p_day:day,p_category:category,p_minutes:duration,p_actor:user.uid,p_admin:user.profile.ruolo==="admin"});
@@ -346,7 +358,7 @@ Deno.serve(async (req: Request) => {
       if (!usersResponse.ok) bad("Impossibile caricare gli account tecnici.", 500);
       const usersBody = await usersResponse.json();
       if (usersBody.nextPageToken) bad("Elenco account troppo lungo: serve paginazione.", 500);
-      const technicians = (usersBody.documents || []).map(fromDoc).filter((p:any)=>p.attivo===true && ["tecnico","admin"].includes(p.ruolo))
+      const technicians = (usersBody.documents || []).map(fromDoc).filter((p:any)=>p.account_test!==true&&p.attivo===true && ["tecnico","admin"].includes(p.ruolo))
         .map((p:any)=>({uid:p.uid,nome:`${p.nome || ""} ${p.cognome || ""}`.trim()}));
       const sessions:any[]=[];
       for(let offset=0;;offset+=1000){
@@ -396,6 +408,7 @@ Deno.serve(async (req: Request) => {
       const response=await fetch(`${FIRESTORE}/utenti/${encodeURIComponent(targetUid)}`,{headers:{authorization:`Bearer ${user.token}`}});
       if(!response.ok)bad("Account tecnico non trovato.",404);
       const target=fromDoc(await response.json());
+      if(target.account_test===true)bad("Gli account di test non possono essere collegati al CRM.");
       if(target.attivo!==true||!["admin","tecnico"].includes(target.ruolo))bad("Account tecnico non attivo.");
       const sessions=Array.isArray(body.sessions)?body.sessions:[];
       if(sessions.length>500||sessions.some((s:any)=>!s.id||!s.updated_at))bad("Anteprima non valida.");
@@ -408,10 +421,10 @@ Deno.serve(async (req: Request) => {
       return json(req,data);
     }
 
-    const identityAliases:any[]=[];
+    const identityAliases:any[]=[];let excludedTestUids=new Set<string>();
     if(["adminSummary","archiveJobs","archiveJobDetail","adminEconomics","economicsCatalog"].includes(action)){
       const {data,error}=await db.from("ore_identita_alias").select("*");
-      if(error)bad("Impossibile attribuire le identita approvate.",500);identityAliases.push(...(data||[]));
+      if(error)bad("Impossibile attribuire le identita approvate.",500);identityAliases.push(...(data||[]));excludedTestUids=await testAccountUids(user);
     }
     const ensureTrackingJob = async (clienteIdRaw:any, tipologiaIdRaw:any, workDayRaw:any) => {
       const clienteId = String(clienteIdRaw || "").trim();
@@ -991,10 +1004,7 @@ Deno.serve(async (req: Request) => {
         return {job:null,ambiguous:ranked.slice(0,8).map((x:any)=>x.job)};
       };
 
-      const compactCandidates = (candidates:any[]) => candidates.map((c:any)=>({
-        id:c.id,codiceComm:c.codice_commessa_crm,descrizione:c.descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore:c.stato,codiceLavoro:c.codice_lavoro,
-        clienteId:c.cliente_id||null,tipologiaId:c.tipologia_id||null
-      }));
+      const compactCandidates = compactJobCandidates;
 
       const bySigla = new Map((resources || []).map((r:any)=>[String(r.sigla_crm || "").trim().toUpperCase(), r]));
       const byName = new Map((resources || []).map((r:any)=>[norm(r.nome_crm), r]));
@@ -1392,10 +1402,7 @@ Deno.serve(async (req: Request) => {
         return {job:null,ambiguous:ranked.slice(0,8).map((x:any)=>x.job)};
       };
 
-      const compactCandidates = (candidates:any[]) => candidates.map((c:any)=>({
-        id:c.id,codiceComm:c.codice_commessa_crm,descrizione:c.descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore:c.stato,codiceLavoro:c.codice_lavoro,
-        clienteId:c.cliente_id||null,tipologiaId:c.tipologia_id||null
-      }));
+      const compactCandidates = compactJobCandidates;
 
       const saveIssue = async (issue:any) => {
         if (issue.crm_event_id) {
@@ -1685,7 +1692,7 @@ Deno.serve(async (req: Request) => {
       if (techErr || rateErr || jobsErr) bad("Impossibile caricare i dati economici.", 500);
 
       const techMap = new Map<string, any>();
-      for (const t of attributeIdentity(sessionTechs || [],identityAliases)) {
+      for (const t of attributeIdentity(sessionTechs || [],identityAliases,excludedTestUids)) {
         const name = String(t.tecnico_nome || t.tecnico_uid || "").trim();
         const key = String(t.tecnico_uid||"");
         if (!key) continue;
@@ -1698,7 +1705,7 @@ Deno.serve(async (req: Request) => {
 
       return json(req, {
         technicians: [...techMap.values()],
-        rates: rates || [],
+        rates: attributeIdentity(rates || [],identityAliases,excludedTestUids),
         jobs: jobs || []
       });
     }
@@ -1796,7 +1803,7 @@ Deno.serve(async (req: Request) => {
       const normalizeName = (v:any) => String(v || "").trim().toLocaleLowerCase("it-IT");
       const byUid = new Map<string, any[]>();
       const byName = new Map<string, any[]>();
-      for (const r of attributeIdentity(rates || [],identityAliases)) {
+      for (const r of attributeIdentity(rates || [],identityAliases,excludedTestUids)) {
         const uid = String(r.tecnico_uid || "");
         if (uid) {
           const a = byUid.get(uid) || [];
@@ -1829,7 +1836,7 @@ Deno.serve(async (req: Request) => {
       const jobs = new Map<string, any>();
       const costRows:any[] = [];
       let totalMinutes = 0, coveredMinutes = 0, knownInternalCost = 0;
-      for (const s of attributeIdentity(sessions || [],identityAliases)) {
+      for (const s of attributeIdentity(sessions || [],identityAliases,excludedTestUids)) {
         const c:any = s.ore_commesse || {};
         const cl:any = c.ore_clienti || {};
         const tp:any = c.ore_tipologie || {};
@@ -1965,7 +1972,7 @@ Deno.serve(async (req: Request) => {
       const stats=new Map<string,any>();
       let totalMinutes=0;
       const technicians=new Set<string>();
-      for(const s of attributeIdentity(sessions||[],identityAliases)){
+      for(const s of attributeIdentity(sessions||[],identityAliases,excludedTestUids)){
         totalMinutes+=Number(s.minuti_effettivi||0);
         technicians.add(String(s.tecnico_uid||s.tecnico_nome||""));
         const id=String(s.commessa_id||"");
@@ -2014,7 +2021,7 @@ Deno.serve(async (req: Request) => {
       return json(req,{
         totals:{
           commesse:rows.length,
-          attivita:(sessions||[]).length,
+          attivita:attributeIdentity(sessions||[],identityAliases,excludedTestUids).length,
           ore:Math.round((totalMinutes/60)*100)/100,
           tecnici:[...technicians].filter(Boolean).length
         },
@@ -2044,7 +2051,7 @@ Deno.serve(async (req: Request) => {
 
       const byTech=new Map<string,any>();
       let totalMinutes=0;
-      for(const s of attributeIdentity(sessions||[],identityAliases)){
+      for(const s of attributeIdentity(sessions||[],identityAliases,excludedTestUids)){
         const key=String(s.tecnico_uid||"non indicato");
         const v=byTech.get(key)||{minutes:0,sessions:0,name:s.tecnico_nome||key};
         v.minutes+=Number(s.minuti_effettivi||0);
@@ -2061,7 +2068,7 @@ Deno.serve(async (req: Request) => {
           tecnici:byTech.size
         },
         technicians:[...byTech.entries()].map(([uid,v])=>({nome:v.name,tecnico_uid:uid,ore:Math.round((v.minutes/60)*100)/100,attivita:v.sessions})).sort((a,b)=>a.nome.localeCompare(b.nome,"it")),
-        sessions:attributeIdentity(sessions||[],identityAliases),closureHistory
+        sessions:attributeIdentity(sessions||[],identityAliases,excludedTestUids),closureHistory
       });
     }
 
@@ -2074,13 +2081,13 @@ Deno.serve(async (req: Request) => {
           .select("tecnico_uid,tecnico_nome,data_lavoro,minuti_effettivi,origine,commessa_id,fase,ore_commesse(codice_breve,codice_lavoro,codice_commessa_crm,descrizione,stato,fascia_lavoratori,numero_sedi,numero_mansioni,tipo_intervento,settore,ore_clienti(codice_breve,ragione_sociale),ore_tipologie(codice,nome))")
           .gte("data_lavoro",from).lte("data_lavoro",to).order("id").range(offset,offset+999);
         if(error)bad("Impossibile generare il riepilogo completo.",500);
-        rows.push(...attributeIdentity(data||[],identityAliases));if((data||[]).length<1000)break;
+        rows.push(...attributeIdentity(data||[],identityAliases,excludedTestUids));if((data||[]).length<1000)break;
       }
       const activities:any[]=[];
       for(let offset=0;;offset+=1000){
         const {data,error}=await db.from("ore_rendicontazioni").select("*").gte("data_lavoro",from).lte("data_lavoro",to).order("id").order("tipo_record").range(offset,offset+999);
         if(error)bad("Impossibile calcolare la rendicontazione completa.",500);
-        activities.push(...attributeIdentity(data||[],identityAliases));if((data||[]).length<1000)break;
+        activities.push(...attributeIdentity(data||[],identityAliases,excludedTestUids));if((data||[]).length<1000)break;
       }
       const totalMinutes = activities.reduce((s: number, x: any) => s + Number(x.minuti_effettivi || 0), 0);
       const technicians = new Set(activities.map((x: any) => x.tecnico_uid)).size;

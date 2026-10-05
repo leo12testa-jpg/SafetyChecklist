@@ -61,6 +61,15 @@ test('risorsa senza account: ingest conserva evento da verificare senza creare s
   const result=await response.json();assert.equal(result.saved,0);assert.equal(result.resourceUnmatched,1);
   const issue=writes.find(w=>w.table==='ore_sync_issues');assert.equal(issue.value.tecnico_uid,'unassigned:r1');assert.equal(issue.value.stato,'aperta');assert.equal(issue.value.minuti,60);
 });
+test('account di test escluso anche quando possiede un alias storico',()=>{
+ const app=backend();app.context.rows=[{tecnico_uid:'real',minuti_effettivi:60},{tecnico_uid:'test',minuti_effettivi:120},{tecnico_uid:'legacy:TEST',minuti_effettivi:240}];
+ app.context.aliases=[{uid_storico:'legacy:TEST',tecnico_uid:'test'}];
+ const result=vm.runInContext('attributeIdentity(rows,aliases,new Set(["test"]))',app.context);assert.equal(result.length,1);assert.equal(result[0].tecnico_uid,'real');assert.equal(app.context.rows.length,3);
+});
+test('candidati CRM ambigui non contengono riferimenti a variabili inesistenti',()=>{
+ const app=backend();app.context.candidates=[{id:'j1',descrizione:'DVR',stato:'in_lavorazione',codice_lavoro:'1B'}];
+ const result=vm.runInContext('compactJobCandidates(candidates)',app.context);assert.equal(result[0].stato,'in_lavorazione');assert.equal(result[0].codiceLavoro,'1B');assert.equal(result[0].clienteId,null);
+});
 test('fatturabilità include interne ed esclude assenze, anche per tecnico',()=>{
   const app=backend();app.context.rows=[{tecnico_uid:'u1',tecnico_nome:'Leo',minuti_effettivi:480,fatturabile:true,assenza:false},{tecnico_uid:'u1',tecnico_nome:'Leo',minuti_effettivi:120,fatturabile:false,assenza:false},{tecnico_uid:'u1',tecnico_nome:'Leo',minuti_effettivi:240,fatturabile:false,assenza:true}];
   const result=vm.runInContext('billability(rows)',app.context);assert.equal(result.percent,80);assert.equal(result.technicians[0].percent,80);assert.equal(result.reportedExcludingAbsence,600);assert.equal(result.absenceMinutes,240);
