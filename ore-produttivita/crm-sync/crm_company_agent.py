@@ -31,7 +31,7 @@ class LoginRequiredError(RuntimeError):
 class PartialReadError(RuntimeError):
     pass
 
-AGENT_VERSION="20261005-europe-rome"
+AGENT_VERSION="20261006-active-without-crm"
 
 APP_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "ColligoOreProduttivita"
 CONFIG_FILE = APP_DIR / "company-agent.json"
@@ -396,6 +396,7 @@ async def select_month(page, month):
 
 
 async def scan_resources(page, resources, month):
+    resources=[r for r in resources if r.get('agenda_crm_attiva') is not False]
     events=[];scanned=[];failures=[];fingerprints={}
     for resource in resources:
         sigla=str(resource.get('sigla_crm') or '').strip()

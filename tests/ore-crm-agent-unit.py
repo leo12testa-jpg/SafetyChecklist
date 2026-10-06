@@ -31,6 +31,14 @@ class AgentTests(unittest.IsolatedAsyncioTestCase):
   namespace.update(select_resource=selected,month_cells=forbidden)
   result=await namespace['scan_resources'](None,[{'sigla_crm':'CP','nome_crm':'Carlo Padovan'}],'202610')
   self.assertEqual(result['events'],[]);self.assertEqual(result['failures'][0]['reason'],'risorsa_non_trovata')
+ async def test_active_without_crm_is_not_scanned_or_failed(self):
+  selected=[]
+  async def select(*args):selected.append(args[2]);return True
+  async def month(*args):pass
+  async def cells(*args):return {}
+  namespace.update(select_resource=select,select_month=month,month_cells=cells)
+  result=await namespace['scan_resources'](None,[{'sigla_crm':'VD','attiva':True,'agenda_crm_attiva':False},{'sigla_crm':'LT','agenda_crm_attiva':None}],'202610')
+  self.assertEqual(selected,['LT']);self.assertEqual(result['total'],1);self.assertEqual(result['scanned'],['LT']);self.assertEqual(result['failures'],[])
  async def test_errors_never_log_sensitive_exception_contents(self):
   async def selected(*args):raise RuntimeError('Appointment private text + token secret')
   namespace['select_resource']=selected

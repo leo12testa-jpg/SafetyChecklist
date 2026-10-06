@@ -577,20 +577,24 @@ async function loadAdmin(){
     $("#kpiAvgJob").textContent=j.jobs?(totalHours/j.jobs).toLocaleString("it-IT",{maximumFractionDigits:1})+"h":"0h";
 
     const resources=crm.resources||[];
+    const agendaCount=resources.filter(r=>r.agenda_crm_attiva!==false).length;
     $("#crmResourceCount").textContent=String(resources.length);
     $("#crmResourceEmpty").hidden=resources.length>0;
     const crmBody=$("#crmResourceRows");
     crmBody.innerHTML="";
     let syncFresh=0,syncLate=0,syncNever=0;
     for(const r of resources){
+      const manualOnly=r.agenda_crm_attiva===false;
       const lastStamp=r.ultima_lettura_at||r.ultima_sync;const lastDate=lastStamp?new Date(lastStamp):null;
       const failure=r.ultimo_errore_lettura||(crm.agent?.failure_details||[]).find(f=>f.sigla===r.sigla_crm)?.reason||null;
-      const last=lastDate?lastDate.toLocaleString("it-IT",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"Mai";
+      const last=manualOnly?"Non applicabile":lastDate?lastDate.toLocaleString("it-IT",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):"Mai";
       const ageMinutes=lastDate?Math.max(0,(Date.now()-lastDate.getTime())/60000):Infinity;
-      if(!lastDate)syncNever++;
+      if(manualOnly){}else if(!lastDate)syncNever++;
       else if(ageMinutes<=15)syncFresh++;
       else syncLate++;
-      const state=failure
+      const state=manualOnly
+        ?html`<span class="sync-state">Attiva senza agenda CRM</span>`
+        :failure
         ?html`<span class="sync-state sync-failed">Lettura fallita: ${failure}</span>`
         :!lastDate
         ?html`<span class="sync-state sync-never">Mai sincronizzato</span>`
@@ -617,7 +621,7 @@ async function loadAdmin(){
       const heartbeatState=String(heartbeat?.state||"").toLowerCase();
       const heartbeatError=["login_required","error","partial"].includes(heartbeatState);
       const inactive=!heartbeatFresh||heartbeatError;
-      const partial=heartbeatState==="partial"||Number(heartbeat?.failures)>0||!inactive&&resources.length>0&&syncFresh<resources.length;
+      const partial=heartbeatState==="partial"||Number(heartbeat?.failures)>0||!inactive&&agendaCount>0&&syncFresh<agendaCount;
       agentAlert.hidden=!(inactive||partial);
       agentAlert.classList.toggle("partial",partial&&!inactive);
 
@@ -634,8 +638,8 @@ async function loadAdmin(){
           ?"Sincronizzazione CRM parziale"
           :"Sincronizzazione CRM attiva";
         $("#crmAgentAlertText").textContent=partial
-          ?`${syncFresh} tecnici aggiornati su ${resources.length}. Ultimo ciclo agente regolare.`
-          :`${resources.length} tecnici coperti. Agente background regolare.`;
+          ?`${syncFresh} agende aggiornate su ${agendaCount}. Ultimo ciclo agente regolare.`
+          :`${agendaCount} agende coperte. Agente background regolare.`;
       }
 
       const heartbeatText=$("#crmAgentHeartbeatText");

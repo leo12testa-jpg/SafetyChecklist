@@ -911,7 +911,7 @@ Deno.serve(async (req: Request) => {
       requireAdmin(user);
       const [{ data, error }, { data: auditRows, error: auditErr }] = await Promise.all([
         db.from("ore_risorse_crm")
-          .select("id,sigla_crm,nome_crm,tecnico_uid,tecnico_nome,attiva,ultima_sync,crm_id,ultima_lettura_at,ultimo_tentativo_at,ultimo_errore_lettura")
+          .select("id,sigla_crm,nome_crm,tecnico_uid,tecnico_nome,attiva,agenda_crm_attiva,ultima_sync,crm_id,ultima_lettura_at,ultimo_tentativo_at,ultimo_errore_lettura")
           .eq("attiva", true)
           .order("nome_crm"),
         db.from("ore_audit")
@@ -984,7 +984,7 @@ Deno.serve(async (req: Request) => {
         { data: allJobs, error: jobsErr }
       ] = await Promise.all([
         db.from("ore_risorse_crm")
-          .select("id,sigla_crm,nome_crm,tecnico_uid,tecnico_nome,attiva")
+          .select("id,sigla_crm,nome_crm,tecnico_uid,tecnico_nome,attiva,agenda_crm_attiva,collegamento_approvato_at")
           .eq("attiva", true),
         db.from("ore_clienti")
           .select("id,codice_breve,ragione_sociale")
@@ -1208,13 +1208,13 @@ Deno.serve(async (req: Request) => {
         const activityDetected=detectActivity(source,typeCode);
 
         // A resource with no real account stays in review; no invented ownership.
-        if (resource.attiva===false || !resource.collegamento_approvato_at || !resource.tecnico_uid || String(resource.tecnico_uid).startsWith("legacy:")) {
+        if (resource.attiva===false || resource.agenda_crm_attiva===false || !resource.collegamento_approvato_at || !resource.tecnico_uid || String(resource.tecnico_uid).startsWith("legacy:")) {
           await saveIssue("unassigned:" + resource.id, {
             crm_event_id: crmEventId || null, data_lavoro: day,
             inizio: startIso, fine: endIso, minuti: computed, titolo: title,
             codice_lavoro: suppliedCode || null, codice_commessa_crm: commessaCrm || null,
             attivita_rilevata: activityDetected || null, motivo: "unmatched",
-            candidati: [{ resource_id: resource.id, sigla: resource.sigla_crm, collegamento: "da_verificare",risorsa_inattiva:resource.attiva===false }]
+            candidati: [{ resource_id: resource.id, sigla: resource.sigla_crm, collegamento: "da_verificare",risorsa_inattiva:resource.attiva===false,risorsa_senza_agenda_crm:resource.agenda_crm_attiva===false }]
           });
           results.push({ crmEventId, status: "resource_unmatched", tecnicoNome: resource.nome_crm, tecnicoSigla: resource.sigla_crm });
           continue;
