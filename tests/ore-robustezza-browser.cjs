@@ -1,6 +1,6 @@
 // Browser regressions share the same simulated Firebase/backend as the layout audit.
 const assert=require('node:assert/strict');
-const {run,server,EVIL,iso,job}=require('./ore-browser-fixtures.cjs');
+const {run,server,EVIL,iso,job,openFirstArchiveJob}=require('./ore-browser-fixtures.cjs');
 
 (async()=>{
   await new Promise(r=>server.listen(0,'127.0.0.1',r));
@@ -125,10 +125,10 @@ const {run,server,EVIL,iso,job}=require('./ore-browser-fixtures.cjs');
       for(let i=0;i<5;i++)await page.fill(`#workScheduleWeek input[data-weekday="${i}"]`,'4h');
       await page.click('#saveWorkSchedule');await page.waitForTimeout(300);
       const schedule=calls.find(c=>c.action==='saveWorkSchedule');assert.equal(schedule.validoDal,'2026-11-01');assert.deepEqual(schedule.settimanaMinuti,[240,240,240,240,240,0,0]);
-      await page.click('#tabArchive');await page.waitForSelector('.archive-open');await page.locator('.archive-open').first().click();await page.waitForSelector('#jobClosureForm');
-      await page.fill('#jobClosureForm [name="delivery"]','2026-10-01');await page.fill('#jobClosureForm [name="revisions"]','0');await page.click('#jobClosureForm button');await page.waitForTimeout(250);
+      await page.click('#tabArchive');await openFirstArchiveJob(page);
+      await page.fill('#jobClosureForm [name="delivery"]','2026-10-01');await page.fill('#jobClosureForm [name="revisions"]','0');await Promise.all([page.waitForResponse(r=>r.url().includes('ore-produttivita-api')&&JSON.parse(r.request().postData()||'{}').action==='changeJobState'),page.click('#jobClosureForm button')]);
       assert.equal(calls.find(c=>c.action==='changeJobState').revisioniCliente,0);
-      await page.click('#jobClosureForm button');await page.waitForTimeout(250);assert.equal(calls.filter(c=>c.action==='changeJobState').at(-1).operation,'reopen');
+      await page.waitForFunction(()=>document.querySelector('#jobClosureForm button')?.textContent==='Riapri pratica');await Promise.all([page.waitForResponse(r=>r.url().includes('ore-produttivita-api')&&JSON.parse(r.request().postData()||'{}').action==='changeJobState'),page.click('#jobClosureForm button')]);assert.equal(calls.filter(c=>c.action==='changeJobState').at(-1).operation,'reopen');await page.waitForFunction(()=>document.querySelector('#jobClosureForm button')?.textContent==='Chiudi pratica');
       await page.fill('#jobComplexityForm [data-complexity="numero_sedi"]','2');await page.click('#jobComplexityForm button');await page.waitForTimeout(250);
       assert.equal(calls.find(c=>c.action==='saveJobComplexity').complexity.numero_sedi,2);assert.equal(calls.find(c=>c.action==='saveJobComplexity').complexity.numero_mansioni,null);
       await page.click('#tabAdmin');
@@ -139,9 +139,9 @@ const {run,server,EVIL,iso,job}=require('./ore-browser-fixtures.cjs');
     await run('admin',{width:390,height:844},'admin-mobile',async(page)=>{
       await page.click('#tabAdmin');await page.waitForTimeout(800);
       assert.equal(await page.locator('#kpiBillable').innerText(),'80%');
-      await page.click('#tabArchive');await page.waitForSelector('.archive-open');await page.locator('.archive-open').first().click();await page.waitForSelector('#jobClosureForm');
+      await page.click('#tabArchive');await openFirstArchiveJob(page);
     });
     for(const viewport of [{width:1366,height:900},{width:390,height:844}])await run('admin_operativo',viewport,`operativo-${viewport.width}`,async(page,calls)=>{assert.equal(await page.locator('#tabAdmin').isVisible(),true);assert.equal(await page.locator('#tabArchive').isVisible(),true);assert.equal(await page.locator('#tabEconomics').isVisible(),false);assert.equal(await page.locator('#oreRolesPanel').isVisible(),false);await page.evaluate(()=>loadEconomics());assert.ok(!calls.some(c=>['adminEconomics','economicsCatalog'].includes(c.action)));});
     console.log('TUTTI I TEST BROWSER SUPERATI');
   }finally{server.close()}
-})().catch(e=>{console.error('FALLITO:',e.message);server.close();process.exit(1)});
+})().catch(e=>{console.error('FALLITO:',e.stack);server.close();process.exit(1)});

@@ -65,7 +65,7 @@ async function run(role,viewport,label,extra){
       case 'approveIdentity':return ok({ok:true,sessioniRiscritte:0});
       case 'changeJobState':return ok({ok:true});
       case 'saveJobComplexity':return ok({ok:true,updatedAt:'2026-10-04T11:00:00Z'});
-      case 'archiveJobDetail':return ok({job:{id:b.commessaId,stato:calls.some(c=>c.action==='changeJobState'&&c.operation==='close')?'completata':'in_lavorazione',updated_at:'2026-10-04T10:00:00Z',ore_clienti:{ragione_sociale:'Cliente'},ore_tipologie:{nome:'DVR'}},totals:{},sessions:[],technicians:[],closureHistory:[]});
+      case 'archiveJobDetail':return ok({job:{id:b.commessaId,stato:calls.filter(c=>c.action==='changeJobState').at(-1)?.operation==='close'?'completata':'in_lavorazione',updated_at:'2026-10-04T10:00:00Z',ore_clienti:{ragione_sociale:'Cliente'},ore_tipologie:{nome:'DVR'}},totals:{},sessions:[],technicians:[],closureHistory:[]});
       case 'economicsCatalog':return ok({technicians:[],rates:[],jobs:[]});
       case 'adminEconomics':return ok({jobs:[],costRows:[],typeStats:b.complexity?.fascia_lavoratori==='250+'?[]:[{codice:'B',nome:'DVR',n:b.complexity?.fascia_lavoratori==='10-49'?1:2,mediana_ore:b.complexity?.fascia_lavoratori==='10-49'?40:30}],blendedHourlyCost:60,coverage:{percent:0},comparable:{jobs:0}});
       case 'archiveJobs':return ok({totals:{commesse:3},rows:[
@@ -93,4 +93,11 @@ async function run(role,viewport,label,extra){
   await browser.close();
   console.log('ok -',label);
 }
-module.exports={run,server,EVIL,iso,job};
+async function openFirstArchiveJob(page){
+  const previous=await page.$('#jobClosureForm');
+  await page.waitForSelector('.archive-open');
+  await page.locator('.archive-open').first().click();
+  if(previous)await page.waitForFunction(el=>!el.isConnected,previous);
+  await page.waitForSelector('#jobClosureForm');
+}
+module.exports={run,server,EVIL,iso,job,openFirstArchiveJob};
