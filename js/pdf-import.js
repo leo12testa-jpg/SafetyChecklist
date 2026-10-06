@@ -245,7 +245,10 @@ const pdfImport = (() => {
     });
 
     const sovrappone = (grezzo, visibile) => {
-      if (Math.abs(grezzo.y - visibile.y) > 3.6) return false;
+      // Un singolo run del renderer può rappresentare visivamente una nota su più righe:
+      // 10.5 pt coprono l'interlinea reale (~8.6 pt) ma restano ben sotto il distacco fra
+      // due righe/celle diverse della tabella.
+      if (Math.abs(grezzo.y - visibile.y) > 10.5) return false;
       const g0 = grezzo.x;
       const g1 = grezzo.x + Math.max(0.5, Number(grezzo.w) || 0.5);
       const v0 = visibile.x - 1.8;
