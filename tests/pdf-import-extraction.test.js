@@ -131,11 +131,9 @@ test('bordi PDF: i segmenti stretti della cella n. non spezzano una riga reale',
   assert.deepEqual(Array.from(bordi, b => b.y), [200,180]);
 });
 
-test('formato nostro composito: sostituisce glifi illeggibili con la nota Unicode grezza e recupera la X', () => {
+test('PDF composito: il renderer è solo maschera; testo, nota e X arrivano sempre dal livello Unicode', () => {
   const pdfImportPerTest = caricaPdfImport();
-  const visuale = [
-    it('ANALISI DOCUMENTALE', 20, 240),
-    it('Adempimenti Formali', 20, 234),
+  const maschera = [
     it('n.', 20, 220),
     it('Descrizione attività', 40, 220),
     it('C', 300, 220),
@@ -143,40 +141,70 @@ test('formato nostro composito: sostituisce glifi illeggibili con la nota Unicod
     it('N.C', 330, 220),
     it('N.P', 345, 220),
     it('Note', 400, 220),
-    it('7', 20, 195),
-    ...sequenzaParole(['Domanda', 'sette'], 40, 195),
-    it('X', 315, 195),
-    ...sequenzaParole(['Nota', 'già', 'visibile'], 400, 195),
     it('8', 20, 155),
     ...sequenzaParole(['Domanda', 'otto'], 40, 155),
-    // Simula esattamente il bug visto in app: testo renderizzato presente ma in Private Use
-    // (il browser lo mostra come quadratini), mentre la X viene persa dal percorso Canvas.
-    it('\uE101\uE102\uE103\uE104 \uE105\uE106\uE107\uE108', 400, 160)
-  ];
-  const grezzo = [
-    ...visuale.filter((x) => !String(x.testo).includes('\uE101')),
-    it('X', 300, 155),
-    ...sequenzaParole(['Impianto', 'di', 'rilevazione', 'incendi:'], 400, 165),
-    ...sequenzaParole(['FORNITORE:', 'NOTIFIRE'], 400, 157),
-    ...sequenzaParole(['ULTIMO', 'CONTROLLO:', '29/04/2026'], 400, 149)
-  ];
-  visuale.testoGrezzoPdf = grezzo;
-  visuale.bordi = [
-    { x1:15, x2:540, y:230 },
-    { x1:15, x2:540, y:210 },
-    { x1:15, x2:540, y:175 },
-    { x1:15, x2:540, y:135 }
+    // Il font del renderer espone codici glyph privati: NON devono mai diventare dati.
+    it('\uE111', 300, 155, 6),
+    it('\uE201\uE202\uE203\uE204', 400, 155, 120)
   ];
 
-  const { righe } = pdfImportPerTest._test.provaFormatoNostro([visuale]);
-  assert.equal(righe.length, 2);
-  const riga8 = righe.find((r) => r.numero_originale === 8);
-  assert.equal(riga8.stato_originale, 'C');
-  assert.equal(
-    riga8.nota_originale,
-    'Impianto di rilevazione incendi: FORNITORE: NOTIFIRE ULTIMO CONTROLLO: 29/04/2026'
-  );
-  assert.doesNotMatch(riga8.nota_originale, /[\uE000-\uF8FF]/);
+  const grezzo = [
+    {...it('n.', 20, 220), ordine:1},
+    {...it('Descrizione attività', 40, 220), ordine:2},
+    {...it('C', 300, 220), ordine:3},
+    {...it('P.C', 315, 220), ordine:4},
+    {...it('N.C', 330, 220), ordine:5},
+    {...it('N.P', 345, 220), ordine:6},
+    {...it('Note', 400, 220), ordine:7},
+    {...it('8', 20, 155), ordine:8},
+    ...sequenzaParole(['Domanda', 'otto'], 40, 155).map((x,i)=>({...x,ordine:20+i})),
+    // Vecchio livello coperto nella stessa posizione: deve perdere contro il livello più recente.
+    {...it('NOTA VECCHIA', 400, 155, 95), ordine:30},
+    {...it('X', 300, 155, 6), ordine:40},
+    {...it('Impianto di rilevazione incendi:', 400, 155, 125), ordine:41}
+  ];
+
+  const unicode = pdfImportPerTest._test.filtraTestoGrezzoConMascheraVisibile(grezzo, maschera);
+  assert.equal(unicode.some((x) => /[\uE000-\uF8FF]/.test(x.testo)), false);
+  assert.equal(unicode.some((x) => x.testo === 'X'), true);
+  assert.equal(unicode.some((x) => x.testo === 'NOTA VECCHIA'), false);
+  assert.equal(unicode.some((x) => x.testo === 'Impianto di rilevazione incendi:'), true);
+});
+
+test('formato nostro composito: riga importata con stato e nota Unicode della stessa cella', () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const maschera = [
+    it('Gestione dell\'Emergenza', 20, 240),
+    it('n.', 20, 220), it('Descrizione attività', 40, 220),
+    it('C', 300, 220), it('P.C', 315, 220), it('N.C', 330, 220), it('N.P', 345, 220), it('Note', 400, 220),
+    it('28', 20, 155), ...sequenzaParole(['Eventuali', 'altri', 'impianti'], 40, 155),
+    it('\uE111', 300, 155, 6), it('\uE201\uE202\uE203', 400, 155, 180)
+  ];
+  const grezzo = [
+    {...it('Gestione dell\'Emergenza', 20, 240), ordine:1},
+    {...it('n.', 20, 220), ordine:2}, {...it('Descrizione attività', 40, 220), ordine:3},
+    {...it('C', 300, 220), ordine:4}, {...it('P.C', 315, 220), ordine:5},
+    {...it('N.C', 330, 220), ordine:6}, {...it('N.P', 345, 220), ordine:7}, {...it('Note', 400, 220), ordine:8},
+    {...it('28', 20, 155), ordine:9},
+    ...sequenzaParole(['Eventuali', 'altri', 'impianti'], 40, 155).map((x,i)=>({...x,ordine:20+i})),
+    {...it('X', 300, 155, 6), ordine:30},
+    {...it('Impianto di rilevazione incendi:', 400, 163, 125), ordine:31},
+    {...it('FORNITORE: NOTIFIRE', 400, 155, 95), ordine:32},
+    {...it('ULTIMO CONTROLLO: 29/04/2026', 400, 147, 135), ordine:33}
+  ];
+  const unicode = pdfImportPerTest._test.filtraTestoGrezzoConMascheraVisibile(grezzo, maschera);
+  unicode.testoGrezzoPdf = grezzo;
+  unicode.bordi = [
+    {x1:15,x2:540,y:230},
+    {x1:15,x2:540,y:210},
+    {x1:15,x2:540,y:175},
+    {x1:15,x2:540,y:135}
+  ];
+  const { righe } = pdfImportPerTest._test.provaFormatoNostro([unicode]);
+  const riga = righe.find((x) => x.numero_originale === 28);
+  assert.ok(riga);
+  assert.equal(riga.stato_originale, 'C');
+  assert.equal(riga.nota_originale, 'Impianto di rilevazione incendi: FORNITORE: NOTIFIRE ULTIMO CONTROLLO: 29/04/2026');
 });
 
 test('formato nostro: id/testo/stato/nota/sezione estratti correttamente per ogni riga', () => {
