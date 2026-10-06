@@ -258,6 +258,7 @@ const appIdentity = (() => {
     normalizzaUsername,
     endpoint: USER_ADMIN_ENDPOINT,
     async token() { const user = firebase.auth().currentUser; if (!user) throw new Error('Sessione scaduta.'); return user.getIdToken(); },
-    async callAdmin(action, body = {}) { return callEndpoint(action, body); }
+    async callAdmin(action, body = {}) { return callEndpoint(action, body); },
+    async trackUsage(body = {}) { return callEndpoint('usagePing', body); }
   };
 })();

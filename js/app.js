@@ -3742,6 +3742,62 @@ const dashboardScreen = (() => {
 })();
 
 /**
+ * Telemetria minima di utilizzo: registra accessi/heartbeat e stato sync sul backend interno.
+ * Non invia password, token, risposte, note o foto.
+ */
+const telemetriaUso = (() => {
+  let inizializzata = false;
+  let accessoInviato = false;
+  let timer = null;
+  let ultimoInvio = 0;
+
+  async function payload(evento) {
+    const dettaglio = typeof sync.diagnosticaInAttesa === 'function'
+      ? await sync.diagnosticaInAttesa()
+      : { ...sync.dettaglioInAttesa(), diagnostica: [] };
+    return {
+      event: evento,
+      syncState: sync.statoAttuale(),
+      pendingData: dettaglio.dati || 0,
+      pendingPhotos: dettaglio.foto || 0,
+      pendingCloud: dettaglio.erroreCloud || 0,
+      pendingErrors: dettaglio.erroriDati || 0,
+      diagnostics: dettaglio.diagnostica || [],
+      clientBuild: document.body.dataset.build || ''
+    };
+  }
+
+  async function invia(evento = 'heartbeat') {
+    if (!navigator.onLine || !appIdentity.current() || typeof appIdentity.trackUsage !== 'function') return;
+    try {
+      await appIdentity.trackUsage(await payload(evento));
+      ultimoInvio = Date.now();
+    } catch (error) {
+      console.warn('Telemetria utilizzo non inviata; verrà ritentata.', error);
+    }
+  }
+
+  function programma() {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (Date.now() - ultimoInvio > 15000) invia('heartbeat');
+    }, 1800);
+  }
+
+  function init() {
+    if (inizializzata) return;
+    inizializzata = true;
+    if (!accessoInviato) { accessoInviato = true; invia('access'); }
+    sync.onCambioStato(programma);
+    window.addEventListener('online', programma);
+    window.addEventListener('focus', programma);
+    setInterval(() => invia('heartbeat'), 5 * 60 * 1000);
+  }
+
+  return { init, invia };
+})();
+
+/**
  * Indicatore di connessione + sincronizzazione fisso nell'header, visibile in ogni schermata
  * (l'header non fa parte di #screens e non viene mai nascosto dal router). Riflette sia lo
  * stato online/offline del browser sia lo stato della sincronizzazione con Firestore (sync.js).
@@ -3758,6 +3814,8 @@ const connessioneIndicatore = (() => {
 
   function aggiorna() {
     const stato = navigator.onLine ? sync.statoAttuale() : 'offline';
+    contenitore.classList.toggle('is-clickable', stato === 'parziale' && navigator.onLine);
+    contenitore.title = stato === 'parziale' && navigator.onLine ? 'Clicca per riprovare la sincronizzazione' : '';
     contenitore.classList.toggle('is-offline', stato === 'offline');
     contenitore.classList.toggle('is-sincronizzando', stato === 'sincronizzando');
     if (stato === 'parziale') {
@@ -3804,6 +3862,13 @@ const connessioneIndicatore = (() => {
     window.addEventListener('online', aggiorna);
     window.addEventListener('offline', aggiorna);
     sync.onCambioStato(aggiorna);
+    contenitore.addEventListener('click', async () => {
+      if (!navigator.onLine || sync.statoAttuale() !== 'parziale') return;
+      testo.textContent = 'Riprovo la sincronizzazione…';
+      await sync.sincronizzaCompleto();
+      aggiorna();
+      telemetriaUso.invia('heartbeat');
+    });
   }
 
   return { init };
@@ -3857,9 +3922,11 @@ async function inizializzaAppAutenticata() {
   impostazioniScreen.init();
   accountScreens.init();
   fotoSync.init();
+  telemetriaUso.init();
 
   // Never purge legacy data during startup/recovery. Trash removal remains explicit.
   await sync.init();
+  telemetriaUso.invia('heartbeat');
   await dashboardScreen.aggiorna();
 }
 
