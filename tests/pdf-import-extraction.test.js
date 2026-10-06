@@ -131,43 +131,52 @@ test('bordi PDF: i segmenti stretti della cella n. non spezzano una riga reale',
   assert.deepEqual(Array.from(bordi, b => b.y), [200,180]);
 });
 
-test('formato nostro composito: recupera una nota breve persa dal rendering dalla stessa cella PDF', () => {
+test('formato nostro composito: sostituisce glifi illeggibili con la nota Unicode grezza e recupera la X', () => {
   const pdfImportPerTest = caricaPdfImport();
   const visuale = [
-    it('ANALISI DOCUMENTALE', 20, 220),
-    it('Adempimenti Formali', 20, 214),
-    it('n.', 20, 200),
-    it('Descrizione attività', 40, 200),
-    it('C', 300, 200),
-    it('P.C', 315, 200),
-    it('N.C', 330, 200),
-    it('N.P', 345, 200),
-    it('Note', 400, 200),
-    it('7', 20, 177),
-    ...sequenzaParole(['Domanda', 'sette'], 40, 177),
-    it('X', 315, 177),
-    ...sequenzaParole(['Nota', 'lunga', 'già', 'visibile'], 400, 177),
-    it('8', 20, 150),
-    ...sequenzaParole(['Domanda', 'otto'], 40, 150),
-    it('X', 315, 150)
+    it('ANALISI DOCUMENTALE', 20, 240),
+    it('Adempimenti Formali', 20, 234),
+    it('n.', 20, 220),
+    it('Descrizione attività', 40, 220),
+    it('C', 300, 220),
+    it('P.C', 315, 220),
+    it('N.C', 330, 220),
+    it('N.P', 345, 220),
+    it('Note', 400, 220),
+    it('7', 20, 195),
+    ...sequenzaParole(['Domanda', 'sette'], 40, 195),
+    it('X', 315, 195),
+    ...sequenzaParole(['Nota', 'già', 'visibile'], 400, 195),
+    it('8', 20, 155),
+    ...sequenzaParole(['Domanda', 'otto'], 40, 155),
+    // Simula esattamente il bug visto in app: testo renderizzato presente ma in Private Use
+    // (il browser lo mostra come quadratini), mentre la X viene persa dal percorso Canvas.
+    it('\uE101\uE102\uE103\uE104 \uE105\uE106\uE107\uE108', 400, 160)
   ];
-  // Il Canvas intercettato non ha restituito questa nota, ma getTextContent la contiene
-  // nella stessa cella fisica della riga 8: è il caso dei PDF Interparking Galeazzi/Rho.
   const grezzo = [
-    ...visuale,
-    ...sequenzaParole(['Vedi', 'punto', 'precedente.'], 400, 150)
+    ...visuale.filter((x) => !String(x.testo).includes('\uE101')),
+    it('X', 300, 155),
+    ...sequenzaParole(['Impianto', 'di', 'rilevazione', 'incendi:'], 400, 165),
+    ...sequenzaParole(['FORNITORE:', 'NOTIFIRE'], 400, 157),
+    ...sequenzaParole(['ULTIMO', 'CONTROLLO:', '29/04/2026'], 400, 149)
   ];
   visuale.testoGrezzoPdf = grezzo;
   visuale.bordi = [
+    { x1:15, x2:540, y:230 },
     { x1:15, x2:540, y:210 },
-    { x1:15, x2:540, y:190 },
-    { x1:15, x2:540, y:165 },
+    { x1:15, x2:540, y:175 },
     { x1:15, x2:540, y:135 }
   ];
 
   const { righe } = pdfImportPerTest._test.provaFormatoNostro([visuale]);
   assert.equal(righe.length, 2);
-  assert.equal(righe.find((r) => r.numero_originale === 8).nota_originale, 'Vedi punto precedente.');
+  const riga8 = righe.find((r) => r.numero_originale === 8);
+  assert.equal(riga8.stato_originale, 'C');
+  assert.equal(
+    riga8.nota_originale,
+    'Impianto di rilevazione incendi: FORNITORE: NOTIFIRE ULTIMO CONTROLLO: 29/04/2026'
+  );
+  assert.doesNotMatch(riga8.nota_originale, /[\uE000-\uF8FF]/);
 });
 
 test('formato nostro: id/testo/stato/nota/sezione estratti correttamente per ogni riga', () => {

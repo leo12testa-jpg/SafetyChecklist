@@ -867,7 +867,25 @@ const pdfImport = (() => {
    * (max 2 righe / 180 caratteri) per non reintrodurre vecchi testi nascosti e coperti nei PDF
    * compositi: le note lunghe continuano a provenire esclusivamente dal testo visibile renderizzato.
    */
-  function recuperaNotaBreveDaTestoGrezzo(itemsGrezziPdf, colonne, top, bottom) {
+  function testoConCodificaSospetta(testo) {
+    const caratteri = Array.from(String(testo || '')).filter((c) => !/\s/.test(c));
+    if (!caratteri.length) return false;
+    let quadrati = 0;
+    for (const carattere of caratteri) {
+      const cp = carattere.codePointAt(0);
+      if (
+        cp === 0xfffd ||
+        (cp >= 0xe000 && cp <= 0xf8ff) ||
+        (cp >= 0xf0000 && cp <= 0xffffd) ||
+        (cp >= 0x100000 && cp <= 0x10fffd) ||
+        (cp < 0x20)
+      ) return true;
+      if ((cp >= 0x25a0 && cp <= 0x25ff) || cp === 0x2b1b || cp === 0x2b1c) quadrati += 1;
+    }
+    return quadrati / caratteri.length >= 0.12;
+  }
+
+  function recuperaNotaDaTestoGrezzo(itemsGrezziPdf, colonne, top, bottom, soloBreve = false) {
     if (!Array.isArray(itemsGrezziPdf) || !itemsGrezziPdf.length) return '';
     const candidati = itemsGrezziPdf.filter((it) => {
       const testo = String(it && it.testo != null ? it.testo : '').trim();
@@ -881,7 +899,8 @@ const pdfImport = (() => {
     if (!candidati.length) return '';
     const linee = raggruppaInLinee(candidati, TOLLERANZA_RIGA_PT);
     const testo = ricomponiTesto(linee);
-    if (!testo || linee.length > 2 || testo.length > 180) return '';
+    if (!testo || testoConCodificaSospetta(testo)) return '';
+    if (soloBreve && (linee.length > 2 || testo.length > 180)) return '';
     return testo;
   }
 
@@ -920,11 +939,23 @@ const pdfImport = (() => {
         : scegliNumeroCella(candidatiNumero, contesto);
       const testo=ricomponiTesto(raggruppaInLinee(cella.filter(it => it.x>idX+(storico ? MARGINE_TESTO_DOMANDA_STORICO_PT : 10) && it.x<colonne.C-10),3));
       const notaVisibile=ricomponiTesto(raggruppaInLinee(cella.filter(it => it.x>colonne.sogliaNota),3));
-      const nota=notaVisibile || recuperaNotaBreveDaTestoGrezzo(itemsGrezziPdf, colonne, top, bottom);
-      const marks=cella.filter(it => eMarcaturaStato(it) && it.x>=colonne.C-10 && it.x<colonne.sogliaNota);
+      const notaVisibileSospetta=testoConCodificaSospetta(notaVisibile);
+      const notaGrezza=recuperaNotaDaTestoGrezzo(
+        itemsGrezziPdf, colonne, top, bottom, !notaVisibileSospetta
+      );
+      const nota=notaVisibileSospetta ? notaGrezza : (notaVisibile || notaGrezza);
+
+      const marksVisibili=cella.filter(it => eMarcaturaStato(it) && it.x>=colonne.C-10 && it.x<colonne.sogliaNota);
+      const statoVisibile=statoDaMarcature(marksVisibili,colonne);
+      const cellaGrezza=Array.isArray(itemsGrezziPdf)
+        ? itemsGrezziPdf.filter(it => it.y < top && it.y > bottom)
+        : [];
+      const marksGrezzi=cellaGrezza.filter(it => eMarcaturaStato(it) && it.x>=colonne.C-10 && it.x<colonne.sogliaNota);
+      const stato=statoVisibile || statoDaMarcature(marksGrezzi,colonne);
+
       if (numero != null) {
         const riga={ formato, numero_originale:numero, id_originale:storico ? null : numero,
-          sezione_originale:sezione, testo_originale:testo, stato_originale:statoDaMarcature(marks,colonne), nota_originale:nota || null };
+          sezione_originale:sezione, testo_originale:testo, stato_originale:stato, nota_originale:nota || null };
         // AutoTable may repeat the identifier on a split row on the next page.
         const precedente=contesto.ultimaRiga;
         if (!risultato.length && precedente && precedente.numero_originale===numero && precedente.sezione_originale===sezione) {
