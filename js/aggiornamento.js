@@ -2,7 +2,7 @@
  * A controller change alone is not an update. Never reload unsaved input automatically.
  */
 const aggiornamentoApp = (() => {
-  const BUILD_ID = '20261006-155212';
+  const BUILD_ID = '20261006-162500';
   let buildServer = null;
   // "import-preview" (anteprima importazione PDF, vedi js/pdf-import.js + js/import-matching.js
   // in app.js) esiste SOLO in memoria finchÃ© non si preme "Conferma importazione": un reload lÃ¬

@@ -858,8 +858,35 @@ const pdfImport = (() => {
     return consolidaBordiOrizzontali(segmenti);
   }
 
+  /**
+   * Recupero prudente per i PDF Interparking compositi: in alcune pagine il renderer PDF.js
+   * mostra correttamente una nota breve (es. "Vedi punto precedente."), ma l'intercettazione
+   * Canvas usata per eliminare i livelli invisibili può non restituire quel singolo frammento.
+   * In quel caso, e SOLO se la nota renderizzata è vuota, recuperiamo dal getTextContent grezzo
+   * il testo che cade geometricamente nella STESSA cella Note. Limitiamo il fallback a note brevi
+   * (max 2 righe / 180 caratteri) per non reintrodurre vecchi testi nascosti e coperti nei PDF
+   * compositi: le note lunghe continuano a provenire esclusivamente dal testo visibile renderizzato.
+   */
+  function recuperaNotaBreveDaTestoGrezzo(itemsGrezziPdf, colonne, top, bottom) {
+    if (!Array.isArray(itemsGrezziPdf) || !itemsGrezziPdf.length) return '';
+    const candidati = itemsGrezziPdf.filter((it) => {
+      const testo = String(it && it.testo != null ? it.testo : '').trim();
+      return testo &&
+        it.y < top && it.y > bottom &&
+        it.x > colonne.sogliaNota &&
+        testo !== 'Note' &&
+        !REGEX_LEGENDA_PIE_PAGINA.test(testo) &&
+        !REGEX_NUMERO_PAGINA.test(testo);
+    });
+    if (!candidati.length) return '';
+    const linee = raggruppaInLinee(candidati, TOLLERANZA_RIGA_PT);
+    const testo = ricomponiTesto(linee);
+    if (!testo || linee.length > 2 || testo.length > 180) return '';
+    return testo;
+  }
+
   /** Una cella/riga sorgente contiene insieme domanda, stato e nota, anche tra pagine. */
-  function righeDaCelle(items, colonne, bordi, contesto, formato) {
+  function righeDaCelle(items, colonne, bordi, contesto, formato, itemsGrezziPdf = null) {
     if (!bordi || !bordi.length) return null;
     const storico = formato === 'storico';
     const idX = storico ? CENTRO_COLONNA_ID_STORICO : colonne.idX;
@@ -892,7 +919,8 @@ const pdfImport = (() => {
         ? (candidatiNumero.length === 1 ? candidatiNumero[0] : null)
         : scegliNumeroCella(candidatiNumero, contesto);
       const testo=ricomponiTesto(raggruppaInLinee(cella.filter(it => it.x>idX+(storico ? MARGINE_TESTO_DOMANDA_STORICO_PT : 10) && it.x<colonne.C-10),3));
-      const nota=ricomponiTesto(raggruppaInLinee(cella.filter(it => it.x>colonne.sogliaNota),3));
+      const notaVisibile=ricomponiTesto(raggruppaInLinee(cella.filter(it => it.x>colonne.sogliaNota),3));
+      const nota=notaVisibile || recuperaNotaBreveDaTestoGrezzo(itemsGrezziPdf, colonne, top, bottom);
       const marks=cella.filter(it => eMarcaturaStato(it) && it.x>=colonne.C-10 && it.x<colonne.sogliaNota);
       if (numero != null) {
         const riga={ formato, numero_originale:numero, id_originale:storico ? null : numero,
@@ -1093,7 +1121,14 @@ const pdfImport = (() => {
         // Se esistono i bordi reali della tabella, la cella è la fonte autorevole. Non mischiare
         // il fallback per numero: nei PDF Interparking legacy id invisibili e cifre spezzate
         // generavano righe fantasma che contaminavano domande, stati e note di pagine diverse.
-        const daCelle = righeDaCelle(items, colonneCorrenti, itemsGrezzi.bordi, sezioneCorrente, 'nostro');
+        const daCelle = righeDaCelle(
+          items,
+          colonneCorrenti,
+          itemsGrezzi.bordi,
+          sezioneCorrente,
+          'nostro',
+          itemsGrezzi.testoGrezzoPdf || null
+        );
         if (daCelle === null) {
           const itemsFallback = filtraIdRigaSovrapposti(items, colonneCorrenti);
           righe.push(...estraiRighePaginaNostro(itemsFallback, colonneCorrenti, sezioneCorrente));
@@ -1691,9 +1726,10 @@ const pdfImport = (() => {
       for (let numeroPagina = 1; numeroPagina <= documento.numPages; numeroPagina += 1) {
         const pagina = await documento.getPage(numeroPagina);
         const contenuto = await pagina.getTextContent();
-        let items = contenuto.items
+        const itemsGrezziPdf = contenuto.items
           .map((it, ordine) => ({ testo: it.str, x: it.transform[4], y: it.transform[5], w: it.width, ordine }))
           .filter((it) => it.testo.trim() !== '');
+        let items = itemsGrezziPdf;
         let bordi = null;
 
         // I PDF compositi creati da vecchie versioni possono contenere pagine intere dentro
@@ -1713,6 +1749,7 @@ const pdfImport = (() => {
         }
 
         items.bordi = bordi && bordi.length ? bordi : await estraiBordiTabella(pagina);
+        if (items !== itemsGrezziPdf) items.testoGrezzoPdf = itemsGrezziPdf;
         pagine.push(items);
         immagini.push(...await estraiImmaginiPagina(pagina, items, numeroPagina, { ...opzioni, headerEsclusi }));
         pagina.cleanup();

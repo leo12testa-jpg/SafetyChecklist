@@ -131,6 +131,45 @@ test('bordi PDF: i segmenti stretti della cella n. non spezzano una riga reale',
   assert.deepEqual(Array.from(bordi, b => b.y), [200,180]);
 });
 
+test('formato nostro composito: recupera una nota breve persa dal rendering dalla stessa cella PDF', () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const visuale = [
+    it('ANALISI DOCUMENTALE', 20, 220),
+    it('Adempimenti Formali', 20, 214),
+    it('n.', 20, 200),
+    it('Descrizione attività', 40, 200),
+    it('C', 300, 200),
+    it('P.C', 315, 200),
+    it('N.C', 330, 200),
+    it('N.P', 345, 200),
+    it('Note', 400, 200),
+    it('7', 20, 177),
+    ...sequenzaParole(['Domanda', 'sette'], 40, 177),
+    it('X', 315, 177),
+    ...sequenzaParole(['Nota', 'lunga', 'già', 'visibile'], 400, 177),
+    it('8', 20, 150),
+    ...sequenzaParole(['Domanda', 'otto'], 40, 150),
+    it('X', 315, 150)
+  ];
+  // Il Canvas intercettato non ha restituito questa nota, ma getTextContent la contiene
+  // nella stessa cella fisica della riga 8: è il caso dei PDF Interparking Galeazzi/Rho.
+  const grezzo = [
+    ...visuale,
+    ...sequenzaParole(['Vedi', 'punto', 'precedente.'], 400, 150)
+  ];
+  visuale.testoGrezzoPdf = grezzo;
+  visuale.bordi = [
+    { x1:15, x2:540, y:210 },
+    { x1:15, x2:540, y:190 },
+    { x1:15, x2:540, y:165 },
+    { x1:15, x2:540, y:135 }
+  ];
+
+  const { righe } = pdfImportPerTest._test.provaFormatoNostro([visuale]);
+  assert.equal(righe.length, 2);
+  assert.equal(righe.find((r) => r.numero_originale === 8).nota_originale, 'Vedi punto precedente.');
+});
+
 test('formato nostro: id/testo/stato/nota/sezione estratti correttamente per ogni riga', () => {
   const pdfImportPerTest = caricaPdfImport();
   const { righe, strutturaRiconosciuta } = pdfImportPerTest._test.provaFormatoNostro([paginaNostro()]);
