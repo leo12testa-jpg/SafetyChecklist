@@ -17,7 +17,7 @@ function notify(message,type="error",ms){
   const text=String(message||"Operazione non riuscita.");
   if([...host.children].some(t=>t.dataset.text===text))return;
   const t=document.createElement("div");t.className="toast toast-"+type;t.dataset.text=text;t.textContent=text;
-  const close=document.createElement("button");close.type="button";close.className="toast-close";close.setAttribute("aria-label","Chiudi");close.textContent="×";close.addEventListener("click",()=>t.remove());
+  const close=document.createElement("button");close.type="button";close.className="toast-close";close.setAttribute("aria-label","Chiudi");close.innerHTML='<svg class="ico" aria-hidden="true"><use href="#i-close"/></svg>';close.addEventListener("click",()=>t.remove());
   t.appendChild(close);host.appendChild(t);
   setTimeout(()=>t.remove(),ms??(type==="error"?7000:3500));
 }
@@ -458,7 +458,7 @@ async function loadDay(){
     $("#dayProgressBar").style.width=pct+"%";
     $("#dayProgressText").textContent=expected>0?pct+"%":"—";
     const schedule=j.workSchedule||{};
-    $("#dayScheduleNote").textContent=(schedule.holiday?`Festività nazionale: ${schedule.holiday}`:schedule.source==="aziendale"?`${schedule.periodName} · ${schedule.validFrom} → ${schedule.validTo}`:schedule.source==="configurato"?`Eccezione individuale dal ${schedule.validFrom}`:"Standard aziendale: 8h lun–ven.")+(schedule.needsVerification?" · orario da verificare":"");
+    $("#dayScheduleNote").textContent=(schedule.holiday?`Festività nazionale: ${schedule.holiday}`:schedule.source==="aziendale"?`${schedule.periodName} · ${archiveDate(schedule.validFrom)} → ${archiveDate(schedule.validTo)}`:schedule.source==="configurato"?`Eccezione individuale dal ${archiveDate(schedule.validFrom)}`:"Standard aziendale: 8h lun–ven.")+(schedule.needsVerification?" · orario da verificare":"");
     const confirmed=j.dayStatus?.stato==="confermata";
     if(typeof renderDayUnlock==="function")renderDayUnlock(j);
     if(typeof renderMonthLock==="function")renderMonthLock(j);
@@ -752,6 +752,15 @@ function archiveStatusLabel(v){
   if(v==="archiviata")return "Archiviata";
   return v||"—";
 }
+// Date per l'utente sempre in formato italiano: "gg/mm/aaaa" oppure "gg/mm/aaaa hh:mm" (ora di Roma).
+function fmtDateIt(v){
+  if(!v)return "non indicato";
+  const s=String(v);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s))return new Date(s+"T12:00:00").toLocaleDateString("it-IT");
+  const d=new Date(s);if(isNaN(d))return s;
+  return d.toLocaleString("it-IT",{timeZone:"Europe/Rome",day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+}
+function fmtMonthIt(v){if(!v)return "non indicato";const d=new Date(String(v).slice(0,7)+"-15T12:00:00");return isNaN(d)?String(v):d.toLocaleDateString("it-IT",{month:"long",year:"numeric"})}
 function archiveDate(v){
   return v?new Date(v+"T12:00:00").toLocaleDateString("it-IT"):"—";
 }

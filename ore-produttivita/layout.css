@@ -135,7 +135,7 @@ body{background:var(--ui-bg)}
 #appView .page-heading .eyebrow{
   display:block!important;
   margin:0 0 4px!important;
-  font-size:.59rem!important;
+  font-size:.75rem!important;
   line-height:1.1!important;
   letter-spacing:.075em!important;
 }
@@ -183,13 +183,13 @@ body{background:var(--ui-bg)}
 }
 #appView .panel-heading p{
   margin:4px 0 0!important;
-  font-size:.71rem!important;
+  font-size:.75rem!important;
   line-height:1.42!important;
   color:var(--ui-muted)!important;
 }
 #appView .eyebrow,
 #appView .proto-kicker{
-  font-size:.58rem!important;
+  font-size:.75rem!important;
   line-height:1.15!important;
   letter-spacing:.07em!important;
 }
@@ -224,11 +224,11 @@ body{background:var(--ui-bg)}
 }
 #appView th{
   white-space:nowrap!important;
-  font-size:.61rem!important;
+  font-size:.75rem!important;
   padding:8px 8px!important;
 }
 #appView td{
-  font-size:.7rem!important;
+  font-size:.75rem!important;
   line-height:1.32!important;
   padding:8px!important;
   overflow-wrap:anywhere!important;
@@ -291,7 +291,7 @@ body{background:var(--ui-bg)}
   overflow:hidden!important;
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
-  font-size:.59rem!important;
+  font-size:.75rem!important;
   line-height:1.15!important;
 }
 #adminPanel .summary-card strong,
@@ -310,7 +310,7 @@ body{background:var(--ui-bg)}
   overflow:hidden!important;
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
-  font-size:.61rem!important;
+  font-size:.75rem!important;
   line-height:1.25!important;
   color:var(--ui-muted)!important;
 }
@@ -341,7 +341,7 @@ body{background:var(--ui-bg)}
 #dayPanel .tech-date-box span,
 #dayPanel .tech-progress-copy span,
 #dayPanel .tech-day-status span{
-  font-size:.65rem!important;
+  font-size:.75rem!important;
   line-height:1.2!important;
   color:var(--ui-muted)!important;
 }
@@ -368,7 +368,7 @@ body{background:var(--ui-bg)}
 }
 #dayPanel .tech-progress-copy strong{font-size:1rem!important}
 #dayPanel .tech-progress-track{grid-column:1!important;height:7px!important}
-#dayPanel .tech-progress>small{grid-column:2!important;font-size:.64rem!important}
+#dayPanel .tech-progress>small{grid-column:2!important;font-size:.75rem!important}
 #dayPanel .tech-day-status strong{
   display:block!important;
   margin-top:4px!important;
@@ -395,7 +395,7 @@ body{background:var(--ui-bg)}
 }
 #dayPanel .proto-card-head p{
   margin:5px 0 0!important;
-  font-size:.69rem!important;
+  font-size:.75rem!important;
   line-height:1.4!important;
 }
 #dayPanel .crm-detected-card{border-left:3px solid #2d91ef!important}
@@ -438,7 +438,7 @@ body{background:var(--ui-bg)}
   display:grid!important;
   gap:5px!important;
   padding:10px 14px 0!important;
-  font-size:.7rem!important;
+  font-size:.75rem!important;
 }
 #dayPanel .quick-duration-row{
   display:flex!important;
@@ -501,7 +501,7 @@ body{background:var(--ui-bg)}
   flex-wrap:wrap!important;
   gap:5px 8px!important;
   margin-top:5px!important;
-  font-size:.62rem!important;
+  font-size:.75rem!important;
 }
 #dayPanel .issue-entry .entry-time{
   width:auto!important;
@@ -509,7 +509,7 @@ body{background:var(--ui-bg)}
   text-align:right!important;
 }
 #dayPanel .issue-entry .entry-time strong{font-size:.76rem!important}
-#dayPanel .issue-entry .entry-time span{font-size:.59rem!important}
+#dayPanel .issue-entry .entry-time span{font-size:.75rem!important}
 #dayPanel .issue-cta{
   width:auto!important;
   min-width:0!important;
@@ -522,7 +522,7 @@ body{background:var(--ui-bg)}
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
   text-align:right!important;
-  font-size:.61rem!important;
+  font-size:.75rem!important;
 }
 #dayPanel .issue-cta .assignment-edit{width:100%!important}
 #dayPanel .issue-editor{
@@ -539,7 +539,7 @@ body{background:var(--ui-bg)}
   margin:0!important;
 }
 #dayPanel .assignment-field{min-width:0!important}
-#dayPanel .assignment-label{font-size:.58rem!important}
+#dayPanel .assignment-label{font-size:.75rem!important}
 #dayPanel .assignment-field input,
 #dayPanel .assignment-field select{width:100%!important;min-width:0!important}
 #dayPanel .assignment-description{grid-column:1/-1!important}
@@ -547,7 +547,7 @@ body{background:var(--ui-bg)}
   grid-column:1/3!important;
   min-width:0!important;
   align-self:center!important;
-  font-size:.62rem!important;
+  font-size:.75rem!important;
 }
 #dayPanel .assignment-buttons{
   grid-column:3/5!important;
@@ -569,7 +569,7 @@ body{background:var(--ui-bg)}
 }
 #dayPanel .hours-table-head{
   padding:8px 14px!important;
-  font-size:.59rem!important;
+  font-size:.75rem!important;
 }
 #dayPanel .agenda-hour-row{
   min-height:68px!important;
@@ -584,8 +584,8 @@ body{background:var(--ui-bg)}
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
 }
-#dayPanel .proto-desc strong{font-size:.74rem!important}
-#dayPanel .proto-desc small{font-size:.62rem!important}
+#dayPanel .proto-desc strong{font-size:.75rem!important}
+#dayPanel .proto-desc small{font-size:.75rem!important}
 #dayPanel .agenda-duration{text-align:left!important}
 #dayPanel .proto-hours input{width:100%!important;min-width:0!important}
 #dayPanel .proto-actions{
@@ -598,9 +598,9 @@ body{background:var(--ui-bg)}
 #dayPanel .proto-actions button{
   min-height:30px!important;
   padding:5px 8px!important;
-  font-size:.65rem!important;
+  font-size:.75rem!important;
 }
-#dayPanel .row-state{font-size:.57rem!important}
+#dayPanel .row-state{font-size:.75rem!important}
 #dayPanel .session-edit-panel{
   grid-column:1/-1!important;
   width:100%!important;
@@ -660,7 +660,7 @@ body{background:var(--ui-bg)}
   min-width:0!important;
   display:grid!important;
   gap:4px!important;
-  font-size:.65rem!important;
+  font-size:.75rem!important;
 }
 #adminPanel .admin-shortcuts{
   display:flex!important;
@@ -675,7 +675,7 @@ body{background:var(--ui-bg)}
   min-height:32px!important;
   padding:5px 9px!important;
   border-radius:7px!important;
-  font-size:.65rem!important;
+  font-size:.75rem!important;
 }
 #adminPanel .crm-agent-alert{
   display:flex!important;
@@ -702,12 +702,12 @@ body{background:var(--ui-bg)}
 #adminPanel .crm-agent-alert strong{font-size:.75rem!important}
 #adminPanel .crm-agent-alert span{
   margin-top:2px!important;
-  font-size:.64rem!important;
+  font-size:.75rem!important;
   line-height:1.35!important;
 }
 #adminPanel .crm-agent-alert small{
   margin-top:4px!important;
-  font-size:.58rem!important;
+  font-size:.75rem!important;
   line-height:1.3!important;
   color:#7c6b52!important;
 }
@@ -783,7 +783,7 @@ body{background:var(--ui-bg)}
 }
 #adminPanel .admin-guide .summary-hint{
   flex:none!important;
-  font-size:.64rem!important;
+  font-size:.75rem!important;
   color:#687b8e!important;
   font-weight:800!important;
 }
@@ -831,7 +831,7 @@ body{background:var(--ui-bg)}
   min-width:0!important;
   display:grid!important;
   gap:5px!important;
-  font-size:.68rem!important;
+  font-size:.75rem!important;
 }
 #archivePanel .archive-filter-foot{
   display:flex!important;
@@ -955,7 +955,7 @@ body{background:var(--ui-bg)}
 }
 #adminPanel .panel-summary p{
   margin:4px 0 0!important;
-  font-size:.68rem!important;
+  font-size:.75rem!important;
   color:var(--ui-muted)!important;
 }
 #adminPanel .panel-summary::after{
@@ -980,7 +980,7 @@ body{background:var(--ui-bg)}
   min-height:24px!important;
   padding:4px 8px!important;
   border-radius:999px!important;
-  font-size:.60rem!important;
+  font-size:.75rem!important;
   font-weight:850!important;
   white-space:nowrap!important;
 }
@@ -1015,7 +1015,7 @@ body{background:var(--ui-bg)}
 }
 #economicsPanel .summary-hint{
   flex:none!important;
-  font-size:.64rem!important;
+  font-size:.75rem!important;
   color:#687b8e!important;
   font-weight:800!important;
 }
@@ -1107,14 +1107,14 @@ body{background:var(--ui-bg)}
 #archivePanel .archive-pager span{
   min-width:100px!important;
   text-align:center!important;
-  font-size:.67rem!important;
+  font-size:.75rem!important;
   color:#66798c!important;
   font-weight:750!important;
 }
 #archivePanel .archive-pager button{
   min-height:32px!important;
   padding:5px 9px!important;
-  font-size:.65rem!important;
+  font-size:.75rem!important;
 }
 #archivePanel .archive-pager button:disabled{
   opacity:.45!important;
@@ -1262,7 +1262,7 @@ body{background:var(--ui-bg)}
   #appView #logoutBtn{
     min-height:36px!important;
     padding:6px 9px!important;
-    font-size:.68rem!important;
+    font-size:.75rem!important;
   }
   #appView .page-heading h1{font-size:1.28rem!important}
   #appView .panel{padding:12px!important}
@@ -1384,7 +1384,7 @@ body{background:var(--ui-bg)}
     white-space:normal!important;
     overflow:visible!important;
     text-overflow:clip!important;
-    font-size:.54rem!important;
+    font-size:.75rem!important;
     line-height:1.15!important;
   }
   #adminPanel .summary-card strong,
@@ -1396,7 +1396,7 @@ body{background:var(--ui-bg)}
   #archivePanel .summary-card>div>span,
   #economicsPanel .summary-card>div>span{
     white-space:normal!important;
-    font-size:.57rem!important;
+    font-size:.75rem!important;
   }
   #adminPanel .date-range{
     grid-template-columns:1fr 1fr!important;
@@ -1530,3 +1530,89 @@ body{background:var(--ui-bg)}
 .quality-case::backdrop { background: #10223899; }
 .quality-case dd { margin: 0 0 12px; }
 .quality-case dt { font-weight: 700; }
+
+/* === Coerenza grafica: icone SVG uniformi, testi minimi 12px, pulsanti a misura fissa === */
+:root{--ico-sm:16px;--ico-md:20px;--ico-lg:22px;--btn-h:36px;--btn-h-sm:32px;--touch:40px}
+.ico{width:var(--ico-md);height:var(--ico-md);display:block;flex:none}
+#appView .nav-icon{width:24px!important;height:24px!important;display:grid!important;place-items:center!important}
+#appView .nav-icon .ico{width:var(--ico-md);height:var(--ico-md)}
+#appView .summary-icon{width:40px!important;height:40px!important;display:grid!important;place-items:center!important;font-size:0!important}
+#appView .summary-icon .ico{width:var(--ico-lg);height:var(--ico-lg)}
+#refreshDay,.proto-close,.icon-btn{display:inline-grid!important;place-items:center!important;width:var(--btn-h)!important;height:var(--btn-h)!important;padding:0!important}
+#refreshDay .ico,.proto-close .ico,.icon-btn .ico{width:var(--ico-md);height:var(--ico-md)}
+.toast-close{display:grid;place-items:center;width:28px;height:28px}.toast-close .ico{width:var(--ico-sm);height:var(--ico-sm)}
+/* pulsanti: due sole altezze (standard 36px, compatti 32px) */
+#appView button:not(.side-nav-item):not(.toast-close):not(.proto-close):not(.icon-btn):not(#refreshDay):not([class*="chip"]){min-height:var(--btn-h-sm)}
+#appView .header-btn,#appView .primary,#appView button[type="submit"],#confirmDay{min-height:var(--btn-h)!important}
+#appView summary{min-height:var(--btn-h-sm);display:flex;align-items:center;cursor:pointer}
+@media (max-width:700px){
+  #appView button:not(.toast-close):not([class*="chip"]),#appView summary,#appView input:not([type="checkbox"]):not([type="radio"]),#appView select{min-height:var(--touch)!important}
+  #refreshDay,.proto-close,.icon-btn{width:var(--touch)!important;height:var(--touch)!important}
+}
+#appView small{font-size:max(.75rem,.85em)}
+/* altezze uniformi: voci menu 44px, pulsanti 36px, pulsanti nelle righe 32px */
+#appView .side-nav-item{min-height:44px!important;padding-top:6px!important;padding-bottom:6px!important;line-height:1.15!important}
+@media (min-width:701px){
+  #appView button:not(.side-nav-item):not(.toast-close):not(.proto-close):not(.icon-btn):not(#refreshDay):not([class*="chip"]){min-height:var(--btn-h)!important;padding-top:6px!important;padding-bottom:6px!important;line-height:1.2!important}
+  #appView .proto-hour-row button,#appView td button,#appView .issue-row button,#appView details button.compact{min-height:var(--btn-h-sm)!important;padding-top:4px!important;padding-bottom:4px!important}
+}
+
+/* === Base comune per gli elementi aggiunti senza stile dedicato ===
+   :where() ha specificità zero: qualsiasi regola esistente con classe prevale. */
+:where(#appView) button{font:inherit;font-size:.82rem;font-weight:800;color:var(--primary);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;line-height:1.2}
+:where(#appView button:hover:not(:disabled)){border-color:#9fb4ca;background:#f6f9fc}
+:where(#appView button:disabled){opacity:.55;cursor:not-allowed}
+:where(#appView button:focus-visible,#appView summary:focus-visible,#appView a:focus-visible){outline:2px solid var(--primary);outline-offset:2px}
+:where(#appView) label{display:grid;gap:4px;font-size:.75rem;font-weight:800;color:var(--muted);text-transform:none}
+:where(#appView) a{color:var(--primary);font-weight:700;text-decoration:none}
+:where(#appView a:hover){text-decoration:underline}
+/* pannelli <details> nuovi: intestazione come le altre card, testo descrittivo sobrio */
+#appView details.panel>summary{font-size:.95rem;font-weight:850;color:#253b53;gap:8px;list-style:none}
+#appView details.panel>summary::-webkit-details-marker{display:none}
+#appView details.panel>summary::after{content:"";margin-left:auto;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
+#appView details.panel[open]>summary::after{transform:rotate(-135deg)}
+#appView details.panel>p,#appView details.panel>div>p{font-size:.82rem;color:var(--muted);line-height:1.45;margin:8px 0 12px}
+/* editor fase nella riga: compatto e allineato */
+#appView .phase-editor{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-top:8px}
+#appView .phase-editor label{flex:1 1 200px;max-width:280px}
+#appView .phase-editor select,#appView .phase-editor input{min-height:36px;padding:6px 10px;font-size:.82rem;border-radius:8px}
+/* pulsanti data nell'avviso giornate non confermate */
+#appView .date-pill{border-radius:999px;padding:6px 14px;margin:4px 6px 0 0}
+/* KPI: le card si distribuiscono senza tagliare le etichette */
+#adminPanel .summary-grid.admin-kpis{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+@media (min-width:1600px){#adminPanel .summary-grid.admin-kpis{grid-template-columns:repeat(6,minmax(0,1fr))!important}}
+@media (max-width:700px){#adminPanel .summary-grid.admin-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+#appView .summary-card small{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+#appView .summary-card span:not(.summary-icon){white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+/* link Novità nella barra laterale */
+#appView .sidebar-foot a{color:#c7d3df;text-decoration:underline;text-underline-offset:2px}
+.ico-inline{display:inline-block;width:var(--ico-sm);height:var(--ico-sm);vertical-align:-3px;margin-right:6px}
+/* nota sull'orario del giorno: su telefono va a capo sotto il totale */
+#appView .tech-progress-copy{flex-wrap:wrap;row-gap:2px}
+#appView .tech-progress-copy strong{white-space:nowrap}
+#appView #dayScheduleNote{color:var(--muted);font-weight:600}
+@media (max-width:700px){#appView #dayScheduleNote{flex-basis:100%;font-size:.75rem}}
+@media (max-width:700px){#appView .header-btn{min-height:var(--touch)!important;height:var(--touch)!important}}
+
+/* === Pannelli creati dagli script (orari, periodi, chiusure, ruoli, qualità, sblocchi):
+       stesso aspetto delle card esistenti === */
+#adminPanel>details:not([class*="panel"]),#archivePanel>details:not([class*="panel"]),#economicsPanel>details:not([class*="panel"]){background:var(--surface,#fff);border:1px solid var(--border);border-radius:9px;padding:16px 18px;margin-bottom:14px;box-shadow:0 2px 10px rgba(13,49,85,.035)}
+#appView details:not(.explain-panel)>summary{font-size:.95rem;font-weight:850;color:#253b53;gap:8px;list-style:none}
+#appView details:not(.explain-panel)>summary::-webkit-details-marker{display:none}
+#appView details:not(.explain-panel):not(.panel)>summary::after{content:"";margin-left:auto;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s;flex:none}
+#appView details:not(.explain-panel):not(.panel)[open]>summary::after{transform:rotate(-135deg)}
+#appView details[open]>summary{margin-bottom:10px}
+/* testi descrittivi e titoli interni: scala unica */
+:where(#appView) p{font-size:.85rem;line-height:1.45;color:#44566a}
+:where(#appView) h3{font-size:1rem;font-weight:850;color:#253b53;margin:14px 0 6px}
+:where(#appView) h4{font-size:.9rem;font-weight:850;color:#253b53;margin:12px 0 6px}
+/* didascalie delle tabelle */
+#appView caption{caption-side:top;text-align:left;font-size:.82rem;font-weight:850;color:#253b53;padding:12px 0 8px;white-space:normal}
+/* caselle di spunta: dimensione normale e testo affiancato */
+#appView input[type="checkbox"],#appView input[type="radio"]{width:18px!important;height:18px!important;min-height:0!important;padding:0!important;margin:0!important;flex:none;accent-color:var(--primary);border-radius:4px}
+#appView label:has(>input[type="checkbox"]),#appView label:has(>input[type="radio"]){display:flex!important;flex-direction:row!important;align-items:center;gap:8px;font-weight:700;min-height:32px}
+/* campi dentro i pannelli nuovi: stessa misura degli altri */
+#adminPanel>details:not([class*="panel"]) input:not([type="checkbox"]):not([type="radio"]),#adminPanel>details:not([class*="panel"]) select{min-height:36px;padding:6px 10px;font-size:.85rem;border-radius:8px}
+/* pulsanti affiancati: sempre uno spazio tra l'uno e l'altro */
+:where(#appView) button+button{margin-left:6px}
+#adminRows td:first-child{white-space:nowrap}

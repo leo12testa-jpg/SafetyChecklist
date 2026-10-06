@@ -6,7 +6,7 @@ function internalHasUnsavedWork(){
 }
 function renderAdminInternalActivities(rows){
   const host=$("#adminInternalRows");host.innerHTML=html``;
-  for(const r of rows){const tr=document.createElement("tr");tr.innerHTML=html`<td>${r.tecnico_nome||r.tecnico_uid}<br>${r.data_lavoro}</td><td><select aria-label="Categoria interna di ${r.tecnico_nome||r.tecnico_uid}">${internalOptions(r.categoria)}</select></td><td><input aria-label="Durata interna di ${r.tecnico_nome||r.tecnico_uid}" value="${fmtMinutes(r.minuti_effettivi).replace(" ","")}" inputmode="decimal"></td><td><button type="button">Salva</button></td>`;
+  for(const r of rows){const tr=document.createElement("tr");tr.innerHTML=html`<td>${r.tecnico_nome||r.tecnico_uid}<br>${fmtDateIt(r.data_lavoro)}</td><td><select aria-label="Categoria interna di ${r.tecnico_nome||r.tecnico_uid}">${internalOptions(r.categoria)}</select></td><td><input aria-label="Durata interna di ${r.tecnico_nome||r.tecnico_uid}" value="${fmtMinutes(r.minuti_effettivi).replace(" ","")}" inputmode="decimal"></td><td><button type="button">Salva</button></td>`;
     const button=tr.querySelector("button");button.addEventListener("click",async()=>{
       const minutes=inputMinutes(tr.querySelector("input").value);if(minutes===null){notify("Durata non valida.","warn");return;}
       button.disabled=true;try{await api("saveInternal",{id:r.id,date:r.data_lavoro,categoria:tr.querySelector("select").value,minutiEffettivi:minutes});notify("Attività aggiornata.","ok");await loadAdmin();}catch(e){notify(e.message);button.disabled=false;}

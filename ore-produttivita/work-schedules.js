@@ -6,7 +6,7 @@ async function loadWorkSchedules(){
   try{
     const data=await api("workSchedules");
     $("#workScheduleTech").innerHTML=html`<option value="">Seleziona tecnico…</option>${(data.technicians||[]).map(t=>html`<option value="${t.uid}">${t.nome||t.uid}</option>`)}`;
-    $("#workScheduleRows").innerHTML=html`${(data.schedules||[]).map(s=>html`<tr><td>${s.tecnico_nome||s.tecnico_uid}</td><td>${s.valido_dal}</td>${s.settimana_minuti.map(minutes=>html`<td>${fmtMinutes(minutes)}</td>`)}</tr>`)}`;
+    $("#workScheduleRows").innerHTML=html`${(data.schedules||[]).map(s=>html`<tr><td>${s.tecnico_nome||s.tecnico_uid}</td><td>${fmtDateIt(s.valido_dal)}</td>${s.settimana_minuti.map(minutes=>html`<td>${fmtMinutes(minutes)}</td>`)}</tr>`)}`;
   }catch(e){notify(e.message);}finally{button.disabled=false;}
 }
 $("#loadWorkSchedules").addEventListener("click",loadWorkSchedules);

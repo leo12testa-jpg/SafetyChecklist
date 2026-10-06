@@ -8,7 +8,7 @@ function fillCompanyPeriod(period,duplicate=false){
  for(const input of form.querySelectorAll("[data-company-week]"))input.value=fmtMinutes(period?.settimana_minuti?.[Number(input.dataset.companyWeek)]??(Number(input.dataset.companyWeek)<5?480:0));
  form.elements.nome.focus();if(duplicate)notify("Ore copiate. Inserisci e verifica le nuove date prima di salvare.","ok");
 }
-async function loadCompanyPeriods(){try{const data=await api("companyPeriods");companyPeriods=data.rows||[];$("#companyPeriodRows").innerHTML=html`${companyPeriods.map(p=>html`<tr><td>${p.nome}<br>${p.data_inizio} → ${p.data_fine}</td><td>${p.settimana_minuti.map(fmtMinutes).join(" · ")}</td><td><button data-period-edit="${p.id}">Modifica</button><button data-period-copy="${p.id}">Duplica per nuovo anno</button></td></tr>`)}`;
+async function loadCompanyPeriods(){try{const data=await api("companyPeriods");companyPeriods=data.rows||[];$("#companyPeriodRows").innerHTML=html`${companyPeriods.map(p=>html`<tr><td>${p.nome}<br>${archiveDate(p.data_inizio)} → ${archiveDate(p.data_fine)}</td><td>${p.settimana_minuti.map(fmtMinutes).join(" · ")}</td><td><button data-period-edit="${p.id}">Modifica</button><button data-period-copy="${p.id}">Duplica per nuovo anno</button></td></tr>`)}`;
  for(const button of $("#companyPeriodRows").querySelectorAll("button"))button.addEventListener("click",()=>fillCompanyPeriod(companyPeriods.find(p=>p.id===(button.dataset.periodEdit||button.dataset.periodCopy)),!!button.dataset.periodCopy));
  }catch(e){notify(e.message);}}
 $("#loadCompanyPeriods").addEventListener("click",loadCompanyPeriods);$("#newCompanyPeriod").addEventListener("click",()=>fillCompanyPeriod(null));

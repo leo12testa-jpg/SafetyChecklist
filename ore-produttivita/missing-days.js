@@ -4,10 +4,10 @@ async function loadMissingPersonal(){
  try{
   const data=await api("missingDays",{scope:"mine"});if(seq!==missingPersonalSeq)return;
   const rows=(data.rows||[]).filter(r=>!r.confirmed);host.hidden=!rows.length;
-  host.innerHTML=html`<strong>${rows.length} giornate precedenti non confermate</strong><p>Apri la data per verificarla.</p>${rows.map(row=>html`<button type="button" data-missing-date="${row.date}">${archiveDate(row.date)}</button>`)}`;
+  host.innerHTML=html`<strong>${rows.length===1?"1 giornata precedente non confermata":rows.length+" giornate precedenti non confermate"}</strong><p>Apri la data per verificarla.</p>${rows.map(row=>html`<button type="button" class="date-pill" data-missing-date="${row.date}">${archiveDate(row.date)}</button>`)}`;
   for(const button of host.querySelectorAll("button"))button.addEventListener("click",()=>{
    if(dayHasUnsavedWork()){notify("Salva o annulla le modifiche prima di cambiare data.","warn");return;}
-   $("#dayDate").value=button.dataset.missingDate;loadDay();
+   const el=$("#dayDate");el.value=button.dataset.missingDate;el.dispatchEvent(new Event("change"));
   });
  }catch(e){if(seq!==missingPersonalSeq)return;host.hidden=false;host.innerHTML=html`<p>Impossibile verificare le giornate precedenti: ${e.message}</p>`;}
 }

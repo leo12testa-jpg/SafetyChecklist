@@ -6,7 +6,7 @@ function inactivityDays(job,today){
 }
 function renderJobClosure(data){
  const job=data.job,host=$("#jobClosure"),closing=job.stato!=="completata";
- host.innerHTML=html`<h3>Chiusura della pratica</h3><p>Ultima consegna: ${job.consegna_data||"non indicato"} · Revisioni cliente: ${job.revisioni_cliente??"non indicato"} · Nota: ${job.nota_chiusura||"non indicato"}</p>
+ host.innerHTML=html`<h3>Chiusura della pratica</h3><p>Ultima consegna: ${fmtDateIt(job.consegna_data)} · Revisioni cliente: ${job.revisioni_cliente??"non indicato"} · Nota: ${job.nota_chiusura||"non indicato"}</p>
  ${["in_lavorazione","sospesa","completata"].includes(job.stato)?html`<form id="jobClosureForm">${closing?html`<label>Data consegna<input name="delivery" type="date" required></label><label>Revisioni richieste dal cliente<input name="revisions" type="number" min="0" max="100000" step="1" required></label>`:""}<label>Nota<textarea name="note" maxlength="2000"></textarea></label><button type="submit">${closing?"Chiudi pratica":"Riapri pratica"}</button></form>`:""}
  <h4>Registro chiusure e riaperture</h4>${(data.closureHistory||[]).length?html`<ul>${data.closureHistory.map(e=>html`<li>${new Date(e.created_at).toLocaleString("it-IT",{timeZone:"Europe/Rome"})} · ${e.azione} · ${e.attore_uid} · ${e.nota||"non indicato"}</li>`)}</ul>`:html`<p>Nessun evento registrato. Le chiusure storiche senza registro restano valide.</p>`}`;
  host.querySelector("form")?.addEventListener("submit",async event=>{

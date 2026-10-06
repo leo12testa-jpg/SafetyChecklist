@@ -26,7 +26,7 @@ async function loadCrmLinks(){
       if(typeof addIdentityActions==="function")addIdentityActions(tr,r);
     }
     const pending=$("#crmLinkPending");pending.innerHTML=html``;
-    for(const p of data.pending||[]){const tr=document.createElement("tr");tr.innerHTML=html`<td>${p.candidati?.[0]?.sigla||"non indicato"}</td><td>${p.data_lavoro}</td><td>${p.titolo||"non indicato"}</td><td>${p.minuti}</td>`;pending.appendChild(tr);}
+    for(const p of data.pending||[]){const tr=document.createElement("tr");tr.innerHTML=html`<td>${p.candidati?.[0]?.sigla||"non indicato"}</td><td>${fmtDateIt(p.data_lavoro)}</td><td>${p.titolo||"non indicato"}</td><td>${p.minuti}</td>`;pending.appendChild(tr);}
   }catch(e){notify(e.message);}finally{button.disabled=false;}
 }
 async function previewCrmLink(resource,targetUid,technicians){
@@ -35,7 +35,7 @@ async function previewCrmLink(resource,targetUid,technicians){
   const host=$("#crmLinkPreview");host.hidden=false;
   host.innerHTML=html`<h4>Conferma ${resource.sigla_crm} → ${target?.nome||targetUid}</h4>
     <p>${data.nota}</p><p>Nessuna sessione è selezionata automaticamente. Seleziona solo quelle da riassegnare.</p>
-    <div class="table-wrap"><table><thead><tr><th>Seleziona</th><th>Data</th><th>Tecnico attuale</th><th>Pratica</th><th>Minuti</th></tr></thead><tbody>${(data.sessions||[]).map(s=>html`<tr><td><input type="checkbox" value="${s.id}" aria-label="Riassegna sessione del ${s.data_lavoro}" ${s.tecnico_uid===targetUid?raw("disabled"):""}></td><td>${s.data_lavoro}</td><td>${s.tecnico_nome||s.tecnico_uid}</td><td>${s.ore_commesse?.descrizione||"non indicato"}</td><td>${s.minuti_effettivi}</td></tr>`)}</tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>Seleziona</th><th>Data</th><th>Tecnico attuale</th><th>Pratica</th><th>Minuti</th></tr></thead><tbody>${(data.sessions||[]).map(s=>html`<tr><td><input type="checkbox" value="${s.id}" aria-label="Riassegna sessione del ${fmtDateIt(s.data_lavoro)}" ${s.tecnico_uid===targetUid?raw("disabled"):""}></td><td>${fmtDateIt(s.data_lavoro)}</td><td>${s.tecnico_nome||s.tecnico_uid}</td><td>${s.ore_commesse?.descrizione||"non indicato"}</td><td>${s.minuti_effettivi}</td></tr>`)}</tbody></table></div>
     <button class="crm-approve" type="button">Conferma collegamento e sessioni selezionate</button><button class="crm-cancel" type="button">Annulla</button>`;
   host.querySelector(".crm-cancel").addEventListener("click",()=>{host.hidden=true;host.innerHTML=html``;});
   host.querySelector(".crm-approve").addEventListener("click",async event=>{
