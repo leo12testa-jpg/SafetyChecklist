@@ -263,6 +263,18 @@ const sync = (() => {
   function dettaglioInAttesa() {
     return { dati: pendenti.size, foto: attesaFoto, erroreCloud: erroreDati ? 1 : 0, erroriDati: erroriPendenti.size };
   }
+
+  async function diagnosticaInAttesa() {
+    const dettaglio = dettaglioInAttesa();
+    const diagnostica = [];
+    for (const id of Array.from(pendenti.keys()).slice(0, 8)) {
+      let record = null;
+      try { record = await db.leggiSopralluogo(id); } catch (_) {}
+      diagnostica.push({ id, stato: record?.stato || '', errore: erroriPendenti.get(id) || '' });
+    }
+    return { ...dettaglio, diagnostica };
+  }
+
   function elementiInAttesa() {
     const dettaglio = dettaglioInAttesa();
     return dettaglio.dati + dettaglio.foto + dettaglio.erroreCloud;
@@ -789,7 +801,7 @@ const sync = (() => {
 
   return {
     init, sincronizzaTutto, sincronizzaCompleto, onCambioStato, onDatiAggiornati,
-    elementiInAttesa, dettaglioInAttesa, statoAttuale: () => statoAttuale,
+    elementiInAttesa, dettaglioInAttesa, diagnosticaInAttesa, statoAttuale: () => statoAttuale,
     _test: { arrayRisposteInMappa, mappaRisposteInArray, unisciRisposte, unisciFotoUrl, estraiMetadati, timestampDi, unisciDocumenti, stabile, contenutoOperativo, haDifferenzeOperative, preparaAggiornamentoCloud, inviaRiparazioneCompleta, riconciliaPendentiLocali, riconciliaAtteseFinali }
   };
 })();

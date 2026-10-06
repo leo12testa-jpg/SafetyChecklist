@@ -2502,3 +2502,16 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
   background: #eef2f7 !important;
   color: #4e5c70 !important;
 }
+
+
+/* Monitor utilizzo/sincronizzazione utenti */
+.stato-connessione.is-clickable { cursor: pointer; }
+.stato-connessione.is-clickable:hover { filter: brightness(.96); }
+.admin-user-access { min-width: 138px; }
+.admin-user-access strong,
+.admin-user-access small { display:block; white-space:nowrap; }
+.admin-user-access strong { font-size:.75rem; color:var(--ui-text); }
+.admin-user-access small { margin-top:3px; color:var(--ui-muted); font-size:.66rem; }
+.admin-user-sync { min-width: 104px; }
+.admin-user-badge.is-warning { color:#9a6500; background:#fff2cc; border-color:#f5d98c; }
+.admin-user-badge.is-neutral { color:#68768a; background:#f1f4f8; border-color:#dfe6ef; }

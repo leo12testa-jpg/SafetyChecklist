@@ -14,7 +14,7 @@ const accountScreens = (() => {
   let filtro = 'all';
   let lavori = [];
   let utentiCache = [];
-  let ultimeAttivita = new Map();
+  let utilizzoApp = new Map();
 
   function messaggio(target, text, error = false) {
     target.textContent = text;
@@ -54,17 +54,14 @@ const accountScreens = (() => {
     return data.toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
   }
 
-  async function caricaUltimeAttivita() {
-    ultimeAttivita = new Map();
+  async function caricaUtilizzoApp() {
+    utilizzoApp = new Map();
     if (!navigator.onLine) return;
     try {
-      const snapshot = await firebaseClient.firestore().collection('attivita').orderBy('timestamp', 'desc').limit(300).get();
-      snapshot.forEach((doc) => {
-        const item = doc.data();
-        if (item.uid && !ultimeAttivita.has(item.uid)) ultimeAttivita.set(item.uid, item.timestamp);
-      });
+      const result = await api('usage');
+      (result.usage || []).forEach((item) => utilizzoApp.set(item.uid, item));
     } catch (error) {
-      console.warn('Ultime attività utenti non disponibili.', error);
+      console.warn('Registro accessi non disponibile.', error);
     }
   }
 
@@ -111,10 +108,16 @@ const accountScreens = (() => {
       statusCell.appendChild(creaBadgeUtente(user.attivo ? 'Attivo' : 'Disattivato', user.attivo ? 'is-active' : 'is-disabled'));
       row.appendChild(statusCell);
 
-      const activityCell = document.createElement('td');
-      activityCell.className = 'admin-user-last-activity';
-      activityCell.textContent = formattaUltimaAttivita(ultimeAttivita.get(user.uid));
-      row.appendChild(activityCell);
+      const usage = utilizzoApp.get(user.uid);
+
+      const accessCell = document.createElement('td');
+      accessCell.className = 'admin-user-access';
+      if (usage?.last_access) {
+        accessCell.textContent = formattaUltimaAttivita(usage.last_access);
+      } else {
+        accessCell.textContent = 'Mai rilevato';
+      }
+      row.appendChild(accessCell);
 
       const actions = document.createElement('td');
       actions.className = 'admin-user-actions';
@@ -142,8 +145,8 @@ const accountScreens = (() => {
   async function renderUsers() {
     if (!appIdentity.isAdmin()) { router.navigate('home'); return; }
     messaggio(userMessage, '');
-    const [{ users }] = await Promise.all([api('list'), caricaUltimeAttivita()]);
-    utentiCache = Array.isArray(users) ? users : [];
+    const [userResult] = await Promise.all([api('list'), caricaUtilizzoApp()]);
+    utentiCache = Array.isArray(userResult.users) ? userResult.users : [];
     aggiornaStatisticheUtenti();
     renderUserRows();
   }
