@@ -556,6 +556,37 @@ test('Interparking legacy completo: 75 righe storiche diventano 73 domande corre
 });
 
 
+test('Interparking legacy pulito 73 righe: conflitti fuzzy vengono risolti dal numero storico senza bloccare l import', () => {
+  const im = caricaImportMatching();
+  const checklist = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'checklists', 'interparking_sopralluogo.json'), 'utf8'));
+  const perId = new Map(checklist.sezioni.flatMap(s => s.domande).map(d => [d.id, d]));
+
+  const numeri = Array.from({ length: 75 }, (_, i) => i + 1).filter(n => n !== 25 && n !== 49);
+  const righeLegacy = numeri.map((numero) => {
+    const m = numero <= 15 ? numero
+      : numero <= 24 ? numero + 2
+      : numero <= 43 ? numero + 2
+      : numero === 44 ? 77
+      : numero <= 48 ? numero + 1
+      : numero + 1;
+    const domanda = perId.get(m);
+    return rigaNostro({ id: numero, testo: domanda ? domanda.testo : ('Riga ' + numero), stato: 'C' });
+  });
+
+  // Simula l estrazione difettosa che ha prodotto il blocco reale: due righe diverse diventano
+  // testualmente identiche e il fuzzy le candiderebbe alla stessa domanda.
+  const idx26 = numeri.indexOf(26);
+  const idx27 = numeri.indexOf(27);
+  righeLegacy[idx27].testo_originale = righeLegacy[idx26].testo_originale;
+
+  const { righe, riepilogo } = im.abbinaRighe(righeLegacy, checklist);
+  assert.equal(riepilogo.conflitti, 0);
+  assert.equal(righe[idx26].domanda_id, 28);
+  assert.equal(righe[idx27].domanda_id, 29);
+  assert.equal(righe[idx26].stato_riga, 'sicuro');
+  assert.equal(righe[idx27].stato_riga, 'sicuro');
+});
+
 test('Interparking storico: testo certo vince sul numero slittato e conserva risposta + nota', () => {
   const im = caricaImportMatching();
   const checklist = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'checklists', 'interparking_sopralluogo.json'), 'utf8'));

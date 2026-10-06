@@ -612,17 +612,11 @@ const nuovoSopralluogoScreen = (() => {
       const puntoDivisioneGruppi = pdf.calcolaPuntoDivisioneGruppi(vociChecklist.checklist);
       const { righe: righeAbbinate, riepilogo } = importMatching.abbinaRighe(righe, vociChecklist.checklist, { puntoDivisioneGruppi });
 
-      // La checklist sorgente può avere domande in più o in meno rispetto a quella corrente:
-      // importiamo solo le righe realmente presenti, abbinate tramite il testo visibile, e
-      // manteniamo risposta e note. Le domande correnti assenti nel PDF restano semplicemente
-      // senza risposta. Blocchiamo soltanto un vero conflitto uno-a-uno.
-      if (formatoRilevato === 'nostro' && riepilogo.conflitti > 0) {
-        throw new Error(
-          `Il PDF contiene ${riepilogo.conflitti} conflitti di estrazione: importazione bloccata per evitare associazioni errate. ` +
-          'Le differenze nel numero di domande tra checklist storica e corrente sono invece ammesse.'
-        );
-      }
-
+      // La checklist sorgente può avere domande in più o in meno rispetto a quella corrente.
+      // Eventuali conflitti residui NON vengono nascosti dietro un errore generico: l'anteprima
+      // li mostra sulla riga esatta e la conferma finale impedisce comunque di salvare una riga
+      // non risolta. In questo modo l'utente può capire/correggere il caso reale senza perdere
+      // l'intera importazione.
       anteprimaImportazionePendente = {
         immagini: importMatching.collegaImmaginiAlleDomande(immagini, righeAbbinate, vociChecklist.checklist),
         formatoRilevato,
@@ -812,7 +806,8 @@ const importPreviewScreen = (() => {
     fuzzy: 'testo (fuzzy)',
     manuale: 'scelta manuale',
     legacy_interparking: 'compatibilità Interparking storico',
-    legacy_interparking_numero: 'numerazione Interparking storica'
+    legacy_interparking_numero: 'numerazione Interparking storica',
+    legacy_interparking_numero_risoluzione_conflitto: 'numerazione Interparking storica (conflitto risolto)'
   };
   const ETICHETTE_RISPOSTA = { C: 'C', PC: 'P.C', NC: 'N.C', NA: 'N.P' };
 

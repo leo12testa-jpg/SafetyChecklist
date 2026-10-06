@@ -357,6 +357,9 @@ const importMatching = (() => {
       };
     });
 
+    if (numerazioneLegacyInterparking) {
+      risolviCollisioniLegacyInterparking(righe, usaOrdineFisicoLegacy, idValidi);
+    }
     applicaVincoloUnoAUno(righe);
 
     return { righe, riepilogo: calcolaRiepilogo(righe), totaleDomandeChecklist: domande.length };
@@ -372,6 +375,54 @@ const importMatching = (() => {
    * risolvere un conflitto con un'altra riga già presente, e va sempre ricontrollato, mai lasciato
    * "come risultava al primo giro".
    */
+  /**
+   * I 4 report Interparking di settembre 2026 hanno numerazione legacy 1..75, con le vecchie
+   * righe 25 e 49 poi ritirate. Nei PDF compositi il testo di una riga può essere estratto
+   * parzialmente e quindi due righe diverse possono candidarsi per errore alla stessa domanda.
+   *
+   * Se (e solo se) siamo dentro quella famiglia legacy già riconosciuta, un conflitto testuale
+   * viene sciolto usando la destinazione deterministica del numero storico. Non altera i casi
+   * normali: se i numeri non producono destinazioni valide/univoche il conflitto resta tale.
+   */
+  function risolviCollisioniLegacyInterparking(righe, usaOrdineFisicoLegacy, idValidi) {
+    const gruppi = new Map();
+    righe.forEach((riga) => {
+      if (riga.domanda_id == null) return;
+      if (!gruppi.has(riga.domanda_id)) gruppi.set(riga.domanda_id, []);
+      gruppi.get(riga.domanda_id).push(riga);
+    });
+
+    for (const concorrenti of gruppi.values()) {
+      if (concorrenti.length < 2) continue;
+
+      const proposte = concorrenti.map((riga) => {
+        const numero = usaOrdineFisicoLegacy
+          ? riga.indice + 1
+          : Number(riga.originale.numero_originale ?? riga.originale.id_originale);
+        const legacy = mappaNumeroLegacyInterparking(numero);
+        return { riga, legacy };
+      });
+
+      // Un gruppo è risolvibile automaticamente solo se ogni riga ha una destinazione storica
+      // valida e le destinazioni non collidono fra loro.
+      if (proposte.some(({ legacy }) =>
+        !legacy || legacy.ritirata || !idValidi.has(legacy.domandaId)
+      )) continue;
+
+      const destinazioni = proposte.map(({ legacy }) => legacy.domandaId);
+      if (new Set(destinazioni).size !== destinazioni.length) continue;
+
+      proposte.forEach(({ riga, legacy }) => {
+        riga.domanda_id = legacy.domandaId;
+        riga.metodo = 'legacy_interparking_numero_risoluzione_conflitto';
+        riga.confidenza = 1;
+        riga.automatico = true;
+        riga.avviso = null;
+      });
+    }
+    return righe;
+  }
+
   function applicaVincoloUnoAUno(righe) {
     const perDomanda = new Map();
     righe.forEach((riga) => {

@@ -220,14 +220,60 @@ const pdfImport = (() => {
   }
 
   /**
+   * Nei PDF compositi il renderer Canvas è affidabile per dire COSA è visibile e DOVE,
+   * ma non per restituire i caratteri: con alcuni font incorporati fillText espone codici glyph
+   * privati (i "quadratini" visti nell'app). Il contenuto Unicode corretto è invece disponibile
+   * in getTextContent().
+   *
+   * Questa funzione usa quindi gli elementi renderizzati SOLO come maschera geometrica e conserva
+   * come testo esclusivamente gli elementi Unicode grezzi che occupano le stesse posizioni.
+   * Se più livelli PDF sono sovrapposti nella stessa posizione, tiene l'ultimo elemento del
+   * content stream: è il livello disegnato più tardi e quindi quello che rimane visibile.
+   */
+  function filtraTestoGrezzoConMascheraVisibile(itemsGrezzi, itemsVisibili) {
+    if (!Array.isArray(itemsGrezzi) || !itemsGrezzi.length) return [];
+    if (!Array.isArray(itemsVisibili) || !itemsVisibili.length) return [];
+
+    const deduplicati = [];
+    [...itemsGrezzi].sort((a, b) => (a.ordine || 0) - (b.ordine || 0)).forEach((item) => {
+      const indice = deduplicati.findIndex((precedente) =>
+        Math.abs(precedente.x - item.x) <= 1.5 &&
+        Math.abs(precedente.y - item.y) <= 1.5
+      );
+      if (indice >= 0) deduplicati[indice] = item;
+      else deduplicati.push(item);
+    });
+
+    const sovrappone = (grezzo, visibile) => {
+      // Un singolo run del renderer può rappresentare visivamente una nota su più righe:
+      // 10.5 pt coprono l'interlinea reale (~8.6 pt) ma restano ben sotto il distacco fra
+      // due righe/celle diverse della tabella.
+      if (Math.abs(grezzo.y - visibile.y) > 10.5) return false;
+      const g0 = grezzo.x;
+      const g1 = grezzo.x + Math.max(0.5, Number(grezzo.w) || 0.5);
+      const v0 = visibile.x - 1.8;
+      const v1 = visibile.x + Math.max(0.5, Number(visibile.w) || 0.5) + 1.8;
+      const intersezione = Math.max(0, Math.min(g1, v1) - Math.max(g0, v0));
+      if (intersezione >= 0.8) return true;
+      const centroGrezzo = (g0 + g1) / 2;
+      return centroGrezzo >= v0 && centroGrezzo <= v1;
+    };
+
+    return deduplicati.filter((grezzo) =>
+      itemsVisibili.some((visibile) => sovrappone(grezzo, visibile))
+    );
+  }
+
+  /**
    * PDF.js getTextContent include anche il testo di Form XObject fuori dal loro BBox e il testo
    * poi coperto da rettangoli opachi disegnati successivamente. Nei PDF Interparking legacy
    * questo produce righe fantasma e note sovrapposte pur con una pagina visivamente corretta.
    *
-   * Qui sfruttiamo il renderer Canvas di PDF.js come fonte della verità VISIVA: intercettiamo
-   * fillText/strokeText, rispettiamo i clip applicati dal renderer e cancelliamo dal modello
-   * testuale gli elementi poi coperti da rettangoli opachi. Nessun OCR: il testo resta quello
-   * vettoriale del PDF, ma filtrato con la stessa sequenza grafica usata per disegnare la pagina.
+   * Qui sfruttiamo il renderer Canvas di PDF.js SOLO come fonte della verità GEOMETRICA:
+   * intercettiamo fillText/strokeText, rispettiamo i clip applicati dal renderer e cancelliamo
+   * dal modello gli elementi poi coperti da rettangoli opachi. Le stringhe del renderer NON
+   * vengono mai salvate nell'app: servono soltanto come maschera; il testo vero resta sempre
+   * quello Unicode di getTextContent (vedi filtraTestoGrezzoConMascheraVisibile).
    */
   async function estraiTestoVisibileRenderizzato(pagina) {
     if (typeof document === 'undefined' || !document.createElement) return null;
@@ -859,7 +905,7 @@ const pdfImport = (() => {
   }
 
   /** Una cella/riga sorgente contiene insieme domanda, stato e nota, anche tra pagine. */
-  function righeDaCelle(items, colonne, bordi, contesto, formato) {
+  function righeDaCelle(items, colonne, bordi, contesto, formato, itemsGrezziPdf = null) {
     if (!bordi || !bordi.length) return null;
     const storico = formato === 'storico';
     const idX = storico ? CENTRO_COLONNA_ID_STORICO : colonne.idX;
@@ -892,11 +938,21 @@ const pdfImport = (() => {
         ? (candidatiNumero.length === 1 ? candidatiNumero[0] : null)
         : scegliNumeroCella(candidatiNumero, contesto);
       const testo=ricomponiTesto(raggruppaInLinee(cella.filter(it => it.x>idX+(storico ? MARGINE_TESTO_DOMANDA_STORICO_PT : 10) && it.x<colonne.C-10),3));
+      // Il testo in "items" è già Unicode filtrato geometricamente: nessun carattere proveniente
+      // dal renderer Canvas entra più nella domanda o nella nota.
       const nota=ricomponiTesto(raggruppaInLinee(cella.filter(it => it.x>colonne.sogliaNota),3));
-      const marks=cella.filter(it => eMarcaturaStato(it) && it.x>=colonne.C-10 && it.x<colonne.sogliaNota);
+
+      const marksVisibili=cella.filter(it => eMarcaturaStato(it) && it.x>=colonne.C-10 && it.x<colonne.sogliaNota);
+      const statoVisibile=statoDaMarcature(marksVisibili,colonne);
+      const cellaGrezza=Array.isArray(itemsGrezziPdf)
+        ? itemsGrezziPdf.filter(it => it.y < top && it.y > bottom)
+        : [];
+      const marksGrezzi=cellaGrezza.filter(it => eMarcaturaStato(it) && it.x>=colonne.C-10 && it.x<colonne.sogliaNota);
+      const stato=statoVisibile || statoDaMarcature(marksGrezzi,colonne);
+
       if (numero != null) {
         const riga={ formato, numero_originale:numero, id_originale:storico ? null : numero,
-          sezione_originale:sezione, testo_originale:testo, stato_originale:statoDaMarcature(marks,colonne), nota_originale:nota || null };
+          sezione_originale:sezione, testo_originale:testo, stato_originale:stato, nota_originale:nota || null };
         // AutoTable may repeat the identifier on a split row on the next page.
         const precedente=contesto.ultimaRiga;
         if (!risultato.length && precedente && precedente.numero_originale===numero && precedente.sezione_originale===sezione) {
@@ -1093,7 +1149,14 @@ const pdfImport = (() => {
         // Se esistono i bordi reali della tabella, la cella è la fonte autorevole. Non mischiare
         // il fallback per numero: nei PDF Interparking legacy id invisibili e cifre spezzate
         // generavano righe fantasma che contaminavano domande, stati e note di pagine diverse.
-        const daCelle = righeDaCelle(items, colonneCorrenti, itemsGrezzi.bordi, sezioneCorrente, 'nostro');
+        const daCelle = righeDaCelle(
+          items,
+          colonneCorrenti,
+          itemsGrezzi.bordi,
+          sezioneCorrente,
+          'nostro',
+          itemsGrezzi.testoGrezzoPdf || null
+        );
         if (daCelle === null) {
           const itemsFallback = filtraIdRigaSovrapposti(items, colonneCorrenti);
           righe.push(...estraiRighePaginaNostro(itemsFallback, colonneCorrenti, sezioneCorrente));
@@ -1691,28 +1754,31 @@ const pdfImport = (() => {
       for (let numeroPagina = 1; numeroPagina <= documento.numPages; numeroPagina += 1) {
         const pagina = await documento.getPage(numeroPagina);
         const contenuto = await pagina.getTextContent();
-        let items = contenuto.items
+        const itemsGrezziPdf = contenuto.items
           .map((it, ordine) => ({ testo: it.str, x: it.transform[4], y: it.transform[5], w: it.width, ordine }))
           .filter((it) => it.testo.trim() !== '');
+        let items = itemsGrezziPdf;
         let bordi = null;
 
-        // I PDF compositi creati da vecchie versioni possono contenere pagine intere dentro
-        // Form XObject ritagliati: getTextContent ne restituisce anche il testo FUORI dal ritaglio
-        // e quello successivamente coperto. In quelle sole pagine usiamo il testo effettivamente
-        // renderizzato e i bordi visibili, mantenendo il percorso veloce tradizionale altrove.
+        // PDF compositi/legacy: il renderer stabilisce solo quali zone sono realmente visibili
+        // e quali bordi di tabella sono effettivi. I CARATTERI salvati restano sempre quelli
+        // Unicode di getTextContent: questo evita definitivamente glifi privati/quadratini e X
+        // trasformate dal font durante il rendering.
         if (await paginaHaFormClippatoGrande(pagina)) {
           try {
             const visibile = await estraiTestoVisibileRenderizzato(pagina);
             if (visibile && visibile.items && visibile.items.length >= 5) {
-              items = visibile.items;
+              const unicodeVisibile = filtraTestoGrezzoConMascheraVisibile(itemsGrezziPdf, visibile.items);
+              items = unicodeVisibile.length >= 5 ? unicodeVisibile : itemsGrezziPdf;
               bordi = visibile.bordi;
             }
           } catch (erroreVisivo) {
-            console.warn('Import PDF: fallback al testo grezzo per la pagina', numeroPagina, erroreVisivo);
+            console.warn('Import PDF: uso il testo Unicode grezzo per la pagina', numeroPagina, erroreVisivo);
           }
         }
 
         items.bordi = bordi && bordi.length ? bordi : await estraiBordiTabella(pagina);
+        if (items !== itemsGrezziPdf) items.testoGrezzoPdf = itemsGrezziPdf;
         pagine.push(items);
         immagini.push(...await estraiImmaginiPagina(pagina, items, numeroPagina, { ...opzioni, headerEsclusi }));
         pagina.cleanup();
@@ -1761,6 +1827,7 @@ const pdfImport = (() => {
       estraiDatiGeneraliNostro,
       consolidaBordiOrizzontali,
       consolidaTestoRenderizzato,
+      filtraTestoGrezzoConMascheraVisibile,
       estraiTestoVisibileRenderizzato,
       paginaHaFormClippatoGrande
     }

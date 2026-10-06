@@ -131,6 +131,82 @@ test('bordi PDF: i segmenti stretti della cella n. non spezzano una riga reale',
   assert.deepEqual(Array.from(bordi, b => b.y), [200,180]);
 });
 
+test('PDF composito: il renderer è solo maschera; testo, nota e X arrivano sempre dal livello Unicode', () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const maschera = [
+    it('n.', 20, 220),
+    it('Descrizione attività', 40, 220),
+    it('C', 300, 220),
+    it('P.C', 315, 220),
+    it('N.C', 330, 220),
+    it('N.P', 345, 220),
+    it('Note', 400, 220),
+    it('8', 20, 155),
+    ...sequenzaParole(['Domanda', 'otto'], 40, 155),
+    // Il font del renderer espone codici glyph privati: NON devono mai diventare dati.
+    it('\uE111', 300, 155, 6),
+    it('\uE201\uE202\uE203\uE204', 400, 155, 120)
+  ];
+
+  const grezzo = [
+    {...it('n.', 20, 220), ordine:1},
+    {...it('Descrizione attività', 40, 220), ordine:2},
+    {...it('C', 300, 220), ordine:3},
+    {...it('P.C', 315, 220), ordine:4},
+    {...it('N.C', 330, 220), ordine:5},
+    {...it('N.P', 345, 220), ordine:6},
+    {...it('Note', 400, 220), ordine:7},
+    {...it('8', 20, 155), ordine:8},
+    ...sequenzaParole(['Domanda', 'otto'], 40, 155).map((x,i)=>({...x,ordine:20+i})),
+    // Vecchio livello coperto nella stessa posizione: deve perdere contro il livello più recente.
+    {...it('NOTA VECCHIA', 400, 155, 95), ordine:30},
+    {...it('X', 300, 155, 6), ordine:40},
+    {...it('Impianto di rilevazione incendi:', 400, 155, 125), ordine:41}
+  ];
+
+  const unicode = pdfImportPerTest._test.filtraTestoGrezzoConMascheraVisibile(grezzo, maschera);
+  assert.equal(unicode.some((x) => /[\uE000-\uF8FF]/.test(x.testo)), false);
+  assert.equal(unicode.some((x) => x.testo === 'X'), true);
+  assert.equal(unicode.some((x) => x.testo === 'NOTA VECCHIA'), false);
+  assert.equal(unicode.some((x) => x.testo === 'Impianto di rilevazione incendi:'), true);
+});
+
+test('formato nostro composito: riga importata con stato e nota Unicode della stessa cella', () => {
+  const pdfImportPerTest = caricaPdfImport();
+  const maschera = [
+    it('Gestione dell\'Emergenza', 20, 240),
+    it('n.', 20, 220), it('Descrizione attività', 40, 220),
+    it('C', 300, 220), it('P.C', 315, 220), it('N.C', 330, 220), it('N.P', 345, 220), it('Note', 400, 220),
+    it('28', 20, 155), ...sequenzaParole(['Eventuali', 'altri', 'impianti'], 40, 155),
+    it('\uE111', 300, 155, 6), it('\uE201\uE202\uE203', 400, 155, 180)
+  ];
+  const grezzo = [
+    {...it('Gestione dell\'Emergenza', 20, 240), ordine:1},
+    {...it('n.', 20, 220), ordine:2}, {...it('Descrizione attività', 40, 220), ordine:3},
+    {...it('C', 300, 220), ordine:4}, {...it('P.C', 315, 220), ordine:5},
+    {...it('N.C', 330, 220), ordine:6}, {...it('N.P', 345, 220), ordine:7}, {...it('Note', 400, 220), ordine:8},
+    {...it('28', 20, 155), ordine:9},
+    ...sequenzaParole(['Eventuali', 'altri', 'impianti'], 40, 155).map((x,i)=>({...x,ordine:20+i})),
+    {...it('X', 300, 155, 6), ordine:30},
+    {...it('Impianto di rilevazione incendi:', 400, 163, 125), ordine:31},
+    {...it('FORNITORE: NOTIFIRE', 400, 155, 95), ordine:32},
+    {...it('ULTIMO CONTROLLO: 29/04/2026', 400, 147, 135), ordine:33}
+  ];
+  const unicode = pdfImportPerTest._test.filtraTestoGrezzoConMascheraVisibile(grezzo, maschera);
+  unicode.testoGrezzoPdf = grezzo;
+  unicode.bordi = [
+    {x1:15,x2:540,y:230},
+    {x1:15,x2:540,y:210},
+    {x1:15,x2:540,y:175},
+    {x1:15,x2:540,y:135}
+  ];
+  const { righe } = pdfImportPerTest._test.provaFormatoNostro([unicode]);
+  const riga = righe.find((x) => x.numero_originale === 28);
+  assert.ok(riga);
+  assert.equal(riga.stato_originale, 'C');
+  assert.equal(riga.nota_originale, 'Impianto di rilevazione incendi: FORNITORE: NOTIFIRE ULTIMO CONTROLLO: 29/04/2026');
+});
+
 test('formato nostro: id/testo/stato/nota/sezione estratti correttamente per ogni riga', () => {
   const pdfImportPerTest = caricaPdfImport();
   const { righe, strutturaRiconosciuta } = pdfImportPerTest._test.provaFormatoNostro([paginaNostro()]);
