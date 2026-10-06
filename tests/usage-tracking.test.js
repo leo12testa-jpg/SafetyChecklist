@@ -16,7 +16,8 @@ test('telemetria utilizzo invia accesso e stato sincronizzazione', () => {
   assert.match(app, /pendingData: dettaglio\.dati/);
   assert.match(auth, /callEndpoint\('usagePing'/);
   assert.match(account, /api\('usage'\)/);
-  assert.match(account, /accessi_30gg/);
+  assert.match(account, /last_access/);
+  assert.doesNotMatch(account, /accessi_30gg/);
 });
 
 test('indicatore parziale permette retry manuale', () => {

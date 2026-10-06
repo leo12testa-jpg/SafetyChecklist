@@ -14,7 +14,6 @@ const accountScreens = (() => {
   let filtro = 'all';
   let lavori = [];
   let utentiCache = [];
-  let ultimeAttivita = new Map();
   let utilizzoApp = new Map();
 
   function messaggio(target, text, error = false) {
@@ -55,11 +54,6 @@ const accountScreens = (() => {
     return data.toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
   }
 
-  function formattaAccessi30gg(value) {
-    const numero = Number(value || 0);
-    return numero === 1 ? '1 accesso / 30 gg' : `${numero} accessi / 30 gg`;
-  }
-
   async function caricaUtilizzoApp() {
     utilizzoApp = new Map();
     if (!navigator.onLine) return;
@@ -68,20 +62,6 @@ const accountScreens = (() => {
       (result.usage || []).forEach((item) => utilizzoApp.set(item.uid, item));
     } catch (error) {
       console.warn('Registro accessi non disponibile.', error);
-    }
-  }
-
-  async function caricaUltimeAttivita() {
-    ultimeAttivita = new Map();
-    if (!navigator.onLine) return;
-    try {
-      const snapshot = await firebaseClient.firestore().collection('attivita').orderBy('timestamp', 'desc').limit(300).get();
-      snapshot.forEach((doc) => {
-        const item = doc.data();
-        if (item.uid && !ultimeAttivita.has(item.uid)) ultimeAttivita.set(item.uid, item.timestamp);
-      });
-    } catch (error) {
-      console.warn('Ultime attività utenti non disponibili.', error);
     }
   }
 
@@ -133,41 +113,11 @@ const accountScreens = (() => {
       const accessCell = document.createElement('td');
       accessCell.className = 'admin-user-access';
       if (usage?.last_access) {
-        const accessDate = document.createElement('strong');
-        accessDate.textContent = formattaUltimaAttivita(usage.last_access);
-        const accessCount = document.createElement('small');
-        accessCount.textContent = formattaAccessi30gg(usage.accessi_30gg);
-        accessCell.append(accessDate, accessCount);
+        accessCell.textContent = formattaUltimaAttivita(usage.last_access);
       } else {
         accessCell.textContent = 'Mai rilevato';
       }
       row.appendChild(accessCell);
-
-      const syncCell = document.createElement('td');
-      syncCell.className = 'admin-user-sync';
-      const pending = Number(usage?.pending_data || 0) + Number(usage?.pending_photos || 0) + Number(usage?.pending_cloud || 0);
-      if (!usage) {
-        syncCell.appendChild(creaBadgeUtente('Non rilevato', 'is-neutral'));
-      } else if (pending === 0 && usage.sync_state === 'sincronizzato') {
-        syncCell.appendChild(creaBadgeUtente('OK', 'is-active'));
-      } else if (pending > 0) {
-        const badgeSync = creaBadgeUtente(`${pending} in attesa`, 'is-warning');
-        const dettagli = [];
-        if (usage.pending_data) dettagli.push(`${usage.pending_data} sopralluoghi`);
-        if (usage.pending_photos) dettagli.push(`${usage.pending_photos} foto`);
-        if (usage.pending_cloud) dettagli.push('cloud');
-        const errori = (usage.diagnostics || []).map((item) => item.error).filter(Boolean).slice(0, 3);
-        badgeSync.title = [...dettagli, ...errori].join(' · ');
-        syncCell.appendChild(badgeSync);
-      } else {
-        syncCell.appendChild(creaBadgeUtente(usage.sync_state || 'Verifica', 'is-warning'));
-      }
-      row.appendChild(syncCell);
-
-      const activityCell = document.createElement('td');
-      activityCell.className = 'admin-user-last-activity';
-      activityCell.textContent = formattaUltimaAttivita(ultimeAttivita.get(user.uid));
-      row.appendChild(activityCell);
 
       const actions = document.createElement('td');
       actions.className = 'admin-user-actions';
@@ -195,7 +145,7 @@ const accountScreens = (() => {
   async function renderUsers() {
     if (!appIdentity.isAdmin()) { router.navigate('home'); return; }
     messaggio(userMessage, '');
-    const [userResult] = await Promise.all([api('list'), caricaUltimeAttivita(), caricaUtilizzoApp()]);
+    const [userResult] = await Promise.all([api('list'), caricaUtilizzoApp()]);
     utentiCache = Array.isArray(userResult.users) ? userResult.users : [];
     aggiornaStatisticheUtenti();
     renderUserRows();
