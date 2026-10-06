@@ -17,7 +17,7 @@ function notify(message,type="error",ms){
   const text=String(message||"Operazione non riuscita.");
   if([...host.children].some(t=>t.dataset.text===text))return;
   const t=document.createElement("div");t.className="toast toast-"+type;t.dataset.text=text;t.textContent=text;
-  const close=document.createElement("button");close.type="button";close.className="toast-close";close.setAttribute("aria-label","Chiudi");close.innerHTML='<svg class="ico" aria-hidden="true"><use href="#i-close"/></svg>';close.addEventListener("click",()=>t.remove());
+  const close=document.createElement("button");close.type="button";close.className="toast-close";close.setAttribute("aria-label","Chiudi");close.innerHTML=html`<svg class="ico" aria-hidden="true"><use href="#i-close"/></svg>`;close.addEventListener("click",()=>t.remove());
   t.appendChild(close);host.appendChild(t);
   setTimeout(()=>t.remove(),ms??(type==="error"?7000:3500));
 }

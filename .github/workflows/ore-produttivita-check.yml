@@ -6,8 +6,10 @@ on:
     paths:
       - ".github/workflows/ore-produttivita-check.yml"
       - "ore-produttivita/**"
-      - "tests/ore-ui-contract.test.js"
-      - "tests/ore-ui-smoke.cjs"
+      - "tests/ore-*"
+      - "pubblica.sh"
+      - "supabase/functions/ore-produttivita-api/**"
+      - "supabase/migrations/*ore*"
   workflow_dispatch:
 
 permissions:
@@ -32,7 +34,8 @@ jobs:
           node --check ore-produttivita/aggiornamento.js
           python3 -m py_compile ore-produttivita/crm-sync/crm_agenda_sync.py
           python3 -m py_compile ore-produttivita/crm-sync/crm_company_agent.py
-          grep -q 'cryptography' ore-produttivita/crm-sync/SETUP_SYNC_BACKGROUND.bat
+          grep -q 'requirements.txt' ore-produttivita/crm-sync/SETUP_SYNC_BACKGROUND.bat
+          grep -q '^cryptography==' ore-produttivita/crm-sync/requirements.txt
           grep -q 'CRM_AUTH_FILE' ore-produttivita/crm-sync/crm_company_agent.py
           grep -q 'Fernet' ore-produttivita/crm-sync/crm_company_agent.py
           test -f ore-produttivita/crm-sync/INSTALLA_SYNC_CRM_AUTOMATICA.bat
@@ -72,7 +75,17 @@ jobs:
           node --test tests/ore-ui-contract.test.js
 
       - name: Install browser driver
-        run: npm install --no-save playwright-core@1.55.0
+        run: |
+          npm install --no-save playwright@1.55.0 playwright-core@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Ore unit, browser and layout tests
+        env:
+          PYTHON: python3
+        run: |
+          node --test tests/ore-*.test.js
+          node tests/ore-robustezza-browser.cjs
+          node tests/ore-layout-audit.cjs
 
       - name: Find Chrome
         shell: bash

@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const { stripTypeScriptTypes } = require('node:module');
 const source = fs.readFileSync('supabase/functions/ore-produttivita-api/index.ts', 'utf8');
+test('richieste sblocco: nome dal profilo server e UID invariato',async()=>{const database={from(){const q={select(){return this;},order(){return this;},range(){return this;},then(resolve){resolve({data:[{id:'unlock1',tecnico_uid:'u2',data:'2026-10-02',stato:'aperta'}],error:null});}};return q;}};const app=backend({role:'admin',database,profiles:{u2:{nome:{stringValue:'Chiara'},cognome:{stringValue:'Di Lucchio'}}}});const response=await app.call({action:'unlockRequests',tecnicoNome:'Inventato'});assert.equal(response.status,200);const row=(await response.json()).rows[0];assert.equal(row.tecnico_nome,'Chiara Di Lucchio');assert.equal(row.tecnico_uid,'u2');});
 test('CRM: il server verifica il giorno italiano anche quando UTC è il giorno precedente',()=>{const app=backend();app.context.events=[{date:'2026-10-02',start:'2026-10-01T22:30:00Z',end:'2026-10-01T23:00:00Z'},{date:'2026-10-30',start:'2026-10-29T23:30:00Z',end:'2026-10-30T00:00:00Z'}];vm.runInContext('validateCrmEventTimes(events)',app.context);});
 for(const action of ['ingestAgendaCompany','ingestAgenda'])test(`${action}: fuso esplicito e data locale richiesti prima delle scritture`,async()=>{for(const event of [{date:'2026-10-02',start:'2026-10-02T09:30:00',end:'2026-10-02T13:00:00'},{date:'2026-10-03',start:'2026-10-02T21:30:00Z',end:'2026-10-02T21:45:00Z'}]){const app=backend({role:'admin'});assert.equal((await app.call({action,events:[event]})).status,400);assert.equal(app.dbCalls(),0);}});
 test('tecnico: aggiornamento inventario CRM rifiutato prima del database',async()=>{const app=backend();assert.equal((await app.call({action:'registerCrmResources'})).status,403);assert.equal(app.dbCalls(),0);});
@@ -38,13 +39,13 @@ test('admin operativo mantiene le operazioni, direzione include tutte le azioni'
 for(const action of ['monthStatus','changeMonth'])test(`tecnico: ${action} rifiutato prima delle query`,async()=>{const app=backend();assert.equal((await app.call({action,ruolo:'admin'})).status,403);assert.equal(app.dbCalls(),0);});
 test('riapertura mensile: motivo obbligatorio, mese valido e attore server',async()=>{let received;const app=backend({role:'admin',database:{rpc:async(name,args)=>{received={name,args};return {data:{chiuso:false},error:null};}}});for(const body of [{mese:'2026-13',operation:'close'},{mese:'2026-10',operation:'reopen',motivo:''},{mese:'2026-10',operation:'delete'}])assert.equal((await app.call({action:'changeMonth',...body})).status,400);assert.equal((await app.call({action:'changeMonth',mese:'2026-10',operation:'reopen',motivo:'Verificato',attore:'falso'})).status,200);assert.equal(received.name,'ore_cambia_mese');assert.equal(received.args.p_actor,'u1');assert.equal(received.args.p_month,'2026-10-01');assert.equal(received.args.p_close,false);});
 
-function backend({ role = 'tecnico', oreRole = 'direzione', tokenValid = true, owner = 'other', database } = {}) {
+function backend({ role = 'tecnico', oreRole = 'direzione', tokenValid = true, owner = 'other', database, profiles = {} } = {}) {
   let handler, dbCalls = 0;
   const query = { select(){ return this; }, eq(){ return this; },
     maybeSingle: async () => ({ data: { id: 's1', tecnico_uid: owner, data_lavoro: '2026-10-03', minuti_effettivi: 60 } }) };
   const context = vm.createContext({ Request, Response, fetch: async url => {
     if (url.includes('accounts:lookup')) return new Response(JSON.stringify(tokenValid ? { users: [{localId:'u1'}] } : {}), {status: tokenValid ? 200 : 400});
-    return new Response(JSON.stringify({fields:{attivo:{booleanValue:true},ruolo:{stringValue:role}}}));
+    const uid=decodeURIComponent(String(url).split('/').pop());return new Response(JSON.stringify({fields:{attivo:{booleanValue:true},ruolo:{stringValue:role},...(profiles[uid]||{})}}));
   }, createClient: () => {const db=database || ({from(){ dbCalls++; return query; }});return {...db,from:table=>table==='ore_ruoli_utenti'?{select(){return this;},eq(){return this;},maybeSingle:async()=>({data:oreRole?{ruolo:oreRole}:null,error:null})}:db.from(table)};},
   Deno: {env:{get:name=> name==='SUPABASE_SECRET_KEYS' ? undefined : 'test'},serve: fn => {handler=fn;}} });
   vm.runInContext(stripTypeScriptTypes(source.replace(/^import .*;\r?\n/, ''), {mode:'transform'}), context);

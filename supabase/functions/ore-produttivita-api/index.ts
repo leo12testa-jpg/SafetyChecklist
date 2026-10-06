@@ -322,7 +322,15 @@ Deno.serve(async (req: Request) => {
       const {data,error}=await db.rpc("ore_richiedi_sblocco",{p_uid:user.uid,p_day:dateOnly(body.date),p_reason:reason,p_actor:user.uid});if(error)bad(error.message,409);return respond(data);
     }
     if(action === "unlockRequests"){
-      const {data,error}=await readAll(()=>db.from("ore_richieste_sblocco").select("*").order("created_at",{ascending:false}));if(error)bad("Impossibile leggere le richieste.",500);return respond({rows:data||[]});
+      const {data,error}=await readAll(()=>db.from("ore_richieste_sblocco").select("*").order("created_at",{ascending:false}));if(error)bad("Impossibile leggere le richieste.",500);
+      const names=new Map<string,string>();
+      await Promise.all([...new Set<string>((data||[]).map((r:any)=>r.tecnico_uid))].map(async uid=>{
+        const response=await fetch(`${FIRESTORE}/utenti/${encodeURIComponent(uid)}`,{headers:{authorization:`Bearer ${user.token}`}});
+        if(response.status===404){names.set(uid,"non indicato");return;}
+        if(!response.ok)bad("Impossibile verificare i nomi dei tecnici.",503);
+        const person=fromDoc(await response.json());names.set(uid,`${person.nome||""} ${person.cognome||""}`.trim()||"non indicato");
+      }));
+      return respond({rows:(data||[]).map((r:any)=>({...r,tecnico_nome:names.get(r.tecnico_uid)||"non indicato"}))});
     }
     if(action === "decideUnlock"){
       if(!body.id||typeof body.approve!=="boolean")bad("Decisione non valida.");const reason=String(body.motivo||"").trim();if(!reason||reason.length>500)bad("Indica il motivo della decisione.");

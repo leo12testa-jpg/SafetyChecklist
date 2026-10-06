@@ -23,7 +23,14 @@ fi
 
 # --- 2. test: lo script si ferma da solo (set -e) se node --test esce con errore ---
 echo "==> Eseguo i test..."
+export NODE_PATH="${NODE_PATH:-$(npm root -g)}"
+if ! node -e "require('playwright')" >/dev/null 2>&1; then
+  echo "ERRORE: Playwright non disponibile. Il controllo browser/layout è obbligatorio: installa playwright@1.55.0 e Chromium, oppure imposta NODE_PATH. Pubblicazione interrotta." >&2
+  exit 1
+fi
 node --test "tests/**/*.test.js"
+node tests/ore-robustezza-browser.cjs
+node tests/ore-layout-audit.cjs
 
 # --- 3. nuovo BUILD_ID (timestamp, non l'hash del commit: bumpare service-worker.js dopo aver
 #         letto l'hash cambierebbe l'hash stesso, un riferimento autoreferenziale) ---
