@@ -11,6 +11,7 @@ import urllib.request
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlencode, urlparse, parse_qs
+from crm_time import crm_segments
 
 import keyring
 from cryptography.fernet import Fernet, InvalidToken
@@ -30,7 +31,7 @@ class LoginRequiredError(RuntimeError):
 class PartialReadError(RuntimeError):
     pass
 
-AGENT_VERSION="20261005-resource-selector"
+AGENT_VERSION="20261005-europe-rome"
 
 APP_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "ColligoOreProduttivita"
 CONFIG_FILE = APP_DIR / "company-agent.json"
@@ -81,6 +82,23 @@ def write_status(state, message, extra=None):
     if extra:
         payload.update(extra)
     STATUS_FILE.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    if state in ('ok','partial','recovery_pending','login_required','error','skipped'):
+        record={key:payload.get(key) for key in ('updatedAt','state','scanned','total','scannedResources','failures','saved')}
+        record['agentVersion']=AGENT_VERSION
+        record['scanned']=payload.get('scanned',0)
+        record['scannedResources']=payload.get('scannedResources',[])
+        cycle_log=APP_DIR/'company-agent-cycles.jsonl'
+        if state=='login_required' and cycle_log.exists():
+            for line in reversed(cycle_log.read_text(encoding='utf-8').splitlines()):
+                try:previous=json.loads(line)
+                except ValueError:continue
+                if previous.get('scanned',0)>0:
+                    dt=__import__('datetime').datetime
+                    record['lastSuccessfulReadAt']=previous['updatedAt']
+                    record['minutesSinceLastSuccessfulRead']=round((dt.fromisoformat(payload['updatedAt'])-dt.fromisoformat(previous['updatedAt'])).total_seconds()/60,2)
+                    break
+        with cycle_log.open('a',encoding='utf-8') as log:
+            log.write(json.dumps(record,ensure_ascii=False)+'\n')
 
 
 def post_json(url, payload, token=None):
@@ -515,7 +533,8 @@ def parse_day(texts, wanted, sigla):
             sh, sm, eh, em = map(int, m.group(1,2,3,4))
             start=f"{wanted}T{sh:02d}:{sm:02d}:00"
             end=f"{wanted}T{eh:02d}:{em:02d}:00"
-            minutes=(eh*60+em)-(sh*60+sm)
+            segments=crm_segments(wanted,sh,sm,eh,em)
+            minutes=sum(segment['minutes'] for segment in segments)
             if minutes<=0 or minutes>16*60:
                 continue
             key=(start,end,title)
@@ -526,16 +545,14 @@ def parse_day(texts, wanted, sigla):
             old=OLD_SHORT_RE.search(title)
             comm=COMM_RE.search(title)
             stable=hashlib.sha1(f"{sigla}|{wanted}|{start}|{end}|{title}".encode()).hexdigest()[:24]
-            out.append({
-                "crmEventId":f"agenda-{stable}",
-                "date":wanted,
-                "start":start,
-                "end":end,
-                "minutes":minutes,
+            for segment in segments:
+              out.append({
+                "crmEventId":f"agenda-{stable}"+(f"-{segment['date']}" if len(segments)>1 else ""),
+                **segment,
                 "title":title,
                 "shortCode":work.group(1).upper() if work else (old.group(0).upper() if old else ""),
                 "codiceComm":comm.group(1).upper() if comm else ""
-            })
+              })
     return out
 
 
@@ -615,7 +632,7 @@ async def run_once():
         (APP_DIR/'recovery-preview.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
         message+='; anteprima, nessuna importazione.'
     api(token,'crmAgentHeartbeat',state=state,message=message,scanned=len(result['scanned']),events=len(result['events']),saved=saved,failures=len(result['failures']),failureDetails=result['failures'],scannedResources=result['scanned'],agentVersion=AGENT_VERSION)
-    write_status(state,message,{'scanned':len(result['scanned']),'total':result['total'],'events':len(result['events']),'saved':saved,'failures':result['failures'],'agentVersion':AGENT_VERSION})
+    write_status(state,message,{'scanned':len(result['scanned']),'total':result['total'],'scannedResources':result['scanned'],'events':len(result['events']),'saved':saved,'failures':result['failures'],'agentVersion':AGENT_VERSION})
     print(message)
     if failed:raise PartialReadError(message)
 

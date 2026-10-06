@@ -114,3 +114,7 @@ La risorsa viene selezionata con cboAgendaToolbar e identificativo CRM, attenden
 Il setup dichiara completamento solo dopo una lettura di tutte le risorse attive; altrimenti restituisce errore e il riepilogo completo Lette X su Y, fallite: .... L’elenco viene riletto dal CRM a ogni ciclo. Nuove risorse restano senza account finché l’admin approva il collegamento.
 
 La configurazione recovery_hold=true è obbligatoria durante il recupero: il ciclo salva recovery-preview.json sul PC, aggiorna solo stato e inventario e non importa appuntamenti. Anche --preview forza questo comportamento. Non disattivare il blocco prima della conferma umana dell’anteprima. Giorni confermati e mesi chiusi non sono modificati dall’import.
+
+## Fuso orario CRM
+
+Tutti gli orari visualizzati sono interpretati con zoneinfo Europe/Rome e tzdata==2026.2. Il trasporto usa timestamp UTC con Z. La data di lavoro resta il giorno italiano, anche se UTC è il giorno precedente. A mezzanotte gli eventi sono separati conservando la durata totale; i casi ambigui o inesistenti al cambio ora fermano la lettura con segnalazione. Gli ID per gli eventi nello stesso giorno restano invariati. L’API rifiuta gli agenti precedenti che inviano orari senza fuso. Non correggere lo storico o abilitare importazioni senza approvazione.

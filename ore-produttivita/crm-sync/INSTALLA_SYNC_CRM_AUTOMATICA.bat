@@ -55,6 +55,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue';" ^
   "$base=$env:BASE;" ^
   "Invoke-WebRequest 'https://raw.githubusercontent.com/leo12testa-jpg/SafetyChecklist/main/ore-produttivita/crm-sync/crm_company_agent.py' -OutFile (Join-Path $base 'crm_company_agent.py');" ^
+  "Invoke-WebRequest 'https://raw.githubusercontent.com/leo12testa-jpg/SafetyChecklist/main/ore-produttivita/crm-sync/crm_time.py' -OutFile (Join-Path $base 'crm_time.py');" ^
   "Invoke-WebRequest 'https://raw.githubusercontent.com/leo12testa-jpg/SafetyChecklist/main/ore-produttivita/crm-sync/RUN_COMPANY_SYNC.vbs' -OutFile (Join-Path $base 'RUN_COMPANY_SYNC.vbs');" ^
   "Invoke-WebRequest 'https://raw.githubusercontent.com/leo12testa-jpg/SafetyChecklist/main/ore-produttivita/crm-sync/RUN_COMPANY_SYNC.bat' -OutFile (Join-Path $base 'RUN_COMPANY_SYNC.bat');" ^
   "Invoke-WebRequest 'https://raw.githubusercontent.com/leo12testa-jpg/SafetyChecklist/main/ore-produttivita/crm-sync/requirements.txt' -OutFile (Join-Path $base 'requirements.txt');" ^

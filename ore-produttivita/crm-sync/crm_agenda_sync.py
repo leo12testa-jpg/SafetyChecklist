@@ -9,6 +9,7 @@ import sys
 import urllib.error
 import urllib.request
 from datetime import date, datetime
+from crm_time import crm_instant, utc_text, crm_segments
 from urllib.parse import parse_qs, urlparse
 from pathlib import Path
 
@@ -111,44 +112,42 @@ def iso_for(day, hh, mm):
     minute = int(mm)
     if not (0 <= hour <= 23 and 0 <= minute <= 59):
         raise ValueError(f"Orario non valido: {hour:02d}:{minute:02d}")
-    return f"{day}T{hour:02d}:{minute:02d}:00"
+    return utc_text(crm_instant(day,hour,minute))
 
 
-def event_from_text(text, fallback_day):
+def events_from_text(text, fallback_day):
     compact = " ".join(html.unescape(str(text or "")).split())
     if not compact:
-        return None
+        return []
 
     times = list(TIME_RE.finditer(compact))
     if len(times) < 2:
-        return None
+        return []
 
     day = parse_date(compact, fallback_day)
     start = iso_for(day, times[0].group(1), times[0].group(2))
     end = iso_for(day, times[1].group(1), times[1].group(2))
-    start_dt = datetime.fromisoformat(start)
-    end_dt = datetime.fromisoformat(end)
-    minutes = int((end_dt - start_dt).total_seconds() // 60)
+    segments=crm_segments(day,int(times[0].group(1)),int(times[0].group(2)),int(times[1].group(1)),int(times[1].group(2)))
+    minutes=sum(segment['minutes'] for segment in segments)
     if minutes <= 0 or minutes > 16 * 60:
-        return None
+        return []
 
     work = WORK_RE.search(compact)
     old_short = OLD_SHORT_RE.search(compact)
     comm = COMM_RE.search(compact)
+    legacy_start=f"{day}T{int(times[0].group(1)):02d}:{int(times[0].group(2)):02d}:00"
+    legacy_end=f"{day}T{int(times[1].group(1)):02d}:{int(times[1].group(2)):02d}:00"
     stable = hashlib.sha1(
-        f"{day}|{start}|{end}|{compact}".encode("utf-8")
+        f"{day}|{legacy_start}|{legacy_end}|{compact}".encode("utf-8")
     ).hexdigest()[:24]
 
-    return {
-        "crmEventId": f"agenda-{stable}",
-        "date": day,
-        "start": start,
-        "end": end,
-        "minutes": minutes,
+    return [{
+        "crmEventId": f"agenda-{stable}"+(f"-{segment['date']}" if len(segments)>1 else ""),
+        **segment,
         "title": compact[:500],
         "shortCode": work.group(1).upper() if work else (old_short.group(0).upper() if old_short else ""),
         "codiceComm": comm.group(1).upper() if comm else ""
-    }
+    } for segment in segments]
 
 
 async def snapshot_frame(frame, frame_index):
@@ -281,9 +280,9 @@ def parse_visible_agenda(frames_data, wanted, network_texts=None):
                     str(row.get("text", "")),
                     str(row.get("attrs", ""))
                 ])
-                ev = event_from_text(source, wanted)
-                if ev and ev["date"] == wanted:
-                    current.append(ev)
+                parsed = events_from_text(source, wanted)
+                if parsed and parsed[0]["date"] == wanted:
+                    current.extend(parsed)
         if current:
             events.extend(current)
 
@@ -293,16 +292,16 @@ def parse_visible_agenda(frames_data, wanted, network_texts=None):
         lines = [re.sub(r"\\s+", " ", x).strip() for x in body.splitlines() if x.strip()]
         for width in (2, 3, 4, 5):
             for i in range(max(0, len(lines) - width + 1)):
-                ev = event_from_text(" | ".join(lines[i:i + width]), wanted)
-                if ev and ev["date"] == wanted:
-                    events.append(ev)
+                parsed = events_from_text(" | ".join(lines[i:i + width]), wanted)
+                if parsed and parsed[0]["date"] == wanted:
+                    events.extend(parsed)
 
     # 3) Fallback CRM: contenuti caricati via XHR/fetch durante l'apertura agenda.
     for raw in network_texts or []:
         for piece in candidate_windows(raw):
-            ev = event_from_text(piece, wanted)
-            if ev and ev["date"] == wanted:
-                events.append(ev)
+            parsed = events_from_text(piece, wanted)
+            if parsed and parsed[0]["date"] == wanted:
+                events.extend(parsed)
 
     seen = set()
     out = []

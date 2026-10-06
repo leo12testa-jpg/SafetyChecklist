@@ -1,0 +1,2 @@
+const test=require('node:test'),assert=require('node:assert/strict'),{spawnSync}=require('node:child_process');
+test('CRM Europe/Rome: estate, inverno, cambio ora, mezzanotte e identità stabili',()=>{const r=spawnSync(process.env.PYTHON||'python',['tests/ore-crm-time-unit.py'],{encoding:'utf8',windowsHide:true,timeout:30000});assert.equal(r.status,0,r.stderr||r.error?.message);assert.match(r.stderr,/Ran 10 tests/);});

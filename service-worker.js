@@ -2,13 +2,13 @@
 // autoreferenziale, dato che modificare questo stesso file cambierebbe l'hash finale). Cambia sempre
 // a ogni pubblicazione, cosÃ¬ il browser rileva sempre un service-worker.js diverso byte per byte e
 // installa una cache nuova; l'activate qui sotto elimina da sÃ© quelle vecchie.
-const CACHE_NAME = 'safety-checklist-shell-20261005-212500';
+const CACHE_NAME = 'safety-checklist-shell-20261006-123711';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=20261005-212500',
+  './css/style.css?v=20261006-123711',
   './js/vendor/jspdf.umd.min.js',
   './js/vendor/jspdf.plugin.autotable.min.js',
   './js/vendor/jszip.min.js',
@@ -21,19 +21,19 @@ const APP_SHELL = [
   './js/supabase-config.js',
   './js/vendor/pdf.min.js',
   './js/vendor/pdf.worker.min.js',
-  './js/app.js?v=20261005-212500',
+  './js/app.js?v=20261006-123711',
   './js/identity.js',
   './js/account-screens.js',
-  './js/db.js?v=20261005-212500',
-  './js/checklist.js?v=20261005-212500',
+  './js/db.js?v=20261006-123711',
+  './js/checklist.js?v=20261006-123711',
   './js/question-navigator.js',
   './js/foto-sync.js',
-  './js/pdf.js?v=20261005-212500',
-  './js/pdf-import.js?v=20261005-212500',
-  './js/import-matching.js?v=20261005-212500',
+  './js/pdf.js?v=20261006-123711',
+  './js/pdf-import.js?v=20261006-123711',
+  './js/import-matching.js?v=20261006-123711',
   './js/camera.js',
-  './js/sync.js?v=20261005-212500',
-  './js/aggiornamento.js?v=20261005-212500',
+  './js/sync.js?v=20261006-123711',
+  './js/aggiornamento.js?v=20261006-123711',
   './checklists/index.json',
   './checklists/clients.json',
   './checklists/tecnici.json',

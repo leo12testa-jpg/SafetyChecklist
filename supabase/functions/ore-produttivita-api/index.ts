@@ -22,6 +22,22 @@ function cors(req: Request) {
     "vary": "Origin"
   };
 }
+function validateCrmEventTimes(events:any[]) {
+  for(const event of events){
+    if(!event.start&&!event.end) continue;
+    for(const value of [event.start,event.end]){
+      if(typeof value!=="string"||!/T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value)||!Number.isFinite(Date.parse(value))) bad("Orari CRM senza fuso esplicito o non validi: aggiornare l’agente.");
+    }
+    const start=new Date(event.start),end=new Date(event.end);
+    const parts=new Intl.DateTimeFormat("en",{timeZone:"Europe/Rome",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(start);
+    const field=(name:string)=>parts.find(p=>p.type===name)?.value;
+    const localDay=`${field("year")}-${field("month")}-${field("day")}`;
+    if(event.date!==localDay) bad("La data CRM non coincide con il giorno locale Europe/Rome.");
+    const minutes=(end.getTime()-start.getTime())/60000;
+    if(!Number.isInteger(minutes)||minutes<=0||minutes>1440) bad("Durata CRM non valida.");
+  }
+}
+
 function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: cors(req) });
 }
@@ -960,6 +976,7 @@ Deno.serve(async (req: Request) => {
       requireAdmin(user);
       const events = Array.isArray(body.events) ? body.events : [];
       if (events.length > 1500) bad("Troppi eventi in una singola sincronizzazione aziendale.");
+      validateCrmEventTimes(events);
 
       const [
         { data: resources, error: resErr },
@@ -1377,9 +1394,10 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "ingestAgenda") {
-      const callerResource:any = await bindCallerResource(db,user);
       const events = Array.isArray(body.events) ? body.events : [];
       if (events.length > 100) bad("Troppi eventi in una singola sincronizzazione.");
+      validateCrmEventTimes(events);
+      const callerResource:any = await bindCallerResource(db,user);
 
       const [{ data: allClients, error: clientsErr }, { data: allJobs, error: jobsErr }] = await Promise.all([
         db.from("ore_clienti").select("id,codice_breve,ragione_sociale").eq("attivo",true).limit(500),

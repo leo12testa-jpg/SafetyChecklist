@@ -42,8 +42,8 @@ class AgentTests(unittest.IsolatedAsyncioTestCase):
   self.assertIn('Lette 1 su 3',summary);self.assertIn('CP',summary);self.assertIn('GC',summary)
  def test_setup_dependencies_are_pinned(self):
   requirements=pathlib.Path('ore-produttivita/crm-sync/requirements.txt').read_text()
-  self.assertEqual(len(requirements.splitlines()),3)
-  for line in requirements.splitlines():self.assertRegex(line,r'^[a-z]+==\d+\.\d+\.\d+$')
+  self.assertEqual(len(requirements.splitlines()),4)
+  for line in requirements.splitlines():self.assertRegex(line,r'^[a-z]+==\d+\.\d+(?:\.\d+)?$')
   setup=pathlib.Path('ore-produttivita/crm-sync/SETUP_SYNC_BACKGROUND.bat').read_text()
   self.assertNotIn('--upgrade',setup);self.assertIn('requirements.txt',setup)
  def test_recovery_defaults_to_preview_and_does_not_import_on_failures(self):
@@ -62,5 +62,14 @@ class AgentTests(unittest.IsolatedAsyncioTestCase):
    env={'exc':Expired('Sessione CRM scaduta'),'LoginRequiredError':Expired,'PartialReadError':Partial,'sys':types.SimpleNamespace(argv=['agent.py','--run'],exit=stopped),'write_status':lambda *args:None,'CONFIG_FILE':config,'json':json,'app_token':lambda *args,**kwargs:'synthetic-token','api':lambda *args,**kwargs:calls.append(kwargs),'AGENT_VERSION':'test'}
    with self.assertRaises(SystemExit) as exited:exec(compile(ast.Module(body=handler.body,type_ignores=[]),'agent-handler','exec'),env)
    self.assertEqual(exited.exception.code,2);self.assertEqual(calls[0]['state'],'login_required');self.assertEqual(calls[0]['agentVersion'],'test')
+ def test_cycle_log_tracks_resources_and_elapsed_since_last_read_without_titles(self):
+  node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='write_status')
+  with tempfile.TemporaryDirectory() as d:
+   env={'APP_DIR':pathlib.Path(d),'STATUS_FILE':pathlib.Path(d)/'status.json','json':json,'AGENT_VERSION':'test'}
+   exec(compile(ast.Module(body=[node],type_ignores=[]),'status-test','exec'),env)
+   env['write_status']('recovery_pending','not logged',{'scanned':1,'scannedResources':['LT'],'saved':0,'title':'private contents'})
+   env['write_status']('login_required','not logged')
+   text=(pathlib.Path(d)/'company-agent-cycles.jsonl').read_text();rows=[json.loads(line) for line in text.splitlines()]
+   self.assertEqual(rows[0]['scannedResources'],['LT']);self.assertEqual(rows[1]['lastSuccessfulReadAt'],rows[0]['updatedAt']);self.assertGreaterEqual(rows[1]['minutesSinceLastSuccessfulRead'],0);self.assertNotIn('private contents',text)
 
 if __name__=='__main__':unittest.main()

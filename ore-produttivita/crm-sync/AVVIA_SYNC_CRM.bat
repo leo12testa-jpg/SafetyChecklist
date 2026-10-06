@@ -17,7 +17,7 @@ py -c "import playwright" >nul 2>nul
 if errorlevel 1 (
   echo.
   echo Prima configurazione: installo Playwright...
-  py -m pip install playwright==1.55.0
+  py -m pip install playwright==1.55.0 tzdata==2026.2
   if errorlevel 1 goto :errore
 )
 

@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const { stripTypeScriptTypes } = require('node:module');
 const source = fs.readFileSync('supabase/functions/ore-produttivita-api/index.ts', 'utf8');
+test('CRM: il server verifica il giorno italiano anche quando UTC è il giorno precedente',()=>{const app=backend();app.context.events=[{date:'2026-10-02',start:'2026-10-01T22:30:00Z',end:'2026-10-01T23:00:00Z'},{date:'2026-10-30',start:'2026-10-29T23:30:00Z',end:'2026-10-30T00:00:00Z'}];vm.runInContext('validateCrmEventTimes(events)',app.context);});
+for(const action of ['ingestAgendaCompany','ingestAgenda'])test(`${action}: fuso esplicito e data locale richiesti prima delle scritture`,async()=>{for(const event of [{date:'2026-10-02',start:'2026-10-02T09:30:00',end:'2026-10-02T13:00:00'},{date:'2026-10-03',start:'2026-10-02T21:30:00Z',end:'2026-10-02T21:45:00Z'}]){const app=backend({role:'admin'});assert.equal((await app.call({action,events:[event]})).status,400);assert.equal(app.dbCalls(),0);}});
 test('tecnico: aggiornamento inventario CRM rifiutato prima del database',async()=>{const app=backend();assert.equal((await app.call({action:'registerCrmResources'})).status,403);assert.equal(app.dbCalls(),0);});
 test('inventario CRM: ID validati, account nel body ignorato e attore imposto dal server',async()=>{
  let args;const app=backend({role:'admin',database:{rpc:async(name,value)=>{assert.equal(name,'ore_registra_inventario_crm');args=value;return {data:{ok:true},error:null};}}});
