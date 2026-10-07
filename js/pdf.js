@@ -69,8 +69,9 @@ const pdf = (() => {
     },
     carrefour: {
       match: 'carrefour',
-      // PNG fornito direttamente: file reale, nessuna conversione WebP/dataURL.
-      logo: { file: 'assets/logo_carrefour.png', larghezzaMax: 40, altezzaMax: 35 },
+      // Il PNG fornito è quello ufficiale. Prima di passarlo a jsPDF lo rasterizziamo in JPEG:
+      // evita gli artefatti che alcuni decoder PNG di jsPDF producono sul lettering Carrefour.
+      logo: { file: 'assets/logo_carrefour.png', larghezzaMax: 40, altezzaMax: 35, forzaJpeg: true },
       coloreBanner: { sfondo: [0, 84, 159], accento: [239, 51, 43] },
       pdf: {}
     }
@@ -142,13 +143,44 @@ const pdf = (() => {
    * direttamente il dataURL evita di dipendere dal supporto WebP del browser/WebView del
    * dispositivo, che può variare tra desktop e mobile.
    */
-  async function caricaLogo(url) {
+  async function rasterizzaLogoComeJpeg(blob) {
+    // In browser convertiamo il raster in RGB/JPEG prima di consegnarlo a jsPDF. Questo evita
+    // gli artefatti osservati sul PNG Carrefour (simbolo corretto, lettering corrotto).
+    // Nei test Node, dove DOM/Image non esistono, manteniamo il dataURL originale.
+    if (typeof document === 'undefined' || typeof Image !== 'function' ||
+        typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+      return blobADataURL(blob);
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const immagine = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Impossibile decodificare il logo cliente.'));
+        img.src = objectUrl;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = immagine.naturalWidth || immagine.width;
+      canvas.height = immagine.naturalHeight || immagine.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas 2D non disponibile per il logo cliente.');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(immagine, 0, 0);
+      return canvas.toDataURL('image/jpeg', 0.96);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
+  async function caricaLogo(url, { forzaJpeg = false } = {}) {
     const risposta = await fetch(url);
     if (!risposta.ok) {
       throw new Error(`Logo non trovato (HTTP ${risposta.status}): ${url}`);
     }
     const blob = await risposta.blob();
-    return blobADataURL(blob);
+    return forzaJpeg ? rasterizzaLogoComeJpeg(blob) : blobADataURL(blob);
   }
 
   /**
@@ -183,7 +215,10 @@ const pdf = (() => {
       altezzaMax: configCliente.logo.altezzaMax || layout.logoClienteDefault.altezzaMax
     };
     try {
-      const url = configCliente.logo.dataURL || await caricaLogo(configCliente.logo.file);
+      const url = configCliente.logo.dataURL || await caricaLogo(
+        configCliente.logo.file,
+        { forzaJpeg: Boolean(configCliente.logo.forzaJpeg) }
+      );
       return { url, ...dimensione };
     } catch (errore) {
       console.error(`[pdf.js] Logo cliente non caricato (${configCliente.logo.file}) per checklist "${checklist.id}" (Punto vendita: "${puntoVendita || ''}"):`, errore);
