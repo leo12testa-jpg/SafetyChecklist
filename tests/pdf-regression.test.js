@@ -365,6 +365,19 @@ for (const cliente of CLIENTI) {
   });
 }
 
+test('Carrefour: usa il PNG fornito ma lo rasterizza in JPEG prima di jsPDF', () => {
+  const motore = creaMotorePdf(FOTO_FIXTURE);
+  const config = motore._test.configClienti.carrefour;
+  assert.equal(config.match, 'carrefour');
+  assert.equal(config.logo.file, 'assets/logo_carrefour.png');
+  assert.ok(fs.existsSync(path.join(PROJECT_ROOT, config.logo.file)));
+  assert.equal(config.logo.forzaJpeg, true);
+  assert.equal(config.logo.larghezzaMax, 40);
+  assert.equal(config.logo.altezzaMax, 35);
+  assert.deepEqual(comeArrayLocale(config.coloreBanner.sfondo), [0, 84, 159]);
+  assert.deepEqual(comeArrayLocale(config.coloreBanner.accento), [239, 51, 43]);
+});
+
 test('Melluso: usa il nuovo logo completo e il colore rosso corretto', () => {
   const motore = creaMotorePdf(FOTO_FIXTURE);
   const config = motore._test.configClienti.melluso;
