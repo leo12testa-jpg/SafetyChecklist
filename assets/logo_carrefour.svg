@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="352" height="306" viewBox="0 0 352 306" role="img" aria-label="Carrefour">
+  <rect width="352" height="306" fill="#fff"/>
+  <g transform="translate(36 20)">
+    <path fill="#EF3129" d="M97 20C77 40 58 59 41 79c-6 7-9 12-9 18s3 11 9 18c17 20 36 39 56 59-8-20-12-45-12-77s4-57 12-77Z"/>
+    <path fill="#0055A4" d="M172 15c-22 0-40 18-40 40 0 12 5 23 13 31-24 0-43 20-43 44 0 24 19 44 43 44-8 8-13 19-13 31 0 22 18 40 40 40 10 0 20-4 27-10l56-55c7-7 7-18 0-25l-56-55c-7-7-17-10-27-10Zm12 56c13 0 24 11 24 24s-11 24-24 24-24-11-24-24 11-24 24-24Zm0 84c13 0 24 11 24 24s-11 24-24 24-24-11-24-24 11-24 24-24Z"/>
+    <path fill="#fff" d="M155 83c8 8 19 12 30 12 12 0 22-4 30-12-5 15-5 30 0 45-8-8-18-12-30-12-11 0-22 4-30 12 5-15 5-30 0-45Z"/>
+  </g>
+  <text x="176" y="266" text-anchor="middle" fill="#0055A4" font-family="Georgia, 'Times New Roman', serif" font-size="60" font-weight="700" letter-spacing="-3">Carrefour</text>
+</svg>
