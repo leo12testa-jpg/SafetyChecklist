@@ -111,6 +111,51 @@ const checklistEngine = (() => {
     indice = primaSenzaRisposta === -1 ? domande.length - 1 : primaSenzaRisposta;
   }
 
+  function normalizzaRicerca(testo) {
+    return String(testo || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase('it-IT')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
+   * Ricerca veloce nella checklist attualmente aperta. Ogni parola digitata deve comparire nel
+   * testo della domanda o nel titolo della sezione; i risultati sono ordinati privilegiando le
+   * corrispondenze nel testo domanda e quelle che iniziano con la frase cercata.
+   */
+  function cercaDomande(query, massimo = 10) {
+    const cercato = normalizzaRicerca(query);
+    if (!cercato || !domande.length) return [];
+    const token = cercato.split(' ').filter(Boolean);
+
+    return domande
+      .map(({ sezione, domanda }, i) => {
+        const testo = normalizzaRicerca(domanda.testo);
+        const sezioneNorm = normalizzaRicerca(sezione);
+        const insieme = `${testo} ${sezioneNorm}`;
+        if (!token.every((parola) => insieme.includes(parola))) return null;
+
+        let punteggio = 10;
+        if (testo.includes(cercato)) punteggio -= 5;
+        if (testo.startsWith(cercato)) punteggio -= 3;
+        if (sezioneNorm.includes(cercato)) punteggio -= 1;
+
+        return {
+          indice: i,
+          numero: i + 1,
+          sezione,
+          testo: domanda.testo,
+          domanda_id: domanda.id,
+          punteggio
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.punteggio - b.punteggio || a.indice - b.indice)
+      .slice(0, Math.max(1, Number(massimo) || 10));
+  }
+
   /** Stato della domanda corrente: testo, sezione, progresso ("indice"/"totale") ed eventuale risposta già salvata. */
   function domandaCorrente() {
     if (!domande.length) {
@@ -254,6 +299,7 @@ const checklistEngine = (() => {
     ricaricaSopralluogoCorrente,
     getChecklist,
     calcolaRiepilogo,
+    cercaDomande,
     rispostaHaValore,
     rispostaCompilata,
     _validaChecklist: validaChecklist
