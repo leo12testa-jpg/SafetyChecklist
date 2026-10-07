@@ -931,7 +931,7 @@ Deno.serve(async (req: Request) => {
       requireAdmin(user);
       const [{ data, error }, { data: auditRows, error: auditErr }] = await Promise.all([
         db.from("ore_risorse_crm")
-          .select("id,sigla_crm,nome_crm,tecnico_uid,tecnico_nome,attiva,agenda_crm_attiva,ultima_sync,crm_id,ultima_lettura_at,ultima_data_letta,ultimo_tentativo_at,ultimo_errore_lettura")
+          .select("id,sigla_crm,nome_crm,tecnico_uid,tecnico_nome,attiva,agenda_crm_attiva,collegamento_approvato_at,ultima_sync,crm_id,ultima_lettura_at,ultima_data_letta,ultimo_tentativo_at,ultimo_errore_lettura")
           .eq("attiva", true)
           .order("nome_crm"),
         db.from("ore_audit")
