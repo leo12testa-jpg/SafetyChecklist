@@ -2,13 +2,13 @@
 // autoreferenziale, dato che modificare questo stesso file cambierebbe l'hash finale). Cambia sempre
 // a ogni pubblicazione, cosÃ¬ il browser rileva sempre un service-worker.js diverso byte per byte e
 // installa una cache nuova; l'activate qui sotto elimina da sÃ© quelle vecchie.
-const CACHE_NAME = 'safety-checklist-shell-20261007-162500';
+const CACHE_NAME = 'safety-checklist-shell-20261007-163000';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=20261007-162500',
+  './css/style.css?v=20261007-163000',
   './js/vendor/jspdf.umd.min.js',
   './js/vendor/jspdf.plugin.autotable.min.js',
   './js/vendor/jszip.min.js',
@@ -16,24 +16,24 @@ const APP_SHELL = [
   './js/vendor/firebase-firestore-compat.js',
   './js/vendor/firebase-auth-compat.js',
   './js/firebase-config.js',
-  './js/auth.js?v=20261007-162500',
+  './js/auth.js?v=20261007-163000',
   './js/vendor/supabase.js',
   './js/supabase-config.js',
   './js/vendor/pdf.min.js',
   './js/vendor/pdf.worker.min.js',
-  './js/app.js?v=20261007-162500',
+  './js/app.js?v=20261007-163000',
   './js/identity.js',
-  './js/account-screens.js?v=20261007-162500',
-  './js/db.js?v=20261007-162500',
-  './js/checklist.js?v=20261007-162500',
+  './js/account-screens.js?v=20261007-163000',
+  './js/db.js?v=20261007-163000',
+  './js/checklist.js?v=20261007-163000',
   './js/question-navigator.js',
   './js/foto-sync.js',
-  './js/pdf.js?v=20261007-162500',
-  './js/pdf-import.js?v=20261007-162500',
-  './js/import-matching.js?v=20261007-162500',
+  './js/pdf.js?v=20261007-163000',
+  './js/pdf-import.js?v=20261007-163000',
+  './js/import-matching.js?v=20261007-163000',
   './js/camera.js',
-  './js/sync.js?v=20261007-162500',
-  './js/aggiornamento.js?v=20261007-162500',
+  './js/sync.js?v=20261007-163000',
+  './js/aggiornamento.js?v=20261007-163000',
   './checklists/index.json',
   './checklists/clients.json',
   './checklists/tecnici.json',
@@ -44,7 +44,7 @@ const APP_SHELL = [
   './assets/logo_coin.webp',
   './assets/logo_interparking.webp',
   './assets/logo_restage.png',
-  './assets/logo_melluso.png'
+  './assets/logo_melluso.png',\n  './assets/logo_carrefour.png'
 ];
 
 /** Precachea l'App Shell statica piÃ¹ tutte le checklist elencate in checklists/index.json. */
