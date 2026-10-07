@@ -276,7 +276,9 @@ async def save_crm_auth(context, page):
 
     save_encrypted_crm_payload({
         "storage_state": state,
-        "session_storage": session_data or {}
+        "session_storage": session_data or {},
+        "user_agent": await page.evaluate('navigator.userAgent'),
+        "locale": await page.evaluate('navigator.language')
     })
     cleanup_legacy_crm_credentials()
 
@@ -676,7 +678,11 @@ async def run_once():
     async with async_playwright() as p:
         browser=await p.chromium.launch(headless=True,channel='msedge')
         try:
-            context=await browser.new_context(storage_state=crm_state,viewport={'width':1440,'height':950})
+            saved_profile=load_encrypted_crm_payload() or {}
+            options={'storage_state':crm_state,'viewport':{'width':1440,'height':950},'timezone_id':'Europe/Rome'}
+            if saved_profile.get('user_agent'):options['user_agent']=saved_profile['user_agent']
+            if saved_profile.get('locale'):options['locale']=saved_profile['locale']
+            context=await browser.new_context(**options)
             await restore_crm_session_storage(context)
             page=await context.new_page();await page.goto(AGENDA_URL,wait_until='load',timeout=60000)
             if await login_visible(page):raise LoginRequiredError('Sessione CRM scaduta: eseguire SETUP_SYNC_BACKGROUND.bat.')
