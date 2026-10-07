@@ -19,6 +19,11 @@
       "id": "melluso_sopralluogo",
       "titolo": "Melluso - Sopralluogo",
       "versione": "1.0"
+    },
+    {
+      "id": "carrefour_sopralluogo",
+      "titolo": "Carrefour - Sopralluogo",
+      "versione": "1.0"
     }
   ]
 }
