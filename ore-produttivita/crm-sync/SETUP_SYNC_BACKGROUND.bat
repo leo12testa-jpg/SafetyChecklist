@@ -43,8 +43,9 @@ powershell -NoProfile -Command ^
   "$vbs=$env:SYNC_VBS;" ^
   "$action=New-ScheduledTaskAction -Execute 'wscript.exe' -Argument ('"' + $vbs + '"');" ^
   "$trigger=New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 5);" ^
-  "$settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 4);" ^
-  "Register-ScheduledTask -TaskName $task -Action $action -Trigger $trigger -Settings $settings -Description 'Colligo Ore - sincronizzazione CRM invisibile' -Force | Out-Null"
+  "$logon=New-ScheduledTaskTrigger -AtLogOn -User ([Security.Principal.WindowsIdentity]::GetCurrent().Name);" ^
+  "$settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 10);" ^
+  "Register-ScheduledTask -TaskName $task -Action $action -Trigger @($trigger,$logon) -Settings $settings -Description 'Colligo Ore - lettura CRM a ogni accesso Windows e ogni 5 minuti' -Force | Out-Null"
 if errorlevel 1 (
   echo Metodo ScheduledTasks non disponibile. Provo il fallback...
   schtasks /Create /TN "Colligo Ore CRM Background" /SC MINUTE /MO 5 /TR "wscript.exe "%SYNC_VBS%"" /F >nul

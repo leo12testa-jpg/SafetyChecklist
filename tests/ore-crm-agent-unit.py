@@ -59,9 +59,47 @@ class AgentTests(unittest.IsolatedAsyncioTestCase):
   self.assertIn('-AllowStartIfOnBatteries',setup);self.assertIn('-DontStopIfGoingOnBatteries',setup)
   self.assertIn('-RepetitionInterval (New-TimeSpan -Minutes 5)',setup)
   self.assertNotIn('-ExecutionPolicy Bypass',setup)
+  self.assertIn('-AtLogOn',setup)
+ async def test_cancelled_login_is_not_reopened_every_cycle(self):
+  fn=next(n for n in tree.body if isinstance(n,ast.AsyncFunctionDef) and n.name=='manual_login_once')
+  opened=[]
+  class Context:
+   pages=[]
+   async def new_page(self):return self
+   async def goto(self,*a,**k):pass
+   async def close(self):pass
+  class Driver:
+   async def __aenter__(self):return self
+   async def __aexit__(self,*args):pass
+   @property
+   def chromium(self):return self
+   async def launch_persistent_context(self,*a,**k):opened.append(k);return Context()
+  async def visible(page):return True
+  async def cancelled(page):raise RuntimeError('cancelled')
+  class Login(RuntimeError):pass
+  with tempfile.TemporaryDirectory() as d:
+   env={'APP_DIR':pathlib.Path(d),'PROFILE_DIR':pathlib.Path(d)/'browser','json':json,'login_attempt_key':lambda:'boot:cookie','atomic_json':lambda p,v:p.write_text(json.dumps(v)),'api':lambda *a,**k:None,'AGENT_VERSION':'test','async_playwright':Driver,'AGENDA_URL':'https://example.invalid/','login_visible':visible,'wait_login':cancelled,'LoginRequiredError':Login}
+   exec(compile(ast.Module(body=[fn],type_ignores=[]),'login-test','exec'),env)
+   with self.assertRaises(Login):await env['manual_login_once']('synthetic-token')
+   self.assertFalse(await env['manual_login_once']('synthetic-token'));self.assertEqual(len(opened),1);self.assertFalse(opened[0]['headless'])
+ async def test_manual_login_success_resumes_hidden_cycle_once(self):
+  fn=next(n for n in tree.body if isinstance(n,ast.AsyncFunctionDef) and n.name=='run_with_manual_login')
+  calls=[]
+  class Login(RuntimeError):pass
+  async def run():
+   calls.append('read')
+   if calls.count('read')==1:raise Login('expired')
+  async def prompt(token):calls.append('manual');return True
+  with tempfile.TemporaryDirectory() as d:
+   config=pathlib.Path(d)/'config.json';config.write_text('{"username":"synthetic-admin"}')
+   env={'run_once':run,'LoginRequiredError':Login,'write_status':lambda *a:None,'CONFIG_FILE':config,'json':json,'app_token':lambda *a,**k:'synthetic-token','manual_login_once':prompt}
+   exec(compile(ast.Module(body=[fn],type_ignores=[]),'resume-test','exec'),env)
+   await env['run_with_manual_login']();self.assertEqual(calls,['read','manual','read'])
  def test_recovery_defaults_to_preview_and_does_not_import_on_failures(self):
-  self.assertIn("config.get('recovery_hold',True)",source)
-  self.assertIn('if not failed and not preview:',source)
+  run=next(n for n in tree.body if isinstance(n,ast.AsyncFunctionDef) and n.name=='run_once')
+  imports=[n for n in ast.walk(run) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id=='api' and len(n.args)>1 and isinstance(n.args[1],ast.Constant) and str(n.args[1].value).startswith('ingest')]
+  self.assertEqual(imports,[])
+  self.assertTrue(any(isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='preview' for t in n.targets) and isinstance(n.value,ast.Constant) and n.value.value is True for n in ast.walk(run)))
   self.assertIn('if failed:raise PartialReadError(message)',source)
  def test_expired_login_updates_backend_before_exiting(self):
   main=next(n for n in tree.body if isinstance(n,ast.If) and isinstance(n.test,ast.Compare) and isinstance(n.test.left,ast.Name) and n.test.left.id=='__name__')

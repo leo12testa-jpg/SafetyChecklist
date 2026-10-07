@@ -629,7 +629,7 @@ async function loadAdmin(){
         agentAlert.hidden=false;$("#crmAgentAlertTitle").textContent="CRM: recupero in attesa di conferma";$("#crmAgentAlertText").textContent=heartbeat?.message||"Lettura completata in anteprima, nessuna importazione.";
       }else if(inactive){
         $("#crmAgentAlertTitle").textContent=heartbeatState==="login_required"
-          ?"CRM: sessione scaduta"
+          ?"CRM: login richiesto"
           :"Sincronizzazione CRM automatica non attiva";
         $("#crmAgentAlertText").textContent=heartbeat?.message
           ||"L’agente aziendale non sta inviando heartbeat recenti.";

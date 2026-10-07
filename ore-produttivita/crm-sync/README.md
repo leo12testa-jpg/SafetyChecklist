@@ -118,3 +118,13 @@ La configurazione recovery_hold=true è obbligatoria durante il recupero: il cic
 ## Fuso orario CRM
 
 Tutti gli orari visualizzati sono interpretati con zoneinfo Europe/Rome e tzdata==2026.2. Il trasporto usa timestamp UTC con Z. La data di lavoro resta il giorno italiano, anche se UTC è il giorno precedente. A mezzanotte gli eventi sono separati conservando la durata totale; i casi ambigui o inesistenti al cambio ora fermano la lettura con segnalazione. Gli ID per gli eventi nello stesso giorno restano invariati. L’API rifiuta gli agenti precedenti che inviano orari senza fuso. Non correggere lo storico o abilitare importazioni senza approvazione.
+
+## Portatile: avvio, login e recupero (7 ottobre 2026)
+
+Il task parte al primo accesso Windows dopo l’accensione e ogni cinque minuti. Se manca una sessione valida, apre Edge una volta per il login manuale; chiudere o annullare la finestra non causa nuovi popup a ogni ciclo. RUN_COMPANY_SYNC.bat --login non inoltra argomenti: per riprovare usare python crm_company_agent.py --login oppure il setup. Non viene digitata o salvata la password CRM.
+
+Il cursore registra la data effettivamente coperta, separata dall’orario dell’ultima lettura e dall’importazione. Ogni finestra include la precedente giornata coperta e arriva verso oggi; massimo 30 giorni per risorsa/ciclo. Gli arretrati più lunghi vengono letti dai più vecchi ai più recenti nei cicli successivi. Si leggono anche i giorni non lavorativi presenti nella finestra, così eventuali appuntamenti non vengono esclusi d’ufficio.
+
+L’anteprima pendente viene salvata atomicamente prima dei cursori. Riletture uguali non creano righe duplicate; appuntamenti cambiati o non più presenti vengono segnalati da verificare. L’ID attuale dipende da orario/oggetto: non sostituisce un ID stabile del fornitore. Il confronto con sessioni esistenti, alias approvati, giornate confermate e mesi chiusi è solo lettura. Gli import sono bloccati nel codice durante il nuovo collaudo.
+
+Nuovo collaudo: giornata 09:00–18:00 con PC acceso/in carica; spegnimento manuale serale; riaccensione e login manuale il mattino seguente. Il report viene prodotto da crm_workday_trial.py e non interpreta il buco notturno come un errore. Gli esiti di giornata, intervalli senza letture e recupero del giorno precedente sono separati. Lo spegnimento effettivo va verificato dai log Windows o confermato dall’operatore.

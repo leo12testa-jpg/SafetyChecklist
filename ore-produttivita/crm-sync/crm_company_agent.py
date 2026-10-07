@@ -12,6 +12,7 @@ from datetime import date
 from pathlib import Path
 from urllib.parse import urlencode, urlparse, parse_qs
 from crm_time import crm_segments
+from crm_recovery import recovery_plan,combine_reads,merge_preview,annotate_preview
 
 import keyring
 from cryptography.fernet import Fernet, InvalidToken
@@ -31,7 +32,7 @@ class LoginRequiredError(RuntimeError):
 class PartialReadError(RuntimeError):
     pass
 
-AGENT_VERSION="20261006-active-without-crm"
+AGENT_VERSION="20261007-startup-recovery"
 
 APP_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "ColligoOreProduttivita"
 CONFIG_FILE = APP_DIR / "company-agent.json"
@@ -83,7 +84,7 @@ def write_status(state, message, extra=None):
         payload.update(extra)
     STATUS_FILE.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     if state in ('ok','partial','recovery_pending','login_required','error','skipped'):
-        record={key:payload.get(key) for key in ('updatedAt','state','scanned','total','scannedResources','failures','saved')}
+        record={key:payload.get(key) for key in ('updatedAt','state','scanned','total','scannedResources','readRanges','failures','saved')}
         record['agentVersion']=AGENT_VERSION
         record['scanned']=payload.get('scanned',0)
         record['scannedResources']=payload.get('scannedResources',[])
@@ -99,6 +100,14 @@ def write_status(state, message, extra=None):
                     break
         with cycle_log.open('a',encoding='utf-8') as log:
             log.write(json.dumps(record,ensure_ascii=False)+'\n')
+        if (APP_DIR/'workday-trial.json').exists():
+            try:
+                from crm_workday_trial import workday_report,ROME
+                trial=json.loads((APP_DIR/'workday-trial.json').read_text(encoding='utf-8'))
+                rows=[json.loads(line) for line in cycle_log.read_text(encoding='utf-8').splitlines() if line.strip()]
+                rows=sorted((r for r in rows if r.get('agentVersion')==trial['agentVersion']),key=lambda r:r['updatedAt'])
+                atomic_json(APP_DIR/'workday-trial-report.json',workday_report(rows,trial['day'],__import__('datetime').datetime.now(ROME)))
+            except (ValueError,KeyError,OSError):pass  # Reporting cannot block the CRM read.
 
 
 def post_json(url, payload, token=None):
@@ -326,9 +335,10 @@ def norm(v):
 
 
 async def agenda_toolbar(page):
-    for frame in page.frames:
-        if await frame.locator('#cboAgendaToolbar').count():
-            return frame
+    for _ in range(100):
+        for frame in page.frames:
+            if await frame.locator('#cboAgendaToolbar').count():return frame
+        await page.wait_for_timeout(250)
     raise RuntimeError('selettore_agenda_non_trovato')
 
 
@@ -593,6 +603,63 @@ async def setup(username):
     write_status("ready","Login salvato; lettura completa da verificare.",{"resources":len(resources)})
     print("Login salvato. Il setup deve verificare tutte le risorse in modalita invisibile.")
 
+def atomic_json(path,payload):
+    temporary=path.with_suffix(path.suffix+'.tmp')
+    temporary.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
+    temporary.replace(path)
+
+def boot_id():
+    if os.name=='nt':
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,r'SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters') as key:
+                return str(winreg.QueryValueEx(key,'BootId')[0])
+        except OSError:pass
+    return __import__('datetime').datetime.now().astimezone().date().isoformat()
+
+def login_attempt_key():
+    return boot_id()+':'+str(CRM_AUTH_FILE.stat().st_mtime_ns if CRM_AUTH_FILE.exists() else 'missing')
+
+async def manual_login_once(token):
+    marker=APP_DIR/'login-prompt.json';key=login_attempt_key()
+    if marker.exists() and json.loads(marker.read_text(encoding='utf-8')).get('key')==key:return False
+    atomic_json(marker,{'key':key,'openedAt':__import__('datetime').datetime.now().astimezone().isoformat()})
+    api(token,'crmAgentHeartbeat',state='login_required',message='CRM: login richiesto. Completa il login nella finestra Edge; nessuna password viene inserita dall’agente.',agentVersion=AGENT_VERSION)
+    async with async_playwright() as p:
+        try:context=await p.chromium.launch_persistent_context(str(PROFILE_DIR),headless=False,channel='msedge',viewport={'width':1440,'height':950})
+        except Exception:raise LoginRequiredError('CRM: login richiesto. Verifica la finestra Edge già aperta e riprova con --login.') from None
+        try:
+            page=context.pages[0] if context.pages else await context.new_page()
+            await page.goto(AGENDA_URL,wait_until='load',timeout=60000)
+            if await login_visible(page):await wait_login(page)
+            await page.goto(AGENDA_URL,wait_until='load',timeout=60000)
+            if await login_visible(page):return False
+            await agenda_toolbar(page)
+            await save_crm_auth(context,page)
+            return True
+        except Exception:
+            raise LoginRequiredError('CRM: login richiesto. Login non completato o finestra chiusa; nessun tentativo automatico.') from None
+        finally:await context.close()
+
+async def scan_recovery(page,resources,today):
+    cursor_path=APP_DIR/'read-cursors.json'
+    cursors=json.loads(cursor_path.read_text(encoding='utf-8')) if cursor_path.exists() else {}
+    plans=recovery_plan(resources,cursors,today)
+    reads={}
+    for month in sorted({m for p in plans for m in p['months']}):
+        selected={p['sigla'] for p in plans if month in p['months']}
+        reads[month]=await scan_resources(page,[r for r in resources if r['sigla_crm'] in selected],month)
+    return combine_reads(plans,reads,today),cursors
+
+async def run_with_manual_login():
+    try:await run_once()
+    except LoginRequiredError:
+        write_status('login_required','CRM: login richiesto. Completa il login manuale in Edge.')
+        config=json.loads(CONFIG_FILE.read_text(encoding='utf-8'))
+        token=app_token(str(config['username']),interactive=False)
+        if not await manual_login_once(token):raise LoginRequiredError('CRM: login richiesto. La finestra non viene riproposta a ogni ciclo; usa --login per riprovare.')
+        await run_once()
+
 
 async def run_once():
     if not CONFIG_FILE.exists():raise RuntimeError('Agente non configurato. Esegui SETUP_SYNC_BACKGROUND.bat.')
@@ -602,38 +669,47 @@ async def run_once():
     token=app_token(username,interactive=False)
     api(token,'crmAgentHeartbeat',state='starting',message='Avvio lettura CRM aziendale.',agentVersion=AGENT_VERSION)
     crm_state=load_crm_state()
-    if not crm_state:
-        api(token,'crmAgentHeartbeat',state='login_required',message='Sessione CRM background non disponibile: rieseguire la configurazione.',agentVersion=AGENT_VERSION)
-        raise LoginRequiredError('Sessione CRM background non disponibile.')
+    if not crm_state:raise LoginRequiredError('Sessione CRM non disponibile.')
     async with async_playwright() as p:
         browser=await p.chromium.launch(headless=True,channel='msedge')
         try:
             context=await browser.new_context(storage_state=crm_state,viewport={'width':1440,'height':950})
             await restore_crm_session_storage(context)
-            page=await context.new_page();await page.goto(AGENDA_URL,wait_until='domcontentloaded',timeout=60000)
+            page=await context.new_page();await page.goto(AGENDA_URL,wait_until='load',timeout=60000)
             if await login_visible(page):raise LoginRequiredError('Sessione CRM scaduta: eseguire SETUP_SYNC_BACKGROUND.bat.')
             await (await agenda_toolbar(page)).locator('#cboAgendaToolbar').wait_for(state='visible')
             inventory=await discover_resources(page)
             api(token,'registerCrmResources',resources=inventory)
             resources=api(token,'crmResources').get('resources',[])
-            result=await scan_resources(page,resources,date.today().strftime('%Y%m'))
+            today=__import__('datetime').datetime.now(__import__('zoneinfo').ZoneInfo('Europe/Rome')).date().isoformat()
+            result,cursors=await scan_recovery(page,resources,today)
             await save_crm_auth(context,page)
         finally:await browser.close()
-    if len(result['events'])>1500:raise RuntimeError('troppi_eventi_nel_ciclo')
     message=scan_summary(result)
     failed=bool(result['failures'])
     # Recovery requires a separate human approval; a repaired selector must not trigger backfill.
-    preview=config.get('recovery_hold',True) or '--preview' in sys.argv
+    preview=True  # Import explicitly blocked until the new workday/restart test is approved.
     state='partial' if failed else 'recovery_pending' if preview else 'ok'
     saved=0
-    if not failed and not preview:
-        response=api(token,'ingestAgendaCompany',events=result['events'],scannedResources=result['scanned'],date=date.today().isoformat())
-        saved=response.get('saved',0)
     if preview:
-        (APP_DIR/'recovery-preview.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
+        path=APP_DIR/'recovery-preview.json'
+        previous=json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+        pending=merge_preview(previous,result)
+        for e in pending['events']:
+            e['importReview']='data_futura_non_da_importare' if e['date']>today else 'vincoli_da_aggiornare'
+        for window in { (p['from'],p['to']) for p in result['ranges'] }:
+            constraints=api(token,'crmRecoveryConstraints',**{'from':window[0],'to':window[1]})
+            subset={'events':[e for e in pending['events'] if window[0]<=e['date']<=window[1]]}
+            annotate_preview(subset,resources,constraints)
+        pending['importsBlocked']=True
+        atomic_json(path,pending)  # Save observations before advancing any read cursor.
+        for p in result['ranges']:
+            if p['sigla'] in result['scanned']:cursors[p['sigla']]=p['to']
+        atomic_json(APP_DIR/'read-cursors.json',cursors)
         message+='; anteprima, nessuna importazione.'
-    api(token,'crmAgentHeartbeat',state=state,message=message,scanned=len(result['scanned']),events=len(result['events']),saved=saved,failures=len(result['failures']),failureDetails=result['failures'],scannedResources=result['scanned'],agentVersion=AGENT_VERSION)
-    write_status(state,message,{'scanned':len(result['scanned']),'total':result['total'],'scannedResources':result['scanned'],'events':len(result['events']),'saved':saved,'failures':result['failures'],'agentVersion':AGENT_VERSION})
+        if any(p['remaining'] for p in result['ranges']):message+=' Recupero più vecchio: prosegue nel prossimo ciclo.'
+    api(token,'crmAgentHeartbeat',state=state,message=message,scanned=len(result['scanned']),events=len(result['events']),saved=saved,failures=len(result['failures']),failureDetails=result['failures'],scannedResources=result['scanned'],readRanges=[p for p in result['ranges'] if p['sigla'] in result['scanned']],agentVersion=AGENT_VERSION)
+    write_status(state,message,{'scanned':len(result['scanned']),'total':result['total'],'scannedResources':result['scanned'],'readRanges':result['ranges'],'events':len(result['events']),'saved':saved,'failures':result['failures'],'agentVersion':AGENT_VERSION})
     print(message)
     if failed:raise PartialReadError(message)
 
@@ -653,7 +729,10 @@ async def main():
             raise RuntimeError("Username mancante.")
         await setup(username)
         return
-    await run_once()
+    if '--login' in args:
+        marker=APP_DIR/'login-prompt.json'
+        if marker.exists():marker.unlink()
+    await run_with_manual_login()
 
 
 if __name__=="__main__":

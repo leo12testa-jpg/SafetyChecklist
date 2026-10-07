@@ -180,7 +180,7 @@ const ACTION_ROLES: Record<string, readonly string[]> = {
   ingestAgenda: ["direzione", "admin_operativo", "tecnico"], syncStatus: ["direzione", "admin_operativo", "tecnico"],
   resolveSyncIssue: ["direzione", "admin_operativo", "tecnico"],
   importPlanner: ["direzione", "admin_operativo"], importHistoryBatch: ["direzione", "admin_operativo"],
-  crmResources: ["direzione", "admin_operativo"], crmAgentHeartbeat: ["direzione", "admin_operativo"], ingestAgendaCompany: ["direzione", "admin_operativo"],
+  crmResources: ["direzione", "admin_operativo"], crmRecoveryConstraints:["direzione", "admin_operativo"], crmAgentHeartbeat: ["direzione", "admin_operativo"], ingestAgendaCompany: ["direzione", "admin_operativo"],
   economicsCatalog: ["direzione"], saveTechnicianCost: ["direzione"], saveJobEconomics: ["direzione"],
   adminEconomics: ["direzione"], archiveJobs: ["direzione", "admin_operativo"], archiveJobDetail: ["direzione", "admin_operativo"],
   adminSummary: ["direzione", "admin_operativo"], crmLinks: ["direzione", "admin_operativo"], previewCrmLink: ["direzione", "admin_operativo"], approveCrmLink: ["direzione", "admin_operativo"],
@@ -915,11 +915,23 @@ Deno.serve(async (req: Request) => {
       return respond(data);
     }
 
+    if(action === "crmRecoveryConstraints"){
+      const from=dateOnly(body.from),to=dateOnly(body.to);
+      const span=(Date.parse(to)-Date.parse(from))/86400000;
+      if(!Number.isFinite(span)||span<0||span>29)bad("La finestra di recupero deve contenere al massimo 30 giorni.");
+      const results=await Promise.all([
+        readAll(()=>db.from("ore_sessioni").select("id,tecnico_uid,data_lavoro,crm_event_id,inizio,fine,confermata,modificata_manualmente").gte("data_lavoro",from).lte("data_lavoro",to)),
+        readAll(()=>db.from("ore_giornate").select("id,tecnico_uid,data,stato").gte("data",from).lte("data",to)),
+        readAll(()=>db.from("ore_chiusure_mensili").select("mese,chiuso").gte("mese",from.slice(0,7)+"-01").lte("mese",to.slice(0,7)+"-01"),"mese"),
+        readAll(()=>db.from("ore_identita_alias").select("uid_storico,tecnico_uid,approvato_at"),"uid_storico")]);
+      if(results.some(r=>r.error))bad("Impossibile verificare i blocchi del recupero.",503);
+      return respond({from,to,sessions:results[0].data,days:results[1].data,months:results[2].data,aliases:(results[3].data||[]).filter((a:any)=>a.approvato_at)});
+    }
     if (action === "crmResources") {
       requireAdmin(user);
       const [{ data, error }, { data: auditRows, error: auditErr }] = await Promise.all([
         db.from("ore_risorse_crm")
-          .select("id,sigla_crm,nome_crm,tecnico_uid,tecnico_nome,attiva,agenda_crm_attiva,ultima_sync,crm_id,ultima_lettura_at,ultimo_tentativo_at,ultimo_errore_lettura")
+          .select("id,sigla_crm,nome_crm,tecnico_uid,tecnico_nome,attiva,agenda_crm_attiva,ultima_sync,crm_id,ultima_lettura_at,ultima_data_letta,ultimo_tentativo_at,ultimo_errore_lettura")
           .eq("attiva", true)
           .order("nome_crm"),
         db.from("ore_audit")
@@ -965,6 +977,7 @@ Deno.serve(async (req: Request) => {
       const details = {
         state:state==="ok"&&Number(body.failures)>0?"partial":state,
         scanned_resources:(Array.isArray(body.scannedResources)?body.scannedResources:[]).map((v:any)=>String(v).trim()).filter((v:string)=>/^[A-Z0-9:_-]{1,20}$/.test(v)).slice(0,100),
+        read_ranges:(Array.isArray(body.readRanges)?body.readRanges:[]).map((r:any)=>({sigla:String(r.sigla||""),from:dateOnly(r.from),to:dateOnly(r.to)})).filter((r:any)=>/^[A-Z0-9:_-]{1,20}$/.test(r.sigla)&&Date.parse(r.to)>=Date.parse(r.from)&&Date.parse(r.to)-Date.parse(r.from)<=29*86400000),
         message: String(body.message || "").trim().slice(0, 300) || null,
         scanned: Math.max(0, Number(body.scanned || 0) || 0),
         events: Math.max(0, Number(body.events || 0) || 0),

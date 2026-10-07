@@ -1,0 +1,2 @@
+const test=require('node:test'),assert=require('node:assert/strict'),{spawnSync}=require('node:child_process');
+test('recupero CRM: riavvio, mesi, arretrati oltre 30 giorni, idempotenza e blocchi',()=>{const r=spawnSync(process.env.PYTHON||'python',['tests/ore-crm-recovery-unit.py'],{encoding:'utf8',windowsHide:true,timeout:30000});assert.equal(r.status,0,r.stderr||r.error?.message);assert.match(r.stderr,/Ran 11 tests/);});
