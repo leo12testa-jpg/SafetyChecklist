@@ -46,14 +46,26 @@ const storicoFiltri = (() => {
     const clienteFiltro = trovaClientePerNome(filtro, clienti);
     if (!clienteFiltro) return false;
 
-    // Percorso normale e autorevole.
+    const pv = normalizza(sopralluogo?.punto_vendita);
+    const nome = normalizza(clienteFiltro.nome);
+
+    // Percorso normale e autorevole: id corrente dichiarato in clients.json.
     if (checklistId !== null && checklistId !== undefined && checklistId !== '') {
-      return idsCliente(clienteFiltro).includes(String(checklistId));
+      const id = String(checklistId);
+      if (idsCliente(clienteFiltro).includes(id)) return true;
+
+      // Compatibilità con sopralluoghi creati da revisioni precedenti dell'app: in passato
+      // alcuni record hanno conservato id checklist diversi da quelli oggi nel manifest
+      // (es. "coin", "coin_checklist", ecc.). Non vanno fatti sparire dal filtro Cliente.
+      // Il nome cliente dentro l'id è un segnale stabile e più affidabile del nome sede.
+      if (nome && normalizza(id).includes(nome)) return true;
+
+      // Ultimo fallback per record legacy con id non più riconoscibile ma sede esplicitamente
+      // intestata col cliente. Non modifica/migra il record: serve solo a renderlo trovabile.
+      return Boolean(nome && (pv === nome || pv.includes(nome)));
     }
 
     // Compatibilità con eventuali record legacy senza checklist_id.
-    const pv = normalizza(sopralluogo?.punto_vendita);
-    const nome = normalizza(clienteFiltro.nome);
     return Boolean(nome && (pv === nome || pv.includes(nome)));
   }
 
