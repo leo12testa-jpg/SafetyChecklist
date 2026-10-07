@@ -69,8 +69,8 @@ const pdf = (() => {
     },
     carrefour: {
       match: 'carrefour',
-      // Logo fornito direttamente dal cliente: incorporato per evitare asset mancanti/cache stale.
-      logo: { dataURL: CARREFOUR_LOGO_DATA_URL, larghezzaMax: 40, altezzaMax: 35 },
+      // PNG fornito direttamente: file reale, nessuna conversione WebP/dataURL.
+      logo: { file: 'assets/logo_carrefour.png', larghezzaMax: 40, altezzaMax: 35 },
       coloreBanner: { sfondo: [0, 84, 159], accento: [239, 51, 43] },
       pdf: {}
     }
