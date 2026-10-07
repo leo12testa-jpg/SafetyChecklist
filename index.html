@@ -320,6 +320,20 @@
 
         <p class="banner-avviso" id="compilazione-banner-import" hidden>⚠️ Dati importati da PDF: verifica ogni risposta prima di generare il nuovo report.</p>
 
+        <div class="compilazione-ricerca" id="compilazione-ricerca">
+          <label for="compilazione-ricerca-input">Cerca velocemente una domanda</label>
+          <div class="compilazione-ricerca-campo">
+            <span aria-hidden="true">⌕</span>
+            <input type="search" id="compilazione-ricerca-input"
+                   placeholder="Es. estintori, formazione, RLS, pavimentazione…"
+                   autocomplete="off" spellcheck="false"
+                   aria-controls="compilazione-ricerca-risultati"
+                   aria-expanded="false">
+          </div>
+          <div class="compilazione-ricerca-risultati" id="compilazione-ricerca-risultati"
+               role="listbox" aria-label="Risultati ricerca domande" hidden></div>
+        </div>
+
         <div class="compilazione-progress-card">
           <div class="macro-gruppi-tabs" id="macro-gruppi-tabs" hidden>
             <button type="button" class="macro-gruppo-tab" id="tab-gruppo-1" data-gruppo="0">Analisi documentale</button>
@@ -810,6 +824,7 @@
   <script src="js/identity.js"></script>
   <script src="js/checklist.js?v=20261007-142710"></script>
   <script src="js/question-navigator.js"></script>
+  <script src="js/storico-filtri.js?v=20261007-142710"></script>
   <script src="js/foto-sync.js?v=20261007-142710"></script>
   <script src="js/camera.js"></script>
   <script src="js/pdf.js?v=20261007-142710"></script>
