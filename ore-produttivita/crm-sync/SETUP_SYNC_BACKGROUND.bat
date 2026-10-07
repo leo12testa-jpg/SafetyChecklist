@@ -37,13 +37,13 @@ echo.
 echo Registro la sincronizzazione automatica ogni 5 minuti...
 set "SYNC_VBS=%~dp0RUN_COMPANY_SYNC.vbs"
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+powershell -NoProfile -Command ^
   "$ErrorActionPreference='Stop';" ^
   "$task='Colligo Ore CRM Background';" ^
   "$vbs=$env:SYNC_VBS;" ^
   "$action=New-ScheduledTaskAction -Execute 'wscript.exe' -Argument ('"' + $vbs + '"');" ^
   "$trigger=New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 5);" ^
-  "$settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 4);" ^
+  "$settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 4);" ^
   "Register-ScheduledTask -TaskName $task -Action $action -Trigger $trigger -Settings $settings -Description 'Colligo Ore - sincronizzazione CRM invisibile' -Force | Out-Null"
 if errorlevel 1 (
   echo Metodo ScheduledTasks non disponibile. Provo il fallback...

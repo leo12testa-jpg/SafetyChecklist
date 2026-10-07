@@ -54,6 +54,11 @@ class AgentTests(unittest.IsolatedAsyncioTestCase):
   for line in requirements.splitlines():self.assertRegex(line,r'^[a-z]+==\d+\.\d+(?:\.\d+)?$')
   setup=pathlib.Path('ore-produttivita/crm-sync/SETUP_SYNC_BACKGROUND.bat').read_text()
   self.assertNotIn('--upgrade',setup);self.assertIn('requirements.txt',setup)
+ def test_setup_allows_five_minute_cycles_on_battery(self):
+  setup=pathlib.Path('ore-produttivita/crm-sync/SETUP_SYNC_BACKGROUND.bat').read_text()
+  self.assertIn('-AllowStartIfOnBatteries',setup);self.assertIn('-DontStopIfGoingOnBatteries',setup)
+  self.assertIn('-RepetitionInterval (New-TimeSpan -Minutes 5)',setup)
+  self.assertNotIn('-ExecutionPolicy Bypass',setup)
  def test_recovery_defaults_to_preview_and_does_not_import_on_failures(self):
   self.assertIn("config.get('recovery_hold',True)",source)
   self.assertIn('if not failed and not preview:',source)
