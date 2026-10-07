@@ -418,6 +418,8 @@ const nuovoSopralluogoScreen = (() => {
   const inputNomeRls = document.getElementById('input-nome-rls');
   const selectChecklist = document.getElementById('select-checklist');
   const datiSopralluogoContainer = document.getElementById('dati-sopralluogo');
+  const logoClientePreview = document.getElementById('cliente-logo-preview');
+  const logoClientePreviewImg = document.getElementById('cliente-logo-preview-img');
 
   const labelPuntoVenditaTesto = document.getElementById('label-input-punto-vendita-testo');
   const labelIndirizzoTesto = document.getElementById('label-input-indirizzo-testo');
@@ -458,9 +460,32 @@ const nuovoSopralluogoScreen = (() => {
     labelNomeRls.hidden = !(checklistAmmetteNomeRls(selectChecklist.value) && selectPresenzaRls.value === 'Sì');
   }
 
+  const LOGHI_CLIENTE_PER_CHECKLIST = {
+    coin_sopralluogo: 'assets/logo_coin.webp',
+    interparking_sopralluogo: 'assets/logo_interparking.webp',
+    restage_sopralluogo: 'assets/logo_restage.png',
+    melluso_sopralluogo: 'assets/logo_melluso.png',
+    carrefour_sopralluogo: 'assets/logo_carrefour.svg'
+  };
+
+  function aggiornaLogoClientePreview(checklistId) {
+    const src = LOGHI_CLIENTE_PER_CHECKLIST[checklistId] || '';
+    if (!src) {
+      logoClientePreview.hidden = true;
+      logoClientePreviewImg.removeAttribute('src');
+      logoClientePreviewImg.alt = '';
+      return;
+    }
+    const checklist = checklistDisponibili.find((c) => c.id === checklistId);
+    logoClientePreviewImg.src = src;
+    logoClientePreviewImg.alt = checklist ? `Logo ${checklist.titolo.replace(/\s*-\s*Sopralluogo$/i, '')}` : 'Logo cliente';
+    logoClientePreview.hidden = false;
+  }
+
   /** Etichette anagrafiche (Punto vendita/Indirizzo/Responsabile/presenza responsabile) coerenti con la checklist attualmente selezionata. */
   function aggiornaEtichetteAnagrafica() {
     const checklistId = selectChecklist.value;
+    aggiornaLogoClientePreview(checklistId);
 
     // Il resto del form (tutti i campi anagrafici) resta nascosto finché non è stata scelta una
     // checklist valida: è la selezione della checklist a decidere il layout del form, non il testo
