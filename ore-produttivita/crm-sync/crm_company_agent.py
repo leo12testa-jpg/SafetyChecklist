@@ -107,7 +107,7 @@ def write_status(state, message, extra=None):
                 rows=[json.loads(line) for line in cycle_log.read_text(encoding='utf-8').splitlines() if line.strip()]
                 rows=sorted((r for r in rows if r.get('agentVersion')==trial['agentVersion']),key=lambda r:r['updatedAt'])
                 atomic_json(APP_DIR/'workday-trial-report.json',workday_report(rows,trial['day'],__import__('datetime').datetime.now(ROME)))
-            except (ValueError,KeyError,OSError):pass  # Reporting cannot block the CRM read.
+            except (ValueError,KeyError,OSError,ImportError):pass  # Reporting cannot block the CRM read.
 
 
 def post_json(url, payload, token=None):
@@ -591,13 +591,8 @@ async def setup(username):
             str(PROFILE_DIR),headless=False,channel="msedge",viewport={"width":1440,"height":950}
         )
         page=browser.pages[0] if browser.pages else await browser.new_page()
-        await page.goto(AGENDA_URL,wait_until="domcontentloaded",timeout=60000)
-        if await login_visible(page):
-            await wait_login(page)
-        await page.goto(AGENDA_URL,wait_until="domcontentloaded",timeout=60000)
-        await page.wait_for_timeout(1800)
-        if await login_visible(page):
-            raise RuntimeError("Il CRM risulta ancora sulla schermata di accesso.")
+        await page.goto(AGENDA_URL,wait_until="load",timeout=60000)
+        await wait_crm_access(page)
         await save_crm_auth(browser, page)
         await browser.close()
     write_status("ready","Login salvato; lettura completa da verificare.",{"resources":len(resources)})
