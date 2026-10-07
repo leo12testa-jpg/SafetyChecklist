@@ -2394,7 +2394,7 @@ const storicoScreen = (() => {
   let dataDaAttiva = '';
   let dataAAttiva = '';
   let ordinamentoAttivo = 'data-desc';
-  let nomiClientiConfigurati = [];
+  let clientiConfigurati = [];
   let testoRicerca = '';
   let timerDebounce = null;
   const selezionati = new Set();
@@ -2412,7 +2412,7 @@ const storicoScreen = (() => {
   async function popolaFiltroCliente() {
     let clienti = [];
     try {
-      const risposta = await fetch('checklists/clients.json');
+      const risposta = await fetch('checklists/clients.json', { cache: 'no-store' });
       if (!risposta.ok) {
         throw new Error(`HTTP ${risposta.status}`);
       }
@@ -2420,7 +2420,7 @@ const storicoScreen = (() => {
     } catch (errore) {
       console.error('[app.js] Impossibile caricare checklists/clients.json per il filtro Storico:', errore);
     }
-    nomiClientiConfigurati = clienti.map((c) => c.nome);
+    clientiConfigurati = clienti;
 
     Array.from(filtroClienteContainer.options).forEach((opzione) => {
       if (opzione.value !== '' && opzione.value !== VALORE_CLIENTE_ALTRO) {
@@ -2437,20 +2437,13 @@ const storicoScreen = (() => {
   }
 
   /**
-   * Match sul "Punto vendita" del sopralluogo (stessa logica esatta, case-insensitive, di
-   * filtraChecklistPerCliente in nuovoSopralluogoScreen — non più sul checklist_id): "Altro"
-   * cattura i sopralluoghi il cui punto vendita non combacia con nessun cliente configurato
-   * (incluso il caso di punto vendita vuoto, ora possibile con l'anagrafica facoltativa).
+   * Il cliente deriva dalla checklist usata dal sopralluogo (checklists/clients.json), non dal
+   * testo libero "Punto vendita": una sede può chiamarsi "Rho", "Quinto Alpini", ecc. e restare
+   * comunque correttamente filtrata come Interparking/Carrefour/Coin. Per i rarissimi record
+   * legacy privi di checklist_id, storicoFiltri mantiene un fallback sul testo.
    */
   function corrispondeCliente(sopralluogo, filtro) {
-    if (!filtro) {
-      return true;
-    }
-    const puntoVendita = String(sopralluogo.punto_vendita || '').toLowerCase();
-    if (filtro === VALORE_CLIENTE_ALTRO) {
-      return !nomiClientiConfigurati.some((nome) => nome.toLowerCase() === puntoVendita);
-    }
-    return puntoVendita === filtro.toLowerCase();
+    return storicoFiltri.corrispondeCliente(sopralluogo, filtro, clientiConfigurati);
   }
 
   async function popolaFiltroChecklist() {
