@@ -365,6 +365,18 @@ for (const cliente of CLIENTI) {
   });
 }
 
+test('Carrefour: usa il logo fornito incorporato e i colori del marchio', () => {
+  const motore = creaMotorePdf(FOTO_FIXTURE);
+  const config = motore._test.configClienti.carrefour;
+  assert.equal(config.match, 'carrefour');
+  assert.match(config.logo.dataURL, /^data:image\/webp;base64,/);
+  assert.ok(config.logo.dataURL.length > 5000);
+  assert.equal(config.logo.larghezzaMax, 40);
+  assert.equal(config.logo.altezzaMax, 35);
+  assert.deepEqual(comeArrayLocale(config.coloreBanner.sfondo), [0, 84, 159]);
+  assert.deepEqual(comeArrayLocale(config.coloreBanner.accento), [239, 51, 43]);
+});
+
 test('Melluso: usa il nuovo logo completo e il colore rosso corretto', () => {
   const motore = creaMotorePdf(FOTO_FIXTURE);
   const config = motore._test.configClienti.melluso;
