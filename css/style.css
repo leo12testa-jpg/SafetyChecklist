@@ -2648,3 +2648,26 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
     right: 10px;
   }
 }
+
+
+/* Logo cliente nel form Nuovo sopralluogo: anteprima compatta, senza alterare il layout mobile. */
+.cliente-logo-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 72px;
+  margin: -4px 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border, #d9dee7);
+  border-radius: 12px;
+  background: #fff;
+}
+.cliente-logo-preview[hidden] { display: none !important; }
+.cliente-logo-preview img {
+  display: block;
+  max-width: min(220px, 72vw);
+  max-height: 86px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
