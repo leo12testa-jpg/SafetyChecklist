@@ -66,6 +66,12 @@ const pdf = (() => {
       logo: { file: 'assets/logo_melluso.png', larghezzaMax: 40, altezzaMax: 28 },
       coloreBanner: { sfondo: [200, 2, 52] }, // #c80234, rosso Melluso
       pdf: {}
+    },
+    carrefour: {
+      match: 'carrefour',
+      logo: { file: 'assets/logo_carrefour.svg', larghezzaMax: 36, altezzaMax: 31 },
+      coloreBanner: { sfondo: [0, 85, 164], accento: [239, 49, 41] }, // blu/rosso Carrefour
+      pdf: {}
     }
   };
 
@@ -141,6 +147,30 @@ const pdf = (() => {
       throw new Error(`Logo non trovato (HTTP ${risposta.status}): ${url}`);
     }
     const blob = await risposta.blob();
+
+    // jsPDF gestisce direttamente PNG/JPEG/WEBP, ma non tutti i browser/plugin gestiscono SVG
+    // nello stesso modo. Per i loghi SVG li rasterizziamo una sola volta in PNG trasparente.
+    if (blob.type === 'image/svg+xml' || /\.svg(?:$|\?)/i.test(String(url))) {
+      if (typeof document === 'undefined' || typeof Image !== 'function') {
+        throw new Error(`Impossibile rasterizzare il logo SVG in questo ambiente: ${url}`);
+      }
+      const dataSvg = await blobADataURL(blob);
+      const img = new Image();
+      const caricato = new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = () => reject(new Error(`Logo SVG non decodificabile: ${url}`));
+      });
+      img.src = dataSvg;
+      await caricato;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, img.naturalWidth || img.width || 700);
+      canvas.height = Math.max(1, img.naturalHeight || img.height || 600);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error(`Canvas non disponibile per il logo: ${url}`);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/png');
+    }
+
     return blobADataURL(blob);
   }
 
