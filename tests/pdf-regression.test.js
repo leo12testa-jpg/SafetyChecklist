@@ -408,6 +408,13 @@ test('CONFIG_CLIENTI: colore banner corretto per ciascun cliente', () => {
   assert.deepEqual(comeArrayLocale(motore._test.configClienti.interparking.coloreBanner.accento), [255, 220, 69]);
   assert.deepEqual(comeArrayLocale(motore._test.configClienti.restage.coloreBanner.sfondo), [28, 66, 36]);
   assert.deepEqual(comeArrayLocale(motore._test.configClienti.melluso.coloreBanner.sfondo), [200, 2, 52]);
+  assert.deepEqual(comeArrayLocale(motore._test.configClienti.carrefour.coloreBanner.sfondo), [0, 85, 164]);
+  assert.deepEqual(comeArrayLocale(motore._test.configClienti.carrefour.coloreBanner.accento), [239, 49, 41]);
+  assert.equal(motore._test.configClienti.carrefour.logo.file, 'assets/logo_carrefour.svg');
+  assert.equal(
+    motore._test.risolviConfigCliente(caricaChecklist('carrefour_sopralluogo.json')),
+    motore._test.configClienti.carrefour
+  );
 });
 
 test('creaLayout: margini e dimensioni derivano SEMPRE dalla pagina reale del documento, mai da costanti fisse', () => {
