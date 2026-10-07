@@ -620,6 +620,17 @@ def boot_id():
 def login_attempt_key():
     return boot_id()+':'+str(CRM_AUTH_FILE.stat().st_mtime_ns if CRM_AUTH_FILE.exists() else 'missing')
 
+async def wait_crm_access(page):
+    # A missing password field during a redirect does not prove a completed login.
+    for _ in range(300):
+        if not await login_visible(page):
+            for frame in page.frames:
+                if await frame.locator('#cboAgendaToolbar').count():
+                    await frame.locator('#cboAgendaToolbar').wait_for(state='visible',timeout=25000)
+                    return
+        await page.wait_for_timeout(1000)
+    raise LoginRequiredError('CRM: login richiesto. Accesso manuale non completato entro cinque minuti.')
+
 async def manual_login_once(token):
     marker=APP_DIR/'login-prompt.json';key=login_attempt_key()
     if marker.exists() and json.loads(marker.read_text(encoding='utf-8')).get('key')==key:return False
@@ -631,10 +642,7 @@ async def manual_login_once(token):
         try:
             page=context.pages[0] if context.pages else await context.new_page()
             await page.goto(AGENDA_URL,wait_until='load',timeout=60000)
-            if await login_visible(page):await wait_login(page)
-            await page.goto(AGENDA_URL,wait_until='load',timeout=60000)
-            if await login_visible(page):return False
-            await agenda_toolbar(page)
+            await wait_crm_access(page)
             await save_crm_auth(context,page)
             return True
         except Exception:

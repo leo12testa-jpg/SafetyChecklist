@@ -78,7 +78,7 @@ class AgentTests(unittest.IsolatedAsyncioTestCase):
   async def cancelled(page):raise RuntimeError('cancelled')
   class Login(RuntimeError):pass
   with tempfile.TemporaryDirectory() as d:
-   env={'APP_DIR':pathlib.Path(d),'PROFILE_DIR':pathlib.Path(d)/'browser','json':json,'login_attempt_key':lambda:'boot:cookie','atomic_json':lambda p,v:p.write_text(json.dumps(v)),'api':lambda *a,**k:None,'AGENT_VERSION':'test','async_playwright':Driver,'AGENDA_URL':'https://example.invalid/','login_visible':visible,'wait_login':cancelled,'LoginRequiredError':Login}
+   env={'APP_DIR':pathlib.Path(d),'PROFILE_DIR':pathlib.Path(d)/'browser','json':json,'login_attempt_key':lambda:'boot:cookie','atomic_json':lambda p,v:p.write_text(json.dumps(v)),'api':lambda *a,**k:None,'AGENT_VERSION':'test','async_playwright':Driver,'AGENDA_URL':'https://example.invalid/','wait_crm_access':cancelled,'LoginRequiredError':Login}
    exec(compile(ast.Module(body=[fn],type_ignores=[]),'login-test','exec'),env)
    with self.assertRaises(Login):await env['manual_login_once']('synthetic-token')
    self.assertFalse(await env['manual_login_once']('synthetic-token'));self.assertEqual(len(opened),1);self.assertFalse(opened[0]['headless'])
