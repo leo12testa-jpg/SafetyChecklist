@@ -726,28 +726,37 @@ const nuovoSopralluogoScreen = (() => {
     bottoneInizia.disabled = true;
 
     try {
+      const anagrafica = leggiAnagraficaForm();
+      let checklist;
+      try {
+        checklist = await checklistEngine.carica(anagrafica.checklist_id, anagrafica.checklist_version || null);
+      } catch (errore) {
+        console.error('Caricamento checklist fallito prima della creazione del sopralluogo:', errore);
+        alert('Impossibile caricare la checklist selezionata. Nessun sopralluogo è stato creato: aggiorna l\'app o riprova quando sei online.');
+        return;
+      }
+
+      const numeroDomande = (checklist.sezioni || []).reduce(
+        (totale, sezione) => totale + (Array.isArray(sezione.domande) ? sezione.domande.length : 0),
+        0
+      );
+      if (numeroDomande === 0) {
+        alert(`La checklist "${checklist.titolo}" è stata creata ma al momento è vuota. Aggiungiamo prima le domande, poi potrai avviare i sopralluoghi Carrefour.`);
+        return;
+      }
+
       let sopralluogo;
       try {
-        sopralluogo = await db.creaSopralluogo(leggiAnagraficaForm());
+        sopralluogo = await db.creaSopralluogo(anagrafica);
       } catch (errore) {
         console.error('Creazione sopralluogo fallita:', errore);
         alert('Impossibile salvare il sopralluogo sul dispositivo. Nessun dato è stato perso: riprova.');
         return;
       }
 
-      try {
-        const checklist = await checklistEngine.carica(sopralluogo.checklist_id, sopralluogo.checklist_version || null);
-        checklistEngine.avvia(checklist, sopralluogo);
-        router.navigate('compilazione');
-        compilazioneScreen.renderDomandaCorrente();
-      } catch (errore) {
-        // Il sopralluogo ESISTE già in locale (creazione sopra riuscita e verificata): un
-        // problema nel caricare la checklist (es. offline e mai scaricata prima) non deve far
-        // sembrare che il salvataggio sia fallito. Si trova già in Storico, riprendibile da lì.
-        console.error('Caricamento checklist fallito dopo la creazione del sopralluogo:', errore);
-        alert('Il sopralluogo è stato salvato correttamente ma non è stato possibile caricare la checklist per iniziare subito la compilazione. Lo trovi nello Storico: riprova da lì.');
-        router.navigate('history');
-      }
+      checklistEngine.avvia(checklist, sopralluogo);
+      router.navigate('compilazione');
+      compilazioneScreen.renderDomandaCorrente();
     } finally {
       bottoneInizia.disabled = false;
     }
@@ -1339,11 +1348,14 @@ const compilazioneScreen = (() => {
   const btnAvanti = document.getElementById('btn-avanti');
   const btnModificaAnagrafica = document.getElementById('btn-modifica-anagrafica-compilazione');
   const bannerImport = document.getElementById('compilazione-banner-import');
+  const ricercaInput = document.getElementById('compilazione-ricerca-input');
+  const ricercaRisultati = document.getElementById('compilazione-ricerca-risultati');
 
   let fotoDomandaCorrente = [];
   let ultimoSalvataggio = Promise.resolve(true);
   let gestoBarra = null;
   let navigazioneInCorso = false;
+  let sopralluogoRicercaId = null;
 
   /** Etichette visive delle risposte: un solo punto per cambiarle in futuro senza toccare il resto. */
   const ETICHETTE_RISPOSTA = { C: 'C', PC: 'PC', NC: 'NC', NA: 'N.P.' };
@@ -1741,11 +1753,103 @@ const compilazioneScreen = (() => {
     }
   }
 
+  function chiudiRicercaDomande({ azzera = false } = {}) {
+    if (azzera) ricercaInput.value = '';
+    ricercaRisultati.hidden = true;
+    ricercaRisultati.replaceChildren();
+    ricercaInput.setAttribute('aria-expanded', 'false');
+  }
+
+  async function apriRisultatoRicerca(indice) {
+    const corrente = checklistEngine.domandaCorrente();
+    if (!corrente) return;
+    if (indice !== corrente.indice) {
+      await vaiAllaDomanda(indice);
+    }
+    chiudiRicercaDomande({ azzera: true });
+    const attuale = checklistEngine.domandaCorrente();
+    if (attuale) {
+      domandaEl.setAttribute('tabindex', '-1');
+      domandaEl.focus({ preventScroll: true });
+      domandaEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }
+
+  function renderRicercaDomande() {
+    const query = ricercaInput.value.trim();
+    ricercaRisultati.replaceChildren();
+
+    if (!query) {
+      chiudiRicercaDomande();
+      return;
+    }
+
+    const risultati = checklistEngine.cercaDomande(query, 10);
+    ricercaRisultati.hidden = false;
+    ricercaInput.setAttribute('aria-expanded', 'true');
+
+    if (!risultati.length) {
+      const vuoto = document.createElement('p');
+      vuoto.className = 'compilazione-ricerca-vuoto';
+      vuoto.textContent = 'Nessuna domanda trovata.';
+      ricercaRisultati.appendChild(vuoto);
+      return;
+    }
+
+    risultati.forEach((risultato) => {
+      const bottone = document.createElement('button');
+      bottone.type = 'button';
+      bottone.className = 'compilazione-ricerca-risultato';
+      bottone.setAttribute('role', 'option');
+      bottone.dataset.indice = String(risultato.indice);
+
+      const meta = document.createElement('span');
+      meta.className = 'compilazione-ricerca-risultato-meta';
+      meta.textContent = `Domanda ${risultato.numero} · ${risultato.sezione}`;
+
+      const testo = document.createElement('strong');
+      testo.textContent = risultato.testo;
+
+      bottone.appendChild(meta);
+      bottone.appendChild(testo);
+      bottone.addEventListener('click', () => apriRisultatoRicerca(risultato.indice));
+      ricercaRisultati.appendChild(bottone);
+    });
+  }
+
+  function onKeyDownRicerca(evento) {
+    if (evento.key === 'Escape') {
+      chiudiRicercaDomande({ azzera: true });
+      return;
+    }
+    if (evento.key === 'Enter') {
+      const primo = ricercaRisultati.querySelector('.compilazione-ricerca-risultato');
+      if (primo) {
+        evento.preventDefault();
+        apriRisultatoRicerca(Number(primo.dataset.indice));
+      }
+      return;
+    }
+    if (evento.key === 'ArrowDown') {
+      const primo = ricercaRisultati.querySelector('.compilazione-ricerca-risultato');
+      if (primo) {
+        evento.preventDefault();
+        primo.focus();
+      }
+    }
+  }
+
   /** Ridisegna la schermata in base alla domanda corrente del motore checklist. */
   function renderDomandaCorrente() {
     const corrente = checklistEngine.domandaCorrente();
     if (!corrente) {
       return;
+    }
+
+    const sopralluogoId = checklistEngine.sopralluogoCorrente()?.id || null;
+    if (sopralluogoRicercaId !== sopralluogoId) {
+      sopralluogoRicercaId = sopralluogoId;
+      chiudiRicercaDomande({ azzera: true });
     }
 
     resetControlli();
@@ -2015,6 +2119,14 @@ const compilazioneScreen = (() => {
     btnIndietro.addEventListener('click', onIndietro);
     btnAvanti.addEventListener('click', onAvanti);
     btnModificaAnagrafica.addEventListener('click', onModificaAnagrafica);
+    ricercaInput.addEventListener('input', renderRicercaDomande);
+    ricercaInput.addEventListener('keydown', onKeyDownRicerca);
+    ricercaRisultati.addEventListener('keydown', (evento) => {
+      if (evento.key === 'Escape') {
+        chiudiRicercaDomande({ azzera: true });
+        ricercaInput.focus();
+      }
+    });
     tabGruppo1.addEventListener('click', () => vaiAllaDomanda(0));
     tabGruppo2.addEventListener('click', () => {
       const confine = calcolaConfineGruppi();
@@ -2394,7 +2506,7 @@ const storicoScreen = (() => {
   let dataDaAttiva = '';
   let dataAAttiva = '';
   let ordinamentoAttivo = 'data-desc';
-  let nomiClientiConfigurati = [];
+  let clientiConfigurati = [];
   let testoRicerca = '';
   let timerDebounce = null;
   const selezionati = new Set();
@@ -2412,7 +2524,7 @@ const storicoScreen = (() => {
   async function popolaFiltroCliente() {
     let clienti = [];
     try {
-      const risposta = await fetch('checklists/clients.json');
+      const risposta = await fetch('checklists/clients.json', { cache: 'no-store' });
       if (!risposta.ok) {
         throw new Error(`HTTP ${risposta.status}`);
       }
@@ -2420,7 +2532,7 @@ const storicoScreen = (() => {
     } catch (errore) {
       console.error('[app.js] Impossibile caricare checklists/clients.json per il filtro Storico:', errore);
     }
-    nomiClientiConfigurati = clienti.map((c) => c.nome);
+    clientiConfigurati = clienti;
 
     Array.from(filtroClienteContainer.options).forEach((opzione) => {
       if (opzione.value !== '' && opzione.value !== VALORE_CLIENTE_ALTRO) {
@@ -2437,20 +2549,13 @@ const storicoScreen = (() => {
   }
 
   /**
-   * Match sul "Punto vendita" del sopralluogo (stessa logica esatta, case-insensitive, di
-   * filtraChecklistPerCliente in nuovoSopralluogoScreen — non più sul checklist_id): "Altro"
-   * cattura i sopralluoghi il cui punto vendita non combacia con nessun cliente configurato
-   * (incluso il caso di punto vendita vuoto, ora possibile con l'anagrafica facoltativa).
+   * Il cliente deriva dalla checklist usata dal sopralluogo (checklists/clients.json), non dal
+   * testo libero "Punto vendita": una sede può chiamarsi "Rho", "Quinto Alpini", ecc. e restare
+   * comunque correttamente filtrata come Interparking/Carrefour/Coin. Per i rarissimi record
+   * legacy privi di checklist_id, storicoFiltri mantiene un fallback sul testo.
    */
   function corrispondeCliente(sopralluogo, filtro) {
-    if (!filtro) {
-      return true;
-    }
-    const puntoVendita = String(sopralluogo.punto_vendita || '').toLowerCase();
-    if (filtro === VALORE_CLIENTE_ALTRO) {
-      return !nomiClientiConfigurati.some((nome) => nome.toLowerCase() === puntoVendita);
-    }
-    return puntoVendita === filtro.toLowerCase();
+    return storicoFiltri.corrispondeCliente(sopralluogo, filtro, clientiConfigurati);
   }
 
   async function popolaFiltroChecklist() {
