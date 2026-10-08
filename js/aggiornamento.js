@@ -73,14 +73,19 @@ const aggiornamentoApp = (() => {
 
     if (bannerBottone) {
       bannerBottone.addEventListener('click', async () => {
-        if (typeof anteprimaImportazionePendente !== 'undefined' && anteprimaImportazionePendente) {
-          alert('Conferma o annulla lâ€™importazione PDF prima di aggiornare: lâ€™anteprima non Ã¨ ancora salvata.');
+        if (!schermataSicuraPerAggiornamento()) {
+          alert('Per proteggere il lavoro in corso, termina o salva il sopralluogo e chiudi le finestre aperte prima di aggiornare.');
           return;
         }
         bannerBottone.disabled = true;
         // The shell is served cache-first: reloading before the new worker has activated would
         // bring back the old build (and the banner). Wait for it, bounded, then reload once.
         await attendiNuovoServiceWorker(10000);
+        if (!schermataSicuraPerAggiornamento()) {
+          bannerBottone.disabled = false;
+          alert('Aggiornamento rimandato: ci sono modifiche in corso che potrebbero andare perse.');
+          return;
+        }
         location.reload();
       });
     }
