@@ -49,7 +49,17 @@ const server = http.createServer((req, res) => {
         navigator.serviceWorker.ready,
         new Promise((_, reject) => setTimeout(() => reject(new Error('Service Worker non attivo')), 12000))
       ]);
-      return { scope: ready.scope, state: ready.active && ready.active.state };
+      const worker = ready.active || ready.installing || ready.waiting;
+      if (worker && worker.state !== 'activated') {
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('Service Worker fermo in ' + worker.state)), 12000);
+          worker.addEventListener('statechange', () => {
+            if (worker.state === 'activated') { clearTimeout(timer); resolve(); }
+            if (worker.state === 'redundant') { clearTimeout(timer); reject(new Error('Service Worker redundant')); }
+          });
+        });
+      }
+      return { scope: ready.scope, state: (ready.active || worker)?.state || null };
     });
     assert.equal(registration.scope, base);
     assert.equal(registration.state, 'activated');
