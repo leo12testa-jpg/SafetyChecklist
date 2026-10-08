@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '..');
 // The real DOM/application with isolated local persistence. No cloud clients or SW.
 function harness() {
   return fs.readFileSync(path.join(root, 'index.html'), 'utf8')
-    .replace(/<script src="js\/(?:vendor\/firebase[^" ]*|firebase-config|auth(?:\?v=[^"]*)?|identity|account-screens(?:\?v=[^"]*)?|vendor\/supabase|supabase-config|foto-sync|sync|aggiornamento(?:\?v=[^"]*)?)\.js"><\/script>/g, '')
+    .replace(/<script src="js\/(?:vendor\/firebase[^" ]*|firebase-config|vendor\/supabase|supabase-config|(?:auth|identity|account-screens|foto-sync|sync|aggiornamento)\.js(?:\?v=[^"]*)?)"><\/script>/g, '')
     .replace(/<script src="js\/app\.js(?:\?v=[^"]*)?"><\/script>/, `<script>
       const appIdentity = {
         current: () => ({ uid:'pdf-test', username:'pdf.test', nome:'PDF', cognome:'Test', ruolo:'admin' }),
