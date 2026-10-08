@@ -52,7 +52,15 @@ async function run(name, browserType, origin) {
     await context.route('**/*', route => route.request().url().startsWith(origin) || /^(blob:|data:)/.test(route.request().url()) ? route.continue() : route.abort());
     await page.goto(origin);
     await page.waitForFunction(() => typeof pdf !== 'undefined' && typeof importPreviewScreen !== 'undefined');
+    // The isolated PDF harness intentionally has no real authentication backend. db.js still
+    // records the actor on locally-created inspections, so expose a deterministic test identity.
     await page.evaluate(() => {
+      globalThis.appIdentity = {
+        current: () => ({ uid:'pdf-test', username:'pdf.test', nome:'PDF', cognome:'Test', ruolo:'admin' }),
+        ready: async () => null,
+        isAdmin: () => true
+      };
+      globalThis.auditAttivita = { record: async () => {}, flush: async () => {} };
       window.check = (value, message) => { if (!value) throw new Error(message); };
       window.roundtrip = async blob => {
         const bytes = await pdf.leggiArrayBuffer(blob);
