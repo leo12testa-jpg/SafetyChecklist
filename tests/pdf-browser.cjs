@@ -15,6 +15,7 @@ function playwright() {
   return require(candidates[0]);
 }
 function executable(name) {
+  if (name === 'chromium' && process.env.CHROME_PATH) return process.env.CHROME_PATH;
   const base = path.join(process.env.LOCALAPPDATA || '', 'ms-playwright');
   if (!fs.existsSync(base)) return undefined;
   const dirs = fs.readdirSync(base).filter(d => d.startsWith(name + '-')).sort((a,b) => b.localeCompare(a, undefined, { numeric: true }));
