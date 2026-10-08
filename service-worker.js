@@ -44,7 +44,8 @@ const APP_SHELL = [
   './assets/logo_coin.webp',
   './assets/logo_interparking.webp',
   './assets/logo_restage.png',
-  './assets/logo_melluso.png',\n  './assets/logo_carrefour.png'
+  './assets/logo_melluso.png',
+  './assets/logo_carrefour.png'
 ];
 
 /** Precachea l'App Shell statica piÃ¹ tutte le checklist elencate in checklists/index.json. */
