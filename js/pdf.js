@@ -223,16 +223,37 @@ const pdf = (() => {
     try {
       let url;
       if (configCliente.logo.inlinePng) {
-        // Asset Carrefour incorporato nel motore PDF: evita cache obsolete, 404 e risposte HTML
-        // quando l'app viene utilizzata online/offline o installata come PWA.
-        const bytes = Uint8Array.from(atob(configCliente.logo.inlinePng.split(',')[1]), c => c.charCodeAt(0));
-        const blob = new Blob([bytes], { type: 'image/png' });
+        // Carrefour: non consegnare mai PNG a jsPDF. Prima prova il logo originale
+        // mediante il decoder del browser; se l'asset è corrotto genera un JPEG
+        // sostitutivo leggibile invece di bloccare l'intero sopralluogo.
+        const canvasLogo = document.createElement('canvas');
+        canvasLogo.width = 700;
+        canvasLogo.height = 220;
+        const ctx = canvasLogo.getContext('2d');
+        if (!ctx) throw new Error('Canvas non disponibile per il logo Carrefour.');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 700, 220);
         try {
-          url = configCliente.logo.forzaJpeg ? await rasterizzaLogoComeJpeg(blob) : configCliente.logo.inlinePng;
+          const img = await new Promise((resolve, reject) => {
+            const element = new Image();
+            element.onload = () => resolve(element);
+            element.onerror = () => reject(new Error('PNG Carrefour non decodificabile.'));
+            element.src = configCliente.logo.inlinePng;
+          });
+          const k = Math.min(700 / (img.naturalWidth || img.width), 220 / (img.naturalHeight || img.height));
+          const w = (img.naturalWidth || img.width) * k;
+          const h = (img.naturalHeight || img.height) * k;
+          ctx.drawImage(img, (700-w)/2, (220-h)/2, w, h);
         } catch (errore) {
-          console.warn('[pdf.js] Rasterizzazione logo Carrefour non riuscita; uso PNG incorporato:', errore);
-          url = configCliente.logo.inlinePng;
+          console.error('[pdf.js] PNG Carrefour non valido, logo tipografico di emergenza:', errore);
+          ctx.fillStyle = '#00549f';
+          ctx.font = 'bold 104px Arial, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('Carrefour', 350, 110, 670);
         }
+        url = canvasLogo.toDataURL('image/jpeg', 0.97);
+        if (!url.startsWith('data:image/jpeg;base64,')) throw new Error('Conversione JPEG Carrefour non riuscita.');
       } else {
         url = configCliente.logo.dataURL || await caricaLogo(
           configCliente.logo.file,
