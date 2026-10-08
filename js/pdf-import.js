@@ -1578,6 +1578,14 @@ const pdfImport = (() => {
           ((r.right < r.larghezzaPagina * 0.4 && s.x > r.larghezzaPagina * 0.6) ||
            (s.right < r.larghezzaPagina * 0.4 && r.x > r.larghezzaPagina * 0.6)) &&
           Math.abs((r.y + r.top) / 2 - (s.y + s.top) / 2) <= 24)) escludi(r);
+      // Un logo cliente può essere l'unica immagine decodificabile dell'intestazione
+      // (es. Carrefour rasterizzato in JPEG mentre il logo Colligo WebP non viene esposto come
+      // regione immagine separata da pdf.js). Se è in alto a destra, sopra DATI GENERALI e senza
+      // didascalia Foto, è intestazione: non deve finire negli allegati importati.
+      if (r.pagina === 1 && r.sopraDati && !r.didascaliaFoto &&
+          r.x >= r.larghezzaPagina * 0.55 && r.right <= r.larghezzaPagina + 4 &&
+          r.larghezza <= r.larghezzaPagina * 0.40 && r.altezza <= 130) escludi(r);
+
       // Alcuni report Interparking incorporano Colligo + cliente in un'unica immagine
       // orizzontale sopra DATI GENERALI: è intestazione, non una foto del sopralluogo.
       if (r.pagina === 1 && r.sopraDati && !r.didascaliaFoto &&
