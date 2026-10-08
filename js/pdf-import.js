@@ -1582,7 +1582,7 @@ const pdfImport = (() => {
       // (es. Carrefour rasterizzato in JPEG mentre il logo Colligo WebP non viene esposto come
       // regione immagine separata da pdf.js). Se è in alto a destra, sopra DATI GENERALI e senza
       // didascalia Foto, è intestazione: non deve finire negli allegati importati.
-      if (r.pagina === 1 && r.sopraDati && !r.didascaliaFoto &&
+      if (r.pagina === 1 && !r.didascaliaFoto &&
           r.x >= r.larghezzaPagina * 0.55 && r.right <= r.larghezzaPagina + 4 &&
           r.larghezza <= r.larghezzaPagina * 0.40 && r.altezza <= 130) escludi(r);
 
