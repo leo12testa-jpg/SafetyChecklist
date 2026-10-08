@@ -1,0 +1,57 @@
+name: SafetyChecklist quality gate
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  main-app-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check core JavaScript syntax
+        run: |
+          for file in js/*.js service-worker.js; do
+            node --check "$file" || exit 1
+          done
+      - name: Check checklist JSON and client logo mappings
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const assert = require('node:assert/strict');
+          const manifest = JSON.parse(fs.readFileSync('checklists/index.json', 'utf8'));
+          const clients = JSON.parse(fs.readFileSync('checklists/clients.json', 'utf8')).clienti;
+          const seen = new Set();
+          for (const c of manifest.checklists) {
+            assert(!seen.has(c.id), 'Duplicate checklist: ' + c.id);
+            seen.add(c.id);
+            const data = JSON.parse(fs.readFileSync('checklists/' + c.id + '.json','utf8'));
+            assert.equal(data.id, c.id);
+            assert.equal(String(data.versione), String(c.versione));
+          }
+          const logos = {
+            coin: 'assets/logo_coin.webp',
+            interparking: 'assets/logo_interparking.webp',
+            restage: 'assets/logo_restage.png',
+            melluso: 'assets/logo_melluso.png',
+            carrefour: 'assets/logo_carrefour.png'
+          };
+          for (const [client, asset] of Object.entries(logos)) {
+            assert(fs.existsSync(asset), 'Missing logo: ' + asset);
+            assert(clients.some(c => c.nome.toLowerCase() === client), 'Missing client: ' + client);
+          }
+          const pdf = fs.readFileSync('js/pdf.js','utf8');
+          assert(pdf.includes('Carrefour: simbolo vettoriale'), 'Carrefour logo regression');
+          assert(pdf.includes("toDataURL('image/jpeg'"), 'No JPEG rasterization for Carrefour');
+          assert(!pdf.includes('url = configCliente.logo.inlinePng;'), 'Corrupt PNG fallback reintroduced');
+          console.log('Checklist manifests and customer logo checks passed.');
+          NODE
+      - name: Run core application regression tests
+        run: node --test tests/*.test.js
