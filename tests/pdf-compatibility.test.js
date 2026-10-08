@@ -168,8 +168,9 @@ test('PWA update preserves pending PDF import on automatic and manual refresh', 
   const context={
     anteprimaImportazionePendente:{ immagini:[{}] },
     document:{
+      body:{dataset:{authenticated:'true'}},
       getElementById:id=>id==='banner-aggiornamento'?banner:id==='banner-aggiornamento-bottone'?button:null,
-      querySelector:()=>({dataset:{screen:'home'}}), addEventListener(){}
+      querySelector:selector=>selector==='.screen:not([hidden])'?{dataset:{screen:'home'}}:null, addEventListener(){}
     },
     navigator:{ serviceWorker:{ addEventListener:(name,fn)=>{handlers[name]=fn;} } },
     window:{addEventListener(){}}, location:{reload:()=>reloads++}, alert:()=>alerts++, console,
