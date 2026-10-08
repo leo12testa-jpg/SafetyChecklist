@@ -223,37 +223,35 @@ const pdf = (() => {
     try {
       let url;
       if (configCliente.logo.inlinePng) {
-        // Carrefour: non consegnare mai PNG a jsPDF. Prima prova il logo originale
-        // mediante il decoder del browser; se l'asset è corrotto genera un JPEG
-        // sostitutivo leggibile invece di bloccare l'intero sopralluogo.
+        // Carrefour: simbolo vettoriale rosso/blu + scritta. NON usare il PNG
+        // danneggiato che provocava "Incomplete or corrupt PNG file".
+        // I tracciati vettoriali vengono rasterizzati dal browser in JPEG per jsPDF.
+        const forma = 'M12.14 4.045c-2.569 0-3.572 3.64-3.572 7.979 0 4.34 1.003 7.931 3.572 7.931 1.541 0 2.855-.903 2.86-1.645a.625.625 0 0 0-.199-.453c-.73-.706-1.016-1.412-1.018-2.034-.005-1.189 1.026-2.074 1.977-2.074 1.306 0 2.077 1.027 2.077 2.357 0 1.26-.537 2.31-1.121 3.15a.193.193 0 0 0-.034.107c0 .065.04.12.098.12.035 0 .076-.02.122-.065l6.561-6.344c.328-.28.537-.608.537-1.073 0-.468-.21-.794-.537-1.073l-6.561-6.346c-.045-.045-.087-.064-.122-.064-.059 0-.097.055-.098.12 0 .035.01.073.034.107.584.84 1.12 1.89 1.12 3.15 0 1.329-.77 2.356-2.076 2.356-.95 0-1.982-.884-1.977-2.073.002-.622.288-1.328 1.018-2.033A.624.624 0 0 0 15 5.69c-.004-.743-1.319-1.646-2.86-1.646m-5.043.537L.537 10.93C.209 11.207 0 11.534 0 12c0 .465.21.793.537 1.073l6.56 6.345c.042.043.083.06.117.06.062 0 .105-.057.103-.123a.188.188 0 0 0-.057-.123C5.72 17.32 4.6 15.126 4.6 12.024c0-3.104 1.12-5.341 2.66-7.255a.185.185 0 0 0 .057-.123c.002-.068-.04-.123-.103-.123-.034 0-.075.017-.117.06';
+        const disegno = '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="310" viewBox="0 0 480 310">' +
+          '<rect width="480" height="310" fill="white"/>' +
+          '<svg x="132" y="5" width="216" height="216" viewBox="0 0 24 24">' +
+          '<defs><clipPath id="sx"><rect width="12" height="24"/></clipPath><clipPath id="dx"><rect x="12" width="12" height="24"/></clipPath></defs>' +
+          '<path d="' + forma + '" fill="#ed1b35" clip-path="url(#sx)"/>' +
+          '<path d="' + forma + '" fill="#00549f" clip-path="url(#dx)"/>' +
+          '</svg>' +
+          '<text x="240" y="282" font-family="Arial,Helvetica,sans-serif" font-size="61" font-weight="bold" letter-spacing="-2" fill="#00549f" text-anchor="middle">Carrefour</text>' +
+          '</svg>';
+        const logoSvg = new Image();
+        await new Promise((resolve, reject) => {
+          logoSvg.onload = resolve;
+          logoSvg.onerror = () => reject(new Error('Logo vettoriale Carrefour non decodificabile'));
+          logoSvg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(disegno);
+        });
         const canvasLogo = document.createElement('canvas');
-        canvasLogo.width = 700;
-        canvasLogo.height = 220;
+        canvasLogo.width = 480;
+        canvasLogo.height = 310;
         const ctx = canvasLogo.getContext('2d');
-        if (!ctx) throw new Error('Canvas non disponibile per il logo Carrefour.');
+        if (!ctx) throw new Error('Canvas non disponibile per il logo Carrefour');
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, 700, 220);
-        try {
-          const img = await new Promise((resolve, reject) => {
-            const element = new Image();
-            element.onload = () => resolve(element);
-            element.onerror = () => reject(new Error('PNG Carrefour non decodificabile.'));
-            element.src = configCliente.logo.inlinePng;
-          });
-          const k = Math.min(700 / (img.naturalWidth || img.width), 220 / (img.naturalHeight || img.height));
-          const w = (img.naturalWidth || img.width) * k;
-          const h = (img.naturalHeight || img.height) * k;
-          ctx.drawImage(img, (700-w)/2, (220-h)/2, w, h);
-        } catch (errore) {
-          console.error('[pdf.js] PNG Carrefour non valido, logo tipografico di emergenza:', errore);
-          ctx.fillStyle = '#00549f';
-          ctx.font = 'bold 104px Arial, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('Carrefour', 350, 110, 670);
-        }
-        url = canvasLogo.toDataURL('image/jpeg', 0.97);
-        if (!url.startsWith('data:image/jpeg;base64,')) throw new Error('Conversione JPEG Carrefour non riuscita.');
+        ctx.fillRect(0, 0, 480, 310);
+        ctx.drawImage(logoSvg, 0, 0);
+        url = canvasLogo.toDataURL('image/jpeg', 0.98);
+        if (!url.startsWith('data:image/jpeg;base64,')) throw new Error('Immagine JPEG Carrefour non valida');
       } else {
         url = configCliente.logo.dataURL || await caricaLogo(
           configCliente.logo.file,
