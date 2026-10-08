@@ -1,11 +1,11 @@
 // Service worker per il funzionamento offline della checklist.
-const CACHE_NAME = 'safety-checklist-shell-20261008-carrefour-fix1';
+const CACHE_NAME = 'safety-checklist-shell-20261008-stable2';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=20261007-172256',
+  './css/style.css?v=20261008-stable2',
   './js/vendor/jspdf.umd.min.js',
   './js/vendor/jspdf.plugin.autotable.min.js',
   './js/vendor/jszip.min.js',
@@ -13,24 +13,25 @@ const APP_SHELL = [
   './js/vendor/firebase-firestore-compat.js',
   './js/vendor/firebase-auth-compat.js',
   './js/firebase-config.js',
-  './js/auth.js?v=20261007-172256',
+  './js/auth.js?v=20261008-stable2',
   './js/vendor/supabase.js',
   './js/supabase-config.js',
   './js/vendor/pdf.min.js',
   './js/vendor/pdf.worker.min.js',
-  './js/app.js?v=20261007-172256',
+  './js/app.js?v=20261008-stable2',
   './js/identity.js',
-  './js/account-screens.js?v=20261007-172256',
-  './js/db.js?v=20261007-172256',
-  './js/checklist.js?v=20261007-172256',
+  './js/account-screens.js?v=20261008-stable2',
+  './js/db.js?v=20261008-stable2',
+  './js/checklist.js?v=20261008-stable2',
   './js/question-navigator.js',
+  './js/storico-filtri.js?v=20261008-stable2',
   './js/foto-sync.js',
-  './js/pdf.js?v=20261007-172256',
-  './js/pdf-import.js?v=20261007-172256',
-  './js/import-matching.js?v=20261007-172256',
+  './js/pdf.js?v=20261008-stable2',
+  './js/pdf-import.js?v=20261008-stable2',
+  './js/import-matching.js?v=20261008-stable2',
   './js/camera.js',
-  './js/sync.js?v=20261007-172256',
-  './js/aggiornamento.js?v=20261007-172256',
+  './js/sync.js?v=20261008-stable2',
+  './js/aggiornamento.js?v=20261008-stable2',
   './checklists/index.json',
   './checklists/clients.json',
   './checklists/tecnici.json',
@@ -105,10 +106,11 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
   const isChecklist = url.pathname.includes('/checklists/');
+  const isLogo = url.pathname.includes('/assets/logo_');
   const isVersione = url.pathname.endsWith('/version.json');
   const isDocumento = event.request.mode === 'navigate' || url.pathname.endsWith('/index.html');
   const isCodice = event.request.destination === 'script' || event.request.destination === 'style';
-  event.respondWith(isChecklist || isVersione || isDocumento || isCodice
+  event.respondWith(isChecklist || isLogo || isVersione || isDocumento || isCodice
     ? networkFirst(event.request, {bypassHttpCache: true})
     : cacheFirst(event.request));
 });
