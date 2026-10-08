@@ -41,6 +41,12 @@ const aggiornamentoApp = (() => {
       sessionStorage.setItem(chiave, '1');
     } catch (_) {}
     await attendiNuovoServiceWorker(10000);
+    // Durante l'attesa l'utente potrebbe aver iniziato un nuovo sopralluogo o aperto un dialogo.
+    // Ricontrollare immediatamente prima del reload per non perdere dati non confermati.
+    if (!schermataSicuraPerAggiornamento()) {
+      try { sessionStorage.removeItem(chiave); } catch (_) {}
+      return false;
+    }
     location.reload();
     return true;
   }
