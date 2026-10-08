@@ -3,6 +3,8 @@ name: SafetyChecklist core check
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
     paths:
       - "tests/**"
       - "!tests/ore-ui-contract.test.js"
@@ -22,7 +24,7 @@ permissions:
 jobs:
   final-check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +37,13 @@ jobs:
         run: |
           set -euo pipefail
           find tests -maxdepth 1 -name '*.test.js' ! -name 'ore-ui-contract.test.js' -print0 | xargs -0 node --test
+
+      - name: JavaScript syntax and Service Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check service-worker.js
+          find js -maxdepth 1 -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: Build and role consistency
         shell: bash
@@ -65,7 +74,17 @@ jobs:
           test -n "$CHROME"
           echo "CHROME_PATH=$CHROME" >> "$GITHUB_ENV"
 
+      - name: Local PWA stability smoke
+        run: node tests/pwa-chromium-stability.cjs
+
+      - name: PDF browser regression including Carrefour
+        env:
+          PDF_BROWSERS: chromium
+          PLAYWRIGHT_MODULE: playwright-core
+        run: node tests/pdf-browser.cjs
+
       - name: Wait for published build
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
@@ -83,15 +102,17 @@ jobs:
           exit 1
 
       - name: Live UI layout smoke
+        if: github.event_name != 'pull_request'
         env:
           LIVE_URL: https://leo12testa-jpg.github.io/SafetyChecklist/
         run: node tests/final-ui-smoke.cjs
 
       - name: Public security smoke
+        if: github.event_name != 'pull_request'
         run: node tests/final-security-smoke.mjs
 
       - name: Upload UI screenshots
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: final-v1-ui

@@ -5,11 +5,18 @@ const root = path.resolve(__dirname, '..');
 // The real DOM/application with isolated local persistence. No cloud clients or SW.
 function harness() {
   return fs.readFileSync(path.join(root, 'index.html'), 'utf8')
-    .replace(/<script src="js\/(?:vendor\/firebase[^" ]*|firebase-config|vendor\/supabase|supabase-config|foto-sync|sync|aggiornamento)\.js"><\/script>/g, '')
-    .replace('<script src="js/app.js">', `<script>
-      const sync = { statoAttuale: () => 'offline', onCambioStato() {}, onDatiAggiornati() {}, init: async () => false, sincronizzaTutto: async () => true };
+    .replace(/<script src="js\/(?:vendor\/firebase[^" ]*|firebase-config\.js|auth\.js(?:\?v=[^"]*)?|identity\.js|account-screens\.js(?:\?v=[^"]*)?|vendor\/supabase\.js|supabase-config\.js|foto-sync\.js(?:\?v=[^"]*)?|sync\.js(?:\?v=[^"]*)?|aggiornamento\.js(?:\?v=[^"]*)?)"><\/script>/g, '')
+    .replace(/<script src="js\/app\.js(?:\?v=[^"]*)?"><\/script>/, `<script>
+      const appIdentity = {
+        current: () => ({ uid:'pdf-test', username:'pdf.test', nome:'PDF', cognome:'Test', ruolo:'admin' }),
+        ready: async () => null,
+        isAdmin: () => true
+      };
+      const auditAttivita = { record: async () => {}, flush: async () => {} };
+      const accountScreens = { init() {} };
+      const sync = { statoAttuale: () => 'offline', onCambioStato() {}, onDatiAggiornati() {}, init: async () => false, sincronizzaTutto: async () => true, sincronizzaCompleto: async () => true };
       const fotoSync = { caricaFoto: async () => {}, riprovaInSospeso: async () => {}, init() {}, onCambioStato() {}, statoDi: () => null, eliminaFotoRemota() {}, risolviFoto: id => db.leggiFoto(id) };
-    </script><script src="js/app.js">`);
+    </script><script src="js/app.js"></script>`);
 }
 const server = http.createServer((req, res) => {
   const route = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);

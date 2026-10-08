@@ -101,8 +101,10 @@ function idFotoSopralluogo(sopralluogo) {
 
 function firmaFotoSopralluogo(sopralluogo) {
   const ids = idFotoSopralluogo(sopralluogo);
-  // Rigenera anche i PDF Melluso senza foto salvati prima dell'allineamento dei loghi.
+  // Firma layout per i clienti che hanno avuto correzioni del logo: forza una sola
+  // rigenerazione dei PDF locali creati prima del fix, anche quando non contengono foto.
   if (sopralluogo && sopralluogo.checklist_id === 'melluso_sopralluogo') return 'melluso-layout-3:' + ids.join('|');
+  if (sopralluogo && sopralluogo.checklist_id === 'carrefour_sopralluogo') return 'carrefour-logo-2:' + ids.join('|');
   // Older signatures could also describe PDFs that silently skipped missing photos.
   return ids.length ? 'complete-v2:' + ids.join('|') : '';
 }
