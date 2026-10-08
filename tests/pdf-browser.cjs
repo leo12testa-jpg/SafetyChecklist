@@ -99,13 +99,19 @@ async function run(name, browserType, origin) {
         const pages = await roundtrip(blob);
         window.fixture = { checklist, record, blob };
         const extracted = await pdfImport.estraiRighe(blob);
+        // Validate the same path used by the real import UI. Visible PDF numbering is progressive,
+        // so it is not always equal to stable domanda_id (Interparking intentionally has gaps).
+        const matching = importMatching.abbinaRighe(extracted.righe, checklist, {
+          puntoDivisioneGruppi: pdf.calcolaPuntoDivisioneGruppi(checklist)
+        });
+        check(matching.riepilogo.conflitti === 0, `${client}: unexpected import conflicts`);
         for (const answer of record.risposte) {
-          const row = extracted.righe.find(r => Number(r.id_originale) === Number(answer.domanda_id));
-          check(row, `Missing source row ${answer.domanda_id}`);
-          check(row.stato_originale === answer.risposta, `Wrong state on ${answer.domanda_id}: ${row.stato_originale}`);
+          const row = matching.righe.find(r => Number(r.domanda_id) === Number(answer.domanda_id));
+          check(row, `Missing matched row ${answer.domanda_id}`);
+          check(row.risposta === answer.risposta, `Wrong state on ${answer.domanda_id}: ${row.risposta}`);
           const clean = value => String(value || '').replace(/\s+/g, ' ').trim();
-          check(clean(row.nota_originale).startsWith(clean(answer.note)), `Note lost or shifted on ${answer.domanda_id}`);
-          check(answer.note.includes('FINE-NOTA') || !String(row.nota_originale).includes('FINE-NOTA'), `Neighbor note on ${answer.domanda_id}`);
+          check(clean(row.note).startsWith(clean(answer.note)), `Note lost or shifted on ${answer.domanda_id}`);
+          check(answer.note.includes('FINE-NOTA') || !String(row.note).includes('FINE-NOTA'), `Neighbor note on ${answer.domanda_id}`);
         }
         check(extracted.immagini.length === 3, `Expected 3 photos, found ${extracted.immagini.length}`);
         check(extracted.immagini.every(p => p.metodo === 'originale'), 'Original XObjects not used');
