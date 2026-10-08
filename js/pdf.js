@@ -175,12 +175,18 @@ const pdf = (() => {
   }
 
   async function caricaLogo(url, { forzaJpeg = false } = {}) {
-    const risposta = await fetch(url);
+    const risposta = await fetch(url, { cache: 'no-store' });
     if (!risposta.ok) {
       throw new Error(`Logo non trovato (HTTP ${risposta.status}): ${url}`);
     }
     const blob = await risposta.blob();
-    return forzaJpeg ? rasterizzaLogoComeJpeg(blob) : blobADataURL(blob);
+    if (!blob.type.startsWith('image/')) throw new Error(`La risorsa ${url} non è un'immagine (${blob.type || 'tipo sconosciuto'}).`);
+    if (!forzaJpeg) return blobADataURL(blob);
+    try { return await rasterizzaLogoComeJpeg(blob); }
+    catch (errore) {
+      console.warn('[pdf.js] Conversione JPEG non disponibile, provo il PNG originale:', errore);
+      return blobADataURL(blob);
+    }
   }
 
   /**
@@ -192,7 +198,7 @@ const pdf = (() => {
    * un cliente noto): loghi e colore bandiera useranno i rispettivi default.
    */
   function risolviConfigCliente(checklist) {
-    const riferimento = `${checklist.id || ''} ${checklist.titolo || ''}`.toLowerCase();
+    const riferimento = [checklist.id, checklist.titolo, checklist.cliente, checklist.cliente_nome, checklist.checklist_id].filter(Boolean).join(' ').toLowerCase();
     const chiave = Object.keys(CONFIG_CLIENTI).find((k) => riferimento.includes(CONFIG_CLIENTI[k].match));
     return chiave ? CONFIG_CLIENTI[chiave] : null;
   }
@@ -222,7 +228,7 @@ const pdf = (() => {
       return { url, ...dimensione };
     } catch (errore) {
       console.error(`[pdf.js] Logo cliente non caricato (${configCliente.logo.file}) per checklist "${checklist.id}" (Punto vendita: "${puntoVendita || ''}"):`, errore);
-      return null;
+      throw new Error(`Impossibile inserire il logo ${configCliente.logo.file} nel PDF. Verificare la connessione e riprovare, evitando di generare un report incompleto.`);
     }
   }
 
@@ -1102,7 +1108,7 @@ const pdf = (() => {
       return disegnaReportRaccoltaDati(doc, checklist, sopralluogo, layout);
     }
 
-    const configCliente = risolviConfigCliente(checklist);
+    const configCliente = risolviConfigCliente({ ...checklist, checklist_id: sopralluogo.checklist_id, cliente: checklist.cliente || sopralluogo.cliente });
     const logoColligoURL = await ottieniLogoColligo();
     const logoCliente = await ottieniLogoCliente(configCliente, checklist, sopralluogo.punto_vendita, layout);
 
