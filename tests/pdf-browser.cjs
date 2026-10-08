@@ -69,7 +69,7 @@ async function run(name, browserType, origin) {
         } finally { await doc.destroy(); }
       };
     });
-    for (const client of ['coin', 'interparking', 'restage', 'melluso']) {
+    for (const client of ['coin', 'interparking', 'restage', 'melluso', 'carrefour']) {
       console.log(`${name}: generating and importing ${client}`);
       const result = await page.evaluate(async client => {
         const checklist = await (await fetch(`checklists/${client}_sopralluogo.json`)).json();
