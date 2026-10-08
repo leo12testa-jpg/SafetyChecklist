@@ -1,8 +1,5 @@
-// BUILD_ID sostituito automaticamente da pubblica.sh a ogni release (mai un hash di commit: sarebbe
-// autoreferenziale, dato che modificare questo stesso file cambierebbe l'hash finale). Cambia sempre
-// a ogni pubblicazione, cosÃ¬ il browser rileva sempre un service-worker.js diverso byte per byte e
-// installa una cache nuova; l'activate qui sotto elimina da sÃ© quelle vecchie.
-const CACHE_NAME = 'safety-checklist-shell-20261007-172256';
+// Service worker per il funzionamento offline della checklist.
+const CACHE_NAME = 'safety-checklist-shell-20261008-carrefour-fix1';
 
 const APP_SHELL = [
   './',
@@ -44,101 +41,74 @@ const APP_SHELL = [
   './assets/logo_coin.webp',
   './assets/logo_interparking.webp',
   './assets/logo_restage.png',
-  './assets/logo_melluso.png',\n  './assets/logo_carrefour.png'
+  './assets/logo_melluso.png',
+  './assets/logo_carrefour.png'
 ];
 
-/** Precachea l'App Shell statica piÃ¹ tutte le checklist elencate in checklists/index.json. */
 async function precacheTutto(cache) {
-  await cache.addAll(APP_SHELL);
-
-  const response = await fetch('./checklists/index.json', { cache: 'no-store' });
-  const { checklists } = await response.json();
-  const urlChecklist = checklists.map((c) =>
-    `./checklists/${c.id}.json?v=${encodeURIComponent(c.versione || '')}`
-  );
-  await cache.addAll(urlChecklist);
+  // Non rendere inutilizzabile l'aggiornamento per il guasto a una singola risorsa.
+  const risultati = await Promise.allSettled(APP_SHELL.map(async (url) => {
+    await cache.add(url);
+  }));
+  const falliti = risultati.map((r, i) => r.status === 'rejected' ? APP_SHELL[i] : null).filter(Boolean);
+  if (falliti.length) console.warn('[SafetyChecklist SW] Asset non memorizzati:', falliti);
+  try {
+    const response = await fetch('./checklists/index.json', { cache: 'no-store' });
+    if (!response.ok) throw new Error('Indice checklist HTTP ' + response.status);
+    const { checklists } = await response.json();
+    await Promise.allSettled((checklists || []).map(c =>
+      cache.add('./checklists/' + c.id + '.json?v=' + encodeURIComponent(c.versione || ''))
+    ));
+  } catch (errore) {
+    console.warn('[SafetyChecklist SW] Precache checklist parziale:', errore);
+  }
 }
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(precacheTutto)
-      .then(() => self.skipWaiting())
-  );
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE_NAME).then(precacheTutto).then(() => self.skipWaiting()));
 });
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
-      ))
-      .then(() => self.clients.claim())
-  );
+self.addEventListener('activate', event => {
+  event.waitUntil(caches.keys().then(keys => Promise.all(keys
+    .filter(key => key.startsWith('safety-checklist-shell-') && key !== CACHE_NAME)
+    .map(key => caches.delete(key)))).then(() => self.clients.claim()));
 });
-
-/** Asset statici dell'App Shell: cache-first, aggiornata in background quando risponde la rete. */
-function cacheFirst(request) {
-  return caches.match(request).then((cached) => {
-    if (cached) {
-      return cached;
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  try {
+    const response = await fetch(request);
+    if (response && response.ok) {
+      const clone = response.clone();
+      eventSafePut(request, clone);
     }
-
-    return fetch(request)
-      .then((response) => {
-        if (response && response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-        }
-        return response;
-      })
-      .catch(() => caches.match('./index.html'));
-  });
-}
-
-/** Checklist JSON: network-first con fallback cache, per riflettere subito eventuali aggiornamenti da remoto (PROJECT.md Â§6, Â§8). */
-function networkFirst(request, { bypassHttpCache = false } = {}) {
-  const richiesta = bypassHttpCache ? new Request(request, { cache: 'no-store' }) : request;
-  return fetch(richiesta)
-    .then((response) => {
-      if (response && response.ok) {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-      }
-      return response;
-    })
-    .catch(() => caches.match(request));
-}
-
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') {
-    return;
+    return response;
+  } catch (e) {
+    return Response.error();
   }
-
+}
+function eventSafePut(request, response) {
+  caches.open(CACHE_NAME).then(cache => cache.put(request, response)).catch(error =>
+    console.warn('[SafetyChecklist SW] Errore cache:', error));
+}
+async function networkFirst(request, { bypassHttpCache = false } = {}) {
+  try {
+    const req = bypassHttpCache ? new Request(request, {cache:'no-store'}) : request;
+    const response = await fetch(req);
+    if (response && response.ok) eventSafePut(request, response.clone());
+    return response;
+  } catch (e) {
+    return (await caches.match(request)) || Response.error();
+  }
+}
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-
-  // Richieste a Firestore/altri servizi esterni (es. sync.js): lasciate al browser, non
-  // intercettate dallo shell cache-first, che altrimenti in caso di rete assente le
-  // risolverebbe con l'index.html cacheato invece di un normale errore di rete.
-  if (url.origin !== self.location.origin) {
-    return;
-  }
-
+  if (url.origin !== self.location.origin) return;
   const isChecklist = url.pathname.includes('/checklists/');
-  // version.json è la sonda di freschezza usata dallo script di pubblicazione e dal badge.
   const isVersione = url.pathname.endsWith('/version.json');
   const isDocumento = event.request.mode === 'navigate' || url.pathname.endsWith('/index.html');
   const isCodice = event.request.destination === 'script' || event.request.destination === 'style';
-
-  // Online prende sempre la versione pubblicata; offline usa la cache.
-  // Evita che HTML/CSS/JS vecchi restino bloccati dopo un rilascio.
-  event.respondWith(
-    isChecklist
-      ? networkFirst(event.request, { bypassHttpCache: true })
-      : (isVersione || isDocumento || isCodice
-          ? networkFirst(event.request, { bypassHttpCache: true })
-          : cacheFirst(event.request))
-  );
+  event.respondWith(isChecklist || isVersione || isDocumento || isCodice
+    ? networkFirst(event.request, {bypassHttpCache: true})
+    : cacheFirst(event.request));
 });
