@@ -121,6 +121,11 @@ async function run(name, browserType, origin) {
         const withoutPhotos = await pdfImport.estraiRighe(await pdf.generaReport(checklist,noPhotos));
         check(withoutPhotos.immagini.length===0, `${client}: letterhead imported in PDF without photos`);
         window.extracted = extracted;
+        // The later UI removal test is intentionally generic; keep a stable Coin fixture instead
+        // of inheriting client-specific import gates from whichever client happens to run last.
+        if (client === 'coin') {
+          window.previewFixture = { extracted, checklist };
+        }
         return { pages, noPhotoHeader:'pass', photos: extracted.immagini.map(p => ({ width:p.larghezza, height:p.altezza, caption:p.didascalia, method:p.metodo })), bytes: Array.from(new Uint8Array(await pdf.leggiArrayBuffer(blob))) };
       }, client);
       fs.writeFileSync(path.join(out, `${name}-${client}.pdf`), Buffer.from(result.bytes));
@@ -190,10 +195,10 @@ async function run(name, browserType, origin) {
     report.tests.push({ boundary:'pass', pages:boundary.text.length });
     // Confirm real preview removal using the actual UI and IndexedDB implementation.
     await page.evaluate(async () => {
-      const { checklist } = fixture;
-      const matching = importMatching.abbinaRighe(extracted.righe, checklist, { puntoDivisioneGruppi:pdf.calcolaPuntoDivisioneGruppi(checklist) });
+      const { extracted: previewExtracted, checklist } = previewFixture;
+      const matching = importMatching.abbinaRighe(previewExtracted.righe, checklist, { puntoDivisioneGruppi:pdf.calcolaPuntoDivisioneGruppi(checklist) });
       window.beforeImport = (await db.elencaSopralluoghi()).length;
-      anteprimaImportazionePendente = { ...extracted, ...matching, checklist, rilevamentoAutomatico:true, checklistTitolo:checklist.titolo, bozzaAnagrafica:{ checklist_id:checklist.id, punto_vendita:'Importazione test', tecnico:'Test' } };
+      anteprimaImportazionePendente = { ...previewExtracted, ...matching, checklist, rilevamentoAutomatico:true, checklistTitolo:checklist.titolo, bozzaAnagrafica:{ checklist_id:checklist.id, punto_vendita:'Importazione test', tecnico:'Test' } };
       router.navigate('import-preview');
       check((await db.elencaSopralluoghi()).length === beforeImport, 'Preview persisted a record');
     });
