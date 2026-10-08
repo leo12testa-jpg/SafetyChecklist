@@ -113,7 +113,7 @@ async function run(name, browserType, origin) {
           check(clean(row.note).startsWith(clean(answer.note)), `Note lost or shifted on ${answer.domanda_id}`);
           check(answer.note.includes('FINE-NOTA') || !String(row.note).includes('FINE-NOTA'), `Neighbor note on ${answer.domanda_id}`);
         }
-        check(extracted.immagini.length === 3, `Expected 3 photos, found ${extracted.immagini.length}`);
+        check(extracted.immagini.length === 3, `Expected 3 photos, found ${extracted.immagini.length}: ${JSON.stringify(extracted.immagini.map(p => ({pagina:p.pagina, larghezza:p.larghezza, altezza:p.altezza, didascalia:p.didascalia, metodo:p.metodo}))) }`);
         check(extracted.immagini.every(p => p.metodo === 'originale'), 'Original XObjects not used');
         check(extracted.immagini.some(p => p.altezza > p.larghezza), 'Portrait missing');
         check(extracted.immagini.some(p => p.didascalia.includes('Didascalia originale mantenuta')), 'Caption missing');
