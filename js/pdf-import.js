@@ -1641,6 +1641,16 @@ const pdfImport = (() => {
       const nearby = items.filter(it => it.y < region.y + 2 && it.y > minY && it.x + it.w / 2 >= left && it.x + it.w / 2 < right && !/^(Pag\.|C = Conforme)/i.test(it.testo));
       nearby.sort((a, b) => Math.abs(a.y - b.y) > 3 ? b.y - a.y : a.x - b.x);
       const didascalia = nearby.map(it => it.testo).join(' ').trim();
+
+      // Nei PDF generati dall'app il logo cliente di pagina 1 può essere esposto da pdf.js come
+      // un'unica immagine raster (Carrefour: 383x130) senza che analizzaHeader riesca a
+      // ricostruirne con precisione la geometria. In quel caso il primo testo immediatamente
+      // sotto è sempre il blocco "DATI GENERALI": è intestazione, non allegato fotografico.
+      // Una vera foto ha invece didascalia "Foto N ..." oppure si trova nella sezione Allegati.
+      if (numeroPagina === 1 && /^DATI\s+GENERALI\b/i.test(didascalia)) {
+        continue;
+      }
+
       const canvas = document.createElement('canvas');
       let metodo = 'originale';
       try {
