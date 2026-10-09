@@ -61,7 +61,9 @@ const appIdentity = (() => {
     profile = value;
     document.body.dataset.authenticated = 'true';
     document.body.dataset.role = value.ruolo;
-    document.querySelectorAll('[data-admin-only]').forEach((element) => { element.hidden = value.ruolo !== 'admin'; });
+    document.querySelectorAll('[data-admin-only]').forEach((element) => {
+      if (!element.classList.contains('screen') || value.ruolo !== 'admin') element.hidden = value.ruolo !== 'admin';
+    });
     const dashboardName = document.getElementById('dashboard-utente-nome');
     if (dashboardName) dashboardName.textContent = value.nome || value.username;
     login.hidden = true;
@@ -222,12 +224,16 @@ const appIdentity = (() => {
     if (!user || !navigator.onLine) return;
     try {
       if (!profile) { await applicaAuthState(user); return; }
-      const status = await callEndpoint('sessionStatus');
-      if (!status.active) {
+      const value = await caricaProfilo(user);
+      if (value?.disattivato || !value) {
         localStorage.removeItem(PROFILE_CACHE);
         logoutMessage = 'Account disattivato. Contatta l’amministratore.';
         await firebase.auth().signOut();
         mostraLogin(logoutMessage);
+      } else if (JSON.stringify(value) !== JSON.stringify(profile)) {
+        mostraApp(value);
+        const active = location.hash.slice(1);
+        if (value.ruolo !== 'admin' && ['admin-users', 'settings', 'my-work'].includes(active) && typeof router !== 'undefined') router.navigate('home');
       }
     } catch (error) {
       if (error.status === 401 || error.status === 403) {

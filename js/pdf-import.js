@@ -919,7 +919,14 @@ const pdfImport = (() => {
       if (!cella.length) continue;
       const header=cella.some(it => storico ? INTESTAZIONI_STORICO.includes(it.testo.trim()) : it.testo.trim()==='n.');
       const banner=cella.find(it => /^(AUDIT DOCUMENTALE|ANALISI DOCUMENTALE|SOPRALLUOGO AMBIENTI DI LAVORO)$/.test(it.testo.trim()));
-      if (banner) { sezione=banner.testo; contesto.ultimaRiga=null; continue; }
+      if (banner) {
+        // Our AutoTable repeats the group banner on continuation pages. It does
+        // not start a new logical row/section and must not discard its owner.
+        if (storico && banner.testo !== sezione) {
+          sezione=banner.testo; contesto.ultimaRiga=null;
+        }
+        continue;
+      }
       if (header) {
         if (!storico) {
           const h=cella.find(it => it.testo.trim()==='n.');
@@ -1718,7 +1725,10 @@ const pdfImport = (() => {
       }
 
       precedente.testo_originale = unisciTesto(precedente.testo_originale, riga.testo_originale);
-      precedente.nota_originale = unisciTesto(precedente.nota_originale, riga.nota_originale);
+      // Page fragments are consecutive text, even when a phrase repeats. Substring
+      // deduplication used to silently remove entire pages of long/repeated notes.
+      precedente.nota_originale = [precedente.nota_originale, riga.nota_originale]
+        .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim() || null;
       const stati = [precedente.stato_originale, riga.stato_originale].filter(Boolean);
       const unici = Array.from(new Set(stati));
       if (unici.length === 1) precedente.stato_originale = unici[0];

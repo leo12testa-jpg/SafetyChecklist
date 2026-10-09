@@ -1,5 +1,7 @@
 # 🦺 Safety Checklist — PROJECT.md
 
+> Stato al 9 ottobre 2026: questo documento contiene le specifiche originarie, non una certificazione di implementazione. Login, cloud e PDF attuali sono descritti nel [README](README.md). Firma grafica, sotto-form NC e alcuni vincoli originari non sono presenti nel flusso corrente. Il riferimento per il collaudo realmente eseguito è il [rapporto finale](reports/COLLAUDO_SAFETYCHECKLIST_V1_20261009.md).
+
 **Versione:** 1.0
 **Tipo:** Progressive Web App (PWA) offline-first
 **Costo:** Zero (nessuna libreria a pagamento, nessun backend a pagamento)

@@ -559,7 +559,8 @@ const db = (() => {
     (sopralluoghi || []).forEach((sopralluogo) => {
       if (!sopralluogo || sopralluogo.eliminato_definitivamente) return;
       normalizzaRisposte(sopralluogo.risposte).forEach((risposta) => {
-        (risposta.foto || []).forEach((fotoId) => ids.add(String(fotoId)));
+        [risposta, ...(risposta.versioni_precedenti || [])].forEach(versione =>
+          (versione.foto || []).forEach(fotoId => ids.add(String(fotoId))));
       });
       (sopralluogo.altri_aspetti_foto || []).forEach((fotoId) => ids.add(String(fotoId)));
     });

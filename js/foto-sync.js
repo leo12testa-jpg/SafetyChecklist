@@ -135,7 +135,10 @@ const fotoSync = (() => {
     (sopralluoghi || []).forEach((sopralluogo) => {
       if (!sopralluogo || sopralluogo.eliminato_definitivamente) return;
       const risposte = Array.isArray(sopralluogo.risposte) ? sopralluogo.risposte : Object.values(sopralluogo.risposte || {});
-      risposte.forEach((risposta) => (risposta && risposta.foto || []).forEach((id) => riferimenti.add(String(id))));
+      risposte.forEach(risposta => {
+        [risposta, ...(risposta?.versioni_precedenti || [])].forEach(versione =>
+          (versione?.foto || []).forEach(id => riferimenti.add(String(id))));
+      });
       (sopralluogo.altri_aspetti_foto || []).forEach((id) => riferimenti.add(String(id)));
     });
     return riferimenti;
