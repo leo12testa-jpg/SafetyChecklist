@@ -114,7 +114,7 @@ I controlli obbligatori non completati impediscono merge e pubblicazione anche c
 
 Commit delle correzioni: [`0e0ac2a`](https://github.com/leo12testa-jpg/SafetyChecklist/commit/0e0ac2a).
 
-La Pull Request viene aperta **in bozza** sul branch di collaudo; il link definitivo è riportato nella consegna e aggiunto a questo rapporto dopo la creazione. La CI `SafetyChecklist isolated QA` esegue la stessa suite negli emulatori, senza deploy. Le evidenze locali non vengono confuse con lo stato dei check GitHub della PR.
+Pull Request **in bozza**: [#13 — Collaudo V1: correggi perdita dati e importazioni PDF non sicure](https://github.com/leo12testa-jpg/SafetyChecklist/pull/13). La CI `SafetyChecklist isolated QA` esegue la stessa suite negli emulatori, senza deploy. Le evidenze locali non vengono confuse con lo stato dei check GitHub della PR.
 
 Istruzioni: [COLLAUDO_ISOLATO.md](../docs/COLLAUDO_ISOLATO.md). Il rapporto documenta attività realmente eseguite e limiti verificati; non certifica una pubblicazione o il funzionamento di servizi produttivi non collaudati.
 
