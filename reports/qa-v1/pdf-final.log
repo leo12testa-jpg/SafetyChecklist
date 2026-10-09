@@ -1,0 +1,12 @@
+PASS coin: PDF completo e roundtrip di ogni risposta/nota/foto
+PASS interparking: PDF completo e roundtrip di ogni risposta/nota/foto
+PASS restage: PDF completo e roundtrip di ogni risposta/nota/foto
+PASS melluso: PDF completo e roundtrip di ogni risposta/nota/foto
+PASS carrefour: PDF completo e roundtrip di ogni risposta/nota/foto
+PASS vecchia versione PDF: domande rinumerate, spostate, eliminate e simili
+PASS anteprima importa esclusivamente dopo conferma e salva foto su domanda corretta
+PASS conferma ambigua bloccata fino alla scelta manuale domanda
+PASS caricamento PDF reale da input file, annullamento senza scrittura
+PASS anteprima PDF, download reale e riapertura
+PASS PDF corrotto rifiutato
+PASS nessun errore JavaScript, nessuna rete cloud

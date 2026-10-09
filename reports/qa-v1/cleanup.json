@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "verified": "2026-10-09T15:20:14.843Z",
+  "project": "demo-safety-qa-v1",
+  "counts": {
+    "sopralluoghi": 0,
+    "attivita": 0,
+    "utilizzo_app": 0,
+    "utenti": 0,
+    "authUsers": 0
+  },
+  "browserProfilesRemaining": 0,
+  "productionDataServices": "not used: demo configuration and local-only network guard"
+}

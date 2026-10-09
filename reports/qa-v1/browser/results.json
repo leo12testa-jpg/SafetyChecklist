@@ -1,0 +1,294 @@
+{
+  "tests": [
+    {
+      "name": "login errato e password cancellata",
+      "status": "PASS"
+    },
+    {
+      "name": "login tecnico reale Auth emulator",
+      "status": "PASS"
+    },
+    {
+      "name": "persistenza sessione al reload",
+      "status": "PASS"
+    },
+    {
+      "name": "tecnico: rotte admin protette e API nega privilegi",
+      "status": "PASS"
+    },
+    {
+      "name": "admin vede utenti e tecnico non modifica profilo",
+      "status": "PASS"
+    },
+    {
+      "name": "telemetria: tecnico scrive solo il proprio stato e admin legge accessi",
+      "status": "PASS"
+    },
+    {
+      "name": "backend crea account fittizio e rifiuta username duplicato/password corta",
+      "status": "PASS"
+    },
+    {
+      "name": "Firestore anonimo, profilo inattivo e audit falsificato negati",
+      "status": "PASS"
+    },
+    {
+      "name": "creazione cliente sede tecnico checklist da UI",
+      "status": "PASS",
+      "details": {
+        "id": "ce374345-686b-480b-86ef-b893648d9eb9"
+      }
+    },
+    {
+      "name": "C PC NC NA, note autosalvate, ricerca e navigazione rapida",
+      "status": "PASS"
+    },
+    {
+      "name": "tre tecnici: modifiche simultanee su domande diverse",
+      "status": "PASS"
+    },
+    {
+      "name": "stessa domanda concorrente: verifica conservazione entrambe le note",
+      "status": "PASS"
+    },
+    {
+      "name": "versione concorrente precedente consultabile e ripristinabile da UI",
+      "status": "PASS"
+    },
+    {
+      "name": "foto da file chooser UI: compressione e collegamento alla domanda attiva",
+      "status": "PASS",
+      "details": {
+        "type": "image/jpeg",
+        "question": 23,
+        "bytes": 11965,
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "upload foto lento e cambio domanda: foto resta sulla domanda originale",
+      "status": "PASS",
+      "details": {
+        "owner": 23,
+        "other": false
+      }
+    },
+    {
+      "name": "foto sincronizzata e recuperata su secondo dispositivo",
+      "status": "PASS",
+      "details": {
+        "photo": "b3951aa9-9205-4e13-91c4-40d0a027f48f",
+        "bytes": 798
+      }
+    },
+    {
+      "name": "cloud foto 503: blob locale mantenuto e retry recupera",
+      "status": "PASS",
+      "details": {
+        "bytes": 798
+      }
+    },
+    {
+      "name": "offline, foto e nota, reload con SW, ritorno online senza perdita",
+      "status": "PASS",
+      "details": {
+        "bytes": 798
+      }
+    },
+    {
+      "name": "Firestore interrotto: dati pending persistono e ripartono",
+      "status": "PASS"
+    },
+    {
+      "name": "storico filtri cliente tecnico data checklist ricerca ordinamento",
+      "status": "PASS",
+      "details": {
+        "orderedRows": 3
+      }
+    },
+    {
+      "name": "storico chiusura riapertura modifica e ripresa incompleta",
+      "status": "PASS"
+    },
+    {
+      "name": "eliminazione e ripristino UI solo sopralluogo fittizio",
+      "status": "PASS"
+    },
+    {
+      "name": "responsive 1440: home nuovo compilazione storico e PDF",
+      "status": "PASS",
+      "details": {
+        "pdfMs": 832
+      }
+    },
+    {
+      "name": "responsive 768: home nuovo compilazione storico e PDF",
+      "status": "PASS",
+      "details": {
+        "pdfMs": 735
+      }
+    },
+    {
+      "name": "responsive 390: home nuovo compilazione storico e PDF",
+      "status": "PASS",
+      "details": {
+        "pdfMs": 649
+      }
+    },
+    {
+      "name": "rete lenta: apertura checklist e ricerca utilizzabili",
+      "status": "PASS",
+      "details": {
+        "ms": 1495
+      }
+    },
+    {
+      "name": "logout e nuovo login con altro account sul dispositivo",
+      "status": "PASS"
+    },
+    {
+      "name": "cambio password: errore credenziale attuale, aggiornamento e nuovo accesso",
+      "status": "PASS"
+    },
+    {
+      "name": "cambio ruolo online aggiorna privilegi e protegge la schermata già aperta",
+      "status": "PASS"
+    },
+    {
+      "name": "disattivazione utente provoca logout online",
+      "status": "PASS"
+    },
+    {
+      "name": "nessun errore JavaScript applicativo",
+      "status": "PASS",
+      "details": {
+        "consoleErrors": 20,
+        "blocked": 1
+      }
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": [
+    {
+      "user": "qa.alpha.mv13ut4r",
+      "message": "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+    },
+    {
+      "user": "qa.alpha.mv13ut4r",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+    },
+    {
+      "user": "qa.beta.mv13ut4r",
+      "message": "[SW] Registrazione non riuscita: TypeError: Cannot read properties of undefined (reading 'update')\n    at http://127.0.0.1:60824/SafetyChecklist/js/aggiornamento.js?v=20261009-qa-v1:72:48"
+    },
+    {
+      "user": "qa.admin.mv13ut4r",
+      "message": "[SW] Registrazione non riuscita: TypeError: Cannot read properties of undefined (reading 'update')\n    at http://127.0.0.1:60824/SafetyChecklist/js/aggiornamento.js?v=20261009-qa-v1:72:48"
+    },
+    {
+      "user": "qa.alpha.mv13ut4r",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+    },
+    {
+      "user": "qa.admin.mv13ut4r",
+      "message": "Failed to load resource: the server responded with a status of 409 (Conflict)"
+    },
+    {
+      "user": "qa.admin.mv13ut4r",
+      "message": "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+    },
+    {
+      "user": "qa.beta.mv13ut4r",
+      "message": "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+    },
+    {
+      "user": "qa.admin.mv13ut4r",
+      "message": "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+    },
+    {
+      "user": "qa.alpha.mv13ut4r",
+      "message": "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+    },
+    {
+      "user": "qa.beta.mv13ut4r",
+      "message": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+    },
+    {
+      "user": "qa.beta.mv13ut4r",
+      "message": "FotoSync: upload della foto su Supabase fallito, resta salvata solo in locale cfc8356d-a03b-44aa-b4d9-09a1c05dc108 SyntaxError: Unexpected token 'Q', \"QA storage outage\" is not valid JSON"
+    },
+    {
+      "user": "qa.alpha.mv13ut4r",
+      "message": "Failed to load resource: net::ERR_INTERNET_DISCONNECTED"
+    },
+    {
+      "user": "qa.alpha.mv13ut4r",
+      "message": "Failed to load resource: net::ERR_INTERNET_DISCONNECTED"
+    },
+    {
+      "user": "qa.alpha.mv13ut4r",
+      "message": "Failed to load resource: net::ERR_INTERNET_DISCONNECTED"
+    },
+    {
+      "user": "qa.alpha.mv13ut4r",
+      "message": "Failed to load resource: net::ERR_FAILED"
+    },
+    {
+      "user": "qa.alpha.mv13ut4r",
+      "message": "Failed to load resource: net::ERR_FAILED"
+    },
+    {
+      "user": "qa.alpha.mv13ut4r",
+      "message": "Failed to load resource: net::ERR_INTERNET_DISCONNECTED"
+    },
+    {
+      "user": "qa.beta.mv13ut4r",
+      "message": "Failed to load resource: net::ERR_FAILED"
+    },
+    {
+      "user": "qa.beta.mv13ut4r",
+      "message": "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+    }
+  ],
+  "blocked": [
+    [
+      "https://www.google.com/images/cleardot.gif?zx=1ry5uctpjqz"
+    ],
+    [],
+    []
+  ],
+  "timings": [
+    {
+      "operation": "creazione locale e ricezione",
+      "ms": 233
+    }
+  ],
+  "profiles": [
+    "C:\\Users\\Leonardo\\Documents\\SafetyChecklist-qa-v1-20261009\\reports\\qa-v1\\browser\\profile-vcaaWt",
+    "C:\\Users\\Leonardo\\Documents\\SafetyChecklist-qa-v1-20261009\\reports\\qa-v1\\browser\\profile-t8rjh1",
+    "C:\\Users\\Leonardo\\Documents\\SafetyChecklist-qa-v1-20261009\\reports\\qa-v1\\browser\\profile-RQc4n5"
+  ],
+  "sameQuestion": {
+    "winner": {
+      "domanda_id": 23,
+      "sezione": "QA",
+      "risposta": "NC",
+      "note": "CONFLITTO-BETA",
+      "foto": [],
+      "aggiornato_il": "2026-10-09T15:13:38.564Z",
+      "versioni_precedenti": [
+        {
+          "domanda_id": 23,
+          "sezione": "QA",
+          "risposta": "NC",
+          "note": "CONFLITTO-ALPHA",
+          "foto": [],
+          "aggiornato_il": "2026-10-09T15:13:38.564Z"
+        }
+      ]
+    },
+    "bothRetained": true
+  },
+  "cleaned": true
+}

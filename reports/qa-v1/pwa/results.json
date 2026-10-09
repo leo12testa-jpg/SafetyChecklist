@@ -1,0 +1,45 @@
+{
+  "tests": [
+    {
+      "name": "PWA installazione SW e scope corretto nel sottopercorso",
+      "status": "PASS"
+    },
+    {
+      "name": "PWA cache completa delle cinque checklist prima dell offline",
+      "status": "PASS"
+    },
+    {
+      "name": "crash reale renderer: recupero nota e foto ancora non sincronizzate",
+      "status": "PASS"
+    },
+    {
+      "name": "aggiornamento differito durante compilazione con nota digitata",
+      "status": "PASS"
+    },
+    {
+      "name": "aggiornamento in schermata sicura senza perdita di IndexedDB",
+      "status": "PASS"
+    },
+    {
+      "name": "riapertura offline sessione verificata, cinque checklist e PDF",
+      "status": "PASS",
+      "details": {
+        "loaded": [
+          "coin_sopralluogo",
+          "interparking_sopralluogo",
+          "restage_sopralluogo",
+          "melluso_sopralluogo",
+          "carrefour_sopralluogo"
+        ],
+        "bytes": 158424,
+        "note": "QA-NOTA-AUTOSALVATA"
+      }
+    },
+    {
+      "name": "PWA nessun errore JavaScript",
+      "status": "PASS"
+    }
+  ],
+  "errors": [],
+  "cleaned": true
+}

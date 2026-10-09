@@ -1,0 +1,9 @@
+PASS PWA installazione SW e scope corretto nel sottopercorso
+PASS PWA cache completa delle cinque checklist prima dell offline
+PASS crash reale renderer: recupero nota e foto ancora non sincronizzate
+PASS aggiornamento differito durante compilazione con nota digitata
+PASS aggiornamento in schermata sicura senza perdita di IndexedDB
+PASS riapertura offline sessione verificata, cinque checklist e PDF
+PASS PWA nessun errore JavaScript
+(node:6200) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)

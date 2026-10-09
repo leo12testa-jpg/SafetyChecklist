@@ -1,0 +1,136 @@
+{
+  "tests": [
+    {
+      "name": "coin: PDF completo e roundtrip di ogni risposta/nota/foto",
+      "status": "PASS",
+      "details": {
+        "pages": 8,
+        "questions": 60,
+        "sourceRows": 60,
+        "uncertain": 2,
+        "photoQuestion": 1
+      }
+    },
+    {
+      "name": "interparking: PDF completo e roundtrip di ogni risposta/nota/foto",
+      "status": "PASS",
+      "details": {
+        "pages": 8,
+        "questions": 73,
+        "sourceRows": 73,
+        "uncertain": 0,
+        "photoQuestion": 1
+      }
+    },
+    {
+      "name": "restage: PDF completo e roundtrip di ogni risposta/nota/foto",
+      "status": "PASS",
+      "details": {
+        "pages": 8,
+        "questions": 55,
+        "sourceRows": 55,
+        "uncertain": 0,
+        "photoQuestion": 1
+      }
+    },
+    {
+      "name": "melluso: PDF completo e roundtrip di ogni risposta/nota/foto",
+      "status": "PASS",
+      "details": {
+        "pages": 8,
+        "questions": 57,
+        "sourceRows": 57,
+        "uncertain": 0,
+        "photoQuestion": 1
+      }
+    },
+    {
+      "name": "carrefour: PDF completo e roundtrip di ogni risposta/nota/foto",
+      "status": "PASS",
+      "details": {
+        "pages": 9,
+        "questions": 75,
+        "sourceRows": 75,
+        "uncertain": 4,
+        "photoQuestion": 1
+      }
+    },
+    {
+      "name": "vecchia versione PDF: domande rinumerate, spostate, eliminate e simili",
+      "status": "PASS",
+      "details": [
+        {
+          "source": 1,
+          "destination": 102,
+          "state": "sicuro",
+          "note": "SOURCE-1"
+        },
+        {
+          "source": 2,
+          "destination": 101,
+          "state": "sicuro",
+          "note": "SOURCE-2"
+        },
+        {
+          "source": 3,
+          "destination": 3,
+          "state": "da_verificare",
+          "note": "SOURCE-3"
+        },
+        {
+          "source": 4,
+          "destination": 4,
+          "state": "da_verificare",
+          "note": "SOURCE-4"
+        },
+        {
+          "source": 5,
+          "destination": 5,
+          "state": "sicuro",
+          "note": "SOURCE-5"
+        }
+      ]
+    },
+    {
+      "name": "anteprima importa esclusivamente dopo conferma e salva foto su domanda corretta",
+      "status": "PASS",
+      "details": {
+        "responses": 75
+      }
+    },
+    {
+      "name": "conferma ambigua bloccata fino alla scelta manuale domanda",
+      "status": "PASS"
+    },
+    {
+      "name": "caricamento PDF reale da input file, annullamento senza scrittura",
+      "status": "PASS"
+    },
+    {
+      "name": "anteprima PDF, download reale e riapertura",
+      "status": "PASS",
+      "details": {
+        "pages": 9,
+        "bytes": 211602
+      }
+    },
+    {
+      "name": "PDF corrotto rifiutato",
+      "status": "PASS"
+    },
+    {
+      "name": "nessun errore JavaScript, nessuna rete cloud",
+      "status": "PASS"
+    }
+  ],
+  "errors": [],
+  "blocked": [],
+  "artifacts": [
+    "coin.pdf",
+    "interparking.pdf",
+    "restage.pdf",
+    "melluso.pdf",
+    "carrefour.pdf"
+  ],
+  "cleaned": "isolated browser context closed; synthetic records deleted"
+}
