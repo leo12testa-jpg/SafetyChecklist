@@ -1,6 +1,7 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {root,project,authOrigin,documents,playwright,seed,put,makeServer,guard}=require('./qa-support.cjs');
-const out=path.join(root,'reports/qa-v1/browser');fs.mkdirSync(out,{recursive:true});
+const browserName=process.env.QA_BROWSER||'chromium';
+const out=path.join(root,'reports/qa-v1/'+(process.env.QA_BROWSER?'browser-'+browserName:'browser'));fs.mkdirSync(out,{recursive:true});
 const report={tests:[],pageErrors:[],consoleErrors:[],blocked:[],timings:[],profiles:[]};
 const devices=[],users=[];let id,url;const server=makeServer({emulator:true});
 async function check(name,fn){try{const details=await fn();report.tests.push({name,status:'PASS',details});console.log('PASS '+name);}
@@ -8,7 +9,7 @@ async function check(name,fn){try{const details=await fn();report.tests.push({na
   fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(report,null,2));}
 async function open(user,viewport={width:1440,height:1000},{sw=false}={}) {
   const profile=fs.mkdtempSync(path.join(out,'profile-'));report.profiles.push(profile);
-  const context=await playwright().chromium.launchPersistentContext(profile,{channel:'chrome',headless:true,serviceWorkers:sw?'allow':'block',viewport,acceptDownloads:true});
+  const context=await playwright()[browserName].launchPersistentContext(profile,{...(browserName==='chromium'?{channel:'chrome'}:{}),headless:true,serviceWorkers:sw?'allow':'block',viewport,acceptDownloads:true});
   const blocked=await guard(context,server.origin,{emulator:true});report.blocked.push(blocked);
   const page=context.pages()[0];const d={context,page,user,profile,viewport};devices.push(d);page.setDefaultTimeout(20000);
   page.on('pageerror',e=>report.pageErrors.push({user:user.username,message:e.message}));
@@ -131,13 +132,13 @@ async function receivePhoto(d,f) {
     assert.equal(result.type,'image/jpeg');assert.equal(result.question,23);assert.ok(result.bytes>0);assert.equal(result.width,1280);return result;
   });
   await check('upload foto lento e cambio domanda: foto resta sulla domanda originale',async()=>{
-    await A.context.route(server.origin+'/storage/v1/object/**',async route=>{if(route.request().method()==='POST')await new Promise(r=>setTimeout(r,800));return route.continue();});
+    await A.context.route(server.origin+'/functions/v1/photo-access**',async route=>{if(route.request().method()==='POST')await new Promise(r=>setTimeout(r,800));return route.continue();});
     const before=await A.page.evaluate(()=>checklistEngine.domandaCorrente().risposta.foto.length);
     const choosing=A.page.waitForEvent('filechooser');await A.page.locator('#btn-foto').click();await(await choosing).setFiles(path.join(out,'qa-photo.png'));
     await A.page.locator('#btn-avanti').click();await A.page.waitForFunction(()=>checklistEngine.domandaCorrente().domanda.id!==23);
     await waitRecord(A,`r.risposte.some(r=>r.domanda_id===23&&r.foto.length===${before+1})`);
     const result=await A.page.evaluate(async id=>{const r=await db.leggiSopralluogo(id),f=r.risposte.find(r=>r.domanda_id===23).foto.at(-1),owner=(await db.leggiFoto(f)).domanda_id;return {owner,other:r.risposte.some(r=>r.domanda_id!==23&&r.foto.includes(f))};},id);
-    assert.equal(result.owner,23);assert.equal(result.other,false);await A.context.unroute(server.origin+'/storage/v1/object/**');return result;
+    assert.equal(result.owner,23);assert.equal(result.other,false);await A.context.unroute(server.origin+'/functions/v1/photo-access**');return result;
   });
   await check('foto sincronizzata e recuperata su secondo dispositivo',async()=>{const f=await photo(A,24);return {photo:f,bytes:await receivePhoto(B,f)};});
   await check('cloud foto 503: blob locale mantenuto e retry recupera',async()=>{

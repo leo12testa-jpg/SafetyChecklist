@@ -16,3 +16,8 @@ test('identical content with different timestamps does not create redundant hist
   const merged=c.api.unisciRisposte([a],{7:{...a,aggiornato_il:b.aggiornato_il}},0,0).array[0];
   assert.equal(merged.versioni_precedenti,undefined);
 });
+test('normal sequential edits do not accumulate typing snapshots as concurrent conflicts',()=>{
+  const next={...b,_base_aggiornato_il:a.aggiornato_il};
+  const merged=c.api.unisciRisposte([a],{7:next},0,0).array[0];
+  assert.equal(merged.note,b.note);assert.equal(merged.versioni_precedenti,undefined);
+});

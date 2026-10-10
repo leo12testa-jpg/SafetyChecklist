@@ -16,7 +16,7 @@ function setup({paged=false,profileFailure=false}={}) {
     if(options.method==='PATCH')return json(profileFailure?{error:'QA write failure'}:user(uid),profileFailure?503:200);
     return json(user(uid,uid==='admin'?'admin':'tecnico',uid!=='inactive'));
   };
-  vm.runInNewContext(require('node:module').stripTypeScriptTypes(source),{Deno:{serve:h=>{handler=h;}},fetch,Request,Response,URL,URLSearchParams,console});
+  vm.runInNewContext(require('node:module').stripTypeScriptTypes(source),{Deno:{serve:(opts,h)=>{handler=h||opts;}},fetch,Request,Response,URL,URLSearchParams,console});
   return {requests,call:(action,token='admin',body={})=>handler(new Request('http://qa.local/',{method:'POST',headers:{'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{})},body:JSON.stringify({action,...body})}))};
 }
 test('account listing follows Firestore pagination and includes user 101',async()=>{

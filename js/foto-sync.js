@@ -30,18 +30,34 @@ const fotoSync = (() => {
     if (client) {
       return client;
     }
-    if (typeof supabase === 'undefined' || typeof SUPABASE_URL === 'undefined') {
-      console.warn('FotoSync: SDK Supabase o supabase-config.js non caricati, sincronizzazione foto disabilitata.');
+    if (typeof PHOTO_ACCESS_ENDPOINT === 'undefined') {
+      console.warn('FotoSync: backend fotografie non configurato.');
       return null;
     }
-    client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { fetch: async (url, options = {}) => {
+    const address = (path, extra = {}) => PHOTO_ACCESS_ENDPOINT + '?' + new URLSearchParams({ sopralluogo_id: path.split('/')[0], path, ...extra });
+    const request = async (url, options = {}) => {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 25000);
-        try { return await fetch(url, { ...options, signal: controller.signal }); }
+        try {
+          if (typeof appIdentity === 'undefined' || !appIdentity.current()) throw new Error('Sessione non disponibile.');
+          const token = await appIdentity.token();
+          const response = await fetch(url, { ...options, headers: { ...options.headers, authorization: `Bearer ${token}` }, signal: controller.signal });
+          if (!response.ok) throw Object.assign(new Error((await response.json().catch(() => ({}))).error || 'Servizio foto non disponibile.'), { status: response.status });
+          return response;
+        }
         finally { clearTimeout(timer); }
-      } }
-    });
+    };
+    client = { storage: { from: () => ({
+      async upload(path, blob, options) {
+        try {
+          await request(address(path, { foto_id: options.photoId, domanda_id: options.question ?? '' }), { method: 'POST', headers: { 'content-type': blob.type }, body: blob });
+          return { error: null };
+        } catch (error) { return { error }; }
+      },
+      getPrivateUrl: path => ({ data: { privateUrl: address(path) } }),
+      async download(path) { try { return { data: await (await request(address(path))).blob(), error: null }; } catch(error) { return { data: null, error }; } },
+      async remove(paths) { try { for (const path of paths) await request(address(path), { method: 'DELETE' }); return { error: null }; } catch(error) { return { error }; } }
+    }) } };
     return client;
   }
 
@@ -106,13 +122,13 @@ const fotoSync = (() => {
     try {
       const path = percorsoStorage({ sopralluogo_id, domanda_id, fotoId });
       const { error: erroreUpload } = await supa.storage.from(SUPABASE_BUCKET).upload(path, blob, {
-        contentType: 'image/jpeg',
-        upsert: false
+        photoId: fotoId,
+        question: domanda_id
       });
-      if (erroreUpload && !['409', 'Duplicate'].includes(String(erroreUpload.statusCode || erroreUpload.error)) && !/already exists/i.test(erroreUpload.message || '')) throw erroreUpload;
+      if (erroreUpload) throw erroreUpload;
 
-      const { data } = supa.storage.from(SUPABASE_BUCKET).getPublicUrl(path);
-      const url = data ? data.publicUrl : null;
+      const { data } = supa.storage.from(SUPABASE_BUCKET).getPrivateUrl(path);
+      const url = data ? data.privateUrl : null;
 
       // No-op se la foto è stata eliminata in locale mentre l'upload era ancora in corso (vedi
       // db.impostaUrlFoto): niente da aggiornare, la foto non è più referenziata da nessuna parte.

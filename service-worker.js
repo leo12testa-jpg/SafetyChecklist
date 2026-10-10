@@ -14,7 +14,6 @@ const APP_SHELL = [
   './js/vendor/firebase-auth-compat.js',
   './js/firebase-config.js',
   './js/auth.js?v=20261009-qa-v1',
-  './js/vendor/supabase.js',
   './js/supabase-config.js',
   './js/vendor/pdf.min.js',
   './js/vendor/pdf.worker.min.js',

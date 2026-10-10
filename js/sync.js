@@ -109,14 +109,15 @@ const sync = (() => {
   }
 
   function contenutoRisposta(risposta) {
-    const { aggiornato_il, ...contenuto } = snapshotRisposta(risposta);
+    const { aggiornato_il, _base_aggiornato_il, ...contenuto } = snapshotRisposta(risposta);
     return stabile(contenuto);
   }
 
   /** Keep overwritten values recoverable; repeated snapshots do not grow the history. */
   function conservaVersioni(vincente, altra) {
     const versioni = [...(vincente.versioni_precedenti || []), ...(altra.versioni_precedenti || [])];
-    if (contenutoRisposta(vincente) !== contenutoRisposta(altra)) versioni.push(snapshotRisposta(altra));
+    const sequenziale = vincente._base_aggiornato_il && vincente._base_aggiornato_il === altra.aggiornato_il;
+    if (!sequenziale && contenutoRisposta(vincente) !== contenutoRisposta(altra)) versioni.push(snapshotRisposta(altra));
     const corrente = contenutoRisposta(vincente);
     const perContenuto = new Map();
     for (const versione of versioni) {

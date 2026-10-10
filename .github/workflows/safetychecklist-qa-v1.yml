@@ -34,7 +34,11 @@ jobs:
           java-version: '21'
       - name: Install pinned test tools
         run: npm install --no-save --no-package-lock playwright@1.55.0 firebase-tools@15.31.0
+      - name: Install Firefox and WebKit engines
+        run: npx playwright install --with-deps firefox webkit
       - name: Run local emulators and isolated browser tests
+        env:
+          QA_CROSS_BROWSER: '1'
         run: npx firebase emulators:exec --only auth,firestore --project demo-safety-qa-v1 --config firebase.qa.json "node tests/qa-v1-run.cjs"
       - name: Preserve synthetic QA evidence
         if: always()

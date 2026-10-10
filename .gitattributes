@@ -1,3 +1,4 @@
 # Synthetic QA PDFs contain binary image streams after a long text preamble.
 # Disable newline conversion and textual diffing so exported bytes remain valid.
 reports/qa-v1/pdf/*.pdf binary
+tests/fixtures/historical/*.pdf binary
