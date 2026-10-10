@@ -1,0 +1,49 @@
+name: SafetyChecklist isolated QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'js/**'
+      - 'css/**'
+      - 'checklists/**'
+      - 'assets/**'
+      - 'index.html'
+      - 'service-worker.js'
+      - 'firestore.rules'
+      - 'firebase.qa.json'
+      - 'supabase/functions/manage-users/**'
+      - 'tests/qa-*'
+      - '.github/workflows/safetychecklist-qa-v1.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install pinned test tools
+        run: npm install --no-save --no-package-lock playwright@1.55.0 firebase-tools@15.31.0
+      - name: Install Firefox and WebKit engines
+        run: npx playwright install --with-deps firefox webkit
+      - name: Run local emulators and isolated browser tests
+        env:
+          QA_CROSS_BROWSER: '1'
+        run: npx firebase emulators:exec --only auth,firestore --project demo-safety-qa-v1 --config firebase.qa.json "node tests/qa-v1-run.cjs"
+      - name: Preserve synthetic QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: safetychecklist-isolated-qa
+          path: reports/qa-v1/
+          if-no-files-found: warn

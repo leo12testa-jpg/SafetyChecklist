@@ -1,0 +1,1593 @@
+TAP version 13
+# (node:17184) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: account listing follows Firestore pagination and includes user 101
+ok 1 - account listing follows Firestore pagination and includes user 101
+  ---
+  duration_ms: 105.8359
+  type: 'test'
+  ...
+# Subtest: admin actions reject anonymous, technician and inactive callers
+ok 2 - admin actions reject anonymous, technician and inactive callers
+  ---
+  duration_ms: 10.4413
+  type: 'test'
+  ...
+# Subtest: usage heartbeat uses verified uid and server timestamp, ignores inspection payload
+ok 3 - usage heartbeat uses verified uid and server timestamp, ignores inspection payload
+  ---
+  duration_ms: 8.4184
+  type: 'test'
+  ...
+# Subtest: self role/deactivation blocked and usage list limited to admin
+ok 4 - self role/deactivation blocked and usage list limited to admin
+  ---
+  duration_ms: 9.0416
+  type: 'test'
+  ...
+# Subtest: profile creation failure compensates only the account just created
+ok 5 - profile creation failure compensates only the account just created
+  ---
+  duration_ms: 17.5555
+  type: 'test'
+  ...
+# Subtest: queued saves retain original inspection/question and captured notes after navigation
+ok 6 - queued saves retain original inspection/question and captured notes after navigation
+  ---
+  duration_ms: 4.6878
+  type: 'test'
+  ...
+# Subtest: realtime notification during pending save does not overwrite the active controls
+ok 7 - realtime notification during pending save does not overwrite the active controls
+  ---
+  duration_ms: 0.8911
+  type: 'test'
+  ...
+# Subtest: history refresh preserves a date changed while IndexedDB is being read
+ok 8 - history refresh preserves a date changed while IndexedDB is being read
+  ---
+  duration_ms: 1.3456
+  type: 'test'
+  ...
+# Subtest: temporary audit write failure persists event then flushes on recovery
+ok 9 - temporary audit write failure persists event then flushes on recovery
+  ---
+  duration_ms: 10.9343
+  type: 'test'
+  ...
+# Subtest: online role demotion refreshes profile and redirects protected current route
+ok 10 - online role demotion refreshes profile and redirects protected current route
+  ---
+  duration_ms: 2.8674
+  type: 'test'
+  ...
+# Subtest: transient profile outage retains the verified session
+ok 11 - transient profile outage retains the verified session
+  ---
+  duration_ms: 1.19
+  type: 'test'
+  ...
+# Subtest: authorization rejection removes cached profile and signs out
+ok 12 - authorization rejection removes cached profile and signs out
+  ---
+  duration_ms: 2.7653
+  type: 'test'
+  ...
+# Subtest: camera chooser cancel resolves without blocking the Photo button
+ok 13 - camera chooser cancel resolves without blocking the Photo button
+  ---
+  duration_ms: 4.4853
+  type: 'test'
+  ...
+# Subtest: photo upload finishing after navigation stays on the original question
+ok 14 - photo upload finishing after navigation stays on the original question
+  ---
+  duration_ms: 6.6803
+  type: 'test'
+  ...
+# Subtest: Interparking legacy: id risposta stringa equivale all id numerico della checklist
+ok 15 - Interparking legacy: id risposta stringa equivale all id numerico della checklist
+  ---
+  duration_ms: 3.9331
+  type: 'test'
+  ...
+# Subtest: riepilogo riconosce domanda_id numerico salvato come stringa
+ok 16 - riepilogo riconosce domanda_id numerico salvato come stringa
+  ---
+  duration_ms: 2.8518
+  type: 'test'
+  ...
+# Subtest: manifest: tutte le checklist dichiarano la stessa versione del relativo JSON e id univoci
+ok 17 - manifest: tutte le checklist dichiarano la stessa versione del relativo JSON e id univoci
+  ---
+  duration_ms: 11.1578
+  type: 'test'
+  ...
+# Subtest: carica: usa URL versionata e no-store e sostituisce una cache locale vecchia
+ok 18 - carica: usa URL versionata e no-store e sostituisce una cache locale vecchia
+  ---
+  duration_ms: 3.2245
+  type: 'test'
+  ...
+# Subtest: carica: offline non usa una cache con versione diversa da quella attesa
+ok 19 - carica: offline non usa una cache con versione diversa da quella attesa
+  ---
+  duration_ms: 3.7291
+  type: 'test'
+  ...
+# Subtest: carica: offline usa la cache solo quando la versione coincide
+ok 20 - carica: offline usa la cache solo quando la versione coincide
+  ---
+  duration_ms: 2.2078
+  type: 'test'
+  ...
+# Subtest: DB: risposte Firestore in formato mappa vengono normalizzate in array locale
+ok 21 - DB: risposte Firestore in formato mappa vengono normalizzate in array locale
+  ---
+  duration_ms: 4.5954
+  type: 'test'
+  ...
+# Subtest: DB: null e formati inattesi diventano array vuoto senza .reduce/.find su oggetti
+ok 22 - DB: null e formati inattesi diventano array vuoto senza .reduce/.find su oggetti
+  ---
+  duration_ms: 3.8952
+  type: 'test'
+  ...
+# Subtest: DB: domanda_id numerico salvato come stringa viene canonicalizzato
+ok 23 - DB: domanda_id numerico salvato come stringa viene canonicalizzato
+  ---
+  duration_ms: 2.6368
+  type: 'test'
+  ...
+# Subtest: id stabile e testo invariato: abbinamento automatico al 100%
+ok 24 - id stabile e testo invariato: abbinamento automatico al 100%
+  ---
+  duration_ms: 6.5119
+  type: 'test'
+  ...
+# Subtest: id stabile ma testo sotto soglia alta: richiede conferma anche per una piccola modifica
+ok 25 - id stabile ma testo sotto soglia alta: richiede conferma anche per una piccola modifica
+  ---
+  duration_ms: 3.3399
+  type: 'test'
+  ...
+# Subtest: id stabile ma testo MOLTO diverso (domanda probabilmente cambiata): NON automatico, va verificato
+ok 26 - id stabile ma testo MOLTO diverso (domanda probabilmente cambiata): NON automatico, va verificato
+  ---
+  duration_ms: 2.16
+  type: 'test'
+  ...
+# Subtest: id presente nel PDF ma non più valido nella checklist attuale (domanda eliminata): niente panico, si tenta il testo
+ok 27 - id presente nel PDF ma non più valido nella checklist attuale (domanda eliminata): niente panico, si tenta il testo
+  ---
+  duration_ms: 2.3031
+  type: 'test'
+  ...
+# Subtest: nessun id, testo praticamente identico: abbinamento automatico per testo
+ok 28 - nessun id, testo praticamente identico: abbinamento automatico per testo
+  ---
+  duration_ms: 2.9386
+  type: 'test'
+  ...
+# Subtest: testo abbastanza simile ma non identico (sotto la soglia alta): fuzzy, SEMPRE da verificare anche se il punteggio non è basso
+ok 29 - testo abbastanza simile ma non identico (sotto la soglia alta): fuzzy, SEMPRE da verificare anche se il punteggio non è basso
+  ---
+  duration_ms: 3.2433
+  type: 'test'
+  ...
+# Subtest: testo troppo diverso da qualunque domanda: non riconosciuta, nessun candidato forzato
+ok 30 - testo troppo diverso da qualunque domanda: non riconosciuta, nessun candidato forzato
+  ---
+  duration_ms: 2.7412
+  type: 'test'
+  ...
+# Subtest: due domande molto simili tra loro: ambiguità rilevata, mai un automatico alla cieca
+ok 31 - due domande molto simili tra loro: ambiguità rilevata, mai un automatico alla cieca
+  ---
+  duration_ms: 2.6786
+  type: 'test'
+  ...
+# Subtest: sezione + numero coerenti con la posizione originale: automatico, confermato dal testo
+ok 32 - sezione + numero coerenti con la posizione originale: automatico, confermato dal testo
+  ---
+  duration_ms: 4.3297
+  type: 'test'
+  ...
+# Subtest: domanda spostata in altra posizione: la posizione indicherebbe la domanda sbagliata, ma il testo la smentisce e recupera quella giusta altrove
+ok 33 - domanda spostata in altra posizione: la posizione indicherebbe la domanda sbagliata, ma il testo la smentisce e recupera quella giusta altrove
+  ---
+  duration_ms: 3.5707
+  type: 'test'
+  ...
+# Subtest: sezione rinominata (stesso significato, etichetta diversa): il gruppo si riconosce comunque tramite gli alias noti
+ok 34 - sezione rinominata (stesso significato, etichetta diversa): il gruppo si riconosce comunque tramite gli alias noti
+  ---
+  duration_ms: 3.3972
+  type: 'test'
+  ...
+# Subtest: ordine delle sezioni invertito nella checklist attuale: il matching per id non ne risente
+ok 35 - ordine delle sezioni invertito nella checklist attuale: il matching per id non ne risente
+  ---
+  duration_ms: 2.4666
+  type: 'test'
+  ...
+# Subtest: domanda nuova nella checklist attuale (assente dal vecchio PDF): resta semplicemente senza riga associata
+ok 36 - domanda nuova nella checklist attuale (assente dal vecchio PDF): resta semplicemente senza riga associata
+  ---
+  duration_ms: 2.7685
+  type: 'test'
+  ...
+# Subtest: due righe del PDF si candidano alla stessa domanda: conflitto per entrambe, nessuna assegnazione automatica
+ok 37 - due righe del PDF si candidano alla stessa domanda: conflitto per entrambe, nessuna assegnazione automatica
+  ---
+  duration_ms: 2.7815
+  type: 'test'
+  ...
+# Subtest: la nota resta sempre associata alla riga/domanda a cui apparteneva nel PDF
+ok 38 - la nota resta sempre associata alla riga/domanda a cui apparteneva nel PDF
+  ---
+  duration_ms: 3.8233
+  type: 'test'
+  ...
+# Subtest: riepilogo: conteggi coerenti su un mix di righe sicure/da verificare/non riconosciute/conflitto
+ok 39 - riepilogo: conteggi coerenti su un mix di righe sicure/da verificare/non riconosciute/conflitto
+  ---
+  duration_ms: 3.3103
+  type: 'test'
+  ...
+# Subtest: rilevaChecklist: un PDF con id validi per la checklist B viene riconosciuto come B anche se l'utente aveva selezionato A
+ok 40 - rilevaChecklist: un PDF con id validi per la checklist B viene riconosciuto come B anche se l'utente aveva selezionato A
+  ---
+  duration_ms: 3.3366
+  type: 'test'
+  ...
+# Subtest: rilevaChecklist: classifica ambigua fra due checklist molto simili non viene dichiarata automatica
+ok 41 - rilevaChecklist: classifica ambigua fra due checklist molto simili non viene dichiarata automatica
+  ---
+  duration_ms: 3.0828
+  type: 'test'
+  ...
+# Subtest: similarita: identico dopo normalizzazione (accenti, maiuscole, spazi) vale 1
+ok 42 - similarita: identico dopo normalizzazione (accenti, maiuscole, spazi) vale 1
+  ---
+  duration_ms: 2.694
+  type: 'test'
+  ...
+# Subtest: similarita: stringhe vuote non generano NaN/eccezioni
+ok 43 - similarita: stringhe vuote non generano NaN/eccezioni
+  ---
+  duration_ms: 3.1817
+  type: 'test'
+  ...
+# Subtest: foto PDF app: "Domanda N" in didascalia collega la foto alla domanda abbinata
+ok 44 - foto PDF app: "Domanda N" in didascalia collega la foto alla domanda abbinata
+  ---
+  duration_ms: 3.4274
+  type: 'test'
+  ...
+# Subtest: foto storico: numero locale ambiguo non viene collegato alla cieca
+ok 45 - foto storico: numero locale ambiguo non viene collegato alla cieca
+  ---
+  duration_ms: 3.5231
+  type: 'test'
+  ...
+# Subtest: foto con testo domanda riconoscibile viene collegata anche se il numero non basta
+ok 46 - foto con testo domanda riconoscibile viene collegata anche se il numero non basta
+  ---
+  duration_ms: 3.3765
+  type: 'test'
+  ...
+# Subtest: associazione foto scelta manualmente non viene sovrascritta dal riconoscimento automatico
+ok 47 - associazione foto scelta manualmente non viene sovrascritta dal riconoscimento automatico
+  ---
+  duration_ms: 3.006
+  type: 'test'
+  ...
+# Subtest: foto importata: il riferimento "Vedi Foto N" della riga NC prevale e collega la foto alla stessa domanda
+ok 48 - foto importata: il riferimento "Vedi Foto N" della riga NC prevale e collega la foto alla stessa domanda
+  ---
+  duration_ms: 3.6432
+  type: 'test'
+  ...
+# Subtest: foto importate senza didascalia leggibile: se i riferimenti Vedi Foto 1..N sono completi usa l’ordine del PDF
+ok 49 - foto importate senza didascalia leggibile: se i riferimenti Vedi Foto 1..N sono completi usa l’ordine del PDF
+  ---
+  duration_ms: 3.9239
+  type: 'test'
+  ...
+# Subtest: PDF nuovo: numero progressivo che collide con un id interno viene corretto dal testo
+ok 50 - PDF nuovo: numero progressivo che collide con un id interno viene corretto dal testo
+  ---
+  duration_ms: 3.9099
+  type: 'test'
+  ...
+# Subtest: PDF legacy: id stabile resta prioritario quando id e testo concordano
+ok 51 - PDF legacy: id stabile resta prioritario quando id e testo concordano
+  ---
+  duration_ms: 3.4729
+  type: 'test'
+  ...
+# Subtest: Interparking storico: sprinkler e planimetria duplicata vengono escluse, le altre righe restano associate correttamente
+ok 52 - Interparking storico: sprinkler e planimetria duplicata vengono escluse, le altre righe restano associate correttamente
+  ---
+  duration_ms: 18.854
+  type: 'test'
+  ...
+# Subtest: Interparking storico: riconosce le domande ritirate anche se il PDF conserva i vecchi id interni
+ok 53 - Interparking storico: riconosce le domande ritirate anche se il PDF conserva i vecchi id interni
+  ---
+  duration_ms: 8.8616
+  type: 'test'
+  ...
+# Subtest: Interparking legacy completo: ordine fisico propone candidati ma non certifica testi sconosciuti
+ok 54 - Interparking legacy completo: ordine fisico propone candidati ma non certifica testi sconosciuti
+  ---
+  duration_ms: 73.6623
+  type: 'test'
+  ...
+# Subtest: Interparking legacy completo: 75 testi sconosciuti non importano o ritirano risposte automaticamente
+ok 55 - Interparking legacy completo: 75 testi sconosciuti non importano o ritirano risposte automaticamente
+  ---
+  duration_ms: 74.7081
+  type: 'test'
+  ...
+# Subtest: Interparking legacy 73 righe: testo duplicato mantiene il conflitto fino a conferma manuale
+ok 56 - Interparking legacy 73 righe: testo duplicato mantiene il conflitto fino a conferma manuale
+  ---
+  duration_ms: 157.5197
+  type: 'test'
+  ...
+# Subtest: Interparking storico: testo certo vince sul numero slittato e conserva risposta + nota
+ok 57 - Interparking storico: testo certo vince sul numero slittato e conserva risposta + nota
+  ---
+  duration_ms: 8.6927
+  type: 'test'
+  ...
+# Subtest: checklist sorgente più corta: importa le righe presenti per testo e lascia assenti le altre
+ok 58 - checklist sorgente più corta: importa le righe presenti per testo e lascia assenti le altre
+  ---
+  duration_ms: 4.8607
+  type: 'test'
+  ...
+# Subtest: deleted question sharing generic words with reused number requires confirmation
+ok 59 - deleted question sharing generic words with reused number requires confirmation
+  ---
+  duration_ms: 2.9277
+  type: 'test'
+  ...
+# Subtest: renumbered similar questions cannot use the old id to break textual ambiguity
+ok 60 - renumbered similar questions cannot use the old id to break textual ambiguity
+  ---
+  duration_ms: 0.2385
+  type: 'test'
+  ...
+# Subtest: Interparking count alone does not certify ownership or silently retire rows
+ok 61 - Interparking count alone does not certify ownership or silently retire rows
+  ---
+  duration_ms: 50.5506
+  type: 'test'
+  ...
+# Subtest: photo of removed question with reused caption number stays unassigned
+ok 62 - photo of removed question with reused caption number stays unassigned
+  ---
+  duration_ms: 1.521
+  type: 'test'
+  ...
+# Subtest: photo must not inherit an unconfirmed row through caption id
+ok 63 - photo must not inherit an unconfirmed row through caption id
+  ---
+  duration_ms: 0.85
+  type: 'test'
+  ...
+# Subtest: Interparking rimuove gli ID 16, 17, 27 e 50, senza rinumerare gli altri
+ok 64 - Interparking rimuove gli ID 16, 17, 27 e 50, senza rinumerare gli altri
+  ---
+  duration_ms: 2.0935
+  type: 'test'
+  ...
+# Subtest: la domanda ID 28 perde solo la parola semestrali
+ok 65 - la domanda ID 28 perde solo la parola semestrali
+  ---
+  duration_ms: 0.359
+  type: 'test'
+  ...
+# Subtest: risposte storiche agli ID 16, 17, 27 e 50 non interrompono apertura, navigazione o riepilogo
+ok 66 - risposte storiche agli ID 16, 17, 27 e 50 non interrompono apertura, navigazione o riepilogo
+  ---
+  duration_ms: 4.6267
+  type: 'test'
+  ...
+# Subtest: Interparking mantiene una sola domanda sulle planimetrie esposte
+ok 67 - Interparking mantiene una sola domanda sulle planimetrie esposte
+  ---
+  duration_ms: 0.4982
+  type: 'test'
+  ...
+# Subtest: Checklist è il primo campo e tutte le checklist sono disponibili prima degli altri dati
+ok 68 - Checklist è il primo campo e tutte le checklist sono disponibili prima degli altri dati
+  ---
+  duration_ms: 20.8309
+  type: 'test'
+  ...
+# Subtest: REGRESSIONE: la prima opzione della select checklist è sempre vuota, non disabilitata, e nessuna checklist è selezionata di default
+ok 69 - REGRESSIONE: la prima opzione della select checklist è sempre vuota, non disabilitata, e nessuna checklist è selezionata di default
+  ---
+  duration_ms: 2.1786
+  type: 'test'
+  ...
+# Subtest: Selezionare una checklist mostra il resto del form; tornare a "Seleziona checklist…" lo nasconde di nuovo
+ok 70 - Selezionare una checklist mostra il resto del form; tornare a "Seleziona checklist…" lo nasconde di nuovo
+  ---
+  duration_ms: 2.4123
+  type: 'test'
+  ...
+# Subtest: Ogni ingresso manuale nella schermata riparte da checklist vuota e form nascosto, anche dopo una scelta precedente
+ok 71 - Ogni ingresso manuale nella schermata riparte da checklist vuota e form nascosto, anche dopo una scelta precedente
+  ---
+  duration_ms: 3.904
+  type: 'test'
+  ...
+# Subtest: Interparking cambia subito etichette e visibilità senza digitare Punto vendita
+ok 72 - Interparking cambia subito etichette e visibilità senza digitare Punto vendita
+  ---
+  duration_ms: 4.2826
+  type: 'test'
+  ...
+# Subtest: Interparking → Coin → Interparking ripristina i campi senza perdere valori
+ok 73 - Interparking → Coin → Interparking ripristina i campi senza perdere valori
+  ---
+  duration_ms: 2.4467
+  type: 'test'
+  ...
+# Subtest: Restage e Melluso conservano le regole esistenti
+ok 74 - Restage e Melluso conservano le regole esistenti
+  ---
+  duration_ms: 3.8238
+  type: 'test'
+  ...
+# Subtest: PDF riconosciuto seleziona la checklist e aggiorna subito il form; vecchi sopralluoghi invariati
+ok 75 - PDF riconosciuto seleziona la checklist e aggiorna subito il form; vecchi sopralluoghi invariati
+  ---
+  duration_ms: 2.9638
+  type: 'test'
+  ...
+# Subtest: Importazione PDF dallo stato iniziale (nessuna checklist scelta a mano) mostra comunque subito il form riconosciuto
+ok 76 - Importazione PDF dallo stato iniziale (nessuna checklist scelta a mano) mostra comunque subito il form riconosciuto
+  ---
+  duration_ms: 2.0572
+  type: 'test'
+  ...
+# [SW] Verifica aggiornamento non riuscita, ricarico comunque: TypeError: navigator.serviceWorker.getRegistration is not a function
+#     at attendiNuovoServiceWorker (evalmachine.<anonymous>:102:59)
+#     at Object.click (evalmachine.<anonymous>:89:15)
+#     at TestContext.<anonymous> (C:\\Users\\Leonardo\\Documents\\SafetyChecklist-qa-v1-20261009\\tests\\pdf-compatibility.test.js:184:18)
+#     at async Test.run (node:internal/test_runner/test:1332:7)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+# Subtest: canShare without share: download works, URL is not revoked before click
+ok 77 - canShare without share: download works, URL is not revoked before click
+  ---
+  duration_ms: 8.4548
+  type: 'test'
+  ...
+# Subtest: desktop PDF download bypasses Web Share even when it would fail
+ok 78 - desktop PDF download bypasses Web Share even when it would fail
+  ---
+  duration_ms: 5.1013
+  type: 'test'
+  ...
+# Subtest: opening a PDF never reserves a popup, even when window.open is available
+ok 79 - opening a PDF never reserves a popup, even when window.open is available
+  ---
+  duration_ms: 3.6795
+  type: 'test'
+  ...
+# Subtest: share rejects NotAllowedError: falls back to download
+ok 80 - share rejects NotAllowedError: falls back to download
+  ---
+  duration_ms: 4.0005
+  type: 'test'
+  ...
+# Subtest: share rejects TypeError: falls back to download
+ok 81 - share rejects TypeError: falls back to download
+  ---
+  duration_ms: 3.4684
+  type: 'test'
+  ...
+# Subtest: share cancellation does not cause an unwanted download
+ok 82 - share cancellation does not cause an unwanted download
+  ---
+  duration_ms: 3.9809
+  type: 'test'
+  ...
+# Subtest: File absent and URL APIs absent: FileReader data URL download
+ok 83 - File absent and URL APIs absent: FileReader data URL download
+  ---
+  duration_ms: 3.8011
+  type: 'test'
+  ...
+# Subtest: Blob.arrayBuffer absent: uses FileReader
+ok 84 - Blob.arrayBuffer absent: uses FileReader
+  ---
+  duration_ms: 5.9487
+  type: 'test'
+  ...
+# Subtest: window.open absent, nonfunction or throwing: no TypeError escapes
+ok 85 - window.open absent, nonfunction or throwing: no TypeError escapes
+  ---
+  duration_ms: 9.4658
+  type: 'test'
+  ...
+# Subtest: unavailable browser API logs its name and reports a readable error if no fallback exists
+ok 86 - unavailable browser API logs its name and reports a readable error if no fallback exists
+  ---
+  duration_ms: 3.7575
+  type: 'test'
+  ...
+# Subtest: un errore dati .reduce non viene più presentato falsamente come API browser mancante
+ok 87 - un errore dati .reduce non viene più presentato falsamente come API browser mancante
+  ---
+  duration_ms: 2.5277
+  type: 'test'
+  ...
+# Subtest: noncallable anchor click leaves a visible manual link without revoking its URL
+ok 88 - noncallable anchor click leaves a visible manual link without revoking its URL
+  ---
+  duration_ms: 2.6097
+  type: 'test'
+  ...
+# Subtest: missing jsPDF and missing AutoTable report clear errors
+ok 89 - missing jsPDF and missing AutoTable report clear errors
+  ---
+  duration_ms: 5.5169
+  type: 'test'
+  ...
+# Subtest: 24mm remain: title + header + entire first row move to next page
+ok 90 - 24mm remain: title + header + entire first row move to next page
+  ---
+  duration_ms: 70.6905
+  type: 'test'
+  ...
+# Subtest: 3mm remain: group + title + header + first row stay together
+ok 91 - 3mm remain: group + title + header + first row stay together
+  ---
+  duration_ms: 30.9219
+  type: 'test'
+  ...
+# Subtest: first row near full-page height never leaves a header-only page after a group banner
+ok 92 - first row near full-page height never leaves a header-only page after a group banner
+  ---
+  duration_ms: 1972.6648
+  type: 'test'
+  ...
+# Subtest: ordinary subsequent row moves intact, including note and state
+ok 93 - ordinary subsequent row moves intact, including note and state
+  ---
+  duration_ms: 21.3607
+  type: 'test'
+  ...
+# Subtest: row taller than a page continues without losing or duplicating note text
+ok 94 - row taller than a page continues without losing or duplicating note text
+  ---
+  duration_ms: 37.3103
+  type: 'test'
+  ...
+# Subtest: PWA update preserves pending PDF import on automatic and manual refresh
+ok 95 - PWA update preserves pending PDF import on automatic and manual refresh
+  ---
+  duration_ms: 5.3158
+  type: 'test'
+  ...
+# Subtest: compatibilità mobile legacy: il codice applicativo non richiede Array.prototype.flatMap
+ok 96 - compatibilità mobile legacy: il codice applicativo non richiede Array.prototype.flatMap
+  ---
+  duration_ms: 11.042
+  type: 'test'
+  ...
+# Subtest: barra domande: quelle senza risposta hanno un indicatore rosso dedicato
+ok 97 - barra domande: quelle senza risposta hanno un indicatore rosso dedicato
+  ---
+  duration_ms: 4.033
+  type: 'test'
+  ...
+# Subtest: same decoded image and header geometry across pages: both copies excluded
+ok 98 - same decoded image and header geometry across pages: both copies excluded
+  ---
+  duration_ms: 1.8578
+  type: 'test'
+  ...
+# Subtest: unique portrait or landscape at top is retained, including page one
+ok 99 - unique portrait or landscape at top is retained, including page one
+  ---
+  duration_ms: 0.4587
+  type: 'test'
+  ...
+# Subtest: identical geometry or page-local XObject reference alone is insufficient
+ok 100 - identical geometry or page-local XObject reference alone is insufficient
+  ---
+  duration_ms: 0.3416
+  type: 'test'
+  ...
+# Subtest: reused image at a different header position or size is retained
+ok 101 - reused image at a different header position or size is retained
+  ---
+  duration_ms: 0.3464
+  type: 'test'
+  ...
+# Subtest: two copies on the same page are not evidence of a repeated header
+ok 102 - two copies on the same page are not evidence of a repeated header
+  ---
+  duration_ms: 0.2449
+  type: 'test'
+  ...
+# Subtest: paired letterhead above general-data block excludes both graphics without ratio rule
+ok 103 - paired letterhead above general-data block excludes both graphics without ratio rule
+  ---
+  duration_ms: 0.5394
+  type: 'test'
+  ...
+# Subtest: combined wide letterhead above DATI GENERALI is excluded, ordinary/captioned images are retained
+ok 104 - combined wide letterhead above DATI GENERALI is excluded, ordinary/captioned images are retained
+  ---
+  duration_ms: 0.3208
+  type: 'test'
+  ...
+# Subtest: testo renderizzato: i glifi adiacenti si ricompongono senza fondere colonne diverse
+ok 105 - testo renderizzato: i glifi adiacenti si ricompongono senza fondere colonne diverse
+  ---
+  duration_ms: 8.9928
+  type: 'test'
+  ...
+# Subtest: pagina composita: un Form XObject grande e clippato attiva il percorso di estrazione visiva
+ok 106 - pagina composita: un Form XObject grande e clippato attiva il percorso di estrazione visiva
+  ---
+  duration_ms: 3.6327
+  type: 'test'
+  ...
+# Subtest: pagina normale: piccoli Form XObject non attivano inutilmente il rendering testuale
+ok 107 - pagina normale: piccoli Form XObject non attivano inutilmente il rendering testuale
+  ---
+  duration_ms: 3.3456
+  type: 'test'
+  ...
+# Subtest: bordi PDF: i segmenti stretti della cella n. non spezzano una riga reale
+ok 108 - bordi PDF: i segmenti stretti della cella n. non spezzano una riga reale
+  ---
+  duration_ms: 5.7184
+  type: 'test'
+  ...
+# Subtest: PDF composito: il renderer è solo maschera; testo, nota e X arrivano sempre dal livello Unicode
+ok 109 - PDF composito: il renderer è solo maschera; testo, nota e X arrivano sempre dal livello Unicode
+  ---
+  duration_ms: 5.8021
+  type: 'test'
+  ...
+# Subtest: formato nostro composito: riga importata con stato e nota Unicode della stessa cella
+ok 110 - formato nostro composito: riga importata con stato e nota Unicode della stessa cella
+  ---
+  duration_ms: 4.501
+  type: 'test'
+  ...
+# Subtest: formato nostro: id/testo/stato/nota/sezione estratti correttamente per ogni riga
+ok 111 - formato nostro: id/testo/stato/nota/sezione estratti correttamente per ogni riga
+  ---
+  duration_ms: 3.3556
+  type: 'test'
+  ...
+# Subtest: formato nostro: 0 o 2+ marcature sulla stessa riga lasciano stato_originale a null (mai indovinato)
+ok 112 - formato nostro: 0 o 2+ marcature sulla stessa riga lasciano stato_originale a null (mai indovinato)
+  ---
+  duration_ms: 3.8093
+  type: 'test'
+  ...
+# Subtest: formato nostro: marcature minuscole "x" vengono lette come stato valido
+ok 113 - formato nostro: marcature minuscole "x" vengono lette come stato valido
+  ---
+  duration_ms: 4.2879
+  type: 'test'
+  ...
+# Subtest: formato nostro: un vecchio id nascosto sotto al numero progressivo visibile viene ignorato
+ok 114 - formato nostro: un vecchio id nascosto sotto al numero progressivo visibile viene ignorato
+  ---
+  duration_ms: 7.4053
+  type: 'test'
+  ...
+# Subtest: formato nostro: titolo di sezione ereditato dalla pagina precedente se la tabella prosegue senza ripeterlo
+ok 115 - formato nostro: titolo di sezione ereditato dalla pagina precedente se la tabella prosegue senza ripeterlo
+  ---
+  duration_ms: 6.5919
+  type: 'test'
+  ...
+# Subtest: DATI GENERALI: riga "Tecnico" su 1-2 righe (Coin/Restage/Melluso) resta allineata ai campi successivi
+ok 116 - DATI GENERALI: riga "Tecnico" su 1-2 righe (Coin/Restage/Melluso) resta allineata ai campi successivi
+  ---
+  duration_ms: 5.2964
+  type: 'test'
+  ...
+# Subtest: DATI GENERALI: Area Manager opzionale viene estratto senza disallineare i campi Coin
+ok 117 - DATI GENERALI: Area Manager opzionale viene estratto senza disallineare i campi Coin
+  ---
+  duration_ms: 3.3666
+  type: 'test'
+  ...
+# Subtest: DATI GENERALI: riga "Tecnico" su 4 righe (Interparking) NON disallinea i campi successivi
+ok 118 - DATI GENERALI: riga "Tecnico" su 4 righe (Interparking) NON disallinea i campi successivi
+  ---
+  duration_ms: 3.1416
+  type: 'test'
+  ...
+# Subtest: formato storico: numero locale/testo/stato/nota/sezione estratti, nessun id (non disponibile in questo formato)
+ok 119 - formato storico: numero locale/testo/stato/nota/sezione estratti, nessun id (non disponibile in questo formato)
+  ---
+  duration_ms: 7.571
+  type: 'test'
+  ...
+# Subtest: formato storico: numerazione riparte da 1 al cambio di macro-sezione
+ok 120 - formato storico: numerazione riparte da 1 al cambio di macro-sezione
+  ---
+  duration_ms: 3.7159
+  type: 'test'
+  ...
+# Subtest: formato storico: quarta colonna etichettata "NP" invece di "NA" viene comunque riconosciuta e segnalata
+ok 121 - formato storico: quarta colonna etichettata "NP" invece di "NA" viene comunque riconosciuta e segnalata
+  ---
+  duration_ms: 3.3888
+  type: 'test'
+  ...
+# Subtest: provaFormatoStorico espone la conversione rilevata (NP letto -> NA applicato)
+ok 122 - provaFormatoStorico espone la conversione rilevata (NP letto -> NA applicato)
+  ---
+  duration_ms: 3.4019
+  type: 'test'
+  ...
+# Subtest: nessuna struttura riconosciuta (PDF estraneo): strutturaRiconosciuta false per entrambi i formati, nessuna riga
+ok 123 - nessuna struttura riconosciuta (PDF estraneo): strutturaRiconosciuta false per entrambi i formati, nessuna riga
+  ---
+  duration_ms: 6.376
+  type: 'test'
+  ...
+# Subtest: formato nostro: 103 righe grezze con 28 continuazioni adiacenti diventano 75 righe logiche
+ok 124 - formato nostro: 103 righe grezze con 28 continuazioni adiacenti diventano 75 righe logiche
+  ---
+  duration_ms: 6.2525
+  type: 'test'
+  ...
+# Subtest: formato nostro: stesso numero ricomparso lontano non contamina la riga precedente
+ok 125 - formato nostro: stesso numero ricomparso lontano non contamina la riga precedente
+  ---
+  duration_ms: 8.9553
+  type: 'test'
+  ...
+# Subtest: formato nostro: marcature discordanti su frammenti duplicati restano da verificare
+ok 126 - formato nostro: marcature discordanti su frammenti duplicati restano da verificare
+  ---
+  duration_ms: 4.7892
+  type: 'test'
+  ...
+# Subtest: nota multipagina con frasi ripetute conserva tutti i frammenti in ordine
+ok 127 - nota multipagina con frasi ripetute conserva tutti i frammenti in ordine
+  ---
+  duration_ms: 3.6497
+  type: 'test'
+  ...
+# Subtest: Genera PDF riepilogo: scope reale e risposte Array
+ok 128 - Genera PDF riepilogo: scope reale e risposte Array
+  ---
+  duration_ms: 21.5805
+  type: 'test'
+  ...
+# Subtest: Genera PDF riepilogo: scope reale e risposte Object legacy
+ok 129 - Genera PDF riepilogo: scope reale e risposte Object legacy
+  ---
+  duration_ms: 5.4365
+  type: 'test'
+  ...
+# Subtest: riepilogo non salva né completa il sopralluogo se mancano foto
+ok 130 - riepilogo non salva né completa il sopralluogo se mancano foto
+  ---
+  duration_ms: 5.6392
+  type: 'test'
+  ...
+# Subtest: sincronizzazione fallita lascia aprire PDF con dati locali
+ok 131 - sincronizzazione fallita lascia aprire PDF con dati locali
+  ---
+  duration_ms: 4.4154
+  type: 'test'
+  ...
+# Subtest: cache: firma precedente non certifica un PDF completo, firma nuova consente il riuso
+ok 132 - cache: firma precedente non certifica un PDF completo, firma nuova consente il riuso
+  ---
+  duration_ms: 9.6414
+  type: 'test'
+  ...
+# Subtest: foto mancante non blocca: il PDF viene generato, il sopralluogo completato e compare un avviso non bloccante
+ok 133 - foto mancante non blocca: il PDF viene generato, il sopralluogo completato e compare un avviso non bloccante
+  ---
+  duration_ms: 3017.4746
+  type: 'test'
+  ...
+# Subtest: PDF mantiene il formato storico con un tecnico
+ok 134 - PDF mantiene il formato storico con un tecnico
+  ---
+  duration_ms: 5.2669
+  type: 'test'
+  ...
+# Subtest: PDF mostra due tecnici su righe ordinate
+ok 135 - PDF mostra due tecnici su righe ordinate
+  ---
+  duration_ms: 11.145
+  type: 'test'
+  ...
+# Subtest: una foto collegata produce riferimenti PDF coerenti
+ok 136 - una foto collegata produce riferimenti PDF coerenti
+  ---
+  duration_ms: 3.6563
+  type: 'test'
+  ...
+# Subtest: più foto sulla stessa domanda mantengono la stessa numerazione
+ok 137 - più foto sulla stessa domanda mantengono la stessa numerazione
+  ---
+  duration_ms: 3.3636
+  type: 'test'
+  ...
+# Subtest: foto su domande differenti hanno riferimenti e didascalie corrispondenti
+ok 138 - foto su domande differenti hanno riferimenti e didascalie corrispondenti
+  ---
+  duration_ms: 6.9319
+  type: 'test'
+  ...
+# Subtest: foto mancante produce segnaposto senza bloccare PDF o cambiare numerazione
+ok 139 - foto mancante produce segnaposto senza bloccare PDF o cambiare numerazione
+  ---
+  duration_ms: 6.0486
+  type: 'test'
+  ...
+# Subtest: note aggiuntive e relativi allegati restano separati dalle Foto numerate
+ok 140 - note aggiuntive e relativi allegati restano separati dalle Foto numerate
+  ---
+  duration_ms: 3.0699
+  type: 'test'
+  ...
+# Subtest: ordine fisico jsPDF: ultima domanda, fotografie complete, poi altri aspetti
+ok 141 - ordine fisico jsPDF: ultima domanda, fotografie complete, poi altri aspetti
+  ---
+  duration_ms: 7.8687
+  type: 'test'
+  ...
+# Subtest: sezioni finali omettono pagine vuote nei casi particolari
+ok 142 - sezioni finali omettono pagine vuote nei casi particolari
+  ---
+  duration_ms: 3.2956
+  type: 'test'
+  ...
+# Subtest: tutte le pagine fotografiche terminano prima della pagina altri aspetti
+ok 143 - tutte le pagine fotografiche terminano prima della pagina altri aspetti
+  ---
+  duration_ms: 3.6289
+  type: 'test'
+  ...
+# Subtest: raccogliFotoConDidascalia porta la didascalia personalizzata delle foto di "Altri aspetti", null se assente
+ok 144 - raccogliFotoConDidascalia porta la didascalia personalizzata delle foto di "Altri aspetti", null se assente
+  ---
+  duration_ms: 6.1337
+  type: 'test'
+  ...
+# Subtest: pagina Allegati: didascalia personalizzata per una foto di "Altri aspetti", generica di fallback per l'altra
+ok 145 - pagina Allegati: didascalia personalizzata per una foto di "Altri aspetti", generica di fallback per l'altra
+  ---
+  duration_ms: 10.7143
+  type: 'test'
+  ...
+# Subtest: PDF da altro dispositivo: risposte Firestore in formato mappa sono accettate come array
+ok 146 - PDF da altro dispositivo: risposte Firestore in formato mappa sono accettate come array
+  ---
+  duration_ms: 7.3073
+  type: 'test'
+  ...
+# Subtest: PDF reale coin: nessuna eccezione, pagine/contenuti/foto coerenti, nessuna risposta persa
+ok 147 - PDF reale coin: nessuna eccezione, pagine/contenuti/foto coerenti, nessuna risposta persa
+  ---
+  duration_ms: 473.3873
+  type: 'test'
+  ...
+# Subtest: PDF reale interparking: nessuna eccezione, pagine/contenuti/foto coerenti, nessuna risposta persa
+ok 148 - PDF reale interparking: nessuna eccezione, pagine/contenuti/foto coerenti, nessuna risposta persa
+  ---
+  duration_ms: 492.2514
+  type: 'test'
+  ...
+# Subtest: PDF reale restage: nessuna eccezione, pagine/contenuti/foto coerenti, nessuna risposta persa
+ok 149 - PDF reale restage: nessuna eccezione, pagine/contenuti/foto coerenti, nessuna risposta persa
+  ---
+  duration_ms: 259.8497
+  type: 'test'
+  ...
+# Subtest: PDF reale melluso: nessuna eccezione, pagine/contenuti/foto coerenti, nessuna risposta persa
+ok 150 - PDF reale melluso: nessuna eccezione, pagine/contenuti/foto coerenti, nessuna risposta persa
+  ---
+  duration_ms: 187.7359
+  type: 'test'
+  ...
+# Subtest: Carrefour: usa il PNG fornito ma lo rasterizza in JPEG prima di jsPDF
+ok 151 - Carrefour: usa il PNG fornito ma lo rasterizza in JPEG prima di jsPDF
+  ---
+  duration_ms: 11.8807
+  type: 'test'
+  ...
+# Subtest: Melluso: usa il nuovo logo completo e il colore rosso corretto
+ok 152 - Melluso: usa il nuovo logo completo e il colore rosso corretto
+  ---
+  duration_ms: 13.2142
+  type: 'test'
+  ...
+# Subtest: numero pagina: disegnato vicino al bordo destro reale della pagina (margine dedicato, non hardcoded)
+ok 153 - numero pagina: disegnato vicino al bordo destro reale della pagina (margine dedicato, non hardcoded)
+  ---
+  duration_ms: 12.5252
+  type: 'test'
+  ...
+# Subtest: CONFIG_CLIENTI: colore banner corretto per ciascun cliente
+ok 154 - CONFIG_CLIENTI: colore banner corretto per ciascun cliente
+  ---
+  duration_ms: 12.3584
+  type: 'test'
+  ...
+# Subtest: creaLayout: margini e dimensioni derivano SEMPRE dalla pagina reale del documento, mai da costanti fisse
+ok 155 - creaLayout: margini e dimensioni derivano SEMPRE dalla pagina reale del documento, mai da costanti fisse
+  ---
+  duration_ms: 12.354
+  type: 'test'
+  ...
+# Subtest: intestazione Melluso: centri visivi allineati, proporzioni e quota tabella invariati anche su altra pagina
+ok 156 - intestazione Melluso: centri visivi allineati, proporzioni e quota tabella invariati anche su altra pagina
+  ---
+  duration_ms: 12.1146
+  type: 'test'
+  ...
+# Subtest: PDF Interparking: etichette personalizzate, "Numero di dipendenti" e "Area Manager" mai mostrati
+ok 157 - PDF Interparking: etichette personalizzate, "Numero di dipendenti" e "Area Manager" mai mostrati
+  ---
+  duration_ms: 463.5025
+  type: 'test'
+  ...
+# Subtest: PDF Interparking: 4 tecnici compilati, tutti presenti ed etichetta al plurale
+ok 158 - PDF Interparking: 4 tecnici compilati, tutti presenti ed etichetta al plurale
+  ---
+  duration_ms: 404.747
+  type: 'test'
+  ...
+# Subtest: PDF Interparking: un solo tecnico compilato, etichetta al singolare, nessuna riga vuota per tecnico 2/3/4
+ok 159 - PDF Interparking: un solo tecnico compilato, etichetta al singolare, nessuna riga vuota per tecnico 2/3/4
+  ---
+  duration_ms: 372.4725
+  type: 'test'
+  ...
+# Subtest: formattaTecnici: solo i tecnici compilati, mai righe vuote (compatibile con vecchi sopralluoghi solo tecnico/tecnico_2)
+ok 160 - formattaTecnici: solo i tecnici compilati, mai righe vuote (compatibile con vecchi sopralluoghi solo tecnico/tecnico_2)
+  ---
+  duration_ms: 11.7614
+  type: 'test'
+  ...
+# Subtest: PDF Interparking: RLS presente e nome compilato mostra "Nome RLS: <nome>"
+ok 161 - PDF Interparking: RLS presente e nome compilato mostra "Nome RLS: <nome>"
+  ---
+  duration_ms: 431.4207
+  type: 'test'
+  ...
+# Subtest: PDF Interparking: RLS presente ma nome_rls vuoto non mostra la riga "Nome RLS"
+ok 162 - PDF Interparking: RLS presente ma nome_rls vuoto non mostra la riga "Nome RLS"
+  ---
+  duration_ms: 419.8301
+  type: 'test'
+  ...
+# Subtest: PDF Interparking: RLS assente non mostra "Nome RLS" anche se un valore storico è rimasto salvato
+ok 163 - PDF Interparking: RLS assente non mostra "Nome RLS" anche se un valore storico è rimasto salvato
+  ---
+  duration_ms: 441.7339
+  type: 'test'
+  ...
+# Subtest: PDF Coin: nome_rls non viene mai mostrato (campo esclusivo Interparking)
+ok 164 - PDF Coin: nome_rls non viene mai mostrato (campo esclusivo Interparking)
+  ---
+  duration_ms: 225.3027
+  type: 'test'
+  ...
+# Subtest: numerazione PDF: sempre progressiva 1..N senza cambiare gli id interni
+ok 165 - numerazione PDF: sempre progressiva 1..N senza cambiare gli id interni
+  ---
+  duration_ms: 18.4691
+  type: 'test'
+  ...
+# Subtest: tabella PDF stampa il numero progressivo e non l id interno
+ok 166 - tabella PDF stampa il numero progressivo e non l id interno
+  ---
+  duration_ms: 10.5546
+  type: 'test'
+  ...
+# Subtest: nota semplice: nessuna nota sulla domanda precedente o successiva
+ok 167 - nota semplice: nessuna nota sulla domanda precedente o successiva
+  ---
+  duration_ms: 24.9817
+  type: 'test'
+  ...
+# Subtest: nota multilinea: nessuna nota sulla domanda precedente o successiva
+ok 168 - nota multilinea: nessuna nota sulla domanda precedente o successiva
+  ---
+  duration_ms: 9.1753
+  type: 'test'
+  ...
+# Subtest: due domande consecutive entrambe con note: nessuna nota sulla domanda precedente o successiva
+ok 169 - due domande consecutive entrambe con note: nessuna nota sulla domanda precedente o successiva
+  ---
+  duration_ms: 10.1668
+  type: 'test'
+  ...
+# Subtest: prima con nota seconda senza: nessuna nota sulla domanda precedente o successiva
+ok 170 - prima con nota seconda senza: nessuna nota sulla domanda precedente o successiva
+  ---
+  duration_ms: 7.7645
+  type: 'test'
+  ...
+# Subtest: prima senza seconda con nota: nessuna nota sulla domanda precedente o successiva
+ok 171 - prima senza seconda con nota: nessuna nota sulla domanda precedente o successiva
+  ---
+  duration_ms: 5.9291
+  type: 'test'
+  ...
+# Subtest: nessuna nota: nessuna nota sulla domanda precedente o successiva
+ok 172 - nessuna nota: nessuna nota sulla domanda precedente o successiva
+  ---
+  duration_ms: 5.6654
+  type: 'test'
+  ...
+# Subtest: regressione: nota della domanda N importata erroneamente sulla domanda N+1
+ok 173 - regressione: nota della domanda N importata erroneamente sulla domanda N+1
+  ---
+  duration_ms: 4.9757
+  type: 'test'
+  ...
+# Subtest: nota dopo domanda con testo multilinea resta nella stessa cella
+ok 174 - nota dopo domanda con testo multilinea resta nella stessa cella
+  ---
+  duration_ms: 7.1125
+  type: 'test'
+  ...
+# Subtest: nota prima del cambio pagina e continuazione senza numero sulla nuova pagina
+ok 175 - nota prima del cambio pagina e continuazione senza numero sulla nuova pagina
+  ---
+  duration_ms: 5.321
+  type: 'test'
+  ...
+# Subtest: Interparking: id sovrapposti nella stessa cella producono una sola riga logica e seguono la sequenza
+ok 176 - Interparking: id sovrapposti nella stessa cella producono una sola riga logica e seguono la sequenza
+  ---
+  duration_ms: 9.7214
+  type: 'test'
+  ...
+# Subtest: Interparking: numero a due cifre spezzato non genera righe fantasma
+ok 177 - Interparking: numero a due cifre spezzato non genera righe fantasma
+  ---
+  duration_ms: 7.894
+  type: 'test'
+  ...
+# Subtest: nota molto lunga continua su una pagina senza nuove domande
+ok 178 - nota molto lunga continua su una pagina senza nuove domande
+  ---
+  duration_ms: 10.507
+  type: 'test'
+  ...
+# Subtest: banner gruppo ripetuto sulla continuazione non interrompe la nota multipagina
+ok 179 - banner gruppo ripetuto sulla continuazione non interrompe la nota multipagina
+  ---
+  duration_ms: 10.1443
+  type: 'test'
+  ...
+# Subtest: cambio sezione non sposta la nota nella sezione successiva
+ok 180 - cambio sezione non sposta la nota nella sezione successiva
+  ---
+  duration_ms: 5.9423
+  type: 'test'
+  ...
+# Subtest: domanda spostata e rinumerata: stato nota e più foto seguono la stessa riga NC
+ok 181 - domanda spostata e rinumerata: stato nota e più foto seguono la stessa riga NC
+  ---
+  duration_ms: 9.3005
+  type: 'test'
+  ...
+# Subtest: cambio manuale in anteprima: stato nota e foto si spostano insieme
+ok 182 - cambio manuale in anteprima: stato nota e foto si spostano insieme
+  ---
+  duration_ms: 5.7023
+  type: 'test'
+  ...
+# Subtest: matching fuzzy: nota originale in verifica, nessuna assegnazione cieca
+ok 183 - matching fuzzy: nota originale in verifica, nessuna assegnazione cieca
+  ---
+  duration_ms: 11.865
+  type: 'test'
+  ...
+# Subtest: due testi simili e domanda eliminata: note restano sorgenti senza importazione automatica
+ok 184 - due testi simili e domanda eliminata: note restano sorgenti senza importazione automatica
+  ---
+  duration_ms: 7.8566
+  type: 'test'
+  ...
+# Subtest: foto cross-device: se manca in IndexedDB viene scaricata dal path Supabase sincronizzato
+ok 185 - foto cross-device: se manca in IndexedDB viene scaricata dal path Supabase sincronizzato
+  ---
+  duration_ms: 6.3132
+  type: 'test'
+  ...
+# Subtest: foto cross-device: il blob locale viene preferito senza download remoto
+ok 186 - foto cross-device: il blob locale viene preferito senza download remoto
+  ---
+  duration_ms: 4.3575
+  type: 'test'
+  ...
+# Subtest: import PDF: ogni immagine importata avvia upload Supabase con la domanda collegata
+ok 187 - import PDF: ogni immagine importata avvia upload Supabase con la domanda collegata
+  ---
+  duration_ms: 3.135
+  type: 'test'
+  ...
+# Subtest: UI foto comune: Compilazione e Altri aspetti mostrano miniature risolte anche da remoto
+ok 188 - UI foto comune: Compilazione e Altri aspetti mostrano miniature risolte anche da remoto
+  ---
+  duration_ms: 5.0412
+  type: 'test'
+  ...
+# Subtest: PDF cross-device: prima di aprire sincronizza e non riusa alla cieca un PDF locale senza firma foto
+ok 189 - PDF cross-device: prima di aprire sincronizza e non riusa alla cieca un PDF locale senza firma foto
+  ---
+  duration_ms: 6.3298
+  type: 'test'
+  ...
+# Subtest: PDF cross-device: un PDF rigenerato sul telefono viene salvato con la firma delle foto correnti
+ok 190 - PDF cross-device: un PDF rigenerato sul telefono viene salvato con la firma delle foto correnti
+  ---
+  duration_ms: 5.4296
+  type: 'test'
+  ...
+# Subtest: nuove foto: online si attende il tentativo di upload remoto prima di proseguire
+ok 191 - nuove foto: online si attende il tentativo di upload remoto prima di proseguire
+  ---
+  duration_ms: 1.612
+  type: 'test'
+  ...
+# Subtest: foto UX: annullare il selettore non genera errore e la miniatura apre anteprima grande
+ok 192 - foto UX: annullare il selettore non genera errore e la miniatura apre anteprima grande
+  ---
+  duration_ms: 7.3572
+  type: 'test'
+  ...
+# Subtest: foto pending: gli upload vengono ritentati automaticamente in parallelo limitato
+ok 193 - foto pending: gli upload vengono ritentati automaticamente in parallelo limitato
+  ---
+  duration_ms: 40.2095
+  type: 'test'
+  ...
+# Subtest: foto pending: il DB considera solo foto ancora referenziate e ignora gli orfani
+ok 194 - foto pending: il DB considera solo foto ancora referenziate e ignora gli orfani
+  ---
+  duration_ms: 6.3122
+  type: 'test'
+  ...
+# Subtest: sync indicator has no manual retry click behavior
+ok 195 - sync indicator has no manual retry click behavior
+  ---
+  duration_ms: 3.2155
+  type: 'test'
+  ...
+# FotoSync: riferimento foto senza blob recuperabile, escluso dalla coda upload vuota
+# FotoSync: riferimento foto senza blob recuperabile, escluso dalla coda upload mancante
+# Subtest: foto pending: conta solo blob ancora referenziati
+ok 196 - foto pending: conta solo blob ancora referenziati
+  ---
+  duration_ms: 6.6362
+  type: 'test'
+  ...
+# Subtest: foto pending: include altri aspetti e ignora record eliminati definitivamente
+ok 197 - foto pending: include altri aspetti e ignora record eliminati definitivamente
+  ---
+  duration_ms: 6.4969
+  type: 'test'
+  ...
+# Subtest: foto pending: un vecchio riferimento senza blob non resta in attesa per sempre
+ok 198 - foto pending: un vecchio riferimento senza blob non resta in attesa per sempre
+  ---
+  duration_ms: 16.9378
+  type: 'test'
+  ...
+# Subtest: foto delle versioni precedenti restano pending fino all upload per consentire il ripristino
+ok 199 - foto delle versioni precedenti restano pending fino all upload per consentire il ripristino
+  ---
+  duration_ms: 25.7791
+  type: 'test'
+  ...
+# Subtest: PDF harness strips versioned cloud/auth scripts and installs local identity before app
+ok 200 - PDF harness strips versioned cloud/auth scripts and installs local identity before app
+  ---
+  duration_ms: 6.3876
+  type: 'test'
+  ...
+# Subtest: every HTML script and stylesheet is precached at its exact versioned URL
+ok 201 - every HTML script and stylesheet is precached at its exact versioned URL
+  ---
+  duration_ms: 17.9561
+  type: 'test'
+  ...
+# Subtest: click e touch sulla barra selezionano la domanda corrispondente
+ok 202 - click e touch sulla barra selezionano la domanda corrispondente
+  ---
+  duration_ms: 4.1935
+  type: 'test'
+  ...
+# Subtest: drag avanti, indietro e salto domanda 5 → 50
+ok 203 - drag avanti, indietro e salto domanda 5 → 50
+  ---
+  duration_ms: 2.5613
+  type: 'test'
+  ...
+# Subtest: scroll touch verticale non viene interpretato come navigazione
+ok 204 - scroll touch verticale non viene interpretato come navigazione
+  ---
+  duration_ms: 4.8609
+  type: 'test'
+  ...
+# Subtest: motore salta e ritorna a una domanda conservando risposta, note e foto
+ok 205 - motore salta e ritorna a una domanda conservando risposta, note e foto
+  ---
+  duration_ms: 16.9382
+  type: 'test'
+  ...
+# Subtest: pulsanti avanti e indietro restano compatibili con il salto diretto
+ok 206 - pulsanti avanti e indietro restano compatibili con il salto diretto
+  ---
+  duration_ms: 5.1033
+  type: 'test'
+  ...
+# Subtest: pallini: solo una risposta con valore reale conta come compilata
+ok 207 - pallini: solo una risposta con valore reale conta come compilata
+  ---
+  duration_ms: 3.6867
+  type: 'test'
+  ...
+# Subtest: ripresa checklist parte dalla prima risposta realmente mancante, non da un record vuoto salvato
+ok 208 - ripresa checklist parte dalla prima risposta realmente mancante, non da un record vuoto salvato
+  ---
+  duration_ms: 3.6243
+  type: 'test'
+  ...
+# Impossibile verificare la nuova versione: TypeError: Cannot read properties of undefined (reading 'dataset')
+#     at schermataSicuraPerAggiornamento (evalmachine.<anonymous>:31:23)
+#     at provaAggiornamentoAutomatico (evalmachine.<anonymous>:37:54)
+#     at aggiornaBadgeVersione (evalmachine.<anonymous>:126:13)
+#     at async TestContext.<anonymous> (C:\\Users\\Leonardo\\Documents\\SafetyChecklist-qa-v1-20261009\\tests\\realtime-sync.test.js:127:17)
+#     at async Test.run (node:internal/test_runner/test:1332:7)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)
+# Subtest: legacy local-only MISDO is uploaded, never removed; duplicate snapshots do not echo writes
+ok 209 - legacy local-only MISDO is uploaded, never removed; duplicate snapshots do not echo writes
+  ---
+  duration_ms: 24.7811
+  type: 'test'
+  ...
+# Subtest: single-flight full sync returns the exact same promise and makes one server read
+ok 210 - single-flight full sync returns the exact same promise and makes one server read
+  ---
+  duration_ms: 2.4295
+  type: 'test'
+  ...
+# Subtest: server missing document and deleted/trash local legacy both remain recoverable
+ok 211 - server missing document and deleted/trash local legacy both remain recoverable
+  ---
+  duration_ms: 7.9843
+  type: 'test'
+  ...
+# Subtest: cloud failure retains local edits and cannot report synchronized
+ok 212 - cloud failure retains local edits and cannot report synchronized
+  ---
+  duration_ms: 4.4817
+  type: 'test'
+  ...
+# Subtest: three devices different questions converge without whole-map overwrite
+ok 213 - three devices different questions converge without whole-map overwrite
+  ---
+  duration_ms: 4.1679
+  type: 'test'
+  ...
+# Subtest: newer answer timestamp does not overwrite unrelated newer metadata
+ok 214 - newer answer timestamp does not overwrite unrelated newer metadata
+  ---
+  duration_ms: 4.4375
+  type: 'test'
+  ...
+# Subtest: equal-timestamp conflicts converge independently of merge direction
+ok 215 - equal-timestamp conflicts converge independently of merge direction
+  ---
+  duration_ms: 3.2909
+  type: 'test'
+  ...
+# Subtest: new edit arriving during cloud acknowledgement remains queued until acknowledged
+ok 216 - new edit arriving during cloud acknowledgement remains queued until acknowledged
+  ---
+  duration_ms: 6.9113
+  type: 'test'
+  ...
+# Subtest: restore from trash propagates explicit null rather than absent deleted field
+ok 217 - restore from trash propagates explicit null rather than absent deleted field
+  ---
+  duration_ms: 3.3108
+  type: 'test'
+  ...
+# Subtest: build equality keeps update banner hidden; a genuinely newer server build reveals it
+ok 218 - build equality keeps update banner hidden; a genuinely newer server build reveals it
+  ---
+  duration_ms: 5.8734
+  type: 'test'
+  ...
+# Subtest: MISDO legacy record with undefined fields (rejected by Firestore) is still uploaded and kept locally
+ok 219 - MISDO legacy record with undefined fields (rejected by Firestore) is still uploaded and kept locally
+  ---
+  duration_ms: 4.7037
+  type: 'test'
+  ...
+# Subtest: one record that cannot be compared never blocks the upload of the others
+ok 220 - one record that cannot be compared never blocks the upload of the others
+  ---
+  duration_ms: 3.4976
+  type: 'test'
+  ...
+# Subtest: realtime snapshot flagged hasPendingWrites still delivers remote changes (no lost docChanges)
+ok 221 - realtime snapshot flagged hasPendingWrites still delivers remote changes (no lost docChanges)
+  ---
+  duration_ms: 35.3527
+  type: 'test'
+  ...
+# Subtest: remote realtime change is applied locally without echoing a write back
+ok 222 - remote realtime change is applied locally without echoing a write back
+  ---
+  duration_ms: 31.5095
+  type: 'test'
+  ...
+# Subtest: passive cached differences are refreshed from server and never echoed as writes
+ok 223 - passive cached differences are refreshed from server and never echoed as writes
+  ---
+  duration_ms: 4.0366
+  type: 'test'
+  ...
+# Subtest: pending map is cleared when a record has no tracked local revision
+ok 224 - pending map is cleared when a record has no tracked local revision
+  ---
+  duration_ms: 4.293
+  type: 'test'
+  ...
+# Subtest: explicit sync re-verifies the server even while the realtime listener is aligned
+ok 225 - explicit sync re-verifies the server even while the realtime listener is aligned
+  ---
+  duration_ms: 4.2997
+  type: 'test'
+  ...
+# Subtest: stale cross-user revision with no operational changes is cleared without cloud write
+ok 226 - stale cross-user revision with no operational changes is cleared without cloud write
+  ---
+  duration_ms: 5.0954
+  type: 'test'
+  ...
+# Subtest: real edit on another technician record is attributed to the current user before upload
+ok 227 - real edit on another technician record is attributed to the current user before upload
+  ---
+  duration_ms: 4.9185
+  type: 'test'
+  ...
+# Subtest: ten technicians editing different questions converge on the same shared inspection
+ok 228 - ten technicians editing different questions converge on the same shared inspection
+  ---
+  duration_ms: 3.2492
+  type: 'test'
+  ...
+# Subtest: stale pending id is cleared automatically when the local record no longer exists
+ok 229 - stale pending id is cleared automatically when the local record no longer exists
+  ---
+  duration_ms: 3.3392
+  type: 'test'
+  ...
+# Subtest: reconcile drops stale pending entries that no longer carry a local revision
+ok 230 - reconcile drops stale pending entries that no longer carry a local revision
+  ---
+  duration_ms: 2.2648
+  type: 'test'
+  ...
+# Subtest: legacy Firestore answer whose id exists only as map key keeps its question id locally
+ok 231 - legacy Firestore answer whose id exists only as map key keeps its question id locally
+  ---
+  duration_ms: 2.5891
+  type: 'test'
+  ...
+# Subtest: final reconciliation clears phantom pending entries but preserves real local revisions
+ok 232 - final reconciliation clears phantom pending entries but preserves real local revisions
+  ---
+  duration_ms: 2.6846
+  type: 'test'
+  ...
+# Subtest: sync ritenta subito una transazione auth dopo refresh token senza cancellare revisioni locali
+ok 233 - sync ritenta subito una transazione auth dopo refresh token senza cancellare revisioni locali
+  ---
+  duration_ms: 2.3742
+  type: 'test'
+  ...
+# Subtest: final repair performs an authoritative server recheck when pending revisions survive retry
+ok 234 - final repair performs an authoritative server recheck when pending revisions survive retry
+  ---
+  duration_ms: 2.4114
+  type: 'test'
+  ...
+# Subtest: sync usa il conteggio delle sole foto realmente referenziate
+ok 235 - sync usa il conteggio delle sole foto realmente referenziate
+  ---
+  duration_ms: 1.329
+  type: 'test'
+  ...
+# Subtest: errore su un record locale mantiene stato parziale anche dopo la riconciliazione dei pending
+ok 236 - errore su un record locale mantiene stato parziale anche dopo la riconciliazione dei pending
+  ---
+  duration_ms: 1.2908
+  type: 'test'
+  ...
+# Subtest: stuck legacy revision has a full-merge repair path without losing shared data
+ok 237 - stuck legacy revision has a full-merge repair path without losing shared data
+  ---
+  duration_ms: 1.041
+  type: 'test'
+  ...
+# Subtest: same question divergent values preserve losing answer note and photos durably
+ok 238 - same question divergent values preserve losing answer note and photos durably
+  ---
+  duration_ms: 4.5417
+  type: 'test'
+  ...
+# Subtest: same question history is commutative and idempotent on repeated snapshots
+ok 239 - same question history is commutative and idempotent on repeated snapshots
+  ---
+  duration_ms: 0.9992
+  type: 'test'
+  ...
+# Subtest: identical content with different timestamps does not create redundant history
+ok 240 - identical content with different timestamps does not create redundant history
+  ---
+  duration_ms: 0.5277
+  type: 'test'
+  ...
+# Subtest: completed legacy inspections are closed consistently
+ok 241 - completed legacy inspections are closed consistently
+  ---
+  duration_ms: 3.9681
+  type: 'test'
+  ...
+# Subtest: PDF completion explicitly persists closed state
+ok 242 - PDF completion explicitly persists closed state
+  ---
+  duration_ms: 3.056
+  type: 'test'
+  ...
+# Subtest: filtro cliente riconosce gli id correnti
+ok 243 - filtro cliente riconosce gli id correnti
+  ---
+  duration_ms: 1.5181
+  type: 'test'
+  ...
+# Subtest: filtro cliente recupera gli id legacy che contengono il nome cliente
+ok 244 - filtro cliente recupera gli id legacy che contengono il nome cliente
+  ---
+  duration_ms: 0.369
+  type: 'test'
+  ...
+# Subtest: filtro cliente usa la sede come fallback per record storici non classificati
+ok 245 - filtro cliente usa la sede come fallback per record storici non classificati
+  ---
+  duration_ms: 0.3404
+  type: 'test'
+  ...
+# Subtest: Altro non ingloba gli id correnti dei clienti configurati
+ok 246 - Altro non ingloba gli id correnti dei clienti configurati
+  ---
+  duration_ms: 0.2299
+  type: 'test'
+  ...
+# Subtest: due dispositivi rispondono a domande diverse (1-10 vs 40-50): nessuna risposta persa nel merge
+ok 247 - due dispositivi rispondono a domande diverse (1-10 vs 40-50): nessuna risposta persa nel merge
+  ---
+  duration_ms: 5.1618
+  type: 'test'
+  ...
+# Subtest: stessa domanda risposta da entrambi (conflitto): vince la più recente, le altre restano intatte
+ok 248 - stessa domanda risposta da entrambi (conflitto): vince la più recente, le altre restano intatte
+  ---
+  duration_ms: 2.6272
+  type: 'test'
+  ...
+# Subtest: conflitto sulla stessa domanda con il locale più recente: il locale vince e va ripropagato su remoto
+ok 249 - conflitto sulla stessa domanda con il locale più recente: il locale vince e va ripropagato su remoto
+  ---
+  duration_ms: 2.2646
+  type: 'test'
+  ...
+# Subtest: unione foto_url: le chiavi (fotoId univoci per dispositivo) non collidono mai, entrambe le mappe si completano a vicenda
+ok 250 - unione foto_url: le chiavi (fotoId univoci per dispositivo) non collidono mai, entrambe le mappe si completano a vicenda
+  ---
+  duration_ms: 3.292
+  type: 'test'
+  ...
+# Subtest: scenario end-to-end: un terzo dispositivo che legge il risultato finale vede TUTTE le risposte di A e B, senza perdite
+ok 251 - scenario end-to-end: un terzo dispositivo che legge il risultato finale vede TUTTE le risposte di A e B, senza perdite
+  ---
+  duration_ms: 3.2279
+  type: 'test'
+  ...
+# Subtest: arrayRisposteInMappa: formato Array (locale IndexedDB standard) viene convertito in mappa per domanda_id
+ok 252 - arrayRisposteInMappa: formato Array (locale IndexedDB standard) viene convertito in mappa per domanda_id
+  ---
+  duration_ms: 2.5379
+  type: 'test'
+  ...
+# Subtest: arrayRisposteInMappa: formato Object/mappa legacy (es. record scaricato da Firestore senza conversione) viene accettato preservando le chiavi domanda_id
+ok 253 - arrayRisposteInMappa: formato Object/mappa legacy (es. record scaricato da Firestore senza conversione) viene accettato preservando le chiavi domanda_id
+  ---
+  duration_ms: 2.4999
+  type: 'test'
+  ...
+# Subtest: arrayRisposteInMappa: null produce una mappa vuota senza errore
+ok 254 - arrayRisposteInMappa: null produce una mappa vuota senza errore
+  ---
+  duration_ms: 2.8287
+  type: 'test'
+  ...
+# Subtest: arrayRisposteInMappa: undefined produce una mappa vuota senza errore
+ok 255 - arrayRisposteInMappa: undefined produce una mappa vuota senza errore
+  ---
+  duration_ms: 2.3039
+  type: 'test'
+  ...
+# Subtest: arrayRisposteInMappa: un tipo realmente inatteso (stringa/numero) non manda in crash, produce mappa vuota
+ok 256 - arrayRisposteInMappa: un tipo realmente inatteso (stringa/numero) non manda in crash, produce mappa vuota
+  ---
+  duration_ms: 3.8871
+  type: 'test'
+  ...
+# Subtest: unisciRisposte non va in eccezione quando il locale ha "risposte" in formato Object legacy (riproduce il crash reale: TypeError forEach is not a function)
+ok 257 - unisciRisposte non va in eccezione quando il locale ha "risposte" in formato Object legacy (riproduce il crash reale: TypeError forEach is not a function)
+  ---
+  duration_ms: 3.2298
+  type: 'test'
+  ...
+# Subtest: estraiMetadati non include mai risposte/foto_url/foto (restano gestiti a parte)
+ok 258 - estraiMetadati non include mai risposte/foto_url/foto (restano gestiti a parte)
+  ---
+  duration_ms: 2.9501
+  type: 'test'
+  ...
+# Subtest: sync espone diagnostica della coda pendente
+ok 259 - sync espone diagnostica della coda pendente
+  ---
+  duration_ms: 2.0787
+  type: 'test'
+  ...
+# Subtest: telemetria utilizzo invia accesso e stato sincronizzazione
+ok 260 - telemetria utilizzo invia accesso e stato sincronizzazione
+  ---
+  duration_ms: 5.5934
+  type: 'test'
+  ...
+# Subtest: indicatore parziale permette retry manuale
+ok 261 - indicatore parziale permette retry manuale
+  ---
+  duration_ms: 2.6511
+  type: 'test'
+  ...
+1..261
+# tests 261
+# suites 0
+# pass 261
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 10624.8713

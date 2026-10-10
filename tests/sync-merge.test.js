@@ -65,7 +65,7 @@ test('stessa domanda risposta da entrambi (conflitto): vince la più recente, le
   assert.equal(perId.d3.risposta, 'C', 'd3 (solo remota) deve comunque comparire');
   assert.equal(risultato.array.length, 3);
 
-  assert.equal(risultato.daScrivereRemoto.d1, undefined, 'd1 remoto ha già vinto: non va riscritto');
+  assert.equal(risultato.daScrivereRemoto.d1.versioni_precedenti[0].risposta, 'C', 'anche la versione perdente viene conservata sul server');
   assert.ok(risultato.daScrivereRemoto.d2, 'd2 è solo locale: va propagato');
   assert.equal(risultato.cambiatoLocale, true);
 });
@@ -78,7 +78,8 @@ test('conflitto sulla stessa domanda con il locale più recente: il locale vince
   const risultato = unisciRisposte(locali, remoteMappa, 0, 0);
   assert.equal(risultato.array[0].risposta, 'NC');
   assert.ok(risultato.daScrivereRemoto.d1);
-  assert.equal(risultato.cambiatoLocale, false, 'il locale ha già la versione vincente, non deve auto-segnalarsi come cambiato');
+  assert.equal(risultato.cambiatoLocale, true, 'il locale riceve anche la versione remota precedente');
+  assert.equal(risultato.array[0].versioni_precedenti[0].risposta, 'C');
 });
 
 test('unione foto_url: le chiavi (fotoId univoci per dispositivo) non collidono mai, entrambe le mappe si completano a vicenda', () => {

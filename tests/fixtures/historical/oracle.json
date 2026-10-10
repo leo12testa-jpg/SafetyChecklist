@@ -1,0 +1,670 @@
+[
+  {
+    "file": "coin-storico-anonimo.pdf",
+    "pages": 12,
+    "rows": [
+      {
+        "page": 1,
+        "number": 1,
+        "note": "QA-P1-R1",
+        "state": "C"
+      },
+      {
+        "page": 1,
+        "number": 2,
+        "note": "QA-P1-R2",
+        "state": "PC"
+      },
+      {
+        "page": 1,
+        "number": 3,
+        "note": "QA-P1-R3",
+        "state": "NC"
+      },
+      {
+        "page": 1,
+        "number": 4,
+        "note": "QA-P1-R4",
+        "state": "NA"
+      },
+      {
+        "page": 2,
+        "number": 5,
+        "note": "QA-P2-R5",
+        "state": "C"
+      },
+      {
+        "page": 2,
+        "number": 6,
+        "note": "QA-P2-R6",
+        "state": "PC"
+      },
+      {
+        "page": 2,
+        "number": 7,
+        "note": "QA-P2-R7",
+        "state": "NC"
+      },
+      {
+        "page": 2,
+        "number": 8,
+        "note": "QA-P2-R8",
+        "state": "NA"
+      },
+      {
+        "page": 3,
+        "number": 9,
+        "note": "QA-P3-R9",
+        "state": "C"
+      },
+      {
+        "page": 3,
+        "number": 10,
+        "note": "QA-P3-R10",
+        "state": "PC"
+      },
+      {
+        "page": 3,
+        "number": 11,
+        "note": "QA-P3-R11",
+        "state": "NC"
+      },
+      {
+        "page": 3,
+        "number": 12,
+        "note": "QA-P3-R12",
+        "state": "NA"
+      },
+      {
+        "page": 4,
+        "number": 13,
+        "note": "QA-P4-R13",
+        "state": "C"
+      },
+      {
+        "page": 4,
+        "number": 14,
+        "note": "QA-P4-R14",
+        "state": "PC"
+      },
+      {
+        "page": 4,
+        "number": 15,
+        "note": "QA-P4-R15",
+        "state": "NC"
+      },
+      {
+        "page": 4,
+        "number": 16,
+        "note": "QA-P4-R16",
+        "state": "NA"
+      },
+      {
+        "page": 5,
+        "number": 17,
+        "note": "QA-P5-R17",
+        "state": "C"
+      },
+      {
+        "page": 5,
+        "number": 18,
+        "note": "QA-P5-R18",
+        "state": "PC"
+      },
+      {
+        "page": 5,
+        "number": 19,
+        "note": "QA-P5-R19",
+        "state": "NC"
+      },
+      {
+        "page": 5,
+        "number": 20,
+        "note": "QA-P5-R20",
+        "state": "NA"
+      },
+      {
+        "page": 5,
+        "number": 21,
+        "note": "QA-P5-R21",
+        "state": "C"
+      },
+      {
+        "page": 5,
+        "number": 22,
+        "note": "QA-P5-R22",
+        "state": "PC"
+      },
+      {
+        "page": 5,
+        "number": 23,
+        "note": "QA-P5-R23",
+        "state": "NC"
+      },
+      {
+        "page": 5,
+        "number": 24,
+        "note": "QA-P5-R24",
+        "state": "NA"
+      },
+      {
+        "page": 6,
+        "number": 25,
+        "note": "QA-P6-R25",
+        "state": "C"
+      },
+      {
+        "page": 6,
+        "number": 26,
+        "note": "QA-P6-R26",
+        "state": "PC"
+      },
+      {
+        "page": 6,
+        "number": 27,
+        "note": "QA-P6-R27",
+        "state": "NC"
+      },
+      {
+        "page": 7,
+        "number": 28,
+        "note": "QA-P7-R28",
+        "state": "NA"
+      },
+      {
+        "page": 7,
+        "number": 29,
+        "note": "QA-P7-R29",
+        "state": "C"
+      },
+      {
+        "page": 8,
+        "number": 31,
+        "note": "QA-P8-R31",
+        "state": "NC"
+      },
+      {
+        "page": 8,
+        "number": 32,
+        "note": "QA-P8-R32",
+        "state": "NA"
+      },
+      {
+        "page": 8,
+        "number": 33,
+        "note": "QA-P8-R33",
+        "state": "C"
+      },
+      {
+        "page": 8,
+        "number": 34,
+        "note": "QA-P8-R34",
+        "state": "PC"
+      },
+      {
+        "page": 9,
+        "number": 1,
+        "note": "QA-P9-R1",
+        "state": "C"
+      },
+      {
+        "page": 9,
+        "number": 2,
+        "note": "QA-P9-R2",
+        "state": "PC"
+      },
+      {
+        "page": 9,
+        "number": 3,
+        "note": "QA-P9-R3",
+        "state": "NC"
+      },
+      {
+        "page": 9,
+        "number": 4,
+        "note": "QA-P9-R4",
+        "state": "NA"
+      },
+      {
+        "page": 9,
+        "number": 5,
+        "note": "QA-P9-R5",
+        "state": "C"
+      },
+      {
+        "page": 9,
+        "number": 6,
+        "note": "QA-P9-R6",
+        "state": "PC"
+      },
+      {
+        "page": 9,
+        "number": 7,
+        "note": "QA-P9-R7",
+        "state": "NC"
+      },
+      {
+        "page": 9,
+        "number": 8,
+        "note": "QA-P9-R8",
+        "state": "NA"
+      },
+      {
+        "page": 10,
+        "number": 9,
+        "note": "QA-P10-R9",
+        "state": "C"
+      },
+      {
+        "page": 10,
+        "number": 14,
+        "note": "QA-P10-R14",
+        "state": "PC"
+      },
+      {
+        "page": 10,
+        "number": 15,
+        "note": "QA-P10-R15",
+        "state": "NC"
+      },
+      {
+        "page": 10,
+        "number": 16,
+        "note": "QA-P10-R16",
+        "state": "NA"
+      },
+      {
+        "page": 11,
+        "number": 17,
+        "note": "QA-P11-R17",
+        "state": "C"
+      },
+      {
+        "page": 11,
+        "number": 18,
+        "note": "QA-P11-R18",
+        "state": "PC"
+      },
+      {
+        "page": 11,
+        "number": 19,
+        "note": "QA-P11-R19",
+        "state": "NC"
+      },
+      {
+        "page": 11,
+        "number": 20,
+        "note": "QA-P11-R20",
+        "state": "NA"
+      },
+      {
+        "page": 11,
+        "number": 21,
+        "note": "QA-P11-R21",
+        "state": "C"
+      },
+      {
+        "page": 12,
+        "number": 23,
+        "note": "QA-P12-R23",
+        "state": "NC"
+      },
+      {
+        "page": 12,
+        "number": 24,
+        "note": "QA-P12-R24",
+        "state": "NA"
+      },
+      {
+        "page": 12,
+        "number": 25,
+        "note": "QA-P12-R25",
+        "state": "C"
+      },
+      {
+        "page": 12,
+        "number": 26,
+        "note": "QA-P12-R26",
+        "state": "PC"
+      }
+    ],
+    "source_unchanged": true
+  },
+  {
+    "file": "restage-storico-anonimo.pdf",
+    "pages": 7,
+    "rows": [
+      {
+        "page": 1,
+        "number": 1,
+        "note": "QA-P1-R1",
+        "state": "C"
+      },
+      {
+        "page": 1,
+        "number": 2,
+        "note": "QA-P1-R2",
+        "state": "PC"
+      },
+      {
+        "page": 1,
+        "number": 3,
+        "note": "QA-P1-R3",
+        "state": "NC"
+      },
+      {
+        "page": 1,
+        "number": 4,
+        "note": "QA-P1-R4",
+        "state": "NA"
+      },
+      {
+        "page": 1,
+        "number": 5,
+        "note": "QA-P1-R5",
+        "state": "C"
+      },
+      {
+        "page": 1,
+        "number": 6,
+        "note": "QA-P1-R6",
+        "state": "PC"
+      },
+      {
+        "page": 2,
+        "number": 7,
+        "note": "QA-P2-R7",
+        "state": "NC"
+      },
+      {
+        "page": 2,
+        "number": 8,
+        "note": "QA-P2-R8",
+        "state": "NA"
+      },
+      {
+        "page": 2,
+        "number": 9,
+        "note": "QA-P2-R9",
+        "state": "C"
+      },
+      {
+        "page": 2,
+        "number": 10,
+        "note": "QA-P2-R10",
+        "state": "PC"
+      },
+      {
+        "page": 2,
+        "number": 11,
+        "note": "QA-P2-R11",
+        "state": "NC"
+      },
+      {
+        "page": 2,
+        "number": 12,
+        "note": "QA-P2-R12",
+        "state": "NA"
+      },
+      {
+        "page": 2,
+        "number": 13,
+        "note": "QA-P2-R13",
+        "state": "C"
+      },
+      {
+        "page": 2,
+        "number": 14,
+        "note": "QA-P2-R14",
+        "state": "PC"
+      },
+      {
+        "page": 2,
+        "number": 15,
+        "note": "QA-P2-R15",
+        "state": "NC"
+      },
+      {
+        "page": 2,
+        "number": 16,
+        "note": "QA-P2-R16",
+        "state": "NA"
+      },
+      {
+        "page": 2,
+        "number": 17,
+        "note": "QA-P2-R17",
+        "state": "C"
+      },
+      {
+        "page": 2,
+        "number": 18,
+        "note": "QA-P2-R18",
+        "state": "PC"
+      },
+      {
+        "page": 3,
+        "number": 19,
+        "note": "QA-P3-R19",
+        "state": "NC"
+      },
+      {
+        "page": 3,
+        "number": 20,
+        "note": "QA-P3-R20",
+        "state": "NA"
+      },
+      {
+        "page": 3,
+        "number": 21,
+        "note": "QA-P3-R21",
+        "state": "C"
+      },
+      {
+        "page": 3,
+        "number": 22,
+        "note": "QA-P3-R22",
+        "state": "PC"
+      },
+      {
+        "page": 3,
+        "number": 23,
+        "note": "QA-P3-R23",
+        "state": "NC"
+      },
+      {
+        "page": 3,
+        "number": 24,
+        "note": "QA-P3-R24",
+        "state": "NA"
+      },
+      {
+        "page": 3,
+        "number": 25,
+        "note": "QA-P3-R25",
+        "state": "C"
+      },
+      {
+        "page": 3,
+        "number": 26,
+        "note": "QA-P3-R26",
+        "state": "PC"
+      },
+      {
+        "page": 3,
+        "number": 27,
+        "note": "QA-P3-R27",
+        "state": "NC"
+      },
+      {
+        "page": 3,
+        "number": 28,
+        "note": "QA-P3-R28",
+        "state": "NA"
+      },
+      {
+        "page": 3,
+        "number": 29,
+        "note": "QA-P3-R29",
+        "state": "C"
+      },
+      {
+        "page": 3,
+        "number": 30,
+        "note": "QA-P3-R30",
+        "state": "PC"
+      },
+      {
+        "page": 4,
+        "number": 31,
+        "note": "QA-P4-R31",
+        "state": "NC"
+      },
+      {
+        "page": 4,
+        "number": 32,
+        "note": "QA-P4-R32",
+        "state": "NA"
+      },
+      {
+        "page": 4,
+        "number": 33,
+        "note": "QA-P4-R33",
+        "state": "C"
+      },
+      {
+        "page": 4,
+        "number": 34,
+        "note": "QA-P4-R34",
+        "state": "PC"
+      },
+      {
+        "page": 4,
+        "number": 35,
+        "note": "QA-P4-R35",
+        "state": "NC"
+      },
+      {
+        "page": 4,
+        "number": 36,
+        "note": "QA-P4-R36",
+        "state": "NA"
+      },
+      {
+        "page": 4,
+        "number": 37,
+        "note": "QA-P4-R37",
+        "state": "C"
+      },
+      {
+        "page": 4,
+        "number": 38,
+        "note": "QA-P4-R38",
+        "state": "PC"
+      },
+      {
+        "page": 4,
+        "number": 39,
+        "note": "QA-P4-R39",
+        "state": "NC"
+      },
+      {
+        "page": 4,
+        "number": 40,
+        "note": "QA-P4-R40",
+        "state": "NA"
+      },
+      {
+        "page": 4,
+        "number": 41,
+        "note": "QA-P4-R41",
+        "state": "C"
+      },
+      {
+        "page": 4,
+        "number": 42,
+        "note": "QA-P4-R42",
+        "state": "PC"
+      },
+      {
+        "page": 5,
+        "number": 43,
+        "note": "QA-P5-R43",
+        "state": "NC"
+      },
+      {
+        "page": 5,
+        "number": 44,
+        "note": "QA-P5-R44",
+        "state": "NA"
+      },
+      {
+        "page": 5,
+        "number": 45,
+        "note": "QA-P5-R45",
+        "state": "C"
+      },
+      {
+        "page": 5,
+        "number": 46,
+        "note": "QA-P5-R46",
+        "state": "PC"
+      },
+      {
+        "page": 5,
+        "number": 47,
+        "note": "QA-P5-R47",
+        "state": "NC"
+      },
+      {
+        "page": 5,
+        "number": 48,
+        "note": "QA-P5-R48",
+        "state": "NA"
+      },
+      {
+        "page": 5,
+        "number": 49,
+        "note": "QA-P5-R49",
+        "state": "C"
+      },
+      {
+        "page": 5,
+        "number": 50,
+        "note": "QA-P5-R50",
+        "state": "PC"
+      },
+      {
+        "page": 5,
+        "number": 51,
+        "note": "QA-P5-R51",
+        "state": "NC"
+      },
+      {
+        "page": 5,
+        "number": 52,
+        "note": "QA-P5-R52",
+        "state": "NA"
+      },
+      {
+        "page": 5,
+        "number": 53,
+        "note": "QA-P5-R53",
+        "state": "C"
+      },
+      {
+        "page": 5,
+        "number": 54,
+        "note": "QA-P5-R54",
+        "state": "PC"
+      },
+      {
+        "page": 5,
+        "number": 55,
+        "note": "QA-P5-R55",
+        "state": "NC"
+      }
+    ],
+    "source_unchanged": true
+  }
+]

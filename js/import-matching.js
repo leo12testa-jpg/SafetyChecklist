@@ -227,13 +227,13 @@ const importMatching = (() => {
         perTesto.domandaId !== riga.id_originale &&
         perTesto.confidenza >= sim + MARGINE_AMBIGUITA;
       if (testoIndicaAltraDomanda) return { ...perTesto, avviso: null };
-      if (sim < SOGLIA_SANITA) {
+      if (sim < SOGLIA_ALTA || !perTesto || !perTesto.automatico) {
         return {
           domandaId: riga.id_originale,
           metodo: 'id',
           confidenza: sim,
           automatico: false,
-          avviso: `numero ${riga.id_originale} trovato nel PDF, ma il testo della domanda corrispondente in questa checklist è molto diverso da quello letto (somiglianza ${Math.round(sim * 100)}%): verificare.`
+          avviso: `numero ${riga.id_originale} trovato nel PDF, ma il testo non conferma un'associazione univoca (somiglianza ${Math.round(sim * 100)}%): verificare.`
         };
       }
       return { domandaId: riga.id_originale, metodo: 'id', confidenza: CONFIDENZA_ID, automatico: true, avviso: null };
@@ -301,9 +301,8 @@ const importMatching = (() => {
     const usaOrdineFisicoLegacy = numerazioneLegacyInterparking && righeNostreLegacy.length === 75;
 
     const righe = righeGrezze.map((rigaGrezza, indice) => {
-      // Per il corpus Interparking settembre 2026 completo la posizione fisica 1..75 è
-      // deterministica e indipendente dal numero stampato/invisibile nel PDF. Questo elimina
-      // definitivamente l'ambiguità fra progressivi legacy e id stabili sovrapposti.
+      // Position in a 75-row legacy report is only a proposed destination. The
+      // text must confirm it, otherwise the operator explicitly reviews it.
       const numeroFisicoLegacy = usaOrdineFisicoLegacy ? indice + 1 : (rigaGrezza.numero_originale ?? rigaGrezza.id_originale);
       const numeroLegacy = numerazioneLegacyInterparking
         ? mappaNumeroLegacyInterparking(numeroFisicoLegacy)
@@ -325,10 +324,10 @@ const importMatching = (() => {
         esito = {
           domandaId: numeroLegacy.domandaId,
           metodo: numeroLegacy.ritirata ? 'legacy_interparking' : 'legacy_interparking_numero',
-          confidenza: 1,
-          automatico: true,
-          avviso: numeroLegacy.avviso || null,
-          ritirata: Boolean(numeroLegacy.ritirata)
+          confidenza: 0,
+          automatico: false,
+          avviso: 'Numerazione Interparking storica proposta: confermare la domanda dal testo del PDF.',
+          ritirata: false
         };
       } else {
         esito = abbinaRiga(rigaGrezza, domande, idValidi, risolutoreStorico);
@@ -357,9 +356,7 @@ const importMatching = (() => {
       };
     });
 
-    if (numerazioneLegacyInterparking) {
-      risolviCollisioniLegacyInterparking(righe, usaOrdineFisicoLegacy, idValidi);
-    }
+    // A count/position cannot resolve conflicting source ownership across checklist revisions.
     applicaVincoloUnoAUno(righe);
 
     return { righe, riepilogo: calcolaRiepilogo(righe), totaleDomandeChecklist: domande.length };
@@ -375,54 +372,6 @@ const importMatching = (() => {
    * risolvere un conflitto con un'altra riga già presente, e va sempre ricontrollato, mai lasciato
    * "come risultava al primo giro".
    */
-  /**
-   * I 4 report Interparking di settembre 2026 hanno numerazione legacy 1..75, con le vecchie
-   * righe 25 e 49 poi ritirate. Nei PDF compositi il testo di una riga può essere estratto
-   * parzialmente e quindi due righe diverse possono candidarsi per errore alla stessa domanda.
-   *
-   * Se (e solo se) siamo dentro quella famiglia legacy già riconosciuta, un conflitto testuale
-   * viene sciolto usando la destinazione deterministica del numero storico. Non altera i casi
-   * normali: se i numeri non producono destinazioni valide/univoche il conflitto resta tale.
-   */
-  function risolviCollisioniLegacyInterparking(righe, usaOrdineFisicoLegacy, idValidi) {
-    const gruppi = new Map();
-    righe.forEach((riga) => {
-      if (riga.domanda_id == null) return;
-      if (!gruppi.has(riga.domanda_id)) gruppi.set(riga.domanda_id, []);
-      gruppi.get(riga.domanda_id).push(riga);
-    });
-
-    for (const concorrenti of gruppi.values()) {
-      if (concorrenti.length < 2) continue;
-
-      const proposte = concorrenti.map((riga) => {
-        const numero = usaOrdineFisicoLegacy
-          ? riga.indice + 1
-          : Number(riga.originale.numero_originale ?? riga.originale.id_originale);
-        const legacy = mappaNumeroLegacyInterparking(numero);
-        return { riga, legacy };
-      });
-
-      // Un gruppo è risolvibile automaticamente solo se ogni riga ha una destinazione storica
-      // valida e le destinazioni non collidono fra loro.
-      if (proposte.some(({ legacy }) =>
-        !legacy || legacy.ritirata || !idValidi.has(legacy.domandaId)
-      )) continue;
-
-      const destinazioni = proposte.map(({ legacy }) => legacy.domandaId);
-      if (new Set(destinazioni).size !== destinazioni.length) continue;
-
-      proposte.forEach(({ riga, legacy }) => {
-        riga.domanda_id = legacy.domandaId;
-        riga.metodo = 'legacy_interparking_numero_risoluzione_conflitto';
-        riga.confidenza = 1;
-        riga.automatico = true;
-        riga.avviso = null;
-      });
-    }
-    return righe;
-  }
-
   function applicaVincoloUnoAUno(righe) {
     const perDomanda = new Map();
     righe.forEach((riga) => {
@@ -564,7 +513,7 @@ const importMatching = (() => {
   function collegaImmaginiAlleDomande(immagini, righeAbbinate, checklist) {
     const domande = appiattisciDomande(checklist);
     const domandaPerId = new Map(domande.map((voce) => [Number(voce.domanda.id), voce]));
-    const righeValide = (righeAbbinate || []).filter((riga) => riga.domanda_id != null && riga.stato_riga !== 'conflitto');
+    const righeValide = (righeAbbinate || []).filter(rigaImportabile);
 
     // Nei PDF generati dall'app ogni domanda con foto riporta in tabella "Vedi Foto N". È il
     // collegamento più affidabile possibile: permette di ricostruire la relazione foto -> domanda
@@ -662,11 +611,6 @@ const importMatching = (() => {
           if (perNumeroLocale.length === 1) {
             domandaId = Number(perNumeroLocale[0].domanda_id);
             metodo = 'didascalia_numero';
-          } else if (perNumeroLocale.length === 0 && voceDaDomandaId(numero)) {
-            // PDF dell'app con id stabile ma riga non estratta (caso raro): l'id della didascalia
-            // resta comunque un segnale esplicito e verificabile nell'anteprima.
-            domandaId = numero;
-            metodo = 'didascalia_id';
           }
         }
       }
@@ -706,7 +650,7 @@ const importMatching = (() => {
 
   function rigaImportabile(riga) {
     return riga.domanda_id != null && riga.stato_riga !== 'conflitto' &&
-      (riga.automatico || riga.metodo === 'manuale');
+      (riga.automatico || riga.metodo === 'manuale' || riga.stato_riga === 'sicuro');
   }
 
   /** Cambia soltanto la destinazione del pacchetto sorgente; stato e nota non si rimatchano. */

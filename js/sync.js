@@ -103,6 +103,33 @@ const sync = (() => {
     return Number.isNaN(t) ? fallback : t;
   }
 
+  function snapshotRisposta(risposta) {
+    const { versioni_precedenti, ...snapshot } = risposta;
+    return snapshot;
+  }
+
+  function contenutoRisposta(risposta) {
+    const { aggiornato_il, _base_aggiornato_il, ...contenuto } = snapshotRisposta(risposta);
+    return stabile(contenuto);
+  }
+
+  /** Keep overwritten values recoverable; repeated snapshots do not grow the history. */
+  function conservaVersioni(vincente, altra) {
+    const versioni = [...(vincente.versioni_precedenti || []), ...(altra.versioni_precedenti || [])];
+    const sequenziale = vincente._base_aggiornato_il && vincente._base_aggiornato_il === altra.aggiornato_il;
+    if (!sequenziale && contenutoRisposta(vincente) !== contenutoRisposta(altra)) versioni.push(snapshotRisposta(altra));
+    const corrente = contenutoRisposta(vincente);
+    const perContenuto = new Map();
+    for (const versione of versioni) {
+      const snapshot = snapshotRisposta(versione), chiave = contenutoRisposta(snapshot);
+      if (chiave === corrente) continue;
+      const precedente = perContenuto.get(chiave);
+      if (!precedente || stabile(snapshot) > stabile(precedente)) perContenuto.set(chiave, snapshot);
+    }
+    const storia = [...perContenuto.values()].sort((a, b) => stabile(a).localeCompare(stabile(b)));
+    return storia.length ? { ...vincente, versioni_precedenti: storia } : vincente;
+  }
+
   /**
    * Unisce le risposte locali (array, formato IndexedDB) con quelle remote (mappa domanda_id ->
    * risposta, formato Firestore) domanda per domanda: le domande presenti da un solo lato si
@@ -142,15 +169,11 @@ const sync = (() => {
 
       const tsLoc = timestampRisposta(loc, fallbackLocale);
       const tsRem = timestampRisposta(rem, fallbackRemoto);
-      if (tsLoc > tsRem || (tsLoc === tsRem && stabile(loc) >= stabile(rem))) {
-        mappaUnita[id] = loc;
-        if (stabile(loc) !== stabile(rem)) {
-          daScrivereRemoto[id] = loc;
-        }
-      } else {
-        mappaUnita[id] = rem;
-        cambiatoLocale = true;
-      }
+      const localeVince = tsLoc > tsRem || (tsLoc === tsRem && stabile(snapshotRisposta(loc)) >= stabile(snapshotRisposta(rem)));
+      const unita = conservaVersioni(localeVince ? loc : rem, localeVince ? rem : loc);
+      mappaUnita[id] = unita;
+      if (stabile(unita) !== stabile(rem)) daScrivereRemoto[id] = unita;
+      if (stabile(unita) !== stabile(loc)) cambiatoLocale = true;
     });
 
     return { array: mappaRisposteInArray(mappaUnita), daScrivereRemoto, cambiatoLocale };

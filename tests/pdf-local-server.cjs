@@ -5,9 +5,14 @@ const root = path.resolve(__dirname, '..');
 // The real DOM/application with isolated local persistence. No cloud clients or SW.
 function harness() {
   return fs.readFileSync(path.join(root, 'index.html'), 'utf8')
-    .replace(/<script src="js\/(?:vendor\/firebase[^" ]*|firebase-config|vendor\/supabase|supabase-config|foto-sync|sync|aggiornamento)\.js"><\/script>/g, '')
-    .replace('<script src="js/app.js">', `<script>
-      const sync = { statoAttuale: () => 'offline', onCambioStato() {}, onDatiAggiornati() {}, init: async () => false, sincronizzaTutto: async () => true };
+    .replace(/<script src="js\/(?:vendor\/firebase[^"? ]*|firebase-config|auth|identity|account-screens|vendor\/supabase|supabase-config|foto-sync|sync|aggiornamento)\.js(?:\?[^"]*)?"><\/script>/g, '')
+    .replace(/<script src="js\/app\.js(?:\?[^"]*)?">/, `<script>
+      const testProfile = { uid:'qa-local', username:'qa.local', nome:'QA', cognome:'Fittizio', ruolo:'admin', attivo:true };
+      const appIdentity = { ready:async()=>testProfile, current:()=>testProfile, isAdmin:()=>true, trackUsage:async()=>({}), callAdmin:async()=>({users:[]}) };
+      const accountScreens = { init() {} };
+      document.body.dataset.authReady = 'true'; document.body.dataset.authenticated = 'true'; document.body.dataset.role = 'admin';
+      document.getElementById('login-view').hidden = true; document.getElementById('screens').hidden = false;
+      const sync = { statoAttuale: () => 'offline', onCambioStato() {}, onDatiAggiornati() {}, init: async () => false, sincronizzaTutto: async () => true, sincronizzaCompleto:async()=>true };
       const fotoSync = { caricaFoto: async () => {}, riprovaInSospeso: async () => {}, init() {}, onCambioStato() {}, statoDi: () => null, eliminaFotoRemota() {}, risolviFoto: id => db.leggiFoto(id) };
     </script><script src="js/app.js">`);
 }
@@ -24,3 +29,4 @@ const server = http.createServer((req, res) => {
 });
 if (require.main === module) server.listen(8765, '127.0.0.1', () => console.log('PDF test server http://127.0.0.1:8765'));
 module.exports = server;
+module.exports.harness = harness;

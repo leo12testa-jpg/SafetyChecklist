@@ -1,0 +1,33 @@
+PASS login errato e password cancellata
+PASS login tecnico reale Auth emulator
+PASS persistenza sessione al reload
+PASS tecnico: rotte admin protette e API nega privilegi
+PASS admin vede utenti e tecnico non modifica profilo
+PASS telemetria: tecnico scrive solo il proprio stato e admin legge accessi
+PASS backend crea account fittizio e rifiuta username duplicato/password corta
+PASS Firestore anonimo, profilo inattivo e audit falsificato negati
+PASS creazione cliente sede tecnico checklist da UI
+PASS C PC NC NA, note autosalvate, ricerca e navigazione rapida
+PASS tre tecnici: modifiche simultanee su domande diverse
+PASS stessa domanda concorrente: verifica conservazione entrambe le note
+PASS versione concorrente precedente consultabile e ripristinabile da UI
+PASS foto da file chooser UI: compressione e collegamento alla domanda attiva
+PASS upload foto lento e cambio domanda: foto resta sulla domanda originale
+PASS foto sincronizzata e recuperata su secondo dispositivo
+PASS cloud foto 503: blob locale mantenuto e retry recupera
+PASS offline, foto e nota, reload con SW, ritorno online senza perdita
+PASS Firestore interrotto: dati pending persistono e ripartono
+PASS storico filtri cliente tecnico data checklist ricerca ordinamento
+PASS storico chiusura riapertura modifica e ripresa incompleta
+PASS eliminazione e ripristino UI solo sopralluogo fittizio
+PASS responsive 1440: home nuovo compilazione storico e PDF
+PASS responsive 768: home nuovo compilazione storico e PDF
+PASS responsive 390: home nuovo compilazione storico e PDF
+PASS rete lenta: apertura checklist e ricerca utilizzabili
+PASS logout e nuovo login con altro account sul dispositivo
+PASS cambio password: errore credenziale attuale, aggiornamento e nuovo accesso
+PASS cambio ruolo online aggiorna privilegi e protegge la schermata già aperta
+PASS disattivazione utente provoca logout online
+PASS nessun errore JavaScript applicativo
+(node:24160) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)

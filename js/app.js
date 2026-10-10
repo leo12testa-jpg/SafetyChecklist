@@ -909,6 +909,8 @@ const importPreviewScreen = (() => {
         <label class="import-riga-campo">→ associata a
           <select class="import-riga-domanda">${opzioniDomande(anteprimaImportazionePendente.checklist, riga.domanda_id)}</select>
         </label>
+        ${riga.domanda_id != null && !importMatching.rigaImportabile(riga)
+          ? '<button type="button" class="btn-secondario import-riga-conferma">Conferma questa associazione</button>' : ''}
         <label class="import-riga-campo">Risposta
           <select class="import-riga-risposta">${opzioniRisposta(riga.risposta)}</select>
         </label>
@@ -1171,6 +1173,12 @@ const importPreviewScreen = (() => {
   }
 
   function init() {
+    elRighe.addEventListener('click', event => {
+      if (!event.target.closest('.import-riga-conferma')) return;
+      const card = event.target.closest('.import-riga');
+      const select = card.querySelector('.import-riga-domanda');
+      onCambioRiga({ target: select });
+    });
     elRighe.addEventListener('change', onCambioRiga);
     elRighe.addEventListener('input', onInputNota);
     btnConferma.addEventListener('click', onClickConferma);
@@ -1353,6 +1361,7 @@ const compilazioneScreen = (() => {
 
   let fotoDomandaCorrente = [];
   let ultimoSalvataggio = Promise.resolve(true);
+  let salvataggiPendenti = 0;
   let gestoBarra = null;
   let navigazioneInCorso = false;
   let sopralluogoRicercaId = null;
@@ -1440,13 +1449,19 @@ const compilazioneScreen = (() => {
   }
 
   async function salvaRispostaCorrente(valore) {
+    const domanda = checklistEngine.domandaCorrente();
+    const sopralluogoId = checklistEngine.sopralluogoCorrente().id;
+    const dati = { valore, note: notaTesto.value.trim() || null, foto: [...fotoDomandaCorrente] };
+    salvataggiPendenti += 1;
     ultimoSalvataggio = ultimoSalvataggio.then(async () => {
       try {
-        await checklistEngine.rispondi({
-          valore,
-          note: notaTesto.value.trim() || null,
-          foto: fotoDomandaCorrente
+        await db.salvaRisposta(sopralluogoId, {
+          domanda_id: domanda.domanda.id, sezione: domanda.sezione,
+          risposta: dati.valore, note: dati.note, foto: dati.foto
         });
+        if (checklistEngine.sopralluogoCorrente()?.id === sopralluogoId) {
+          await checklistEngine.ricaricaSopralluogoCorrente();
+        }
         const corrente = checklistEngine.domandaCorrente();
         if (corrente) renderIndicatori(corrente.totale, corrente.indice);
         nascondiErrore();
@@ -1454,6 +1469,8 @@ const compilazioneScreen = (() => {
       } catch (errore) {
         mostraErrore(errore.message);
         return false;
+      } finally {
+        salvataggiPendenti -= 1;
       }
     });
     return ultimoSalvataggio;
@@ -1897,6 +1914,45 @@ const compilazioneScreen = (() => {
       fotoDomandaCorrente = risposta.foto || [];
       aggiornaContatoreFoto();
     }
+    renderVersioniPrecedenti(risposta);
+  }
+
+  function renderVersioniPrecedenti(risposta) {
+    document.getElementById('risposta-versioni-precedenti')?.remove();
+    const versioni = risposta?.versioni_precedenti || [];
+    if (!versioni.length) return;
+    const elenco = document.createElement('details');
+    elenco.id = 'risposta-versioni-precedenti';
+    const titolo = document.createElement('summary');
+    titolo.textContent = `Versioni precedenti dalla sincronizzazione (${versioni.length})`;
+    elenco.appendChild(titolo);
+    versioni.forEach(versione => {
+      const voce = document.createElement('div');
+      const testo = document.createElement('p');
+      testo.textContent = `${versione.aggiornato_il || ''} · ${typeof versione.risposta === 'object' ? JSON.stringify(versione.risposta) : versione.risposta || 'Senza risposta'} · ${versione.note || 'Nessuna nota'} · ${(versione.foto || []).length} foto`;
+      voce.appendChild(testo);
+      const ripristina = document.createElement('button');
+      ripristina.type = 'button'; ripristina.className = 'btn-secondario';
+      ripristina.textContent = 'Ripristina questa versione';
+      ripristina.addEventListener('click', async () => {
+        const destinazione = checklistEngine.domandaCorrente();
+        const sopralluogoId = checklistEngine.sopralluogoCorrente().id;
+        if (!await salvaPrimaDiNavigare()) return;
+        const corrente = checklistEngine.domandaCorrente();
+        if (corrente.domanda.id !== destinazione.domanda.id || checklistEngine.sopralluogoCorrente().id !== sopralluogoId) return;
+        await db.salvaRisposta(sopralluogoId, {
+          ...versione, domanda_id: corrente.domanda.id,
+          versioni_precedenti: [...versioni.filter(v => v !== versione), {
+            domanda_id: corrente.domanda.id, sezione: corrente.sezione,
+            risposta: corrente.risposta?.risposta ?? null, note: corrente.risposta?.note ?? null,
+            foto: corrente.risposta?.foto || [], aggiornato_il: corrente.risposta?.aggiornato_il || null
+          }]
+        });
+        await checklistEngine.ricaricaSopralluogoCorrente(); renderDomandaCorrente();
+      });
+      voce.appendChild(ripristina); elenco.appendChild(voce);
+    });
+    notaEditor.parentElement.appendChild(elenco);
   }
 
   async function onCambioRisposta(event) {
@@ -1929,10 +1985,23 @@ const compilazioneScreen = (() => {
       const sopralluogoId = checklistEngine.sopralluogoCorrente().id;
       const fotoId = await camera.scattaFoto({ sopralluogo_id: sopralluogoId, domanda_id: corrente.domanda.id });
       if (!fotoId) return;
-      fotoDomandaCorrente = [...fotoDomandaCorrente, fotoId];
-      aggiornaContatoreFoto();
-      const valoreCorrente = corrente.risposta ? corrente.risposta.risposta : null;
-      await salvaRispostaCorrente(valoreCorrente);
+      // Upload may finish after navigation. Attach to the original owner, using
+      // its latest saved answer/note instead of the controls of the new question.
+      const record = await db.leggiSopralluogo(sopralluogoId);
+      const precedente = record?.risposte.find(r => String(r.domanda_id) === String(corrente.domanda.id));
+      await db.salvaRisposta(sopralluogoId, {
+        domanda_id: corrente.domanda.id, sezione: corrente.sezione,
+        risposta: precedente?.risposta ?? corrente.risposta?.risposta ?? null,
+        note: precedente?.note ?? null,
+        foto: [...new Set([...(precedente?.foto || []), fotoId])]
+      });
+      if (checklistEngine.sopralluogoCorrente()?.id === sopralluogoId) {
+        await checklistEngine.ricaricaSopralluogoCorrente();
+        if (String(checklistEngine.domandaCorrente()?.domanda.id) === String(corrente.domanda.id)) {
+          fotoDomandaCorrente = checklistEngine.domandaCorrente().risposta.foto || [];
+          aggiornaContatoreFoto();
+        }
+      }
     } catch (errore) {
       mostraErrore(errore.message);
     } finally {
@@ -1943,8 +2012,10 @@ const compilazioneScreen = (() => {
 
   async function onNotaModificata() {
     const corrente = checklistEngine.domandaCorrente();
-    if (corrente && (corrente.risposta || isStileRaccoltaDati())) {
-      const valoreCorrente = corrente.risposta ? corrente.risposta.risposta : null;
+    if (corrente) {
+      const selezionata = opzioniRisposta.find(input => input.checked);
+      const valoreCorrente = !isStileRaccoltaDati() && selezionata
+        ? selezionata.value : (corrente.risposta ? corrente.risposta.risposta : null);
       await salvaRispostaCorrente(valoreCorrente);
     }
   }
@@ -2085,10 +2156,11 @@ const compilazioneScreen = (() => {
    * non rischiare di cancellare un campo che l'utente sta scrivendo in quel momento.
    */
   async function alRicevimentoDatiSync() {
-    if (screen.hidden) {
+    if (screen.hidden || salvataggiPendenti > 0 || navigazioneInCorso) {
       return;
     }
     await checklistEngine.ricaricaSopralluogoCorrente();
+    if (salvataggiPendenti > 0 || navigazioneInCorso) return;
     const corrente = checklistEngine.domandaCorrente();
     if (corrente) {
       renderIndicatori(corrente.totale, corrente.indice);
@@ -2116,6 +2188,7 @@ const compilazioneScreen = (() => {
       }
     });
     notaTesto.addEventListener('change', onNotaModificata);
+    notaTesto.addEventListener('input', onNotaModificata);
     btnIndietro.addEventListener('click', onIndietro);
     btnAvanti.addEventListener('click', onAvanti);
     btnModificaAnagrafica.addEventListener('click', onModificaAnagrafica);
@@ -2509,6 +2582,7 @@ const storicoScreen = (() => {
   let clientiConfigurati = [];
   let testoRicerca = '';
   let timerDebounce = null;
+  let revisioneRender = 0;
   const selezionati = new Set();
 
   function formattaData(iso) {
@@ -2559,7 +2633,6 @@ const storicoScreen = (() => {
   }
 
   async function popolaFiltroChecklist() {
-    const selezionato = filtroChecklistContainer.value;
     let checklists = [];
     try {
       const risposta = await fetch('checklists/index.json');
@@ -2568,6 +2641,7 @@ const storicoScreen = (() => {
     } catch (errore) {
       console.error('[app.js] Impossibile caricare le checklist per il filtro Storico:', errore);
     }
+    const selezionato = filtroChecklistContainer.value;
     filtroChecklistContainer.replaceChildren();
     const tutte = document.createElement('option');
     tutte.value = '';
@@ -3186,6 +3260,15 @@ const storicoScreen = (() => {
   }
 
   async function render({ reset = true } = {}) {
+    const revisione = ++revisioneRender;
+    if (reset) resetFiltri();
+    const [sopralluoghi] = await Promise.all([
+      db.elencaSopralluoghi(),
+      ...(reset ? [popolaFiltroCliente(), popolaFiltroChecklist()] : [])
+    ]);
+    if (revisione !== revisioneRender) return;
+    // Capture the CURRENT filters after async reads. A realtime refresh must not
+    // restore values captured before the operator changed a date/search/select.
     const filtriPrecedenti = {
       cliente: clienteAttivo,
       checklist: checklistAttiva,
@@ -3196,14 +3279,11 @@ const storicoScreen = (() => {
       ordinamento: ordinamentoAttivo,
       ricerca: testoRicerca
     };
-    const [sopralluoghi] = await Promise.all([db.elencaSopralluoghi(), popolaFiltroCliente(), popolaFiltroChecklist()]);
     sopralluoghiCache = sopralluoghi;
     selezionati.clear();
     popolaFiltroTecnico();
 
-    if (reset) {
-      resetFiltri();
-    } else {
+    {
       clienteAttivo = filtriPrecedenti.cliente;
       checklistAttiva = Array.from(filtroChecklistContainer.options).some((o) => o.value === filtriPrecedenti.checklist)
         ? filtriPrecedenti.checklist : '';

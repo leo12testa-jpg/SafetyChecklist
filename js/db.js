@@ -418,6 +418,7 @@ const db = (() => {
     const risposte = normalizzaRisposte(sopralluogo.risposte);
     const idx = risposte.findIndex((r) => String(r.domanda_id) === String(risposta.domanda_id));
     const precedente = idx >= 0 ? risposte[idx] : null;
+    rispostaConTimestamp._base_aggiornato_il = precedente?.aggiornato_il || null;
     if (idx >= 0) {
       risposte[idx] = { ...risposte[idx], ...rispostaConTimestamp };
     } else {
@@ -436,7 +437,10 @@ const db = (() => {
     const rispostaSalvata = risposte[idx >= 0 ? idx : risposte.length - 1];
     const verificato = await leggiSopralluogoGrezzo(sopralluogoId);
     const rispostaVerificata = verificato && normalizzaRisposte(verificato.risposte).find((r) => String(r.domanda_id) === String(risposta.domanda_id));
-    if (!rispostaVerificata || rispostaVerificata.aggiornato_il !== adesso) {
+    const conservata = rispostaVerificata && [rispostaVerificata, ...(rispostaVerificata.versioni_precedenti || [])]
+      .some(r => r.aggiornato_il === adesso);
+    const successiva = rispostaVerificata?._base_aggiornato_il === adesso;
+    if (!conservata && !successiva) {
       throw new Error(`Salvataggio locale non verificabile per la risposta alla domanda ${risposta.domanda_id} del sopralluogo ${sopralluogoId}.`);
     }
 
@@ -559,7 +563,8 @@ const db = (() => {
     (sopralluoghi || []).forEach((sopralluogo) => {
       if (!sopralluogo || sopralluogo.eliminato_definitivamente) return;
       normalizzaRisposte(sopralluogo.risposte).forEach((risposta) => {
-        (risposta.foto || []).forEach((fotoId) => ids.add(String(fotoId)));
+        [risposta, ...(risposta.versioni_precedenti || [])].forEach(versione =>
+          (versione.foto || []).forEach(fotoId => ids.add(String(fotoId))));
       });
       (sopralluogo.altri_aspetti_foto || []).forEach((fotoId) => ids.add(String(fotoId)));
     });

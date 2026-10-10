@@ -1,0 +1,82 @@
+{
+  "started": "2026-10-09T15:12:50.047Z",
+  "baseCommit": "aa67eec93768168cc72cb8c9126bf07bcc08963e",
+  "build": "20261009-qa-v1",
+  "groups": [
+    {
+      "name": "sintassi JavaScript SafetyChecklist",
+      "total": 1,
+      "pass": 1,
+      "fail": 0
+    },
+    {
+      "name": "manifest, checklist, loghi e build coerenti",
+      "total": 1,
+      "pass": 1,
+      "fail": 0
+    },
+    {
+      "name": "regressioni unitarie SafetyChecklist",
+      "total": 261,
+      "pass": 261,
+      "fail": 0,
+      "skipped": 0,
+      "exit": 0
+    },
+    {
+      "name": "pdf",
+      "total": 12,
+      "pass": 12,
+      "fail": 0,
+      "exit": 0,
+      "fatal": null,
+      "cleaned": "isolated browser context closed; synthetic records deleted"
+    },
+    {
+      "name": "browser",
+      "total": 31,
+      "pass": 31,
+      "fail": 0,
+      "exit": 0,
+      "fatal": null,
+      "cleaned": true
+    },
+    {
+      "name": "pwa",
+      "total": 7,
+      "pass": 7,
+      "fail": 0,
+      "exit": 0,
+      "fatal": null,
+      "cleaned": true
+    }
+  ],
+  "notExecutable": [
+    {
+      "name": "Firma grafica e firma nel PDF",
+      "reason": "Funzionalità assente nella versione di main; il flusso attuale non prevede firme."
+    },
+    {
+      "name": "Policy reali Supabase Storage con utenti autorizzati/non autorizzati",
+      "reason": "Storage mock locale; nessun progetto Supabase di test configurato e nessuna policy per questo bucket nel repository."
+    },
+    {
+      "name": "Supabase Edge Function nel runtime Deno reale",
+      "reason": "Deno e Docker non installati; eseguito il codice TypeScript con shim Deno.serve e API Firebase emulata."
+    },
+    {
+      "name": "Safari/iOS e WebKit reali, fotocamera fisica e installazione su telefono",
+      "reason": "Nessun dispositivo fisico; WebKit non installato. Desktop/tablet/smartphone verificati con Chromium."
+    },
+    {
+      "name": "Suite browser legacy con PDF aziendali storici originali",
+      "reason": "I file test-sample referenziati dagli harness legacy non sono su main. Usati esclusivamente PDF sintetici dalle cinque checklist e vecchie versioni fittizie."
+    }
+  ],
+  "total": 313,
+  "passed": 313,
+  "failed": 0,
+  "verdict": "NON PRONTA",
+  "reason": "Verifiche fondamentali firma/sicurezza Storage non completate; nessuna pubblicazione autorizzata.",
+  "finished": "2026-10-09T15:14:07.670Z"
+}

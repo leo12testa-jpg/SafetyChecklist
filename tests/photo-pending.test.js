@@ -47,3 +47,8 @@ test('foto pending: un vecchio riferimento senza blob non resta in attesa per se
   );
   assert.equal(await api.contaFotoInSospeso(),0);
 });
+
+test('foto delle versioni precedenti restano pending fino all upload per consentire il ripristino',async()=>{
+  const api=setup([{id:'precedente',blob:{size:10}}],[{id:'s1',risposte:[{domanda_id:1,foto:[],versioni_precedenti:[{foto:['precedente']}]}]}]);
+  assert.equal(await api.contaFotoInSospeso(),1);
+});
