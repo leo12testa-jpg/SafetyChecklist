@@ -3,9 +3,9 @@
 # Never stages unrelated files or runs tests against company data.
 set -euo pipefail
 cd "$(dirname "$0")"
-git rev-parse --show-toplevel >/dev/null
+git -c safe.directory="$PWD" rev-parse --show-toplevel >/dev/null
 case "${1:-}" in
-  --prepare) exec node scripts/prepare-release.cjs ;;
+  --prepare) exec node scripts/prepare-release.cjs "${2:-1.0.0-rc.1}" ;;
   --verify) exec node scripts/check-deployment.cjs ;;
   *) echo 'Uso: ./pubblica.sh --prepare (candidato e test); ./pubblica.sh --verify (Pages, sola lettura).' >&2
      echo 'Pubblicazione: PR verso main, gate verdi e backend verificato; nessun push diretto da questo script.' >&2

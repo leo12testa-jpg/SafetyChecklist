@@ -21,3 +21,11 @@ test('every HTML script and stylesheet is precached at its exact versioned URL',
   urls.push(...[...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map(m=>m[1]));
   for(const url of urls)assert.ok(c.shell.includes('./'+url),'Missing exact precache URL: '+url);
 });
+
+test('service worker bypasses same-origin APIs outside the application scope', () => {
+  const handlers={};const c=vm.createContext({URL,self:{location:{origin:'https://qa.test',href:'https://qa.test/SafetyChecklist/service-worker.js?v=QA'},addEventListener(name,fn){handlers[name]=fn;}}});
+  vm.runInContext(fs.readFileSync('service-worker.js','utf8'),c);
+  let handled=false;
+  handlers.fetch({request:{method:'GET',url:'https://qa.test/functions/v1/photo-access?path=qa'},respondWith(){handled=true;}});
+  assert.equal(handled,false,'private API responses must never enter the shell cache');
+});

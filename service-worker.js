@@ -1,11 +1,11 @@
 // Service worker per il funzionamento offline della checklist.
-const CACHE_NAME = 'safety-checklist-shell-20261012-092407';
+const CACHE_NAME = 'safety-checklist-shell-20261012-134010';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=20261012-092407',
+  './css/style.css?v=20261012-134010',
   './js/vendor/jspdf.umd.min.js',
   './js/vendor/jspdf.plugin.autotable.min.js',
   './js/vendor/jszip.min.js',
@@ -13,24 +13,24 @@ const APP_SHELL = [
   './js/vendor/firebase-firestore-compat.js',
   './js/vendor/firebase-auth-compat.js',
   './js/firebase-config.js',
-  './js/auth.js?v=20261012-092407',
+  './js/auth.js?v=20261012-134010',
   './js/supabase-config.js',
   './js/vendor/pdf.min.js',
   './js/vendor/pdf.worker.min.js',
-  './js/app.js?v=20261012-092407',
+  './js/app.js?v=20261012-134010',
   './js/identity.js',
-  './js/account-screens.js?v=20261012-092407',
-  './js/db.js?v=20261012-092407',
-  './js/checklist.js?v=20261012-092407',
+  './js/account-screens.js?v=20261012-134010',
+  './js/db.js?v=20261012-134010',
+  './js/checklist.js?v=20261012-134010',
   './js/question-navigator.js',
-  './js/storico-filtri.js?v=20261012-092407',
-  './js/foto-sync.js?v=20261012-092407',
-  './js/pdf.js?v=20261012-092407',
-  './js/pdf-import.js?v=20261012-092407',
-  './js/import-matching.js?v=20261012-092407',
+  './js/storico-filtri.js?v=20261012-134010',
+  './js/foto-sync.js?v=20261012-134010',
+  './js/pdf.js?v=20261012-134010',
+  './js/pdf-import.js?v=20261012-134010',
+  './js/import-matching.js?v=20261012-134010',
   './js/camera.js',
-  './js/sync.js?v=20261012-092407',
-  './js/aggiornamento.js?v=20261012-092407',
+  './js/sync.js?v=20261012-134010',
+  './js/aggiornamento.js?v=20261012-134010',
   './checklists/index.json',
   './checklists/clients.json',
   './checklists/tecnici.json',
@@ -79,7 +79,7 @@ async function cacheFirst(request) {
   if (cached) return cached;
   try {
     const response = await fetch(request);
-    if (response && response.ok) {
+    if (response && response.ok && !/\b(?:private|no-store)\b/i.test(response.headers.get('cache-control') || '')) {
       const clone = response.clone();
       eventSafePut(request, clone);
     }
@@ -114,6 +114,10 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
+  // Only the app shell belongs in this cache. A same-origin API must keep its
+  // own authorization and private response semantics, including offline errors.
+  const base = new URL('./', self.location.href);
+  if (!url.pathname.startsWith(base.pathname)) return;
   const isChecklist = url.pathname.includes('/checklists/');
   const isLogo = url.pathname.includes('/assets/logo_');
   const isVersione = url.pathname.endsWith('/version.json');
