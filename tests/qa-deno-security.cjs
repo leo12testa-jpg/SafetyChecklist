@@ -29,6 +29,13 @@ const secretHeaders=()=>({authorization:'Bearer '+key,apikey:key,'content-type':
   await check('existing legacy path remains readable byte-for-byte through authorized Deno gateway',async()=>{const r=await photoCall('GET',allowed);assert.equal(r.status,200);assert.deepEqual(Buffer.from(await r.arrayBuffer()),original);assert.equal(r.headers.get('cache-control'),'private, no-store');});
   for(const [label,user] of [['anonymous',null],['inactive',inactive],['unauthorized inspection',denied]])for(const method of ['GET','POST','DELETE'])await check(label+' denied '+method,async()=>{const r=await photoCall(method,user,oldPath,method==='POST'?original:undefined,{foto_id:'attempt'});assert.ok([401,403].includes(r.status));});
   await check('invalid Firebase token rejected',async()=>{assert.equal((await photoCall('GET',{token:'not-a-token'})).status,401);});
+  await check('foreign project, issuer and expired tokens are rejected before authorization',async()=>{
+    const [head,body,signature]=allowed.token.split('.'),claims=JSON.parse(Buffer.from(body,'base64url'));
+    for(const change of [{aud:'demo-foreign'},{iss:'https://foreign.invalid'},{exp:1},{iat:null}]){
+      const token=[head,Buffer.from(JSON.stringify({...claims,...change})).toString('base64url'),signature].join('.');
+      assert.equal((await photoCall('GET',{token})).status,401);
+    }
+  });
   await check('unreferenced path, other inspection prefix and traversal rejected',async()=>{for(const p of [inspectionId+'/unknown.jpg','other/17_image.jpg',inspectionId+'/../secret.jpg',inspectionId+'/%2e%2e-secret.jpg'])assert.ok([400,403].includes((await photoCall('GET',allowed,p)).status));});
   const uploadPath=inspectionId+'/17_immutable.jpg';paths.push(uploadPath);
   await check('authorized immutable upload and identical retry succeed',async()=>{for(let n=0;n<2;n++)assert.equal((await photoCall('POST',allowed,uploadPath,original,{foto_id:'immutable',domanda_id:'17'})).status,200);});

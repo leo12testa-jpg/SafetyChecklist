@@ -53,6 +53,13 @@ function makeServer({emulator=false}={}) {
   let photoHandler;
   const storage=new Map();let storageDown=false,endpointDown=false,serverDown=false;
   const requests=[];
+  const refFiles=new Map();
+  function content(rel) {
+    if(!server.sourceRef)return fs.readFileSync(path.join(root,rel));
+    const key=server.sourceRef+':'+rel;
+    if(!refFiles.has(key))refFiles.set(key,require('node:child_process').execFileSync('git',['-c','safe.directory='+root,'show',key],{cwd:root,maxBuffer:30*1024*1024}));
+    return refFiles.get(key);
+  }
   const server=http.createServer(async(req,res)=>{
     try {
       if(serverDown)return req.socket.destroy();
@@ -97,7 +104,7 @@ function makeServer({emulator=false}={}) {
       const rel=u.pathname.replace(/^\/SafetyChecklist\//,'/').slice(1)||'index.html';
       const file=path.resolve(root,rel);
       if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||fs.statSync(file).isDirectory()){res.writeHead(404);return res.end();}
-      let body=fs.readFileSync(file);
+      let body=content(rel);
       if(emulator&&rel==='js/firebase-config.js')body=body.toString().replace(/projectId: "[^"]+"/,`projectId: "${project}"`).replace(/const USER_ADMIN_ENDPOINT = '[^']+'/,`const USER_ADMIN_ENDPOINT = '${server.origin}/qa/manage-users'`)+`
         firebaseClient.initApp(); firebase.auth().useEmulator('${authOrigin}',{disableWarnings:true});
         firebaseClient.firestore().useEmulator('127.0.0.1',18085);
@@ -105,7 +112,7 @@ function makeServer({emulator=false}={}) {
       if(emulator&&rel==='js/supabase-config.js')body=body.toString().replace(/const SUPABASE_URL = "[^"]+"/,`const SUPABASE_URL = "${server.origin}"`);
       if(!emulator&&rel==='index.html')body=require('./pdf-local-server.cjs').harness();
       if(server.build){
-        if(rel==='index.html'||rel==='service-worker.js'||rel==='js/aggiornamento.js')body=body.toString().replaceAll(JSON.parse(fs.readFileSync(path.join(root,'version.json'),'utf8')).buildId,server.build);
+        if(rel==='index.html'||rel==='service-worker.js'||rel==='js/aggiornamento.js')body=body.toString().replaceAll(JSON.parse(content('version.json')).buildId,server.build);
         if(rel==='version.json')body=JSON.stringify({buildId:server.build});
       }
       res.setHeader('content-type',({'.js':'text/javascript','.html':'text/html; charset=utf-8','.css':'text/css','.json':'application/json','.png':'image/png','.webp':'image/webp','.pdf':'application/pdf'})[path.extname(file)]||'application/octet-stream');

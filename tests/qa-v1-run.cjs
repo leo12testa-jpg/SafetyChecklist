@@ -16,7 +16,8 @@ record('manifest, checklist, loghi e build coerenti',()=>{
   for(const entry of manifest.checklists){const cl=JSON.parse(fs.readFileSync('checklists/'+entry.id+'.json','utf8'));assert.equal(cl.id,entry.id);assert.equal(cl.versione,entry.versione);assert.ok(!ids.has(cl.id));ids.add(cl.id);const questions=cl.sezioni.flatMap(s=>s.domande).map(q=>String(q.id));assert.equal(new Set(questions).size,questions.length);}
   for(const logo of ['logo_coin.webp','logo_interparking.webp','logo_restage.png','logo_melluso.png','logo_carrefour.png'])assert.ok(fs.statSync('assets/'+logo).size>0);
   for(const file of ['index.html','service-worker.js','js/aggiornamento.js'])assert.ok(fs.readFileSync(file,'utf8').includes(report.build),file);
-  assert.ok(!spawnSync('git',['diff','--name-only','origin/main'],{encoding:'utf8'}).stdout.split(/\r?\n/).some(f=>f.startsWith('ore-produttivita/')||f.startsWith('supabase/functions/ore-')||f.startsWith('tests/ore-')));
+  const scope=spawnSync('git',['-c','safe.directory='+root,'diff','--name-only','origin/main'],{encoding:'utf8'});assert.equal(scope.status,0,scope.stderr);
+  assert.ok(!scope.stdout.split(/\r?\n/).some(f=>f.startsWith('ore-produttivita/')||f.startsWith('supabase/functions/ore-')||f.startsWith('tests/ore-')));
 });
 const files=fs.readdirSync('tests').filter(f=>f.endsWith('.test.js')&&!f.startsWith('ore-')).map(f=>'tests/'+f);
 console.log('Running '+files.length+' SafetyChecklist unit/regression files');
@@ -25,7 +26,7 @@ fs.writeFileSync(path.join(out,'unit-final.tap'),unit.stdout+unit.stderr);
 const value=field=>Number(new RegExp('# '+field+' (\\d+)').exec(unit.stdout)?.[1]||0);
 report.groups.push({name:'regressioni unitarie SafetyChecklist',total:value('tests'),pass:value('pass'),fail:value('fail'),skipped:value('skipped'),exit:unit.status});
 console.log('Unit: '+value('pass')+'/'+value('tests')+' passed');
-const scenarios=[['qa-pdf-browser.cjs','pdf'],['qa-browser.cjs','browser'],['qa-pwa.cjs','pwa'],['qa-dvr-browser.cjs','dvr']];
+const scenarios=[['qa-pdf-browser.cjs','pdf'],['qa-browser.cjs','browser'],['qa-pwa.cjs','pwa'],['qa-dvr-browser.cjs','dvr'],['qa-upgrade-browser.cjs','upgrade']];
 for(const [script,folder] of scenarios){
   console.log('Running '+script);const r=spawnSync(process.execPath,['tests/'+script],{encoding:'utf8',maxBuffer:10*1024*1024});
   fs.writeFileSync(path.join(out,folder+'-final.log'),r.stdout+r.stderr);

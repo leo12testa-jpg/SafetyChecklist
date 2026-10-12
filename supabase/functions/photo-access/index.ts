@@ -50,14 +50,20 @@ async function actor(req: Request) {
   const authorization = req.headers.get('authorization') || '';
   if (!authorization.startsWith('Bearer ') || authorization.length > 10000) fail(401,'Authentication required');
   const token = authorization.slice(7);
+  let claims:any;
+  try { claims=JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
+  catch { fail(401,'Invalid session'); }
+  // Reject structurally foreign/expired tokens before the remote lookup; this
+  // is a rejection filter, not signature verification. Google still verifies
+  // the ID token before any account/profile/inspection is authorized.
+  if(claims.aud!==project || claims.iss!==`https://securetoken.google.com/${project}`
+    || typeof claims.sub!=='string' || !claims.sub || !Number.isFinite(claims.iat)
+    || !Number.isFinite(claims.exp) || claims.exp<=Date.now()/1000)fail(401,'Invalid or expired session');
   const r = await remote(`${authUrl}/accounts:lookup?key=${encodeURIComponent(apiKey)}`, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({idToken:token}) });
   if (!r.ok) fail(r.status >= 500 ? 503 : 401,'Invalid session');
   const account = (await r.json()).users?.[0];
   if (!account?.localId || account.disabled) fail(401,'Invalid session');
-  let claims:any;
-  try { claims=JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
-  catch { fail(401,'Invalid session'); }
-  if(claims.aud!==project || claims.iss!==`https://securetoken.google.com/${project}` || claims.sub!==account.localId || !Number.isFinite(claims.exp) || claims.exp<=Date.now()/1000 || (account.validSince && claims.iat<Number(account.validSince)))fail(401,'Invalid or revoked session');
+  if(claims.sub!==account.localId || (account.validSince && claims.iat<Number(account.validSince)))fail(401,'Invalid or revoked session');
   const profile = await document('utenti',account.localId,token);
   if (!profile || profile.uid !== account.localId || profile.attivo !== true || !['admin','tecnico'].includes(profile.ruolo)) fail(403,'Inactive or unauthorized account');
   return { token, uid:account.localId, admin:profile.ruolo === 'admin' };
