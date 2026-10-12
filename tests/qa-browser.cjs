@@ -63,6 +63,8 @@ async function receivePhoto(d,f) {
     const response=await A.page.evaluate(async()=>{try{await appIdentity.callAdmin('list');return 200;}catch(e){return e.status;}});assert.equal(response,403);
     assert.equal(await A.page.locator('[data-nav="admin-users"].side-nav-item').isVisible(),false);
   });
+  await A.page.evaluate(()=>navigator.serviceWorker.ready);
+  report.cacheBeforeOtherDevices=await A.page.evaluate(async()=>Promise.all((await caches.keys()).map(async name=>({name,count:(await (await caches.open(name)).keys()).length}))));
   const B=await open(techB);await login(B);await ready(B);
   const C=await open(admin);await login(C);await ready(C);
   await check('admin vede utenti e tecnico non modifica profilo',async()=>{

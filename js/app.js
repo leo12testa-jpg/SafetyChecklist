@@ -2060,16 +2060,30 @@ const compilazioneScreen = (() => {
       const sopralluogoId = checklistEngine.sopralluogoCorrente().id;
       const fotoId = await camera.scattaFoto({ sopralluogo_id: sopralluogoId, domanda_id: corrente.domanda.id });
       if (!fotoId) return;
+      if (checklistEngine.sopralluogoCorrente()?.id === sopralluogoId &&
+          String(checklistEngine.domandaCorrente()?.domanda.id) === String(corrente.domanda.id)) {
+        fotoDomandaCorrente = [...new Set([...fotoDomandaCorrente, fotoId])];
+      }
       // Upload may finish after navigation. Attach to the original owner, using
-      // its latest saved answer/note instead of the controls of the new question.
-      const record = await db.leggiSopralluogo(sopralluogoId);
-      const precedente = record?.risposte.find(r => String(r.domanda_id) === String(corrente.domanda.id));
-      await db.salvaRisposta(sopralluogoId, {
-        domanda_id: corrente.domanda.id, sezione: corrente.sezione,
-        risposta: precedente?.risposta ?? corrente.risposta?.risposta ?? null,
-        note: precedente?.note ?? null,
-        foto: [...new Set([...(precedente?.foto || []), fotoId])]
+      // its latest saved answer/note. Share the autosave queue so a slow note
+      // captured before the photo cannot subsequently remove its association.
+      salvataggiPendenti += 1;
+      const salvataggioFoto = ultimoSalvataggio.then(async () => {
+        try {
+          const record = await db.leggiSopralluogo(sopralluogoId);
+          const precedente = record?.risposte.find(r => String(r.domanda_id) === String(corrente.domanda.id));
+          await db.salvaRisposta(sopralluogoId, {
+            domanda_id: corrente.domanda.id, sezione: corrente.sezione,
+            risposta: precedente?.risposta ?? corrente.risposta?.risposta ?? null,
+            note: precedente?.note ?? null,
+            foto: [...new Set([...(precedente?.foto || []), fotoId])]
+          });
+        } finally {
+          salvataggiPendenti -= 1;
+        }
       });
+      ultimoSalvataggio = salvataggioFoto.then(() => true, () => false);
+      await salvataggioFoto;
       if (checklistEngine.sopralluogoCorrente()?.id === sopralluogoId) {
         await checklistEngine.ricaricaSopralluogoCorrente();
         if (String(checklistEngine.domandaCorrente()?.domanda.id) === String(corrente.domanda.id)) {

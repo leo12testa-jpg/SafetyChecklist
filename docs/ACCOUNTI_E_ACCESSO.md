@@ -18,11 +18,11 @@ L'area amministrativa verifica il ruolo sia nelle rotte sia sul server. Quando `
 |---|---|
 | `sessionStatus` | Token Firebase verificabile; restituisce lo stato del profilo |
 | `list`, `create`, `setActive`, `setRole`, `usage` | Admin attivo |
-| `usagePing` | Utente attivo, soltanto il proprio documento `utilizzo_app` |
+| `usagePing` | Utente attivo, soltanto la propria riga `safety_app_usage` e il proprio evento di accesso |
 
 L'elenco segue la paginazione oltre 100 utenti. Se il salvataggio del nuovo profilo fallisce, la funzione elimina soltanto l'account appena creato. Non consente di disattivarsi o cambiare il proprio ruolo durante la sessione amministrativa; mantiene almeno un admin attivo. Il cambio password personale richiede la password corrente.
 
-La telemetria registra timestamp server, build e quantità della coda; non registra risposte, note, foto, password o token. L'audit è accodato in IndexedDB durante i guasti cloud e invia soltanto eventi dell'identità corrente.
+La telemetria conserva le tabelle Supabase già usate da `manage-users` v4: `safety_app_usage` e `safety_app_access_events`, protette da RLS senza accesso client diretto. Il backend usa la service role esclusivamente sul server; verifica prima l'identità Firebase e scrive soltanto il UID del chiamante. Timestamp, diagnostica e storico degli accessi rimangono compatibili, senza migrazioni. Un heartbeat non azzera l'ultimo accesso. Non registra risposte, note, foto, password o token. L'audit è accodato in IndexedDB durante i guasti cloud e invia soltanto eventi dell'identità corrente.
 
 ## Fotografie
 

@@ -33,7 +33,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Install pinned test tools
-        run: npm install --no-save --no-package-lock playwright@1.55.0 firebase-tools@15.31.0
+        run: npm install --no-save --no-package-lock playwright@1.63.0 firebase-tools@15.31.0
       - name: Install Chromium, Firefox and WebKit engines
         run: npx playwright install --with-deps chromium firefox webkit
       - name: Run local emulators and isolated browser tests
