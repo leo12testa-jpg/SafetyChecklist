@@ -2684,3 +2684,9 @@ textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:
 #risposte-opzioni[hidden], #raccolta-dati-controllo[hidden], #macro-gruppi-tabs[hidden] { display:none !important; }
 /* Storico, scheda "Raccolte DVR": il filtro Cliente (clienti audit) è nascosto. */
 .storico-filtro-campo[hidden] { display:none !important; }
+/* Mobile: la barra di navigazione è fissa in basso (68px + area sicura) e "#screens.app-shell
+   { padding: 0 !important }" annulla lo spazio previsto: senza questo margine l'ultimo pulsante di
+   ogni schermata (es. INIZIA) resta sotto la barra e non si può toccare. */
+@media (max-width: 900px) {
+  #screens.app-shell > .app-content { padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important; }
+}
