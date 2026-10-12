@@ -124,7 +124,18 @@ async function savePdf(client,result) {
     await page.screenshot({path:path.join(out,'preview.png')});await page.getByRole('button',{name:'Chiudi anteprima PDF'}).click();
     const downloading=page.waitForEvent('download');await page.evaluate(()=>pdf.scarica(qaFixture.blob,'qa-download.pdf'));const d=await downloading;
     await d.saveAs(path.join(out,'download.pdf'));const bytes=fs.readFileSync(path.join(out,'download.pdf'));assert.equal(bytes.subarray(0,5).toString(),'%PDF-');
-    const pages=await page.evaluate(async bytes=>{const doc=await pdfjsLib.getDocument({data:new Uint8Array(bytes)}).promise;const pages=doc.numPages;await doc.destroy();return pages;},Array.from(bytes));assert.ok(pages>1);return {pages,bytes:bytes.length};
+    const pages=await page.evaluate(async bytes=>{const doc=await pdfjsLib.getDocument({data:new Uint8Array(bytes)}).promise;const pages=doc.numPages;await doc.destroy();return pages;},Array.from(bytes));assert.ok(pages>1);
+    await page.getByRole('button',{name:'Chiudi anteprima PDF'}).click();return {pages,bytes:bytes.length};
+  });
+  await check('importazione e anteprima disabilitano la generazione dinamica di codice PDF.js',async()=>{
+    const result=await page.evaluate(async()=>{
+      const original=window.pdfjsLib,originalFunction=window.Function,flags=[],dynamic=[];
+      window.pdfjsLib={...original,getDocument:options=>{flags.push(options.isEvalSupported);return original.getDocument(options);}};
+      window.Function=function(...args){dynamic.push(args.map(String));throw Error('QA: dynamic PDF code blocked');};
+      try {await pdfImport.estraiRighe(qaFixture.blob);await pdf.apri(qaFixture.blob,'QA sicurezza.pdf',null);return{flags,dynamic};}
+      finally {window.pdfjsLib=original;window.Function=originalFunction;}
+    });
+    assert.ok(result.flags.length>=2);assert.ok(result.flags.every(x=>x===false));assert.deepEqual(result.dynamic,[]);await page.getByRole('button',{name:'Chiudi anteprima PDF'}).click();return result;
   });
   await check('PDF corrotto rifiutato',async()=>{
     assert.equal(await page.evaluate(async()=>{try{await pdfImport.estraiRighe(new Blob(['%PDF-1.4\ncorrupt']));return false;}catch{return true;}}),true);

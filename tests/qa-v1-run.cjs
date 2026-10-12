@@ -3,7 +3,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const root=path.resolve(__dirname,'..');process.chdir(root);
 const out=path.join(root,'reports/qa-v1');fs.mkdirSync(out,{recursive:true});
 const report={started:new Date().toISOString(),baseCommit:'2d17b3e4f2b327c6382f76cda242f582957ad38c',build:JSON.parse(fs.readFileSync('version.json','utf8')).buildId,groups:[],notExecutable:[
-  {name:'Safari/iOS e WebKit reali, fotocamera fisica e installazione su telefono',reason:'Nessun dispositivo fisico; WebKit non installato. Desktop/tablet/smartphone verificati con Chromium.'},
+  {name:'Dispositivi fisici: Safari iPhone/iPad, Android, fotocamera e installazione/condivisione PWA',reason:'Nessun hardware fisico disponibile. Browser automatizzati e viewport sono riportati separatamente e non certificano questi scenari.'},
 ]};
 function record(name,fn){try{fn();report.groups.push({name,total:1,pass:1,fail:0});console.log('PASS '+name);}catch(e){report.groups.push({name,total:1,pass:0,fail:1,error:e.stack});console.error('FAIL '+name+' '+e.message);}}
 record('sintassi JavaScript SafetyChecklist',()=>{
@@ -47,6 +47,6 @@ const cleanup=spawnSync(process.execPath,['tests/qa-cleanup-audit.cjs'],{encodin
 if(cleanup.status!==0){console.error(cleanup.stderr);process.exitCode=1;report.cleanupError=cleanup.stderr;}
 else report.cleanup=JSON.parse(cleanup.stdout.trim());
 report.total=report.groups.reduce((n,g)=>n+g.total,0);report.passed=report.groups.reduce((n,g)=>n+g.pass,0);report.failed=report.groups.reduce((n,g)=>n+g.fail,0);
-report.verdict='CANDIDATA — richiede anche il gate Storage/Deno e verifica del backend distribuito';report.reason='Firma grafica esclusa dai requisiti V1.0; merge e deploy subordinati ai gate di rilascio.';report.finished=new Date().toISOString();
+report.verdict=report.failed||report.groups.some(g=>g.exit!=null&&g.exit!==0)?'NON PRONTA — collaudo fallito':'CANDIDATA — richiede anche il gate Storage/Deno e verifica del backend distribuito';report.reason='Firma grafica esclusa dai requisiti V1.0; merge e deploy subordinati ai gate di rilascio.';report.finished=new Date().toISOString();
 fs.writeFileSync(path.join(out,'summary.json'),JSON.stringify(report,null,2));console.log(JSON.stringify({total:report.total,passed:report.passed,failed:report.failed,notExecutable:report.notExecutable.length,verdict:report.verdict}));
 if(report.failed||report.groups.some(g=>g.exit!=null&&g.exit!==0))process.exitCode=1;

@@ -1,7 +1,9 @@
-const FIREBASE_API_KEY = Deno.env?.get('FIREBASE_API_KEY') || "AIzaSyAdgCc8TQ1TVfF8l0NMxtm7NS95ZOl4lCA";
-const FIREBASE_PROJECT_ID = Deno.env?.get('FIREBASE_PROJECT_ID') || "safety-checklist-colligo";
 const AUTH_EMULATOR = Deno.env?.get('FIREBASE_AUTH_EMULATOR_HOST');
 const DB_EMULATOR = Deno.env?.get('FIRESTORE_EMULATOR_HOST');
+// App-scoped configuration must not inherit Firebase settings for another app
+// sharing this Supabase project. Generic names are accepted only in demo emulators.
+const FIREBASE_API_KEY = Deno.env?.get('SAFETYCHECKLIST_FIREBASE_API_KEY') || (AUTH_EMULATOR ? Deno.env?.get('FIREBASE_API_KEY') : null) || "AIzaSyAdgCc8TQ1TVfF8l0NMxtm7NS95ZOl4lCA";
+const FIREBASE_PROJECT_ID = Deno.env?.get('SAFETYCHECKLIST_FIREBASE_PROJECT_ID') || (AUTH_EMULATOR || DB_EMULATOR ? Deno.env?.get('FIREBASE_PROJECT_ID') : null) || "safety-checklist-colligo";
 if ((AUTH_EMULATOR || DB_EMULATOR) && !FIREBASE_PROJECT_ID.startsWith('demo-')) throw new Error('Emulators require a demo project');
 const FIREBASE_AUTH = AUTH_EMULATOR ? `http://${AUTH_EMULATOR}/identitytoolkit.googleapis.com/v1` : "https://identitytoolkit.googleapis.com/v1";
 const FIRESTORE = `${DB_EMULATOR ? `http://${DB_EMULATOR}` : 'https://firestore.googleapis.com'}/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;

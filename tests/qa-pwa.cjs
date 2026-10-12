@@ -34,6 +34,17 @@ async function check(name,fn){try{const details=await fn();report.tests.push({na
     assert.equal(await page.evaluate(async id=>(await db.leggiSopralluogo(id)).risposte[0].note,id),'QA-PERSIST-CRASH');
     assert.ok(await page.evaluate(async id=>(await db.leggiFoto(id))?.blob?.size>0,photoId));
   });
+  await check('installazione incompleta: rimane attiva la cache precedente e nessun reload perde dati',async()=>{
+    await context.setOffline(false);await page.evaluate(()=>router.navigate('home'));
+    let reloads=0;const loaded=()=>reloads++;page.on('load',loaded);
+    server.failAsset='assets/logo_carrefour.png';server.build='qa-incomplete';await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+    try {
+      await page.waitForFunction(async()=>{const r=await navigator.serviceWorker.getRegistration();return(await caches.keys()).includes('safety-checklist-shell-qa-incomplete')&&!r.installing&&!sessionStorage.getItem('safety-auto-update:qa-old->qa-incomplete');},null,{timeout:25000});
+      assert.equal(reloads,0);assert.match(await page.locator('#versione-app').textContent(),/qa-old/);
+      assert.equal(await page.evaluate(async()=>!!await(await caches.open('safety-checklist-shell-qa-incomplete')).match('.shell-ready')),false);
+      assert.equal(await page.evaluate(async id=>(await db.leggiSopralluogo(id)).risposte[0].note,id),'QA-PERSIST-CRASH');
+    } finally {server.failAsset=null;server.build='qa-old';page.removeListener('load',loaded);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));}
+  });
   await check('aggiornamento differito durante compilazione con nota digitata',async()=>{
     await context.setOffline(false);
     page.on('console',m=>{if(m.type()==='warning'||m.type()==='error')report.warnings.push(m.text());});

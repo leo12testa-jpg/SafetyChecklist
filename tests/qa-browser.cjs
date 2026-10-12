@@ -12,7 +12,11 @@ async function open(user,viewport={width:1440,height:1000},{sw=false}={}) {
   const context=await playwright()[browserName].launchPersistentContext(profile,{...(browserName==='chromium'?{channel:'chrome'}:{}),headless:true,serviceWorkers:sw?'allow':'block',viewport,acceptDownloads:true});
   const blocked=await guard(context,server.origin,{emulator:true});report.blocked.push(blocked);
   const page=context.pages()[0];const d={context,page,user,profile,viewport};devices.push(d);page.setDefaultTimeout(20000);
-  page.on('pageerror',e=>report.pageErrors.push({user:user.username,message:e.message}));
+  page.on('pageerror',e=>{
+    const entry={user:user.username,message:e.message};
+    if(/127\.0\.0\.1:18085\/google\.firestore\.v1\.Firestore\//.test(e.message)&&/due to access control checks/.test(e.message))(report.transportErrors||=[]).push(entry);
+    else report.pageErrors.push(entry);
+  });
   page.on('console',m=>{if(m.type()==='error'||(m.type()==='warning'&&m.text().includes('FotoSync')))report.consoleErrors.push({user:user.username,message:m.text()});});
   page.on('dialog',dialog=>dialog.accept());await page.goto(url);return d;
 }

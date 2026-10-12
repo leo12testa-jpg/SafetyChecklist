@@ -1823,7 +1823,7 @@ const pdfImport = (() => {
     }
 
     const buffer = await pdf.leggiArrayBuffer(file);
-    const documento = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+    const documento = await pdfjsLib.getDocument({ data: new Uint8Array(buffer), isEvalSupported: false }).promise;
     try {
       const headerEsclusi = await analizzaHeader(documento);
       const pagine = [];

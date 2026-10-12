@@ -1327,7 +1327,7 @@ const pdf = (() => {
         url = await urlPdf(blob);
         if (chiuso) { rilasciaUrl(url); return; }
         download.href = url;
-        documento = await pdfjsLib.getDocument({ data: new Uint8Array(await leggiArrayBuffer(blob)) }).promise;
+        documento = await pdfjsLib.getDocument({ data: new Uint8Array(await leggiArrayBuffer(blob)), isEvalSupported: false }).promise;
         for (let n = 1; n <= documento.numPages && !chiuso; n++) {
           const page = await documento.getPage(n);
 

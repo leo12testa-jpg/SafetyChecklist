@@ -102,6 +102,7 @@ function makeServer({emulator=false}={}) {
         res.setHeader('content-type','image/jpeg');return res.end(storage.get(key));
       }
       const rel=u.pathname.replace(/^\/SafetyChecklist\//,'/').slice(1)||'index.html';
+      if(server.failAsset===rel){res.writeHead(503);return res.end('QA synthetic asset outage');}
       const file=path.resolve(root,rel);
       if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||fs.statSync(file).isDirectory()){res.writeHead(404);return res.end();}
       let body=content(rel);

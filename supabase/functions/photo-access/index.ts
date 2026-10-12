@@ -1,12 +1,12 @@
 /** Private photo gateway. The Storage service key exists only in server secrets. */
 // Public Firebase identifiers already shipped in firebase-config.js. Staging
 // overrides these with a demo project; privileged Storage credentials stay in env.
-const project = Deno.env.get('FIREBASE_PROJECT_ID') || 'safety-checklist-colligo';
-const apiKey = Deno.env.get('FIREBASE_API_KEY') || 'AIzaSyAdgCc8TQ1TVfF8l0NMxtm7NS95ZOl4lCA';
-const storageUrl = Deno.env.get('SUPABASE_URL') || '';
-const storageKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 const authEmulator = Deno.env.get('FIREBASE_AUTH_EMULATOR_HOST');
 const firestoreEmulator = Deno.env.get('FIRESTORE_EMULATOR_HOST');
+const project = Deno.env.get('SAFETYCHECKLIST_FIREBASE_PROJECT_ID') || (authEmulator || firestoreEmulator ? Deno.env.get('FIREBASE_PROJECT_ID') : null) || 'safety-checklist-colligo';
+const apiKey = Deno.env.get('SAFETYCHECKLIST_FIREBASE_API_KEY') || (authEmulator ? Deno.env.get('FIREBASE_API_KEY') : null) || 'AIzaSyAdgCc8TQ1TVfF8l0NMxtm7NS95ZOl4lCA';
+const storageUrl = Deno.env.get('SUPABASE_URL') || '';
+const storageKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 if (!project || !apiKey || !storageUrl || !storageKey) throw new Error('Photo backend configuration missing');
 if ((authEmulator || firestoreEmulator) && !project.startsWith('demo-')) throw new Error('Emulators require a demo project');
 const authUrl = authEmulator ? `http://${authEmulator}/identitytoolkit.googleapis.com/v1` : 'https://identitytoolkit.googleapis.com/v1';
@@ -110,7 +110,12 @@ Deno.serve({port:Number(Deno.env.get('PORT') || 8000),hostname:Deno.env.get('LIS
     const path=pathOf(url.searchParams.get('path'),inspectionId);
     if(!Object.values(inspection.foto_url || {}).some((v:any)=>v?.path===path))fail(403,'Photo is not referenced by this inspection');
     if(req.method==='GET'){
-      const r=await remote(objectUrl(path,true),{headers:serviceHeaders()});if(!r.ok)fail(r.status===404?404:503,'Photo unavailable');
+      const r=await remote(objectUrl(path,true),{headers:serviceHeaders()});
+      if(!r.ok){
+        const error=await r.json().catch(()=>({}));
+        const missing=r.status===404 || Number(error.statusCode)===404 || error.error==='not_found' || /object not found/i.test(String(error.message||''));
+        fail(missing?404:503,'Photo unavailable');
+      }
       return new Response(r.body,{headers:{...headers(req),'content-type':r.headers.get('content-type') || 'image/jpeg'}});
     }
     const r=await remote(`${storageUrl}/storage/v1/object/${bucket}`,{method:'DELETE',headers:{...serviceHeaders(),'content-type':'application/json'},body:JSON.stringify({prefixes:[path]})});

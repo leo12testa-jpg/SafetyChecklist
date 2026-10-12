@@ -93,14 +93,22 @@ function eventSafePut(request, response) {
     console.warn('[SafetyChecklist SW] Errore cache:', error));
 }
 async function networkFirst(request, { bypassHttpCache = false } = {}) {
+  let response;
   try {
     const req = bypassHttpCache ? new Request(request, {cache:'no-store'}) : request;
-    const response = await fetch(req);
-    if (response && response.ok) eventSafePut(request, response.clone());
-    return response;
-  } catch (e) {
-    return (await caches.match(request)) || Response.error();
+    response = await fetch(req);
+    if (response && response.ok) { eventSafePut(request, response.clone());return response; }
+  } catch (e) { /* HTTP/transport failure: recover from the installed shell. */ }
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  const url = new URL(request.url),base = new URL('./',self.location.href);
+  // Some WebKit navigation requests do not match the cached directory URL.
+  // Resolve only this application's entry point, never another app's path.
+  if (url.pathname === base.pathname || url.pathname === base.pathname + 'index.html') {
+    const shell = await caches.match(new URL('index.html',base).href);
+    if (shell) return shell;
   }
+  return response || Response.error();
 }
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;

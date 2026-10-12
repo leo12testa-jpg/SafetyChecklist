@@ -2,10 +2,11 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {root,playwright,makeServer,guard,seed,documents,authOrigin}=require('./qa-support.cjs');
 const out=path.join(root,'reports/qa-v1/upgrade');fs.mkdirSync(out,{recursive:true});
-const report={tests:[],errors:[],source:'origin/main'},server=makeServer({emulator:true});let context,page,user,profile,id,photo;
+const baseline=process.env.QA_UPGRADE_FROM||'2d17b3e4f2b327c6382f76cda242f582957ad38c';
+const report={tests:[],errors:[],source:baseline},server=makeServer({emulator:true});let context,page,user,profile,id,photo;
 async function check(name,fn){try{const details=await fn();report.tests.push({name,status:'PASS',details});console.log('PASS '+name);}catch(e){report.tests.push({name,status:'FAIL',error:e.stack});console.error('FAIL '+name+' '+e.message);}fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(report,null,2));}
 (async()=>{
-  server.sourceRef='origin/main';server.build='qa-before-v1';const url=await server.start();user=await seed('qa.upgrade.'+Date.now().toString(36));
+  server.sourceRef=baseline;server.build='qa-before-v1';const url=await server.start();user=await seed('qa.upgrade.'+Date.now().toString(36));
   profile=fs.mkdtempSync(path.join(out,'profile-'));context=await playwright().chromium.launchPersistentContext(profile,{channel:'chrome',headless:true,serviceWorkers:'allow'});await guard(context,server.origin,{emulator:true});page=context.pages()[0];page.setDefaultTimeout(30000);page.on('pageerror',e=>report.errors.push(e.message));page.on('dialog',d=>d.accept());
   await page.goto(url);await page.locator('#login-username').fill(user.username);await page.locator('#login-password').fill(user.password);await page.locator('#login-submit').click();await page.waitForFunction(()=>appAutenticataAvviata&&appIdentity.current()!=null);
   await check('main reale installato prima della V1, worker precedente attivo',async()=>{
