@@ -255,6 +255,12 @@ function categoriaChecklist(voce) {
   return checklistIsDvr(voce && voce.id) ? 'dvr' : 'audit';
 }
 
+/** Le due checklist DVR specifiche restano disponibili per raccolte già salvate, ma non per nuove raccolte. */
+function checklistNelMenuNuovaRaccolta(voce, tipo) {
+  if (categoriaChecklist(voce) !== tipo) return false;
+  return tipo !== 'dvr' || (voce.id !== 'dvr_chimico' && voce.id !== 'dvr_mmc');
+}
+
 /** Testo della domanda senza il codice iniziale tra parentesi quadre ("[E-42] ..."), usato solo a schermo. */
 function testoDomandaSenzaCodice(testo) {
   return String(testo || '').replace(/^\[[^\]]+\]\s*/, '');
@@ -574,7 +580,7 @@ const nuovoSopralluogoScreen = (() => {
     if (!Array.isArray(checklistDisponibili) || checklistDisponibili.some((c) => !c.id || !c.versione)) {
       throw new Error('Manifest checklist non sincronizzato: id/versione mancanti.');
     }
-    popolaSelectChecklist(checklistDisponibili.filter((voce) => categoriaChecklist(voce) === modalita()));
+    popolaSelectChecklist(checklistDisponibili.filter((voce) => checklistNelMenuNuovaRaccolta(voce, modalita())));
     associazioniClienti = (await (await richiestaClienti).json()).clienti;
   }
 
