@@ -214,7 +214,8 @@ test('Raccolta dati DVR: la select mostra solo le checklist DVR e il titolo camb
   const form = await formProntoDvr();
   const dvr = checklists.filter((item) => item.categoria === 'dvr').map((item) => item.id);
   assert.ok(dvr.length >= 7, 'in index.json devono esserci le checklist DVR');
-  assert.deepEqual(form.get('select-checklist').options.map((option) => option.value), ['', ...dvr]);
+  const dvrGenerali = dvr.filter((id) => id !== 'dvr_chimico' && id !== 'dvr_mmc');
+  assert.deepEqual(form.get('select-checklist').options.map((option) => option.value), ['', ...dvrGenerali]);
   assert.equal(form.get('titolo-nuovo-sopralluogo').textContent, 'Nuova raccolta dati DVR');
   assert.equal(form.get('blocco-importa-pdf').hidden, true);
 });
