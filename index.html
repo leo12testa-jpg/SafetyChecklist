@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/icon-512.png">
-  <link rel="stylesheet" href="css/style.css?v=20261008-stabilita7">
+  <link rel="stylesheet" href="css/style.css?v=20261012-093606">
 </head>
 <body data-auth-ready="false" data-authenticated="false" data-build="20261008-stabilita7">
   <div id="app">
@@ -80,7 +80,8 @@
       <aside class="app-sidebar" aria-label="Navigazione principale">
         <nav class="side-nav">
           <button type="button" class="side-nav-item" data-nav="home"><span class="nav-icon" aria-hidden="true">⌂</span><span>Dashboard</span></button>
-          <button type="button" class="side-nav-item" data-nav="new-inspection"><span class="nav-icon" aria-hidden="true">＋</span><span>Nuovo sopralluogo</span></button>
+          <button type="button" class="side-nav-item" data-nav="new-inspection" data-modalita="audit"><span class="nav-icon" aria-hidden="true">＋</span><span>Nuovo sopralluogo</span></button>
+          <button type="button" class="side-nav-item" data-nav="new-inspection" data-modalita="dvr"><span class="nav-icon" aria-hidden="true">📋</span><span>Raccolta dati DVR</span></button>
           <button type="button" class="side-nav-item" data-nav="history"><span class="nav-icon" aria-hidden="true">▤</span><span>Storico</span></button>
           <div class="side-nav-separator" data-admin-only hidden></div>
           <span class="side-nav-label" data-admin-only hidden>AMMINISTRAZIONE</span>
@@ -101,7 +102,10 @@
             <h2>Buongiorno, <span id="dashboard-utente-nome">tecnico</span></h2>
             <p>Gestisci i sopralluoghi e continua il lavoro da qualsiasi dispositivo.</p>
           </div>
-          <button type="button" class="btn btn-primary dashboard-new" data-nav="new-inspection">＋ Nuovo sopralluogo</button>
+          <div class="dashboard-new-group">
+            <button type="button" class="btn btn-primary dashboard-new" data-nav="new-inspection" data-modalita="audit">＋ Nuovo sopralluogo</button>
+            <button type="button" class="btn dashboard-new dashboard-new-dvr" data-nav="new-inspection" data-modalita="dvr">＋ Raccolta dati DVR</button>
+          </div>
         </div>
 
         <section id="dashboard-resume-panel" class="dashboard-resume-panel" hidden>
@@ -149,8 +153,11 @@
           <div><span class="eyebrow">AZIONI RAPIDE</span><h3>Cosa vuoi fare?</h3></div>
         </div>
         <div class="home-actions dashboard-action-grid">
-          <button type="button" class="dashboard-action-card primary-action" data-nav="new-inspection">
+          <button type="button" class="dashboard-action-card primary-action" data-nav="new-inspection" data-modalita="audit">
             <span class="action-card-icon">＋</span><span class="action-card-copy"><strong>Nuovo sopralluogo</strong><small>Avvia una nuova checklist o importa un PDF</small></span><span class="action-arrow">→</span>
+          </button>
+          <button type="button" class="dashboard-action-card primary-action dvr-action" data-nav="new-inspection" data-modalita="dvr">
+            <span class="action-card-icon">📋</span><span class="action-card-copy"><strong>Nuova raccolta dati DVR</strong><small>Raccogli in sopralluogo i dati per redigere il DVR</small></span><span class="action-arrow">→</span>
           </button>
           <button type="button" class="dashboard-action-card" data-nav="history">
             <span class="action-card-icon">▤</span><span class="action-card-copy"><strong>Storico</strong><small>Apri, modifica e scarica i sopralluoghi</small></span><span class="action-arrow">→</span>
@@ -172,14 +179,14 @@
 
       <section id="screen-new-inspection" class="screen" data-screen="new-inspection" hidden>
         <button type="button" class="btn-back" data-nav="home">← Indietro</button>
-        <h2>Nuovo sopralluogo</h2>
+        <h2 id="titolo-nuovo-sopralluogo">Nuovo sopralluogo</h2>
 
         <form id="form-nuovo-sopralluogo">
           <label class="campo-form" for="select-checklist">Checklist
             <select id="select-checklist" required></select>
           </label>
 
-          <div class="importa-pdf-blocco">
+          <div class="importa-pdf-blocco" id="blocco-importa-pdf">
             <button type="button" class="btn-secondario" id="btn-importa-pdf">📄 Importa da PDF</button>
             <input type="file" id="input-importa-pdf" accept="application/pdf" hidden>
             <p class="placeholder-text" id="importa-pdf-esito" hidden></p>
@@ -406,12 +413,20 @@
 
       <section id="screen-riepilogo" class="screen" data-screen="riepilogo" hidden>
         <button type="button" class="btn-back" data-nav="home">← Home</button>
-        <h2>Riepilogo sopralluogo</h2>
+        <h2 id="titolo-riepilogo">Riepilogo sopralluogo</h2>
         <button type="button" class="btn-secondario" id="btn-modifica-anagrafica-riepilogo">✏️ Modifica dati sopralluogo</button>
 
         <p class="banner-avviso" id="riepilogo-banner-anagrafica" hidden>✏️ I dati anagrafici sono stati modificati: rigenera il PDF per aggiornarlo.</p>
 
         <ul class="riepilogo-conteggi" id="riepilogo-conteggi"></ul>
+
+        <div id="riepilogo-dvr" class="riepilogo-dvr" hidden>
+          <h3>Compilazione per sezione</h3>
+          <ul class="riepilogo-conteggi" id="riepilogo-dvr-sezioni"></ul>
+          <h3>Da completare</h3>
+          <p class="placeholder-text" id="riepilogo-dvr-completo" hidden>Tutte le domande principali hanno una risposta.</p>
+          <ul class="riepilogo-dvr-mancanti" id="riepilogo-dvr-mancanti"></ul>
+        </div>
 
         <div id="riepilogo-nc-container">
           <h3>Non Conformità rilevate</h3>
@@ -420,6 +435,7 @@
 
         <div id="pdf-area">
           <button type="button" class="btn btn-primary" id="btn-genera-pdf">Genera PDF</button>
+          <button type="button" class="btn" id="btn-esporta-dvr" hidden>📦 Esporta per DVR (dati + foto)</button>
 
           <div id="pdf-esito" hidden>
             <p class="pdf-generato">PDF generato ✔</p>
@@ -436,6 +452,11 @@
         <h2>Storico</h2>
 
         <button type="button" class="btn-secondario storico-vai-cestino" id="storico-vai-cestino" data-nav="trash">🗑️ Cestino (0)</button>
+
+        <div class="storico-tabs" role="tablist" aria-label="Tipo di attività">
+          <button type="button" class="storico-tab is-active" id="storico-tab-audit" role="tab" aria-selected="true" data-categoria="audit">Sopralluoghi</button>
+          <button type="button" class="storico-tab" id="storico-tab-dvr" role="tab" aria-selected="false" data-categoria="dvr">Raccolte DVR</button>
+        </div>
 
         <div class="storico-filtri">
           <label class="storico-filtro-campo">Cliente
@@ -816,23 +837,23 @@
   <script src="js/vendor/firebase-firestore-compat.js"></script>
   <script src="js/vendor/firebase-auth-compat.js"></script>
   <script src="js/firebase-config.js"></script>
-  <script src="js/auth.js?v=20261008-stabilita7"></script>
+  <script src="js/auth.js?v=20261012-093606"></script>
   <script src="js/vendor/supabase.js"></script>
   <script src="js/supabase-config.js"></script>
   <script src="js/vendor/pdf.min.js"></script>
-  <script src="js/db.js?v=20261008-stabilita7"></script>
+  <script src="js/db.js?v=20261012-093606"></script>
   <script src="js/identity.js"></script>
-  <script src="js/checklist.js?v=20261008-stabilita7"></script>
+  <script src="js/checklist.js?v=20261012-093606"></script>
   <script src="js/question-navigator.js"></script>
-  <script src="js/storico-filtri.js?v=20261008-stabilita7"></script>
-  <script src="js/foto-sync.js?v=20261008-stabilita7"></script>
+  <script src="js/storico-filtri.js?v=20261012-093606"></script>
+  <script src="js/foto-sync.js?v=20261012-093606"></script>
   <script src="js/camera.js"></script>
-  <script src="js/pdf.js?v=20261008-stabilita7"></script>
-  <script src="js/pdf-import.js?v=20261008-stabilita7"></script>
-  <script src="js/import-matching.js?v=20261008-stabilita7"></script>
-  <script src="js/sync.js?v=20261008-stabilita7"></script>
-  <script src="js/app.js?v=20261008-stabilita7"></script>
-  <script src="js/account-screens.js?v=20261008-stabilita7"></script>
-  <script src="js/aggiornamento.js?v=20261008-stabilita7"></script>
+  <script src="js/pdf.js?v=20261012-093606"></script>
+  <script src="js/pdf-import.js?v=20261012-093606"></script>
+  <script src="js/import-matching.js?v=20261012-093606"></script>
+  <script src="js/sync.js?v=20261012-093606"></script>
+  <script src="js/app.js?v=20261012-093606"></script>
+  <script src="js/account-screens.js?v=20261012-093606"></script>
+  <script src="js/aggiornamento.js?v=20261012-093606"></script>
 </body>
 </html>

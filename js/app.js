@@ -22,8 +22,12 @@ const router = (() => {
     screens.forEach((el) => {
       el.hidden = el.dataset.screen !== target;
     });
+    const modalitaAttiva = globalThis.modalitaNuovoSopralluogo === 'dvr' ? 'dvr' : 'audit';
     document.querySelectorAll('.side-nav-item[data-nav]').forEach((item) => {
-      item.classList.toggle('is-active', item.dataset.nav === target);
+      // Le due voci "Nuovo sopralluogo" / "Raccolta dati DVR" portano alla stessa schermata:
+      // è attiva solo quella della modalità in uso.
+      const stessaModalita = target !== 'new-inspection' || (item.dataset.modalita || 'audit') === modalitaAttiva;
+      item.classList.toggle('is-active', item.dataset.nav === target && stessaModalita);
     });
 
     if (pushState) {
@@ -49,6 +53,12 @@ const router = (() => {
       const trigger = event.target.closest('[data-nav]');
       if (!trigger) {
         return;
+      }
+      if (trigger.dataset.nav === 'new-inspection') {
+        // "Nuovo sopralluogo" (audit) oppure "Raccolta dati DVR": la schermata di avvio è la
+        // stessa, cambia solo l'elenco delle checklist e i campi mostrati (vedi
+        // nuovoSopralluogoScreen). Qualunque ingresso senza data-modalita vale "audit".
+        globalThis.modalitaNuovoSopralluogo = trigger.dataset.modalita === 'dvr' ? 'dvr' : 'audit';
       }
       navigate(trigger.dataset.nav);
     });
@@ -212,12 +222,12 @@ const ETICHETTE_PERSONALIZZATE_PER_CHECKLIST = {
  * entrambe, un solo posto da estendere se in futuro se ne aggiungesse un'altra.
  */
 function checklistNascondeNumeroDipendenti(checklistId) {
-  return checklistId === 'melluso_sopralluogo' || checklistId === 'interparking_sopralluogo';
+  return checklistId === 'melluso_sopralluogo' || checklistId === 'interparking_sopralluogo' || checklistIsDvr(checklistId);
 }
 
 /** true se la checklist nasconde il campo "Area Manager" (solo Interparking). */
 function checklistNascondeAreaManager(checklistId) {
-  return checklistId === 'interparking_sopralluogo';
+  return checklistId === 'interparking_sopralluogo' || checklistIsDvr(checklistId);
 }
 
 /** true se la checklist ammette Tecnico 3 e Tecnico 4 (facoltativi), oltre ai due di default. */
@@ -231,6 +241,32 @@ function checklistAmmetteNomeRls(checklistId) {
 }
 
 /**
+ * Raccolta dati DVR: checklist "stile": "raccolta-dati" con id che inizia per "dvr_"
+ * (categoria "dvr" in checklists/index.json). La categoria si ricava dall'id, così i
+ * sopralluoghi già salvati e quelli sincronizzati non hanno bisogno di nessun campo nuovo.
+ */
+function checklistIsDvr(checklistId) {
+  return typeof checklistId === 'string' && checklistId.startsWith('dvr_');
+}
+
+/** Categoria di una voce di checklists/index.json ("dvr" o "audit"), con fallback sull'id. */
+function categoriaChecklist(voce) {
+  if (voce && (voce.categoria === 'dvr' || voce.categoria === 'audit')) return voce.categoria;
+  return checklistIsDvr(voce && voce.id) ? 'dvr' : 'audit';
+}
+
+/** Testo della domanda senza il codice iniziale tra parentesi quadre ("[E-42] ..."), usato solo a schermo. */
+function testoDomandaSenzaCodice(testo) {
+  return String(testo || '').replace(/^\[[^\]]+\]\s*/, '');
+}
+
+/** Etichette dei campi anagrafici per tutte le checklist DVR. */
+const ETICHETTE_DVR = {
+  puntoVendita: 'Cliente (ragione sociale)',
+  indirizzo: 'Sede (nome e indirizzo)'
+};
+
+/**
  * Applica le etichette personalizzate (o quelle di default, salvate la prima volta in un data-
  * attribute sull'elemento) per un dato checklist_id a un sottoinsieme degli <span> di testo-
  * etichetta elencati in ETICHETTE_PERSONALIZZATE_PER_CHECKLIST. `elementi` è un oggetto le cui
@@ -239,7 +275,7 @@ function checklistAmmetteNomeRls(checklistId) {
  * tutti i form hanno tutti i campi: es. "Duplica" ha solo puntoVendita).
  */
 function applicaEtichettePersonalizzate(checklistId, elementi) {
-  const override = ETICHETTE_PERSONALIZZATE_PER_CHECKLIST[checklistId] || {};
+  const override = ETICHETTE_PERSONALIZZATE_PER_CHECKLIST[checklistId] || (checklistIsDvr(checklistId) ? ETICHETTE_DVR : {});
   Object.entries(elementi).forEach(([chiave, span]) => {
     if (!span) {
       return;
@@ -429,12 +465,19 @@ const nuovoSopralluogoScreen = (() => {
   const listaResponsabili = document.getElementById('lista-responsabili');
   const listaAreaManager = document.getElementById('lista-area-manager');
 
+  const titoloSchermata = document.getElementById('titolo-nuovo-sopralluogo');
+  const bloccoImportaPdf = document.getElementById('blocco-importa-pdf');
   const btnImportaPdf = document.getElementById('btn-importa-pdf');
   const inputImportaPdf = document.getElementById('input-importa-pdf');
   const esitoImportazione = document.getElementById('importa-pdf-esito');
 
   let checklistDisponibili = [];
   let associazioniClienti = [];
+
+  /** "audit" (Nuovo sopralluogo) o "dvr" (Nuova raccolta dati DVR): impostata dal router al click. */
+  function modalita() {
+    return globalThis.modalitaNuovoSopralluogo === 'dvr' ? 'dvr' : 'audit';
+  }
 
   async function popolaSuggerimenti() {
     await Promise.all([
@@ -488,6 +531,13 @@ const nuovoSopralluogoScreen = (() => {
 
     aggiornaVisibilitaNomeRls();
 
+    // Raccolta dati DVR: niente responsabile del punto vendita né presenze responsabile/RLS
+    // (sono dati del sopralluogo audit). I campi restano nel DOM, vuoti e nascosti.
+    const dvr = checklistIsDvr(checklistId);
+    inputResponsabile.closest('label').hidden = dvr;
+    selectPresenzaResponsabile.closest('label').hidden = dvr;
+    selectPresenzaRls.closest('label').hidden = dvr;
+
     applicaEtichettePersonalizzate(checklistId, {
       puntoVendita: labelPuntoVenditaTesto,
       indirizzo: labelIndirizzoTesto,
@@ -501,7 +551,7 @@ const nuovoSopralluogoScreen = (() => {
     selectChecklist.innerHTML = '';
     const sceltaIniziale = document.createElement('option');
     sceltaIniziale.value = '';
-    sceltaIniziale.textContent = 'Seleziona checklist…';
+    sceltaIniziale.textContent = modalita() === 'dvr' ? 'Seleziona il tipo di DVR…' : 'Seleziona checklist…';
     // NON disabled: l'utente deve poter tornare esplicitamente su questa opzione (Test 3) per far
     // ricomparire lo stato "solo checklist" e nascondere di nuovo il resto del form. Un'opzione
     // disabled verrebbe anche saltata dal browser nella selezione automatica di default, con il
@@ -524,7 +574,7 @@ const nuovoSopralluogoScreen = (() => {
     if (!Array.isArray(checklistDisponibili) || checklistDisponibili.some((c) => !c.id || !c.versione)) {
       throw new Error('Manifest checklist non sincronizzato: id/versione mancanti.');
     }
-    popolaSelectChecklist(checklistDisponibili);
+    popolaSelectChecklist(checklistDisponibili.filter((voce) => categoriaChecklist(voce) === modalita()));
     associazioniClienti = (await (await richiestaClienti).json()).clienti;
   }
 
@@ -672,6 +722,8 @@ const nuovoSopralluogoScreen = (() => {
     // una checklist dal contenuto del file.
     selectChecklist.value = '';
     datiSopralluogoContainer.hidden = true;
+    titoloSchermata.textContent = modalita() === 'dvr' ? 'Nuova raccolta dati DVR' : 'Nuovo sopralluogo';
+    bloccoImportaPdf.hidden = modalita() === 'dvr';
     inputDataSopralluogo.value = oggiISO();
     aggiornaVisibilitaTecnicoAltro(inputTecnico, labelTecnicoAltro, inputTecnicoAltro);
     aggiornaVisibilitaTecnicoAltro(inputTecnico2, labelTecnico2Altro, inputTecnico2Altro);
@@ -1504,7 +1556,9 @@ const compilazioneScreen = (() => {
    */
   function calcolaConfineGruppi() {
     const checklist = checklistEngine.getChecklist();
-    if (!checklist || !Array.isArray(checklist.sezioni) || checklist.sezioni.length < 2) {
+    // Le schede dei due macro-gruppi riguardano i report audit (vedi pdf.calcolaPuntoDivisioneGruppi):
+    // le checklist "raccolta-dati" (DVR) non le usano.
+    if (!checklist || checklist.stile === 'raccolta-dati' || !Array.isArray(checklist.sezioni) || checklist.sezioni.length < 2) {
       return null;
     }
     const puntoDivisione = pdf.calcolaPuntoDivisioneGruppi(checklist);
@@ -1667,8 +1721,14 @@ const compilazioneScreen = (() => {
 
       let inputSottoCampo = null;
       if (opzione.sotto_campo) {
-        inputSottoCampo = document.createElement('input');
-        inputSottoCampo.type = opzione.sotto_campo_tipo === 'numero' ? 'number' : 'text';
+        if (opzione.sotto_campo_tipo === 'testo-lungo') {
+          // Descrizioni (es. "cosa hai visto" nelle checklist DVR): textarea di 3 righe.
+          inputSottoCampo = document.createElement('textarea');
+          inputSottoCampo.rows = 3;
+        } else {
+          inputSottoCampo = document.createElement('input');
+          inputSottoCampo.type = opzione.sotto_campo_tipo === 'numero' ? 'number' : 'text';
+        }
         inputSottoCampo.placeholder = opzione.sotto_campo_label || 'Dettaglio';
         inputSottoCampo.className = 'input-sotto-campo';
         inputSottoCampo.value = stato.get(opzione.label).sottoCampoValore;
@@ -1709,8 +1769,13 @@ const compilazioneScreen = (() => {
       const label = document.createElement('label');
       label.className = 'campo-form';
       label.textContent = campo.label;
-      const input = document.createElement('input');
-      input.type = 'text';
+      // Campi descrittivi ("multiriga": true nelle checklist DVR): textarea al posto dell'input.
+      const input = document.createElement(campo.multiriga ? 'textarea' : 'input');
+      if (campo.multiriga) {
+        input.rows = 3;
+      } else {
+        input.type = 'text';
+      }
       input.value = stato[campo.label];
       input.addEventListener('change', () => {
         stato[campo.label] = input.value.trim();
@@ -1808,7 +1873,7 @@ const compilazioneScreen = (() => {
       meta.textContent = `Domanda ${risultato.numero} · ${risultato.sezione}`;
 
       const testo = document.createElement('strong');
-      testo.textContent = risultato.testo;
+      testo.textContent = testoDomandaSenzaCodice(risultato.testo);
 
       bottone.appendChild(meta);
       bottone.appendChild(testo);
@@ -1867,7 +1932,7 @@ const compilazioneScreen = (() => {
     renderIndicatori(totale, indice);
     aggiornaTabGruppi(indice);
     sezioneEl.textContent = sezione;
-    domandaEl.textContent = domanda.testo;
+    domandaEl.textContent = isStileRaccoltaDati() ? testoDomandaSenzaCodice(domanda.testo) : domanda.testo;
 
     btnNote.hidden = !domanda.note;
     btnFoto.hidden = !domanda.foto;
@@ -1984,6 +2049,12 @@ const compilazioneScreen = (() => {
       if (!await salvaPrimaDiNavigare()) return;
 
       if (isUltima) {
+        // Raccolta dati DVR: nessuna schermata "Altri aspetti", si passa al riepilogo.
+        if (checklistIsDvr(checklistEngine.sopralluogoCorrente()?.checklist_id)) {
+          router.navigate('riepilogo');
+          riepilogoScreen.render();
+          return;
+        }
         router.navigate('altri-aspetti');
         altriAspettiScreen.prepara();
         return;
@@ -2299,6 +2370,138 @@ const altriAspettiScreen = (() => {
   return { init, prepara };
 })();
 
+/** true se una risposta di raccolta-dati è vuota (stringa vuota, array vuoto, gruppo con tutti i campi vuoti). */
+function rispostaDvrVuota(valore) {
+  if (valore === null || valore === undefined) return true;
+  if (typeof valore === 'string') return valore.trim() === '';
+  if (Array.isArray(valore)) return valore.length === 0;
+  if (typeof valore === 'object') return Object.values(valore).every((v) => rispostaDvrVuota(v));
+  return false;
+}
+
+/** Codice della domanda DVR ("A01", "E-42", "P-4.9.1"...): campo "codice" o prefisso del testo. */
+function codiceDomandaDvr(domanda) {
+  if (domanda && domanda.codice) return String(domanda.codice);
+  const trovato = String((domanda && domanda.testo) || '').match(/^\[([^\]]+)\]/);
+  return trovato ? trovato[1] : String(domanda && domanda.id);
+}
+
+/**
+ * Stato di compilazione di una raccolta DVR: per sezione (risposte/totale) e domande principali
+ * ancora vuote. Le schede ripetute "Mansione N" contano come una sola voce: basta che almeno una
+ * sia compilata. Ogni domanda ha l'indice progressivo usato da checklistEngine.vaiA().
+ */
+function statoRaccoltaDvr(checklist, sopralluogo) {
+  const risposte = risposteComeArray(sopralluogo && sopralluogo.risposte);
+  const perId = new Map(risposte.map((r) => [String(r.domanda_id), r]));
+  const sezioni = [];
+  const mancanti = [];
+  let indice = 0;
+  let mansioniCompilate = 0;
+  let primaMansione = null;
+  (checklist.sezioni || []).forEach((sezione) => {
+    let compilate = 0;
+    (sezione.domande || []).forEach((domanda) => {
+      const r = perId.get(String(domanda.id));
+      const vuota = !r || rispostaDvrVuota(r.risposta);
+      const codice = codiceDomandaDvr(domanda);
+      if (!vuota) compilate += 1;
+      if (/^M\d+$/.test(codice)) {
+        if (!vuota) mansioniCompilate += 1;
+        if (primaMansione === null) primaMansione = { indice, sezione: sezione.titolo, testo: 'Nessuna mansione compilata' };
+      } else if (vuota && !/^(MM|CH)\d/.test(codice)) {
+        mancanti.push({ indice, sezione: sezione.titolo, testo: testoDomandaSenzaCodice(domanda.testo) });
+      }
+      indice += 1;
+    });
+    sezioni.push({ titolo: sezione.titolo, compilate, totale: (sezione.domande || []).length });
+  });
+  if (primaMansione && mansioniCompilate === 0) mancanti.unshift(primaMansione);
+  return { sezioni, mancanti };
+}
+
+/** Nome file sicuro per lo ZIP di esportazione DVR. */
+function nomeFileDvr(sopralluogo) {
+  const pulisci = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+  const parti = ['DVR_dati', pulisci(sopralluogo.punto_vendita) || 'cliente', (sopralluogo.data_sopralluogo || '').slice(0, 10)];
+  return parti.filter(Boolean).join('_') + '.zip';
+}
+
+/**
+ * "Esporta per DVR": un unico ZIP con risposte.json (dati per la redazione del DVR, una voce per
+ * domanda con codice, risposta strutturata, note e nomi delle foto) e la cartella foto/ con le
+ * immagini rinominate <codice>_<n>.<ext>. Le foto mancanti in locale vengono cercate anche su
+ * Supabase (fotoSync.risolviFoto); quelle non recuperabili sono elencate in foto_mancanti.
+ */
+async function esportaRaccoltaDvr(sopralluogoId) {
+  await preparaDatiPdfCrossDevice();
+  const sopralluogo = await db.leggiSopralluogo(sopralluogoId);
+  if (!sopralluogo) throw new Error('Raccolta dati non trovata.');
+  const checklist = await checklistEngine.carica(sopralluogo.checklist_id, sopralluogo.checklist_version || null);
+  const perId = new Map(risposteComeArray(sopralluogo.risposte).map((r) => [String(r.domanda_id), r]));
+  const zip = new JSZip();
+  const fotoMancanti = [];
+  const risposte = [];
+
+  for (const sezione of checklist.sezioni || []) {
+    for (const domanda of sezione.domande || []) {
+      const r = perId.get(String(domanda.id));
+      const codice = codiceDomandaDvr(domanda);
+      const nomiFoto = [];
+      const fotoIds = (r && Array.isArray(r.foto)) ? r.foto : [];
+      for (let i = 0; i < fotoIds.length; i += 1) {
+        let record = null;
+        try {
+          record = (typeof fotoSync !== 'undefined' && fotoSync.risolviFoto)
+            ? await fotoSync.risolviFoto(fotoIds[i], sopralluogo)
+            : await db.leggiFoto(fotoIds[i]);
+        } catch (errore) {
+          console.warn('Esporta DVR: foto non recuperabile', fotoIds[i], errore);
+        }
+        if (!record || !record.blob) {
+          fotoMancanti.push(`${codice} (${fotoIds[i]})`);
+          continue;
+        }
+        const tipo = String(record.blob.type || '');
+        const ext = tipo.includes('png') ? 'png' : tipo.includes('webp') ? 'webp' : 'jpg';
+        const nome = `${codice.replace(/[^A-Za-z0-9.-]+/g, '_')}_${i + 1}.${ext}`;
+        zip.file(`foto/${nome}`, record.blob);
+        nomiFoto.push(nome);
+      }
+      risposte.push({
+        domanda_id: domanda.id,
+        codice,
+        sezione: sezione.titolo,
+        tipo: domanda.tipo,
+        testo: testoDomandaSenzaCodice(domanda.testo),
+        risposta: r ? (r.risposta ?? null) : null,
+        note: (r && r.note) || '',
+        foto: nomiFoto
+      });
+    }
+  }
+
+  const dati = {
+    formato: 'safetychecklist-dvr/1',
+    checklist_id: sopralluogo.checklist_id,
+    checklist_version: sopralluogo.checklist_version || checklist.versione || null,
+    modello_dvr: checklist.modello_dvr || null,
+    categoria: 'dvr',
+    cliente: sopralluogo.punto_vendita || '',
+    sede: sopralluogo.indirizzo_punto_vendita || '',
+    tecnico: [sopralluogo.tecnico, sopralluogo.tecnico_2].filter(Boolean).join(', '),
+    data: sopralluogo.data_sopralluogo || '',
+    esportato_il: new Date().toISOString(),
+    foto_mancanti: fotoMancanti,
+    risposte
+  };
+  zip.file('risposte.json', JSON.stringify(dati, null, 2));
+  const blob = await zip.generateAsync({ type: 'blob' });
+  await pdf.salvaOCondividi(blob, nomeFileDvr(sopralluogo));
+  return { fotoMancanti: fotoMancanti.length };
+}
+
 /**
  * Schermata di Riepilogo (PROJECT.md §7.5): conteggi per stato ed elenco delle Non Conformità,
  * seguiti direttamente dalla generazione del PDF (nessuna firma nel flusso), salvataggio/
@@ -2314,6 +2517,12 @@ const riepilogoScreen = (() => {
   const btnModificaAnagrafica = document.getElementById('btn-modifica-anagrafica-riepilogo');
   const bannerAnagrafica = document.getElementById('riepilogo-banner-anagrafica');
   const erroreEl = document.getElementById('riepilogo-errore');
+  const titoloRiepilogo = document.getElementById('titolo-riepilogo');
+  const bloccoDvr = document.getElementById('riepilogo-dvr');
+  const listaSezioniDvr = document.getElementById('riepilogo-dvr-sezioni');
+  const listaMancantiDvr = document.getElementById('riepilogo-dvr-mancanti');
+  const completoDvr = document.getElementById('riepilogo-dvr-completo');
+  const btnEsportaDvr = document.getElementById('btn-esporta-dvr');
 
   const ETICHETTE = { C: '✔ Conformi', PC: '⚠ Parz. conformi', NC: '✘ Non conformi', NA: '– Non applicabili' };
 
@@ -2348,10 +2557,62 @@ const riepilogoScreen = (() => {
     bannerAnagrafica.hidden = !modificatoDopoGenerazione;
   }
 
+  /** Riepilogo della raccolta dati DVR: compilazione per sezione e domande principali ancora vuote. */
+  function renderDvr(checklist, sopralluogo) {
+    const { sezioni, mancanti } = statoRaccoltaDvr(checklist, sopralluogo);
+    listaSezioniDvr.innerHTML = '';
+    sezioni.forEach(({ titolo, compilate, totale }) => {
+      const el = document.createElement('li');
+      const nome = document.createElement('span');
+      nome.textContent = titolo;
+      const valore = document.createElement('span');
+      valore.textContent = `${compilate}/${totale}`;
+      el.append(nome, valore);
+      listaSezioniDvr.appendChild(el);
+    });
+    listaMancantiDvr.innerHTML = '';
+    completoDvr.hidden = mancanti.length > 0;
+    mancanti.forEach((voce) => {
+      const el = document.createElement('li');
+      const bottone = document.createElement('button');
+      bottone.type = 'button';
+      bottone.className = 'riepilogo-dvr-vai';
+      const sez = document.createElement('small');
+      sez.textContent = voce.sezione;
+      const testo = document.createElement('span');
+      testo.textContent = voce.testo;
+      bottone.append(sez, testo);
+      bottone.addEventListener('click', () => {
+        if (checklistEngine.vaiA(voce.indice)) {
+          router.navigate('compilazione');
+          compilazioneScreen.renderDomandaCorrente();
+        }
+      });
+      el.appendChild(bottone);
+      listaMancantiDvr.appendChild(el);
+    });
+  }
+
   /** Ricalcola e mostra i conteggi e l'elenco NC del sopralluogo in compilazione. */
   function render() {
     const checklist = checklistEngine.getChecklist();
     const sopralluogo = checklistEngine.sopralluogoCorrente();
+    const dvr = checklistIsDvr(sopralluogo && sopralluogo.checklist_id);
+    titoloRiepilogo.textContent = dvr ? 'Riepilogo raccolta dati DVR' : 'Riepilogo sopralluogo';
+    bloccoDvr.hidden = !dvr;
+    btnEsportaDvr.hidden = !dvr;
+    listaConteggi.hidden = dvr;
+    if (dvr) {
+      ncContainer.hidden = true;
+      aggiornaBannerAnagrafica(sopralluogo.id);
+      renderDvr(checklist, sopralluogo);
+      pdfEsito.hidden = true;
+      pdfBlob = null;
+      btnGeneraPdf.disabled = false;
+      btnGeneraPdf.textContent = 'Genera PDF';
+      nascondiErrore();
+      return;
+    }
     const { totale, conteggi, nonRisposte, nonConformita } = checklistEngine.calcolaRiepilogo(checklist, sopralluogo);
     aggiornaBannerAnagrafica(sopralluogo.id);
 
@@ -2454,7 +2715,26 @@ const riepilogoScreen = (() => {
     anagraficaDialog.apri(checklistEngine.sopralluogoCorrente().id, { onSalvato: render });
   }
 
+  async function onEsportaDvr() {
+    const testo = btnEsportaDvr.textContent;
+    btnEsportaDvr.disabled = true;
+    btnEsportaDvr.textContent = 'Preparazione…';
+    nascondiErrore();
+    try {
+      const esito = await esportaRaccoltaDvr(checklistEngine.sopralluogoCorrente().id);
+      if (esito.fotoMancanti > 0) {
+        mostraAvvisoNonBloccante(`Esportazione completata: ${esito.fotoMancanti} foto non disponibili su questo dispositivo sono elencate in risposte.json.`);
+      }
+    } catch (errore) {
+      if (errore.name !== 'AbortError') mostraErrore(`Impossibile esportare i dati: ${errore.message}`);
+    } finally {
+      btnEsportaDvr.disabled = false;
+      btnEsportaDvr.textContent = testo;
+    }
+  }
+
   function init() {
+    btnEsportaDvr.addEventListener('click', onEsportaDvr);
     btnGeneraPdf.addEventListener('click', onGeneraPdf);
     btnSalvaCondividi.addEventListener('click', onSalvaCondividi);
     btnModificaAnagrafica.addEventListener('click', onModificaAnagrafica);
@@ -2493,12 +2773,14 @@ const storicoScreen = (() => {
   const checkboxSelezionaTutti = document.getElementById('storico-seleziona-tutti');
   const bottoneScaricaSelezionati = document.getElementById('storico-scarica-selezionati');
   const bottoneVaiCestino = document.getElementById('storico-vai-cestino');
+  const schedeCategoria = [document.getElementById('storico-tab-audit'), document.getElementById('storico-tab-dvr')];
 
   const DEBOUNCE_RICERCA_MS = 250;
 
   const VALORE_CLIENTE_ALTRO = '__altro__';
 
   let sopralluoghiCache = [];
+  let categoriaAttiva = 'audit';
   let clienteAttivo = '';
   let checklistAttiva = '';
   let statoChiusuraAttivo = '';
@@ -2573,6 +2855,7 @@ const storicoScreen = (() => {
     tutte.value = '';
     tutte.textContent = 'Tutte le checklist';
     filtroChecklistContainer.appendChild(tutte);
+    checklists = checklists.filter((voce) => categoriaChecklist(voce) === categoriaAttiva);
     checklists.forEach(({ id, titolo }) => {
       const option = document.createElement('option');
       option.value = id;
@@ -2677,7 +2960,8 @@ const storicoScreen = (() => {
   function elencoFiltrato() {
     const filtrati = sopralluoghiCache.filter(
       (s) =>
-        corrispondeCliente(s, clienteAttivo) &&
+        (checklistIsDvr(s.checklist_id) ? 'dvr' : 'audit') === categoriaAttiva &&
+        (categoriaAttiva === 'dvr' || corrispondeCliente(s, clienteAttivo)) &&
         corrispondeChecklist(s, checklistAttiva) &&
         corrispondeStatoChiusura(s, statoChiusuraAttivo) &&
         corrispondeTecnico(s, tecnicoAttivo) &&
@@ -3013,6 +3297,24 @@ const storicoScreen = (() => {
     azioni.appendChild(bottoneModifica);
     azioni.appendChild(bottoneApri);
     azioni.appendChild(bottoneScarica);
+    if (checklistIsDvr(sopralluogo.checklist_id)) {
+      const bottoneEsporta = document.createElement('button');
+      bottoneEsporta.type = 'button';
+      bottoneEsporta.className = 'btn-secondario';
+      bottoneEsporta.textContent = '📦 Esporta per DVR';
+      bottoneEsporta.setAttribute('aria-label', `Esporta per DVR ${sopralluogo.punto_vendita || ''}`);
+      bottoneEsporta.addEventListener('click', () => eseguiConBottone(bottoneEsporta, async () => {
+        try {
+          const esito = await esportaRaccoltaDvr(sopralluogo.id);
+          if (esito.fotoMancanti > 0) {
+            mostraAvvisoNonBloccante(`Esportazione completata: ${esito.fotoMancanti} foto non disponibili su questo dispositivo sono elencate in risposte.json.`);
+          }
+        } catch (errore) {
+          if (errore.name !== 'AbortError') alert(`Impossibile esportare i dati: ${errore.message}`);
+        }
+      }));
+      azioni.appendChild(bottoneEsporta);
+    }
     azioni.appendChild(bottoneDuplica);
     azioni.appendChild(bottoneChiusura);
     azioni.appendChild(bottoneElimina);
@@ -3227,6 +3529,27 @@ const storicoScreen = (() => {
     await aggiornaContatoreCestino();
   }
 
+  /** Schede "Sopralluoghi" / "Raccolte DVR": ognuna mostra solo la propria categoria. */
+  function aggiornaSchedeCategoria() {
+    schedeCategoria.forEach((scheda) => {
+      if (!scheda) return;
+      const attiva = scheda.dataset.categoria === categoriaAttiva;
+      scheda.classList.toggle('is-active', attiva);
+      scheda.setAttribute('aria-selected', attiva ? 'true' : 'false');
+    });
+    // Il filtro "Cliente" usa i clienti audit di clients.json: nelle raccolte DVR il cliente si
+    // cerca con la ricerca testuale.
+    const campoCliente = filtroClienteContainer.closest('label');
+    if (campoCliente) campoCliente.hidden = categoriaAttiva === 'dvr';
+  }
+
+  async function onCambioCategoria(categoria) {
+    if (categoria === categoriaAttiva) return;
+    categoriaAttiva = categoria;
+    aggiornaSchedeCategoria();
+    await render();
+  }
+
   /** Se un'altra scheda/dispositivo aggiorna dei dati via sync mentre siamo già nello Storico, aggiorna l'elenco a schermo. */
   function alRicevimentoDatiSync() {
     const schermata = document.getElementById('screen-history');
@@ -3247,6 +3570,10 @@ const storicoScreen = (() => {
     bottoneResetFiltri.addEventListener('click', resetFiltri);
     checkboxSelezionaTutti.addEventListener('change', onSelezionaTuttiChange);
     bottoneScaricaSelezionati.addEventListener('click', scaricaSelezionati);
+    schedeCategoria.forEach((scheda) => {
+      if (scheda) scheda.addEventListener('click', () => onCambioCategoria(scheda.dataset.categoria));
+    });
+    aggiornaSchedeCategoria();
     router.onEnter('history', () => { render(); sync.sincronizzaCompleto?.(); });
     sync.onDatiAggiornati(alRicevimentoDatiSync);
   }
@@ -3417,6 +3744,11 @@ const anagraficaDialog = (() => {
     inputAreaManager.value = sopralluogo.area_manager || '';
     inputAreaManager.disabled = checklistNascondeAreaManager(sopralluogo.checklist_id);
     inputAreaManager.closest('label').hidden = inputAreaManager.disabled;
+    // Raccolta dati DVR: responsabile e presenze responsabile/RLS non si usano (vedi nuovoSopralluogoScreen).
+    const dvr = checklistIsDvr(checklistIdCorrente);
+    inputResponsabile.closest('label').hidden = dvr;
+    selectPresenzaResponsabile.closest('label').hidden = dvr;
+    selectPresenzaRls.closest('label').hidden = dvr;
     selectPresenzaResponsabile.value = sopralluogo.presenza_responsabile || '';
     selectPresenzaRls.value = sopralluogo.presenza_rls || '';
     inputNomeRls.value = sopralluogo.nome_rls || '';
@@ -3742,6 +4074,12 @@ const dashboardScreen = (() => {
     info.className = 'dashboard-recent-info';
     const titolo = document.createElement('strong');
     titolo.textContent = sopralluogo.punto_vendita || 'Sopralluogo senza sede';
+    if (checklistIsDvr(sopralluogo.checklist_id)) {
+      const etichettaDvr = document.createElement('span');
+      etichettaDvr.className = 'etichetta-dvr';
+      etichettaDvr.textContent = 'DVR';
+      titolo.append(' ', etichettaDvr);
+    }
     const dettaglio = document.createElement('span');
     const pezzi = [
       sopralluogo.indirizzo_punto_vendita,

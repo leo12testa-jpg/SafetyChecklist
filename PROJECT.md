@@ -149,6 +149,30 @@ Schema di riferimento (`checklists/<id>.json`):
 
 ---
 
+### 5.1 Checklist "raccolta dati DVR"
+
+Checklist con `"stile": "raccolta-dati"` e id `dvr_*` (`dvr_asili`, `dvr_ristoranti_alberghi`,
+`dvr_uffici`, `dvr_generico`, `dvr_edilizia`, `dvr_chimico`, `dvr_mmc`). Servono a raccogliere in
+sopralluogo i dati per redigere un DVR; non hanno risposte C/PC/NC/NA.
+
+- `checklists/index.json`: ogni voce ha `"categoria": "audit"` oppure `"dvr"`. L'app ricava la
+  categoria anche dall'id (`checklistIsDvr` in `js/app.js`): i sopralluoghi salvati non hanno
+  campi nuovi e la sincronizzazione non cambia.
+- Campi aggiuntivi delle domande:
+  - `codice` – identificativo stabile (es. `A01`, `E-42`, `P-4.12.1b`), ripetuto all'inizio del
+    testo tra parentesi quadre. A schermo il prefisso è nascosto, nel PDF e nell'esportazione resta.
+    Il testo delle domande non contiene ":" (il PDF separa domanda e risposta con ":").
+  - `campi[].multiriga: true` – il campo di `gruppo-testo` è una textarea.
+  - `opzioni[].sotto_campo_tipo: "testo-lungo"` – il sotto-campo di `checkbox-multi` è una textarea;
+    `sotto_campo_label` è il placeholder con le informazioni da rilevare.
+- `modello_dvr` (radice) – nome del modello Word Colligo da cui si genera il DVR.
+
+Flusso: Home → "Nuova raccolta dati DVR" → tipo di DVR, Cliente, Sede, Tecnico, Data →
+compilazione → "Fine" porta direttamente al Riepilogo DVR (nessuna schermata "Altri aspetti") →
+Genera PDF / **Esporta per DVR**: ZIP con `risposte.json` (formato `safetychecklist-dvr/1`: dati
+del sopralluogo e, per ogni domanda, codice, testo, risposta strutturata, note, nomi foto) e la
+cartella `foto/` con i file `<codice>_<n>.jpg`. Storico con schede "Sopralluoghi" / "Raccolte DVR".
+
 ## 6. Schema IndexedDB (`db.js`)
 
 Database: `SafetyChecklistDB`

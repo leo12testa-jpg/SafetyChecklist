@@ -114,3 +114,18 @@ Riferimento obbligatorio: `PROJECT.md`. Ogni fase produce codice funzionante e t
 2. Dopo ogni fase: test manuale su telefono prima di passare oltre.
 3. Non saltare fasi anche se sembrano semplici: ogni modulo dipende dai precedenti.
 4. Ogni nuova funzionalità futura (fuori scope v1.0) va aggiunta come nuova sezione in fondo a questo file, non modificando le fasi già completate.
+
+---
+
+## Fase DVR — Raccolta dati per il DVR
+
+- [x] 7 checklist `dvr_*` in `checklists/` e `categoria` in `checklists/index.json`
+- [x] Home e menu: ingresso "Nuova raccolta dati DVR" accanto a "Nuovo sopralluogo"
+- [x] Avvio DVR: solo checklist DVR, campi Cliente / Sede, nessun campo audit né importazione PDF
+- [x] Compilazione: codici nascosti, textarea per `multiriga` e `testo-lungo`, niente C/PC/NC/NA,
+      niente schede gruppi, "Fine" → Riepilogo DVR
+- [x] Riepilogo DVR: compilazione per sezione, domande principali vuote (tocco → domanda)
+- [x] "Esporta per DVR" (riepilogo e storico): ZIP con risposte.json + foto rinominate
+- [x] Storico: schede "Sopralluoghi" / "Raccolte DVR"
+- [x] Test: `tests/dvr-raccolta.test.js`, `tests/new-inspection-form.test.js` aggiornato
+- [ ] Report PDF raccolta-dati sul motore comune (header/footer/numeri pagina): TODO in `js/pdf.js`
