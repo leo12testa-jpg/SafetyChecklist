@@ -3,27 +3,74 @@
     {
       "id": "coin_sopralluogo",
       "titolo": "Coin - Sopralluogo",
-      "versione": "1.0"
+      "versione": "1.0",
+      "categoria": "audit"
     },
     {
       "id": "interparking_sopralluogo",
       "titolo": "Interparking - Sopralluogo",
-      "versione": "1.2"
+      "versione": "1.2",
+      "categoria": "audit"
     },
     {
       "id": "restage_sopralluogo",
       "titolo": "Restage - Sopralluogo",
-      "versione": "1.1"
+      "versione": "1.1",
+      "categoria": "audit"
     },
     {
       "id": "melluso_sopralluogo",
       "titolo": "Melluso - Sopralluogo",
-      "versione": "1.0"
+      "versione": "1.0",
+      "categoria": "audit"
     },
     {
       "id": "carrefour_sopralluogo",
       "titolo": "Carrefour - Sopralluogo",
-      "versione": "1.0"
+      "versione": "1.0",
+      "categoria": "audit"
+    },
+    {
+      "id": "dvr_asili",
+      "titolo": "DVR - Asili e scuole dell'infanzia",
+      "versione": "1.1",
+      "categoria": "dvr"
+    },
+    {
+      "id": "dvr_ristoranti_alberghi",
+      "titolo": "DVR - Ristoranti, bar e alberghi",
+      "versione": "1.1",
+      "categoria": "dvr"
+    },
+    {
+      "id": "dvr_uffici",
+      "titolo": "DVR - Uffici",
+      "versione": "1.1",
+      "categoria": "dvr"
+    },
+    {
+      "id": "dvr_generico",
+      "titolo": "DVR - Attività varie",
+      "versione": "1.1",
+      "categoria": "dvr"
+    },
+    {
+      "id": "dvr_edilizia",
+      "titolo": "DVR - Imprese edili senza sede",
+      "versione": "1.1",
+      "categoria": "dvr"
+    },
+    {
+      "id": "dvr_chimico",
+      "titolo": "DVR specifico - Rischio chimico (MoVaRisCh)",
+      "versione": "1.1",
+      "categoria": "dvr"
+    },
+    {
+      "id": "dvr_mmc",
+      "titolo": "DVR specifico - Movimentazione manuale dei carichi",
+      "versione": "1.1",
+      "categoria": "dvr"
     }
   ]
 }

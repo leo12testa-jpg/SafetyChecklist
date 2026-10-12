@@ -1,0 +1,1686 @@
+{
+  "id": "dvr_edilizia",
+  "titolo": "DVR - Imprese edili senza sede",
+  "versione": "1.1",
+  "stile": "raccolta-dati",
+  "modello_dvr": "DVR_EDILIZIA_SENZA_SEDE_08_2026_COLLIGO.docx",
+  "sezioni": [
+    {
+      "titolo": "A. Azienda e documento",
+      "domande": [
+        {
+          "id": 1,
+          "testo": "[A01] Dati dell’azienda",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "A01",
+          "campi": [
+            {
+              "label": "Ragione sociale"
+            },
+            {
+              "label": "Sede oggetto del DVR (nome e indirizzo)"
+            },
+            {
+              "label": "Sede legale"
+            },
+            {
+              "label": "Codice fiscale"
+            },
+            {
+              "label": "Partita IVA"
+            },
+            {
+              "label": "CCIAA / REA"
+            },
+            {
+              "label": "Codice ATECO"
+            },
+            {
+              "label": "Telefono / cellulare"
+            },
+            {
+              "label": "E-mail / PEC"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "testo": "[A02] Documento e sopralluogo",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "A02",
+          "campi": [
+            {
+              "label": "Tipo (prima emissione / revisione e motivo)"
+            },
+            {
+              "label": "Luogo e data per la copertina"
+            },
+            {
+              "label": "Data del sopralluogo"
+            },
+            {
+              "label": "Tecnico Colligo"
+            },
+            {
+              "label": "Presenti per l’azienda"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "testo": "[A03] Livello di rischio dell’attività ai fini della formazione",
+          "tipo": "scelta-singola",
+          "foto": false,
+          "note": false,
+          "codice": "A03",
+          "opzioni": [
+            {
+              "label": "Basso"
+            },
+            {
+              "label": "Medio"
+            },
+            {
+              "label": "Alto"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "B. Figure della sicurezza",
+      "domande": [
+        {
+          "id": 4,
+          "testo": "[B01] Figure della sicurezza",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "B01",
+          "campi": [
+            {
+              "label": "Datore di lavoro"
+            },
+            {
+              "label": "RSPP (nome, interno o esterno)"
+            },
+            {
+              "label": "Medico competente"
+            },
+            {
+              "label": "RLS o RLST"
+            },
+            {
+              "label": "Dirigenti (nomi o “nessuno”)"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "testo": "[B02] Preposti",
+          "tipo": "scelta-singola",
+          "foto": false,
+          "note": true,
+          "codice": "B02",
+          "opzioni": [
+            {
+              "label": "Nessun preposto"
+            },
+            {
+              "label": "Presenti e formati (attestati visti)"
+            },
+            {
+              "label": "Presenti, formazione non verificata"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "testo": "[B03] Addetti alle emergenze",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "B03",
+          "campi": [
+            {
+              "label": "Antincendio (nomi)"
+            },
+            {
+              "label": "Livello del corso antincendio (1, 2 o 3)"
+            },
+            {
+              "label": "Primo soccorso (nomi)"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "testo": "[B04] Chi verifica l’attuazione delle misure?",
+          "tipo": "scelta-singola",
+          "foto": false,
+          "note": true,
+          "codice": "B04",
+          "opzioni": [
+            {
+              "label": "Solo il Datore di Lavoro"
+            },
+            {
+              "label": "Verificatori designati (nomi nelle note)"
+            },
+            {
+              "label": "Solo il Datore di Lavoro + programma interventi a breve termine"
+            },
+            {
+              "label": "Verificatori designati + programma interventi a breve termine"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "C. Attività e struttura",
+      "domande": [
+        {
+          "id": 8,
+          "testo": "[C01] Descrizione dell’attività",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "C01",
+          "campi": [
+            {
+              "label": "Attività svolta (testo per il DVR)",
+              "multiriga": true
+            },
+            {
+              "label": "Edificio – piani, superficie, locali e reparti",
+              "multiriga": true
+            },
+            {
+              "label": "Orari, turni e organizzazione",
+              "multiriga": true
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "testo": "[C02] L’impresa",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "C02",
+          "campi": [
+            {
+              "label": "Sede (solo amministrativa o con deposito)"
+            },
+            {
+              "label": "Tipologie di lavori",
+              "multiriga": true
+            },
+            {
+              "label": "Committenti e cantieri tipici",
+              "multiriga": true
+            },
+            {
+              "label": "Macchine operatrici (tipo, marca, modello)",
+              "multiriga": true
+            },
+            {
+              "label": "Ponteggi, trabattelli, gru",
+              "multiriga": true
+            },
+            {
+              "label": "Scavi – profondità tipiche"
+            }
+          ]
+        },
+        {
+          "id": 10,
+          "testo": "[C03] Situazioni presenti",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": true,
+          "codice": "C03",
+          "opzioni": [
+            {
+              "label": "Lavori in subappalto"
+            },
+            {
+              "label": "Ambienti confinati"
+            },
+            {
+              "label": "Lavori vicino a linee elettriche"
+            },
+            {
+              "label": "Lavori su strada con segnaletica"
+            },
+            {
+              "label": "Demolizioni"
+            },
+            {
+              "label": "Lavori in quota"
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "testo": "[C90] Lavorazioni svolte (libreria § 4.15)",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "C90",
+          "opzioni": [
+            {
+              "label": "demolizione del fabbricato"
+            },
+            {
+              "label": "rimozioni di lastre in pietra"
+            },
+            {
+              "label": "demolizione di strutture in ferro"
+            },
+            {
+              "label": "demolizioni di murature"
+            },
+            {
+              "label": "demolizioni di strutture residue"
+            },
+            {
+              "label": "demolizioni di strutture in c.a."
+            },
+            {
+              "label": "demolizioni di solai e scale"
+            },
+            {
+              "label": "demolizioni di pareti divisorie"
+            },
+            {
+              "label": "rimozione di pavimenti e rivestimenti interni"
+            },
+            {
+              "label": "rimozione di serramenti interni ed esterni"
+            },
+            {
+              "label": "prosciugamento scavi"
+            },
+            {
+              "label": "sbancamento generale"
+            },
+            {
+              "label": "sbancamento interno ad edifici"
+            },
+            {
+              "label": "scavo a sezione ristretta con mezzi meccanici"
+            },
+            {
+              "label": "scavi eseguiti a mano"
+            },
+            {
+              "label": "rinterri"
+            },
+            {
+              "label": "rilevati"
+            },
+            {
+              "label": "ricognizione delle caratteristiche del terreno"
+            },
+            {
+              "label": "prove in sito"
+            },
+            {
+              "label": "perforazioni"
+            },
+            {
+              "label": "pali trivellati"
+            },
+            {
+              "label": "pali battuti"
+            },
+            {
+              "label": "micropali"
+            },
+            {
+              "label": "diaframmi"
+            },
+            {
+              "label": "fondazioni in cemento armato"
+            },
+            {
+              "label": "vespai in pietrame e ghiaia"
+            },
+            {
+              "label": "vespai per muratura controterra"
+            },
+            {
+              "label": "pilastri e setti murari"
+            },
+            {
+              "label": "solai e scale"
+            },
+            {
+              "label": "cordoli su muratura esistente"
+            },
+            {
+              "label": "disarmo"
+            },
+            {
+              "label": "casseratura plinti e travi di fondazione"
+            },
+            {
+              "label": "posa del ferro lavorato per fondazioni in cls"
+            },
+            {
+              "label": "getto cls prodotto in cantiere, per fondazioni"
+            },
+            {
+              "label": "getto cls, con autopompa, per fondazioni"
+            },
+            {
+              "label": "getto cls con canala, per fondazioni"
+            },
+            {
+              "label": "casseratura per strutture orizzontali in cls"
+            },
+            {
+              "label": "casseratura prefabbricata per strutture orizzontali"
+            },
+            {
+              "label": "posa del ferro in strutture orizzontali in cls"
+            },
+            {
+              "label": "getto cls prodotto in cantiere, per strutture orizzontali"
+            },
+            {
+              "label": "getto cls con autopompa per strutture orizzontali"
+            },
+            {
+              "label": "disarmo di strutture orizzontali in clsa-casseratura"
+            },
+            {
+              "label": "casseratura per strutture verticali in cls"
+            },
+            {
+              "label": "posa del ferro in strutture verticali in cls"
+            },
+            {
+              "label": "getto cls prodotto in cantiere per strutture verticali"
+            },
+            {
+              "label": "getto cls con autopompa per strutture verticali"
+            },
+            {
+              "label": "disarmo di strutture verticali in clsa-casseratura in legno"
+            },
+            {
+              "label": "casseratura per scale in cls"
+            },
+            {
+              "label": "lavorazione e posa del ferro per formazione scale in calcestruzzo"
+            },
+            {
+              "label": "getto cls prodotto in cantiere per formazione scale in calcestruzzo"
+            },
+            {
+              "label": "getto cls con autopompa per formazione scala"
+            },
+            {
+              "label": "disarmo di scale in cls – casseratura in legno -"
+            },
+            {
+              "label": "ripristino di intonaci esterni"
+            },
+            {
+              "label": "ripristino di calcestruzzo ammalorato"
+            },
+            {
+              "label": "posa in opera guaine"
+            },
+            {
+              "label": "posa in opera teli in pvc"
+            },
+            {
+              "label": "impermeabilizzazioni di pareti"
+            },
+            {
+              "label": "impermeabilizzazioni di serbatoi, pozzi,…"
+            },
+            {
+              "label": "impermeabilizzazioni di tubazioni"
+            },
+            {
+              "label": "impermeabilizzazione cementizia su balconi"
+            },
+            {
+              "label": "movimentazione dei carichi manuale e meccanica"
+            },
+            {
+              "label": "pavimenti di varia natura"
+            },
+            {
+              "label": "esecuzioni di tracce, fori passanti, ecc."
+            },
+            {
+              "label": "impianto fognario esterno"
+            },
+            {
+              "label": "ripristino di pareti esterne"
+            },
+            {
+              "label": "pulitura di paramenti esterni"
+            },
+            {
+              "label": "iniezioni di resine epossidiche"
+            },
+            {
+              "label": "iniezioni di miscele"
+            },
+            {
+              "label": "realizzazione di reticoli armati"
+            },
+            {
+              "label": "scavi"
+            },
+            {
+              "label": "getto di fondo e posa tubi"
+            },
+            {
+              "label": "posa vasca imhoff prefabbricata"
+            },
+            {
+              "label": "rinterro e livellamento superficiale"
+            },
+            {
+              "label": "rifacimento manto stradale"
+            },
+            {
+              "label": "posa dei tubi"
+            },
+            {
+              "label": "rinterro"
+            },
+            {
+              "label": "posa tubi"
+            },
+            {
+              "label": "bonifica aree da ordigni residuati bellici"
+            },
+            {
+              "label": "scavi e trasporti"
+            },
+            {
+              "label": "massicciata"
+            },
+            {
+              "label": "manto stradale (a)"
+            },
+            {
+              "label": "manto stradale (b)"
+            },
+            {
+              "label": "manto stradale (c)"
+            },
+            {
+              "label": "finitura marciapiede"
+            },
+            {
+              "label": "asfaltatura della banchina e del piazzale"
+            },
+            {
+              "label": "area a verde"
+            },
+            {
+              "label": "piazzale esterno"
+            },
+            {
+              "label": "recinzione metallica"
+            },
+            {
+              "label": "smobilizzo cantiere"
+            },
+            {
+              "label": "tracciamento dell’asse di scavo"
+            },
+            {
+              "label": "taglio dell’asfalto"
+            },
+            {
+              "label": "disfacimento di pavimentazione"
+            },
+            {
+              "label": "rifacimento di pavimentazione"
+            },
+            {
+              "label": "fresatura dell’asfalto"
+            },
+            {
+              "label": "rif. a mano manto bituminoso con asfalto a caldo"
+            },
+            {
+              "label": "scavo a mano a sezione obbligata"
+            },
+            {
+              "label": "scavo con martello demolitore a sezione obbligata"
+            },
+            {
+              "label": "scavo con escavatore a sezione obbligata"
+            },
+            {
+              "label": "prosciugamento di scavo con motopompa"
+            },
+            {
+              "label": "posa in opera in scavo di tubazioni"
+            },
+            {
+              "label": "rinterro di scavo a mano"
+            },
+            {
+              "label": "rinterro di scavo con escavatore"
+            },
+            {
+              "label": "demolizione di manufatti con martello demolitore"
+            },
+            {
+              "label": "trasporto e scarico tipo 1"
+            },
+            {
+              "label": "trasporto e scarico tipo 2"
+            },
+            {
+              "label": "posa in opera di paletto di terra"
+            },
+            {
+              "label": "confezione a mano di conglomerato cementizio"
+            },
+            {
+              "label": "confezione con betoniera conglomerato cementizio"
+            },
+            {
+              "label": "getto da betoncar di conglomerato cementizio"
+            },
+            {
+              "label": "posa in opera a mano di sostegno"
+            },
+            {
+              "label": "posa in opera con autocarro con gru di sostegno"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "D. Mansioni (compila solo quelle che servono)",
+      "domande": [
+        {
+          "id": 12,
+          "testo": "[M01] Mansione 1",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "M01",
+          "campi": [
+            {
+              "label": "Nome della mansione"
+            },
+            {
+              "label": "Compiti (testo per il DVR)",
+              "multiriga": true
+            },
+            {
+              "label": "N. addetti"
+            },
+            {
+              "label": "di cui donne"
+            },
+            {
+              "label": "Locali / reparti"
+            },
+            {
+              "label": "Sorveglianza sanitaria sì/no"
+            }
+          ]
+        },
+        {
+          "id": 13,
+          "testo": "[M02] Mansione 2",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "M02",
+          "campi": [
+            {
+              "label": "Nome della mansione"
+            },
+            {
+              "label": "Compiti (testo per il DVR)",
+              "multiriga": true
+            },
+            {
+              "label": "N. addetti"
+            },
+            {
+              "label": "di cui donne"
+            },
+            {
+              "label": "Locali / reparti"
+            },
+            {
+              "label": "Sorveglianza sanitaria sì/no"
+            }
+          ]
+        },
+        {
+          "id": 14,
+          "testo": "[M03] Mansione 3",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "M03",
+          "campi": [
+            {
+              "label": "Nome della mansione"
+            },
+            {
+              "label": "Compiti (testo per il DVR)",
+              "multiriga": true
+            },
+            {
+              "label": "N. addetti"
+            },
+            {
+              "label": "di cui donne"
+            },
+            {
+              "label": "Locali / reparti"
+            },
+            {
+              "label": "Sorveglianza sanitaria sì/no"
+            }
+          ]
+        },
+        {
+          "id": 15,
+          "testo": "[M04] Mansione 4",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "M04",
+          "campi": [
+            {
+              "label": "Nome della mansione"
+            },
+            {
+              "label": "Compiti (testo per il DVR)",
+              "multiriga": true
+            },
+            {
+              "label": "N. addetti"
+            },
+            {
+              "label": "di cui donne"
+            },
+            {
+              "label": "Locali / reparti"
+            },
+            {
+              "label": "Sorveglianza sanitaria sì/no"
+            }
+          ]
+        },
+        {
+          "id": 16,
+          "testo": "[M05] Mansione 5",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "M05",
+          "campi": [
+            {
+              "label": "Nome della mansione"
+            },
+            {
+              "label": "Compiti (testo per il DVR)",
+              "multiriga": true
+            },
+            {
+              "label": "N. addetti"
+            },
+            {
+              "label": "di cui donne"
+            },
+            {
+              "label": "Locali / reparti"
+            },
+            {
+              "label": "Sorveglianza sanitaria sì/no"
+            }
+          ]
+        },
+        {
+          "id": 17,
+          "testo": "[M06] Mansione 6",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "M06",
+          "campi": [
+            {
+              "label": "Nome della mansione"
+            },
+            {
+              "label": "Compiti (testo per il DVR)",
+              "multiriga": true
+            },
+            {
+              "label": "N. addetti"
+            },
+            {
+              "label": "di cui donne"
+            },
+            {
+              "label": "Locali / reparti"
+            },
+            {
+              "label": "Sorveglianza sanitaria sì/no"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "E. Paragrafi del DVR",
+      "domande": [
+        {
+          "id": 18,
+          "testo": "[E-2] Paragrafi opzionali (capitolo 2) – spunta ciò che è presente e scrivi cosa hai visto",
+          "tipo": "checkbox-multi",
+          "foto": true,
+          "note": false,
+          "codice": "E-2",
+          "opzioni": [
+            {
+              "label": "§ 2.13 Ondate di calore",
+              "sotto_campo": true,
+              "sotto_campo_label": "Lavoro all’aperto o in ambienti caldi – chi e quando / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 2.14 Radiazioni ottiche naturali",
+              "sotto_campo": true,
+              "sotto_campo_label": "Lavoro all’aperto al sole – chi e quando / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 2.15 Norme per la prevenzione degli infortuni sul lavoro nelle costruzioni e nei lavori in quota",
+              "sotto_campo": true,
+              "sotto_campo_label": "Cosa hai visto / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 2.16 Viabilità nei cantieri, ponteggi e trasporto dei materiali",
+              "sotto_campo": true,
+              "sotto_campo_label": "Mezzi e carrelli, cancello automatico, percorsi pedonali / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 2.17 Prescrizioni di sicurezza e di salute per lalogistica di cantiere",
+              "sotto_campo": true,
+              "sotto_campo_label": "Cosa hai visto / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 2.18 Scavi e sbancamenti",
+              "sotto_campo": true,
+              "sotto_campo_label": "Cosa hai visto / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 2.19 Lavori in ambienti sospetti di inquinamento o confinati",
+              "sotto_campo": true,
+              "sotto_campo_label": "Cosa hai visto / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            }
+          ]
+        },
+        {
+          "id": 19,
+          "testo": "[E-41] Personale e organizzazione del lavoro – spunta ciò che è presente e scrivi cosa hai visto",
+          "tipo": "checkbox-multi",
+          "foto": true,
+          "note": false,
+          "codice": "E-41",
+          "opzioni": [
+            {
+              "label": "§ 4.1.1 Differenze di genere, età, provenienza, inquadramento contrattuale, disabilità",
+              "sotto_campo": true,
+              "sotto_campo_label": "N. donne, stranieri e lingua, over 55, disabili, contratti atipici / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.1.2 Andamento infortunistico",
+              "sotto_campo": true,
+              "sotto_campo_label": "Infortuni ultimi 3 anni in questa sede (n., dinamica) / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.1.3 Mansioni che espongono i lavoratori a rischi specifici",
+              "sotto_campo": true,
+              "sotto_campo_label": "Chi usa carrelli, PLE, gru, imbracature, lavora su impianti elettrici / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            }
+          ]
+        },
+        {
+          "id": 20,
+          "testo": "[E-42] Ambienti di lavoro – spunta ciò che è presente e scrivi cosa hai visto",
+          "tipo": "checkbox-multi",
+          "foto": true,
+          "note": false,
+          "codice": "E-42",
+          "opzioni": [
+            {
+              "label": "§ 4.2.1 Accessi, percorsi, passaggi, logistica di cantiere",
+              "sotto_campo": true,
+              "sotto_campo_label": "Cosa hai visto / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.2.2 Illuminazione, aerazione, temperatura",
+              "sotto_campo": true,
+              "sotto_campo_label": "Cosa hai visto / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.2.3 Servizi igienici, spogliatoi, docce",
+              "sotto_campo": true,
+              "sotto_campo_label": "Divisi per sesso, docce sì/no, armadietti / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.2.4 Ondate di calore e rischio stress termico",
+              "sotto_campo": true,
+              "sotto_campo_label": "Lavoro all’aperto o in ambienti caldi – chi e quando / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            }
+          ]
+        },
+        {
+          "id": 21,
+          "testo": "[E-43] Attrezzature, impianti, lavori in quota, movimentazione, videoterminali – spunta ciò che è presente e scrivi cosa hai visto",
+          "tipo": "checkbox-multi",
+          "foto": true,
+          "note": false,
+          "codice": "E-43",
+          "opzioni": [
+            {
+              "label": "§ 4.3.1 Macchine operatrici",
+              "sotto_campo": true,
+              "sotto_campo_label": "Criticità delle macchine (l’elenco va nella domanda attrezzature) / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.3.2 Attrezzature di lavoro manuali",
+              "sotto_campo": true,
+              "sotto_campo_label": "Coltelli e utensili – chi li usa / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.3.3 Apparecchiature elettriche portatili",
+              "sotto_campo": true,
+              "sotto_campo_label": "Quali apparecchi, stato di cavi e spine / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.3.4 Automezzi, circolazione stradale",
+              "sotto_campo": true,
+              "sotto_campo_label": "Mezzi usati (auto, ciclomotori), chi guida, patente / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.5.1 Sollevamento e trasporto",
+              "sotto_campo": true,
+              "sotto_campo_label": "Cosa si solleva, peso, frequenza, ausili (es. pentole, bambini, fasciatoi) / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.5.2 Traino e spinta",
+              "sotto_campo": true,
+              "sotto_campo_label": "Carrelli, transpallet, roll – chi e quanto / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.5.3 Movimenti ripetitivi degli arti superiori - posture incongrue",
+              "sotto_campo": true,
+              "sotto_campo_label": "Compiti ripetitivi o posture scomode, durata / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.6.1 Rumore",
+              "sotto_campo": true,
+              "sotto_campo_label": "Sorgenti di rumore, valutazione esistente / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.6.2 Vibrazioni meccaniche",
+              "sotto_campo": true,
+              "sotto_campo_label": "Utensili o mezzi che vibrano / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.6.3 Campi elettromagnetici",
+              "sotto_campo": true,
+              "sotto_campo_label": "Sorgenti (saldatrici, cabine elettriche…) / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.6.4 Radiazioni ottiche artificiali",
+              "sotto_campo": true,
+              "sotto_campo_label": "Saldatura, laser, lampade UV / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.6.5 Radiazioni ionizzanti",
+              "sotto_campo": true,
+              "sotto_campo_label": "Apparecchi RX o sorgenti / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.7.1 Agenti chimici",
+              "sotto_campo": true,
+              "sotto_campo_label": "Uso e rischi (l’elenco va nella domanda prodotti) / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.7.2 Agenti cancerogeni e mutageni",
+              "sotto_campo": true,
+              "sotto_campo_label": "Polveri di legno duro, fumi di saldatura, silice / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.8 Agenti biologici",
+              "sotto_campo": true,
+              "sotto_campo_label": "Contatto con persone o bambini, rifiuti, animali / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            }
+          ]
+        },
+        {
+          "id": 22,
+          "testo": "[E-49] Agenti fisici, chimici, biologici e altri rischi – spunta ciò che è presente e scrivi cosa hai visto",
+          "tipo": "checkbox-multi",
+          "foto": true,
+          "note": false,
+          "codice": "E-49",
+          "opzioni": [
+            {
+              "label": "§ 4.9 Atmosfere esplosive",
+              "sotto_campo": true,
+              "sotto_campo_label": "Caldaia, gas, ricarica batterie, bombole / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.10.1 Stress lavoro - correlato",
+              "sotto_campo": true,
+              "sotto_campo_label": "Valutazione fatta? data ed esito / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.10.2 Rischio molestie",
+              "sotto_campo": true,
+              "sotto_campo_label": "Procedure, iniziative, segnalazioni / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.11 Scavi, sbancamenti, splateamenti",
+              "sotto_campo": true,
+              "sotto_campo_label": "Cosa hai visto / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.12 Ambienti sospetti di inquinamento o confinati",
+              "sotto_campo": true,
+              "sotto_campo_label": "Cosa hai visto / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.13 Lavori in prossimità di linee elettriche in tensione",
+              "sotto_campo": true,
+              "sotto_campo_label": "Cosa hai visto / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            },
+            {
+              "label": "§ 4.14 Segnaletica stradale",
+              "sotto_campo": true,
+              "sotto_campo_label": "Cosa hai visto / DA CORREGGERE …",
+              "sotto_campo_tipo": "testo-lungo"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "G. Impianti e copertura",
+      "domande": [
+        {
+          "id": 23,
+          "testo": "[G01] Riscaldamento, acqua calda e gas",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "G01",
+          "campi": [
+            {
+              "label": "Riscaldamento e acqua calda (gas, pompa di calore, condominiale, altro)"
+            },
+            {
+              "label": "Centrali termiche e caldaie (n., dove, marca, modello, potenza kW) – vuoto se assenti",
+              "multiriga": true
+            },
+            {
+              "label": "Uso del gas (riscaldamento, solo cucina, assente)"
+            },
+            {
+              "label": "Tubazioni del gas a vista colorate di giallo sì/no"
+            },
+            {
+              "label": "Valvola generale del gas – dove"
+            },
+            {
+              "label": "Manutenzione caldaie (ditta, ultima data)"
+            }
+          ]
+        },
+        {
+          "id": 24,
+          "testo": "[G02] Impianto elettrico",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "G02",
+          "campi": [
+            {
+              "label": "Dichiarazione di conformità (DM 37/08 o L. 46/90) – vista o dichiarata"
+            },
+            {
+              "label": "Messa a terra – ente verificatore, periodicità (2 o 5 anni), ultima verifica"
+            },
+            {
+              "label": "Pulsante di sgancio generale – dove"
+            },
+            {
+              "label": "Altri pulsanti di sgancio – dove e cosa sganciano",
+              "multiriga": true
+            },
+            {
+              "label": "Gruppo elettrogeno / UPS"
+            },
+            {
+              "label": "Fotovoltaico – dove, sgancio dedicato sì/no (vuoto se assente)"
+            },
+            {
+              "label": "Valutazione rischio fulminazione – presente sì/no"
+            }
+          ]
+        },
+        {
+          "id": 25,
+          "testo": "[G03] Copertura",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "G03",
+          "campi": [
+            {
+              "label": "Tipo (piana, a falde, terrazza calpestabile…)"
+            },
+            {
+              "label": "Accesso (scala fissa, ingabbiata, botola, non accessibile)"
+            },
+            {
+              "label": "Impianti in copertura (UTA, fotovoltaico, antenne)"
+            },
+            {
+              "label": "Protezioni (parapetti, linee vita, reti sui lucernai)"
+            },
+            {
+              "label": "Pericoli rilevati (lucernai, camminamenti, cavi…)",
+              "multiriga": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "F. Attrezzature, prodotti, DPI",
+      "domande": [
+        {
+          "id": 26,
+          "testo": "[F01] Macchine e attrezzature – una per riga (macchina, costruttore, modello, matricola, locale, verifiche, criticità)",
+          "tipo": "testo",
+          "foto": true,
+          "note": false,
+          "codice": "F01"
+        },
+        {
+          "id": 27,
+          "testo": "[F02] Prodotti chimici e detergenti – uno per riga (nome e uso, pericoli, DPI usati, dove è stoccato, SDS sì/no)",
+          "tipo": "testo",
+          "foto": true,
+          "note": false,
+          "codice": "F02"
+        },
+        {
+          "id": 28,
+          "testo": "[F03] DPI per mansione – una riga per mansione (mansione – DPI consegnati – verbale sì/no)",
+          "tipo": "testo",
+          "foto": true,
+          "note": false,
+          "codice": "F03"
+        }
+      ]
+    },
+    {
+      "titolo": "H. Emergenze e lavoratori particolari",
+      "domande": [
+        {
+          "id": 29,
+          "testo": "[H01] Attività soggetta ai controlli dei Vigili del Fuoco (DPR 151/2011)?",
+          "tipo": "scelta-singola",
+          "foto": false,
+          "note": true,
+          "codice": "H01",
+          "opzioni": [
+            {
+              "label": "No"
+            },
+            {
+              "label": "Sì"
+            },
+            {
+              "label": "Da verificare"
+            }
+          ]
+        },
+        {
+          "id": 30,
+          "testo": "[H01b] Pratica antincendio (solo se soggetta)",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "H01b",
+          "campi": [
+            {
+              "label": "Punti dell’allegato I (es. 74 – centrale termica oltre 116 kW)"
+            },
+            {
+              "label": "Tecnico incaricato della pratica"
+            },
+            {
+              "label": "N. pratica VVF"
+            },
+            {
+              "label": "CPI o SCIA – data"
+            }
+          ]
+        },
+        {
+          "id": 31,
+          "testo": "[H02] Livello dell’attività (DM 3/9/2021)",
+          "tipo": "scelta-singola",
+          "foto": false,
+          "note": false,
+          "codice": "H02",
+          "opzioni": [
+            {
+              "label": "Livello 1"
+            },
+            {
+              "label": "Livello 2"
+            },
+            {
+              "label": "Livello 3"
+            }
+          ]
+        },
+        {
+          "id": 32,
+          "testo": "[H03] Situazioni presenti",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "H03",
+          "opzioni": [
+            {
+              "label": "DVR o piano di emergenza precedenti al 29/10/2022"
+            },
+            {
+              "label": "Più di 9 lavoratori o più di 50 persone presenti"
+            },
+            {
+              "label": "Piano di emergenza presente"
+            },
+            {
+              "label": "DAE (defibrillatore)"
+            },
+            {
+              "label": "Minori, studenti o tirocinanti"
+            }
+          ]
+        },
+        {
+          "id": 33,
+          "testo": "[H04] Presidi ed evacuazione",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "H04",
+          "campi": [
+            {
+              "label": "Estintori (n. e tipo)"
+            },
+            {
+              "label": "Idranti"
+            },
+            {
+              "label": "Rivelazione / allarme"
+            },
+            {
+              "label": "Ditta di manutenzione"
+            },
+            {
+              "label": "Fonti di innesco",
+              "multiriga": true
+            },
+            {
+              "label": "Addetti antincendio per turno"
+            },
+            {
+              "label": "Ultima prova di evacuazione (data)"
+            },
+            {
+              "label": "Cassette o pacchetti di medicazione – quanti e dove"
+            },
+            {
+              "label": "Zona sismica del Comune"
+            }
+          ]
+        },
+        {
+          "id": 34,
+          "testo": "[H05] Persone con disabilità che possono essere presenti",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "H05",
+          "opzioni": [
+            {
+              "label": "Nessuna"
+            },
+            {
+              "label": "Motoria"
+            },
+            {
+              "label": "Uditiva"
+            },
+            {
+              "label": "Visiva"
+            },
+            {
+              "label": "Cognitiva"
+            }
+          ]
+        },
+        {
+          "id": 35,
+          "testo": "[H06] Gruppo di primo soccorso",
+          "tipo": "scelta-singola",
+          "foto": false,
+          "note": false,
+          "codice": "H06",
+          "opzioni": [
+            {
+              "label": "A"
+            },
+            {
+              "label": "B"
+            },
+            {
+              "label": "C"
+            }
+          ]
+        },
+        {
+          "id": 36,
+          "testo": "[H07] Lavoratrici",
+          "tipo": "scelta-singola",
+          "foto": false,
+          "note": false,
+          "codice": "H07",
+          "opzioni": [
+            {
+              "label": "Nessuna lavoratrice"
+            },
+            {
+              "label": "Lavoratrici presenti"
+            },
+            {
+              "label": "Solo impiegate"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "I. Formazione e documenti",
+      "domande": [
+        {
+          "id": 37,
+          "testo": "[I01] Corsi fatti (scrivi data o scadenza)",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "I01",
+          "opzioni": [
+            {
+              "label": "Formazione generale e specifica lavoratori",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / scadenza"
+            },
+            {
+              "label": "Preposti",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / scadenza"
+            },
+            {
+              "label": "Dirigenti",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / scadenza"
+            },
+            {
+              "label": "Datore di lavoro / DL-RSPP",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / scadenza"
+            },
+            {
+              "label": "RLS",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / scadenza"
+            },
+            {
+              "label": "Antincendio",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / scadenza"
+            },
+            {
+              "label": "Primo soccorso",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / scadenza"
+            },
+            {
+              "label": "Carrelli elevatori",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / scadenza"
+            },
+            {
+              "label": "PLE",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / scadenza"
+            },
+            {
+              "label": "Lavori elettrici PES / PAV",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / scadenza"
+            },
+            {
+              "label": "Lavori in quota / DPI III categoria",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / scadenza"
+            },
+            {
+              "label": "Ambienti confinati",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / scadenza"
+            }
+          ]
+        },
+        {
+          "id": 38,
+          "testo": "[L01] Documenti – spunta quelli VISTI (scrivi data o estremi)",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "L01",
+          "opzioni": [
+            {
+              "label": "DVR precedente",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Agibilità",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Planimetrie aggiornate",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "DiCo impianto elettrico",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Verifica impianto di terra (DPR 462)",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Valutazione fulminazione",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Libretto impianto termico",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "DiCo impianto gas",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "CPI / SCIA antincendio",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Registro controlli antincendio",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Piano di emergenza e verbali prove",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Verifiche ascensori",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Verifiche periodiche attrezzature",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Nomine RSPP, MC, addetti; verbale RLS",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Attestati di formazione",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Protocollo e relazione sanitaria",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Verbali consegna DPI",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Schede di sicurezza",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Registro / dati infortuni",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Verbale riunione periodica",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Contratti d’appalto e DUVRI",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Valutazione stress lavoro-correlato",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            },
+            {
+              "label": "Valutazione rumore / vibrazioni",
+              "sotto_campo": true,
+              "sotto_campo_label": "Data / estremi"
+            }
+          ]
+        },
+        {
+          "id": 39,
+          "testo": "[L02] Documenti solo DICHIARATI (non visti)",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "L02",
+          "opzioni": [
+            {
+              "label": "DVR precedente"
+            },
+            {
+              "label": "Agibilità"
+            },
+            {
+              "label": "Planimetrie aggiornate"
+            },
+            {
+              "label": "DiCo impianto elettrico"
+            },
+            {
+              "label": "Verifica impianto di terra (DPR 462)"
+            },
+            {
+              "label": "Valutazione fulminazione"
+            },
+            {
+              "label": "Libretto impianto termico"
+            },
+            {
+              "label": "DiCo impianto gas"
+            },
+            {
+              "label": "CPI / SCIA antincendio"
+            },
+            {
+              "label": "Registro controlli antincendio"
+            },
+            {
+              "label": "Piano di emergenza e verbali prove"
+            },
+            {
+              "label": "Verifiche ascensori"
+            },
+            {
+              "label": "Verifiche periodiche attrezzature"
+            },
+            {
+              "label": "Nomine RSPP, MC, addetti; verbale RLS"
+            },
+            {
+              "label": "Attestati di formazione"
+            },
+            {
+              "label": "Protocollo e relazione sanitaria"
+            },
+            {
+              "label": "Verbali consegna DPI"
+            },
+            {
+              "label": "Schede di sicurezza"
+            },
+            {
+              "label": "Registro / dati infortuni"
+            },
+            {
+              "label": "Verbale riunione periodica"
+            },
+            {
+              "label": "Contratti d’appalto e DUVRI"
+            },
+            {
+              "label": "Valutazione stress lavoro-correlato"
+            },
+            {
+              "label": "Valutazione rumore / vibrazioni"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "Z. Chiusura",
+      "domande": [
+        {
+          "id": 40,
+          "testo": "[Z01] Chiusura del sopralluogo",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "Z01",
+          "campi": [
+            {
+              "label": "Aree non visitate e motivo",
+              "multiriga": true
+            },
+            {
+              "label": "Criticità urgenti da comunicare subito",
+              "multiriga": true
+            },
+            {
+              "label": "Segnaletica mancante",
+              "multiriga": true
+            },
+            {
+              "label": "Documenti promessi dal cliente ed entro quando"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

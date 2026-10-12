@@ -2648,3 +2648,39 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
     right: 10px;
   }
 }
+
+/* ===== Raccolta dati DVR ===== */
+.dashboard-new-group { display:flex; flex-wrap:wrap; gap:10px; justify-content:flex-end; }
+.dashboard-new-dvr { background:#fff !important; color:var(--color-primary) !important; border:1px solid #c9dcfb !important; }
+.dashboard-action-card.dvr-action .action-card-icon { background:#eef6ee; }
+.etichetta-dvr {
+  display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px;
+  font-size:11px; font-weight:700; letter-spacing:.04em; vertical-align:2px;
+  color:#1f5fad; background:#e6f0fb;
+}
+.storico-tabs { display:flex; gap:6px; margin:12px 0; padding:4px; border-radius:12px; background:#eaf0f7; }
+.storico-tab {
+  flex:1 1 0; min-height:42px; border:0; border-radius:9px; background:transparent;
+  font:inherit; font-weight:600; color:var(--color-text-muted); cursor:pointer;
+}
+.storico-tab.is-active { background:#fff; color:var(--color-primary); box-shadow:0 1px 4px rgba(20,40,63,.12); }
+.storico-tab:focus-visible { outline:3px solid #70a9e0; outline-offset:2px; }
+.riepilogo-dvr h3 { margin:18px 0 8px; }
+.riepilogo-dvr-mancanti { list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+.riepilogo-dvr-vai {
+  width:100%; text-align:left; display:flex; flex-direction:column; gap:2px; padding:10px 12px;
+  border:1px solid var(--color-border); border-left:4px solid #e3a008; border-radius:var(--radius);
+  background:var(--color-surface); color:var(--color-text); font:inherit; cursor:pointer;
+}
+.riepilogo-dvr-vai small { color:var(--color-text-muted); font-size:12px; }
+textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:inherit; }
+@media (max-width: 640px) {
+  .dashboard-new-group { width:100%; }
+  .dashboard-new-group .dashboard-new { flex:1 1 100%; }
+}
+/* Il sotto-campo appare solo quando la voce è spuntata (lo stile .input-sotto-campo imposta display:block). */
+.input-sotto-campo[hidden] { display:none !important; }
+/* Compilazione raccolta-dati: i pulsanti C/PC/NC/NA e le schede dei gruppi audit restano nascosti. */
+#risposte-opzioni[hidden], #raccolta-dati-controllo[hidden], #macro-gruppi-tabs[hidden] { display:none !important; }
+/* Storico, scheda "Raccolte DVR": il filtro Cliente (clienti audit) è nascosto. */
+.storico-filtro-campo[hidden] { display:none !important; }

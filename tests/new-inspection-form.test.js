@@ -93,7 +93,9 @@ test('Checklist è il primo campo e tutte le checklist sono disponibili prima de
   assert.ok(formHtml.indexOf('for="select-checklist"') < formHtml.indexOf('for="input-punto-vendita"'));
   const form = await formPronto();
   assert.equal(form.get('select-checklist').value, '');
-  assert.deepEqual(form.get('select-checklist').options.map((option) => option.value), ['', ...checklists.map((item) => item.id)]);
+  // Modalità "Nuovo sopralluogo": solo le checklist audit (le raccolte dati DVR hanno il loro ingresso).
+  const audit = checklists.filter((item) => item.categoria !== 'dvr').map((item) => item.id);
+  assert.deepEqual(form.get('select-checklist').options.map((option) => option.value), ['', ...audit]);
 });
 
 test('REGRESSIONE: la prima opzione della select checklist è sempre vuota, non disabilitata, e nessuna checklist è selezionata di default', async () => {
@@ -199,4 +201,46 @@ test('Importazione PDF dallo stato iniziale (nessuna checklist scelta a mano) mo
   await input.listeners.change({ target: input });
   assert.equal(form.get('select-checklist').value, 'interparking_sopralluogo');
   assert.equal(form.get('dati-sopralluogo').hidden, false);
+});
+
+async function formProntoDvr() {
+  const form = creaForm();
+  form.context.modalitaNuovoSopralluogo = 'dvr';
+  await form.router.enter();
+  return form;
+}
+
+test('Raccolta dati DVR: la select mostra solo le checklist DVR e il titolo cambia', async () => {
+  const form = await formProntoDvr();
+  const dvr = checklists.filter((item) => item.categoria === 'dvr').map((item) => item.id);
+  assert.ok(dvr.length >= 7, 'in index.json devono esserci le checklist DVR');
+  assert.deepEqual(form.get('select-checklist').options.map((option) => option.value), ['', ...dvr]);
+  assert.equal(form.get('titolo-nuovo-sopralluogo').textContent, 'Nuova raccolta dati DVR');
+  assert.equal(form.get('blocco-importa-pdf').hidden, true);
+});
+
+test('Raccolta dati DVR: etichette Cliente/Sede e campi audit nascosti', async () => {
+  const form = await formProntoDvr();
+  seleziona(form, 'dvr_ristoranti_alberghi');
+  assert.equal(form.get('dati-sopralluogo').hidden, false);
+  assert.equal(form.get('label-input-punto-vendita-testo').textContent, 'Cliente (ragione sociale)');
+  assert.equal(form.get('label-input-indirizzo-testo').textContent, 'Sede (nome e indirizzo)');
+  assert.equal(form.get('input-numero-dipendenti').closest('label').hidden, true);
+  assert.equal(form.get('input-area-manager').closest('label').hidden, true);
+  assert.equal(form.get('input-responsabile').closest('label').hidden, true);
+  assert.equal(form.get('select-presenza-responsabile').closest('label').hidden, true);
+  assert.equal(form.get('select-presenza-rls').closest('label').hidden, true);
+});
+
+test('Tornando a "Nuovo sopralluogo" dopo una raccolta DVR i campi audit ricompaiono', async () => {
+  const form = await formProntoDvr();
+  seleziona(form, 'dvr_asili');
+  form.context.modalitaNuovoSopralluogo = 'audit';
+  await form.router.enter();
+  assert.equal(form.get('titolo-nuovo-sopralluogo').textContent, 'Nuovo sopralluogo');
+  assert.equal(form.get('blocco-importa-pdf').hidden, false);
+  seleziona(form, 'coin_sopralluogo');
+  assert.equal(form.get('input-responsabile').closest('label').hidden, false);
+  assert.equal(form.get('select-presenza-rls').closest('label').hidden, false);
+  assert.equal(form.get('label-input-punto-vendita-testo').textContent, 'Punto vendita');
 });

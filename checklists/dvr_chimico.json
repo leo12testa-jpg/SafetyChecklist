@@ -1,0 +1,1523 @@
+{
+  "id": "dvr_chimico",
+  "titolo": "DVR specifico - Rischio chimico (MoVaRisCh)",
+  "versione": "1.1",
+  "stile": "raccolta-dati",
+  "modello_dvr": "DVR_CHIMICO_BASE.docx",
+  "sezioni": [
+    {
+      "titolo": "A. Dati generali",
+      "domande": [
+        {
+          "id": 1,
+          "testo": "[A01] Dati dell’azienda",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "A01",
+          "campi": [
+            {
+              "label": "Ragione sociale"
+            },
+            {
+              "label": "Sede oggetto della valutazione (nome e indirizzo)"
+            },
+            {
+              "label": "Sede legale"
+            },
+            {
+              "label": "Codice fiscale"
+            },
+            {
+              "label": "Partita IVA"
+            },
+            {
+              "label": "Codice ATECO"
+            },
+            {
+              "label": "Attività svolta",
+              "multiriga": true
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "testo": "[B01] Firmatari e data",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "B01",
+          "campi": [
+            {
+              "label": "Datore di lavoro"
+            },
+            {
+              "label": "RSPP"
+            },
+            {
+              "label": "Medico competente"
+            },
+            {
+              "label": "RLS o RLST"
+            },
+            {
+              "label": "Data del documento"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "testo": "[C01] Luogo di lavoro",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "C01",
+          "campi": [
+            {
+              "label": "Descrizione della sede per aree o reparti",
+              "multiriga": true
+            },
+            {
+              "label": "Orari e organizzazione del lavoro",
+              "multiriga": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "G. Prodotto 1 (salta se non serve)",
+      "domande": [
+        {
+          "id": 4,
+          "testo": "[CH01A] Prodotto 1",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "CH01A",
+          "campi": [
+            {
+              "label": "Nome commerciale"
+            },
+            {
+              "label": "Fornitore"
+            },
+            {
+              "label": "Uso / attività"
+            },
+            {
+              "label": "Mansioni che lo usano"
+            },
+            {
+              "label": "Frasi H ed EUH (SDS sez. 2)"
+            },
+            {
+              "label": "Data revisione SDS"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "testo": "[CH01B] Prodotto 1 – condizioni d’uso (una voce per gruppo – Stato, Quantità, Tempo, Uso, Controllo, Distanza, Cute)",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "CH01B",
+          "opzioni": [
+            {
+              "label": "Stato – solido / nebbie"
+            },
+            {
+              "label": "Stato – liquido bassa volatilità"
+            },
+            {
+              "label": "Stato – liquido media/alta volatilità o polvere fine"
+            },
+            {
+              "label": "Stato – gas"
+            },
+            {
+              "label": "Quantità – < 0,1 kg"
+            },
+            {
+              "label": "Quantità – 0,1-1 kg"
+            },
+            {
+              "label": "Quantità – 1-10 kg"
+            },
+            {
+              "label": "Quantità – 10-100 kg"
+            },
+            {
+              "label": "Quantità – > 100 kg"
+            },
+            {
+              "label": "Tempo – < 15 min"
+            },
+            {
+              "label": "Tempo – 15 min-2 h"
+            },
+            {
+              "label": "Tempo – 2-4 h"
+            },
+            {
+              "label": "Tempo – 4-6 h"
+            },
+            {
+              "label": "Tempo – > 6 h"
+            },
+            {
+              "label": "Uso – sistema chiuso"
+            },
+            {
+              "label": "Uso – inclusione in matrice"
+            },
+            {
+              "label": "Uso – controllato non dispersivo"
+            },
+            {
+              "label": "Uso – con dispersione significativa"
+            },
+            {
+              "label": "Controllo – contenimento completo"
+            },
+            {
+              "label": "Controllo – aspirazione localizzata"
+            },
+            {
+              "label": "Controllo – segregazione / separazione"
+            },
+            {
+              "label": "Controllo – ventilazione generale"
+            },
+            {
+              "label": "Controllo – manipolazione diretta"
+            },
+            {
+              "label": "Distanza – < 1 m"
+            },
+            {
+              "label": "Distanza – 1-3 m"
+            },
+            {
+              "label": "Distanza – 3-5 m"
+            },
+            {
+              "label": "Distanza – 5-10 m"
+            },
+            {
+              "label": "Distanza – ≥ 10 m"
+            },
+            {
+              "label": "Cute – nessun contatto"
+            },
+            {
+              "label": "Cute – contatto accidentale"
+            },
+            {
+              "label": "Cute – contatto discontinuo"
+            },
+            {
+              "label": "Cute – contatto esteso"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "G. Prodotto 2 (salta se non serve)",
+      "domande": [
+        {
+          "id": 6,
+          "testo": "[CH02A] Prodotto 2",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "CH02A",
+          "campi": [
+            {
+              "label": "Nome commerciale"
+            },
+            {
+              "label": "Fornitore"
+            },
+            {
+              "label": "Uso / attività"
+            },
+            {
+              "label": "Mansioni che lo usano"
+            },
+            {
+              "label": "Frasi H ed EUH (SDS sez. 2)"
+            },
+            {
+              "label": "Data revisione SDS"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "testo": "[CH02B] Prodotto 2 – condizioni d’uso (una voce per gruppo – Stato, Quantità, Tempo, Uso, Controllo, Distanza, Cute)",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "CH02B",
+          "opzioni": [
+            {
+              "label": "Stato – solido / nebbie"
+            },
+            {
+              "label": "Stato – liquido bassa volatilità"
+            },
+            {
+              "label": "Stato – liquido media/alta volatilità o polvere fine"
+            },
+            {
+              "label": "Stato – gas"
+            },
+            {
+              "label": "Quantità – < 0,1 kg"
+            },
+            {
+              "label": "Quantità – 0,1-1 kg"
+            },
+            {
+              "label": "Quantità – 1-10 kg"
+            },
+            {
+              "label": "Quantità – 10-100 kg"
+            },
+            {
+              "label": "Quantità – > 100 kg"
+            },
+            {
+              "label": "Tempo – < 15 min"
+            },
+            {
+              "label": "Tempo – 15 min-2 h"
+            },
+            {
+              "label": "Tempo – 2-4 h"
+            },
+            {
+              "label": "Tempo – 4-6 h"
+            },
+            {
+              "label": "Tempo – > 6 h"
+            },
+            {
+              "label": "Uso – sistema chiuso"
+            },
+            {
+              "label": "Uso – inclusione in matrice"
+            },
+            {
+              "label": "Uso – controllato non dispersivo"
+            },
+            {
+              "label": "Uso – con dispersione significativa"
+            },
+            {
+              "label": "Controllo – contenimento completo"
+            },
+            {
+              "label": "Controllo – aspirazione localizzata"
+            },
+            {
+              "label": "Controllo – segregazione / separazione"
+            },
+            {
+              "label": "Controllo – ventilazione generale"
+            },
+            {
+              "label": "Controllo – manipolazione diretta"
+            },
+            {
+              "label": "Distanza – < 1 m"
+            },
+            {
+              "label": "Distanza – 1-3 m"
+            },
+            {
+              "label": "Distanza – 3-5 m"
+            },
+            {
+              "label": "Distanza – 5-10 m"
+            },
+            {
+              "label": "Distanza – ≥ 10 m"
+            },
+            {
+              "label": "Cute – nessun contatto"
+            },
+            {
+              "label": "Cute – contatto accidentale"
+            },
+            {
+              "label": "Cute – contatto discontinuo"
+            },
+            {
+              "label": "Cute – contatto esteso"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "G. Prodotto 3 (salta se non serve)",
+      "domande": [
+        {
+          "id": 8,
+          "testo": "[CH03A] Prodotto 3",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "CH03A",
+          "campi": [
+            {
+              "label": "Nome commerciale"
+            },
+            {
+              "label": "Fornitore"
+            },
+            {
+              "label": "Uso / attività"
+            },
+            {
+              "label": "Mansioni che lo usano"
+            },
+            {
+              "label": "Frasi H ed EUH (SDS sez. 2)"
+            },
+            {
+              "label": "Data revisione SDS"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "testo": "[CH03B] Prodotto 3 – condizioni d’uso (una voce per gruppo – Stato, Quantità, Tempo, Uso, Controllo, Distanza, Cute)",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "CH03B",
+          "opzioni": [
+            {
+              "label": "Stato – solido / nebbie"
+            },
+            {
+              "label": "Stato – liquido bassa volatilità"
+            },
+            {
+              "label": "Stato – liquido media/alta volatilità o polvere fine"
+            },
+            {
+              "label": "Stato – gas"
+            },
+            {
+              "label": "Quantità – < 0,1 kg"
+            },
+            {
+              "label": "Quantità – 0,1-1 kg"
+            },
+            {
+              "label": "Quantità – 1-10 kg"
+            },
+            {
+              "label": "Quantità – 10-100 kg"
+            },
+            {
+              "label": "Quantità – > 100 kg"
+            },
+            {
+              "label": "Tempo – < 15 min"
+            },
+            {
+              "label": "Tempo – 15 min-2 h"
+            },
+            {
+              "label": "Tempo – 2-4 h"
+            },
+            {
+              "label": "Tempo – 4-6 h"
+            },
+            {
+              "label": "Tempo – > 6 h"
+            },
+            {
+              "label": "Uso – sistema chiuso"
+            },
+            {
+              "label": "Uso – inclusione in matrice"
+            },
+            {
+              "label": "Uso – controllato non dispersivo"
+            },
+            {
+              "label": "Uso – con dispersione significativa"
+            },
+            {
+              "label": "Controllo – contenimento completo"
+            },
+            {
+              "label": "Controllo – aspirazione localizzata"
+            },
+            {
+              "label": "Controllo – segregazione / separazione"
+            },
+            {
+              "label": "Controllo – ventilazione generale"
+            },
+            {
+              "label": "Controllo – manipolazione diretta"
+            },
+            {
+              "label": "Distanza – < 1 m"
+            },
+            {
+              "label": "Distanza – 1-3 m"
+            },
+            {
+              "label": "Distanza – 3-5 m"
+            },
+            {
+              "label": "Distanza – 5-10 m"
+            },
+            {
+              "label": "Distanza – ≥ 10 m"
+            },
+            {
+              "label": "Cute – nessun contatto"
+            },
+            {
+              "label": "Cute – contatto accidentale"
+            },
+            {
+              "label": "Cute – contatto discontinuo"
+            },
+            {
+              "label": "Cute – contatto esteso"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "G. Prodotto 4 (salta se non serve)",
+      "domande": [
+        {
+          "id": 10,
+          "testo": "[CH04A] Prodotto 4",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "CH04A",
+          "campi": [
+            {
+              "label": "Nome commerciale"
+            },
+            {
+              "label": "Fornitore"
+            },
+            {
+              "label": "Uso / attività"
+            },
+            {
+              "label": "Mansioni che lo usano"
+            },
+            {
+              "label": "Frasi H ed EUH (SDS sez. 2)"
+            },
+            {
+              "label": "Data revisione SDS"
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "testo": "[CH04B] Prodotto 4 – condizioni d’uso (una voce per gruppo – Stato, Quantità, Tempo, Uso, Controllo, Distanza, Cute)",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "CH04B",
+          "opzioni": [
+            {
+              "label": "Stato – solido / nebbie"
+            },
+            {
+              "label": "Stato – liquido bassa volatilità"
+            },
+            {
+              "label": "Stato – liquido media/alta volatilità o polvere fine"
+            },
+            {
+              "label": "Stato – gas"
+            },
+            {
+              "label": "Quantità – < 0,1 kg"
+            },
+            {
+              "label": "Quantità – 0,1-1 kg"
+            },
+            {
+              "label": "Quantità – 1-10 kg"
+            },
+            {
+              "label": "Quantità – 10-100 kg"
+            },
+            {
+              "label": "Quantità – > 100 kg"
+            },
+            {
+              "label": "Tempo – < 15 min"
+            },
+            {
+              "label": "Tempo – 15 min-2 h"
+            },
+            {
+              "label": "Tempo – 2-4 h"
+            },
+            {
+              "label": "Tempo – 4-6 h"
+            },
+            {
+              "label": "Tempo – > 6 h"
+            },
+            {
+              "label": "Uso – sistema chiuso"
+            },
+            {
+              "label": "Uso – inclusione in matrice"
+            },
+            {
+              "label": "Uso – controllato non dispersivo"
+            },
+            {
+              "label": "Uso – con dispersione significativa"
+            },
+            {
+              "label": "Controllo – contenimento completo"
+            },
+            {
+              "label": "Controllo – aspirazione localizzata"
+            },
+            {
+              "label": "Controllo – segregazione / separazione"
+            },
+            {
+              "label": "Controllo – ventilazione generale"
+            },
+            {
+              "label": "Controllo – manipolazione diretta"
+            },
+            {
+              "label": "Distanza – < 1 m"
+            },
+            {
+              "label": "Distanza – 1-3 m"
+            },
+            {
+              "label": "Distanza – 3-5 m"
+            },
+            {
+              "label": "Distanza – 5-10 m"
+            },
+            {
+              "label": "Distanza – ≥ 10 m"
+            },
+            {
+              "label": "Cute – nessun contatto"
+            },
+            {
+              "label": "Cute – contatto accidentale"
+            },
+            {
+              "label": "Cute – contatto discontinuo"
+            },
+            {
+              "label": "Cute – contatto esteso"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "G. Prodotto 5 (salta se non serve)",
+      "domande": [
+        {
+          "id": 12,
+          "testo": "[CH05A] Prodotto 5",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "CH05A",
+          "campi": [
+            {
+              "label": "Nome commerciale"
+            },
+            {
+              "label": "Fornitore"
+            },
+            {
+              "label": "Uso / attività"
+            },
+            {
+              "label": "Mansioni che lo usano"
+            },
+            {
+              "label": "Frasi H ed EUH (SDS sez. 2)"
+            },
+            {
+              "label": "Data revisione SDS"
+            }
+          ]
+        },
+        {
+          "id": 13,
+          "testo": "[CH05B] Prodotto 5 – condizioni d’uso (una voce per gruppo – Stato, Quantità, Tempo, Uso, Controllo, Distanza, Cute)",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "CH05B",
+          "opzioni": [
+            {
+              "label": "Stato – solido / nebbie"
+            },
+            {
+              "label": "Stato – liquido bassa volatilità"
+            },
+            {
+              "label": "Stato – liquido media/alta volatilità o polvere fine"
+            },
+            {
+              "label": "Stato – gas"
+            },
+            {
+              "label": "Quantità – < 0,1 kg"
+            },
+            {
+              "label": "Quantità – 0,1-1 kg"
+            },
+            {
+              "label": "Quantità – 1-10 kg"
+            },
+            {
+              "label": "Quantità – 10-100 kg"
+            },
+            {
+              "label": "Quantità – > 100 kg"
+            },
+            {
+              "label": "Tempo – < 15 min"
+            },
+            {
+              "label": "Tempo – 15 min-2 h"
+            },
+            {
+              "label": "Tempo – 2-4 h"
+            },
+            {
+              "label": "Tempo – 4-6 h"
+            },
+            {
+              "label": "Tempo – > 6 h"
+            },
+            {
+              "label": "Uso – sistema chiuso"
+            },
+            {
+              "label": "Uso – inclusione in matrice"
+            },
+            {
+              "label": "Uso – controllato non dispersivo"
+            },
+            {
+              "label": "Uso – con dispersione significativa"
+            },
+            {
+              "label": "Controllo – contenimento completo"
+            },
+            {
+              "label": "Controllo – aspirazione localizzata"
+            },
+            {
+              "label": "Controllo – segregazione / separazione"
+            },
+            {
+              "label": "Controllo – ventilazione generale"
+            },
+            {
+              "label": "Controllo – manipolazione diretta"
+            },
+            {
+              "label": "Distanza – < 1 m"
+            },
+            {
+              "label": "Distanza – 1-3 m"
+            },
+            {
+              "label": "Distanza – 3-5 m"
+            },
+            {
+              "label": "Distanza – 5-10 m"
+            },
+            {
+              "label": "Distanza – ≥ 10 m"
+            },
+            {
+              "label": "Cute – nessun contatto"
+            },
+            {
+              "label": "Cute – contatto accidentale"
+            },
+            {
+              "label": "Cute – contatto discontinuo"
+            },
+            {
+              "label": "Cute – contatto esteso"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "G. Prodotto 6 (salta se non serve)",
+      "domande": [
+        {
+          "id": 14,
+          "testo": "[CH06A] Prodotto 6",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "CH06A",
+          "campi": [
+            {
+              "label": "Nome commerciale"
+            },
+            {
+              "label": "Fornitore"
+            },
+            {
+              "label": "Uso / attività"
+            },
+            {
+              "label": "Mansioni che lo usano"
+            },
+            {
+              "label": "Frasi H ed EUH (SDS sez. 2)"
+            },
+            {
+              "label": "Data revisione SDS"
+            }
+          ]
+        },
+        {
+          "id": 15,
+          "testo": "[CH06B] Prodotto 6 – condizioni d’uso (una voce per gruppo – Stato, Quantità, Tempo, Uso, Controllo, Distanza, Cute)",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "CH06B",
+          "opzioni": [
+            {
+              "label": "Stato – solido / nebbie"
+            },
+            {
+              "label": "Stato – liquido bassa volatilità"
+            },
+            {
+              "label": "Stato – liquido media/alta volatilità o polvere fine"
+            },
+            {
+              "label": "Stato – gas"
+            },
+            {
+              "label": "Quantità – < 0,1 kg"
+            },
+            {
+              "label": "Quantità – 0,1-1 kg"
+            },
+            {
+              "label": "Quantità – 1-10 kg"
+            },
+            {
+              "label": "Quantità – 10-100 kg"
+            },
+            {
+              "label": "Quantità – > 100 kg"
+            },
+            {
+              "label": "Tempo – < 15 min"
+            },
+            {
+              "label": "Tempo – 15 min-2 h"
+            },
+            {
+              "label": "Tempo – 2-4 h"
+            },
+            {
+              "label": "Tempo – 4-6 h"
+            },
+            {
+              "label": "Tempo – > 6 h"
+            },
+            {
+              "label": "Uso – sistema chiuso"
+            },
+            {
+              "label": "Uso – inclusione in matrice"
+            },
+            {
+              "label": "Uso – controllato non dispersivo"
+            },
+            {
+              "label": "Uso – con dispersione significativa"
+            },
+            {
+              "label": "Controllo – contenimento completo"
+            },
+            {
+              "label": "Controllo – aspirazione localizzata"
+            },
+            {
+              "label": "Controllo – segregazione / separazione"
+            },
+            {
+              "label": "Controllo – ventilazione generale"
+            },
+            {
+              "label": "Controllo – manipolazione diretta"
+            },
+            {
+              "label": "Distanza – < 1 m"
+            },
+            {
+              "label": "Distanza – 1-3 m"
+            },
+            {
+              "label": "Distanza – 3-5 m"
+            },
+            {
+              "label": "Distanza – 5-10 m"
+            },
+            {
+              "label": "Distanza – ≥ 10 m"
+            },
+            {
+              "label": "Cute – nessun contatto"
+            },
+            {
+              "label": "Cute – contatto accidentale"
+            },
+            {
+              "label": "Cute – contatto discontinuo"
+            },
+            {
+              "label": "Cute – contatto esteso"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "G. Prodotto 7 (salta se non serve)",
+      "domande": [
+        {
+          "id": 16,
+          "testo": "[CH07A] Prodotto 7",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "CH07A",
+          "campi": [
+            {
+              "label": "Nome commerciale"
+            },
+            {
+              "label": "Fornitore"
+            },
+            {
+              "label": "Uso / attività"
+            },
+            {
+              "label": "Mansioni che lo usano"
+            },
+            {
+              "label": "Frasi H ed EUH (SDS sez. 2)"
+            },
+            {
+              "label": "Data revisione SDS"
+            }
+          ]
+        },
+        {
+          "id": 17,
+          "testo": "[CH07B] Prodotto 7 – condizioni d’uso (una voce per gruppo – Stato, Quantità, Tempo, Uso, Controllo, Distanza, Cute)",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "CH07B",
+          "opzioni": [
+            {
+              "label": "Stato – solido / nebbie"
+            },
+            {
+              "label": "Stato – liquido bassa volatilità"
+            },
+            {
+              "label": "Stato – liquido media/alta volatilità o polvere fine"
+            },
+            {
+              "label": "Stato – gas"
+            },
+            {
+              "label": "Quantità – < 0,1 kg"
+            },
+            {
+              "label": "Quantità – 0,1-1 kg"
+            },
+            {
+              "label": "Quantità – 1-10 kg"
+            },
+            {
+              "label": "Quantità – 10-100 kg"
+            },
+            {
+              "label": "Quantità – > 100 kg"
+            },
+            {
+              "label": "Tempo – < 15 min"
+            },
+            {
+              "label": "Tempo – 15 min-2 h"
+            },
+            {
+              "label": "Tempo – 2-4 h"
+            },
+            {
+              "label": "Tempo – 4-6 h"
+            },
+            {
+              "label": "Tempo – > 6 h"
+            },
+            {
+              "label": "Uso – sistema chiuso"
+            },
+            {
+              "label": "Uso – inclusione in matrice"
+            },
+            {
+              "label": "Uso – controllato non dispersivo"
+            },
+            {
+              "label": "Uso – con dispersione significativa"
+            },
+            {
+              "label": "Controllo – contenimento completo"
+            },
+            {
+              "label": "Controllo – aspirazione localizzata"
+            },
+            {
+              "label": "Controllo – segregazione / separazione"
+            },
+            {
+              "label": "Controllo – ventilazione generale"
+            },
+            {
+              "label": "Controllo – manipolazione diretta"
+            },
+            {
+              "label": "Distanza – < 1 m"
+            },
+            {
+              "label": "Distanza – 1-3 m"
+            },
+            {
+              "label": "Distanza – 3-5 m"
+            },
+            {
+              "label": "Distanza – 5-10 m"
+            },
+            {
+              "label": "Distanza – ≥ 10 m"
+            },
+            {
+              "label": "Cute – nessun contatto"
+            },
+            {
+              "label": "Cute – contatto accidentale"
+            },
+            {
+              "label": "Cute – contatto discontinuo"
+            },
+            {
+              "label": "Cute – contatto esteso"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "G. Prodotto 8 (salta se non serve)",
+      "domande": [
+        {
+          "id": 18,
+          "testo": "[CH08A] Prodotto 8",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "CH08A",
+          "campi": [
+            {
+              "label": "Nome commerciale"
+            },
+            {
+              "label": "Fornitore"
+            },
+            {
+              "label": "Uso / attività"
+            },
+            {
+              "label": "Mansioni che lo usano"
+            },
+            {
+              "label": "Frasi H ed EUH (SDS sez. 2)"
+            },
+            {
+              "label": "Data revisione SDS"
+            }
+          ]
+        },
+        {
+          "id": 19,
+          "testo": "[CH08B] Prodotto 8 – condizioni d’uso (una voce per gruppo – Stato, Quantità, Tempo, Uso, Controllo, Distanza, Cute)",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "CH08B",
+          "opzioni": [
+            {
+              "label": "Stato – solido / nebbie"
+            },
+            {
+              "label": "Stato – liquido bassa volatilità"
+            },
+            {
+              "label": "Stato – liquido media/alta volatilità o polvere fine"
+            },
+            {
+              "label": "Stato – gas"
+            },
+            {
+              "label": "Quantità – < 0,1 kg"
+            },
+            {
+              "label": "Quantità – 0,1-1 kg"
+            },
+            {
+              "label": "Quantità – 1-10 kg"
+            },
+            {
+              "label": "Quantità – 10-100 kg"
+            },
+            {
+              "label": "Quantità – > 100 kg"
+            },
+            {
+              "label": "Tempo – < 15 min"
+            },
+            {
+              "label": "Tempo – 15 min-2 h"
+            },
+            {
+              "label": "Tempo – 2-4 h"
+            },
+            {
+              "label": "Tempo – 4-6 h"
+            },
+            {
+              "label": "Tempo – > 6 h"
+            },
+            {
+              "label": "Uso – sistema chiuso"
+            },
+            {
+              "label": "Uso – inclusione in matrice"
+            },
+            {
+              "label": "Uso – controllato non dispersivo"
+            },
+            {
+              "label": "Uso – con dispersione significativa"
+            },
+            {
+              "label": "Controllo – contenimento completo"
+            },
+            {
+              "label": "Controllo – aspirazione localizzata"
+            },
+            {
+              "label": "Controllo – segregazione / separazione"
+            },
+            {
+              "label": "Controllo – ventilazione generale"
+            },
+            {
+              "label": "Controllo – manipolazione diretta"
+            },
+            {
+              "label": "Distanza – < 1 m"
+            },
+            {
+              "label": "Distanza – 1-3 m"
+            },
+            {
+              "label": "Distanza – 3-5 m"
+            },
+            {
+              "label": "Distanza – 5-10 m"
+            },
+            {
+              "label": "Distanza – ≥ 10 m"
+            },
+            {
+              "label": "Cute – nessun contatto"
+            },
+            {
+              "label": "Cute – contatto accidentale"
+            },
+            {
+              "label": "Cute – contatto discontinuo"
+            },
+            {
+              "label": "Cute – contatto esteso"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "G. Prodotto 9 (salta se non serve)",
+      "domande": [
+        {
+          "id": 20,
+          "testo": "[CH09A] Prodotto 9",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "CH09A",
+          "campi": [
+            {
+              "label": "Nome commerciale"
+            },
+            {
+              "label": "Fornitore"
+            },
+            {
+              "label": "Uso / attività"
+            },
+            {
+              "label": "Mansioni che lo usano"
+            },
+            {
+              "label": "Frasi H ed EUH (SDS sez. 2)"
+            },
+            {
+              "label": "Data revisione SDS"
+            }
+          ]
+        },
+        {
+          "id": 21,
+          "testo": "[CH09B] Prodotto 9 – condizioni d’uso (una voce per gruppo – Stato, Quantità, Tempo, Uso, Controllo, Distanza, Cute)",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "CH09B",
+          "opzioni": [
+            {
+              "label": "Stato – solido / nebbie"
+            },
+            {
+              "label": "Stato – liquido bassa volatilità"
+            },
+            {
+              "label": "Stato – liquido media/alta volatilità o polvere fine"
+            },
+            {
+              "label": "Stato – gas"
+            },
+            {
+              "label": "Quantità – < 0,1 kg"
+            },
+            {
+              "label": "Quantità – 0,1-1 kg"
+            },
+            {
+              "label": "Quantità – 1-10 kg"
+            },
+            {
+              "label": "Quantità – 10-100 kg"
+            },
+            {
+              "label": "Quantità – > 100 kg"
+            },
+            {
+              "label": "Tempo – < 15 min"
+            },
+            {
+              "label": "Tempo – 15 min-2 h"
+            },
+            {
+              "label": "Tempo – 2-4 h"
+            },
+            {
+              "label": "Tempo – 4-6 h"
+            },
+            {
+              "label": "Tempo – > 6 h"
+            },
+            {
+              "label": "Uso – sistema chiuso"
+            },
+            {
+              "label": "Uso – inclusione in matrice"
+            },
+            {
+              "label": "Uso – controllato non dispersivo"
+            },
+            {
+              "label": "Uso – con dispersione significativa"
+            },
+            {
+              "label": "Controllo – contenimento completo"
+            },
+            {
+              "label": "Controllo – aspirazione localizzata"
+            },
+            {
+              "label": "Controllo – segregazione / separazione"
+            },
+            {
+              "label": "Controllo – ventilazione generale"
+            },
+            {
+              "label": "Controllo – manipolazione diretta"
+            },
+            {
+              "label": "Distanza – < 1 m"
+            },
+            {
+              "label": "Distanza – 1-3 m"
+            },
+            {
+              "label": "Distanza – 3-5 m"
+            },
+            {
+              "label": "Distanza – 5-10 m"
+            },
+            {
+              "label": "Distanza – ≥ 10 m"
+            },
+            {
+              "label": "Cute – nessun contatto"
+            },
+            {
+              "label": "Cute – contatto accidentale"
+            },
+            {
+              "label": "Cute – contatto discontinuo"
+            },
+            {
+              "label": "Cute – contatto esteso"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "G. Prodotto 10 (salta se non serve)",
+      "domande": [
+        {
+          "id": 22,
+          "testo": "[CH10A] Prodotto 10",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "CH10A",
+          "campi": [
+            {
+              "label": "Nome commerciale"
+            },
+            {
+              "label": "Fornitore"
+            },
+            {
+              "label": "Uso / attività"
+            },
+            {
+              "label": "Mansioni che lo usano"
+            },
+            {
+              "label": "Frasi H ed EUH (SDS sez. 2)"
+            },
+            {
+              "label": "Data revisione SDS"
+            }
+          ]
+        },
+        {
+          "id": 23,
+          "testo": "[CH10B] Prodotto 10 – condizioni d’uso (una voce per gruppo – Stato, Quantità, Tempo, Uso, Controllo, Distanza, Cute)",
+          "tipo": "checkbox-multi",
+          "foto": false,
+          "note": false,
+          "codice": "CH10B",
+          "opzioni": [
+            {
+              "label": "Stato – solido / nebbie"
+            },
+            {
+              "label": "Stato – liquido bassa volatilità"
+            },
+            {
+              "label": "Stato – liquido media/alta volatilità o polvere fine"
+            },
+            {
+              "label": "Stato – gas"
+            },
+            {
+              "label": "Quantità – < 0,1 kg"
+            },
+            {
+              "label": "Quantità – 0,1-1 kg"
+            },
+            {
+              "label": "Quantità – 1-10 kg"
+            },
+            {
+              "label": "Quantità – 10-100 kg"
+            },
+            {
+              "label": "Quantità – > 100 kg"
+            },
+            {
+              "label": "Tempo – < 15 min"
+            },
+            {
+              "label": "Tempo – 15 min-2 h"
+            },
+            {
+              "label": "Tempo – 2-4 h"
+            },
+            {
+              "label": "Tempo – 4-6 h"
+            },
+            {
+              "label": "Tempo – > 6 h"
+            },
+            {
+              "label": "Uso – sistema chiuso"
+            },
+            {
+              "label": "Uso – inclusione in matrice"
+            },
+            {
+              "label": "Uso – controllato non dispersivo"
+            },
+            {
+              "label": "Uso – con dispersione significativa"
+            },
+            {
+              "label": "Controllo – contenimento completo"
+            },
+            {
+              "label": "Controllo – aspirazione localizzata"
+            },
+            {
+              "label": "Controllo – segregazione / separazione"
+            },
+            {
+              "label": "Controllo – ventilazione generale"
+            },
+            {
+              "label": "Controllo – manipolazione diretta"
+            },
+            {
+              "label": "Distanza – < 1 m"
+            },
+            {
+              "label": "Distanza – 1-3 m"
+            },
+            {
+              "label": "Distanza – 3-5 m"
+            },
+            {
+              "label": "Distanza – 5-10 m"
+            },
+            {
+              "label": "Distanza – ≥ 10 m"
+            },
+            {
+              "label": "Cute – nessun contatto"
+            },
+            {
+              "label": "Cute – contatto accidentale"
+            },
+            {
+              "label": "Cute – contatto discontinuo"
+            },
+            {
+              "label": "Cute – contatto esteso"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "H. DPI e misure",
+      "domande": [
+        {
+          "id": 24,
+          "testo": "[CHD01] DPI e misure in atto",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "CHD01",
+          "campi": [
+            {
+              "label": "DPI per mansione (mansione – DPI con norma)",
+              "multiriga": true
+            },
+            {
+              "label": "Aspirazioni e cabine (tipo, manutenzione filtri)",
+              "multiriga": true
+            },
+            {
+              "label": "Stoccaggio (armadi, bacini, ventilazione)",
+              "multiriga": true
+            },
+            {
+              "label": "Prodotti usati solo da ditte esterne"
+            },
+            {
+              "label": "Misure ambientali disponibili"
+            },
+            {
+              "label": "Cancerogeni / mutageni (H340, H350) e n. esposti"
+            }
+          ]
+        },
+        {
+          "id": 25,
+          "testo": "[CHD02] Altri prodotti non pericolosi usati (elenco)",
+          "tipo": "testo",
+          "foto": false,
+          "note": false,
+          "codice": "CHD02"
+        }
+      ]
+    }
+  ]
+}

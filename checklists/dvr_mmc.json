@@ -1,0 +1,822 @@
+{
+  "id": "dvr_mmc",
+  "titolo": "DVR specifico - Movimentazione manuale dei carichi",
+  "versione": "1.1",
+  "stile": "raccolta-dati",
+  "modello_dvr": "DVR_MMC_BASE.docx",
+  "sezioni": [
+    {
+      "titolo": "A. Dati generali",
+      "domande": [
+        {
+          "id": 1,
+          "testo": "[A01] Dati dell’azienda",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "A01",
+          "campi": [
+            {
+              "label": "Ragione sociale"
+            },
+            {
+              "label": "Sede oggetto della valutazione (nome e indirizzo)"
+            },
+            {
+              "label": "Sede legale"
+            },
+            {
+              "label": "Codice fiscale"
+            },
+            {
+              "label": "Partita IVA"
+            },
+            {
+              "label": "Codice ATECO"
+            },
+            {
+              "label": "Attività svolta",
+              "multiriga": true
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "testo": "[B01] Firmatari e data",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "B01",
+          "campi": [
+            {
+              "label": "Datore di lavoro"
+            },
+            {
+              "label": "RSPP"
+            },
+            {
+              "label": "Medico competente"
+            },
+            {
+              "label": "RLS o RLST"
+            },
+            {
+              "label": "Data del documento"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "testo": "[C01] Luogo di lavoro",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "C01",
+          "campi": [
+            {
+              "label": "Descrizione della sede per aree o reparti",
+              "multiriga": true
+            },
+            {
+              "label": "Orari e organizzazione del lavoro",
+              "multiriga": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "M. Mansione 1 (salta se non serve)",
+      "domande": [
+        {
+          "id": 4,
+          "testo": "[MM01A] Mansione 1",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "MM01A",
+          "campi": [
+            {
+              "label": "Nome e sigla"
+            },
+            {
+              "label": "Descrizione attività prevalente",
+              "multiriga": true
+            },
+            {
+              "label": "N. addetti"
+            },
+            {
+              "label": "di cui donne"
+            },
+            {
+              "label": "di cui < 20 o > 45 anni"
+            },
+            {
+              "label": "Attività con M (sollevamento), T (traino/spinta), R (ripetitivi) – una per riga",
+              "multiriga": true
+            },
+            {
+              "label": "Movimenti ripetitivi – nessuno / da approfondire"
+            },
+            {
+              "label": "Esiti EPM (VLI / CLI / LI)"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "testo": "[MM01C] Mansione 1 – sollevamento (se M)",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "MM01C",
+          "campi": [
+            {
+              "label": "Compito analizzato",
+              "multiriga": true
+            },
+            {
+              "label": "Oggetti > 3 kg per turno (tutto il gruppo)"
+            },
+            {
+              "label": "Altezze di prelievo (cm)"
+            },
+            {
+              "label": "Distanze orizzontali di prelievo (cm)"
+            },
+            {
+              "label": "Altezze di deposito (cm)"
+            },
+            {
+              "label": "Distanze orizzontali di deposito (cm)"
+            },
+            {
+              "label": "Asimmetria > 45° presente/assente"
+            },
+            {
+              "label": "Range di peso (kg)"
+            },
+            {
+              "label": "Addetti al compito"
+            },
+            {
+              "label": "Distanza di trasporto (m)"
+            },
+            {
+              "label": "Altezza mani nel trasporto (cm)"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "testo": "[MM01D] Mansione 1 – traino e spinta (se T)",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "MM01D",
+          "campi": [
+            {
+              "label": "Attrezzatura e operazione"
+            },
+            {
+              "label": "Distanza (m)"
+            },
+            {
+              "label": "Altezza mani (cm)"
+            },
+            {
+              "label": "Frequenza (azioni/min)"
+            },
+            {
+              "label": "Traino – forza iniziale / mantenimento (N)"
+            },
+            {
+              "label": "Spinta – forza iniziale / mantenimento (N)"
+            },
+            {
+              "label": "Percorso e pavimento",
+              "multiriga": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "M. Mansione 2 (salta se non serve)",
+      "domande": [
+        {
+          "id": 7,
+          "testo": "[MM02A] Mansione 2",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "MM02A",
+          "campi": [
+            {
+              "label": "Nome e sigla"
+            },
+            {
+              "label": "Descrizione attività prevalente",
+              "multiriga": true
+            },
+            {
+              "label": "N. addetti"
+            },
+            {
+              "label": "di cui donne"
+            },
+            {
+              "label": "di cui < 20 o > 45 anni"
+            },
+            {
+              "label": "Attività con M (sollevamento), T (traino/spinta), R (ripetitivi) – una per riga",
+              "multiriga": true
+            },
+            {
+              "label": "Movimenti ripetitivi – nessuno / da approfondire"
+            },
+            {
+              "label": "Esiti EPM (VLI / CLI / LI)"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "testo": "[MM02C] Mansione 2 – sollevamento (se M)",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "MM02C",
+          "campi": [
+            {
+              "label": "Compito analizzato",
+              "multiriga": true
+            },
+            {
+              "label": "Oggetti > 3 kg per turno (tutto il gruppo)"
+            },
+            {
+              "label": "Altezze di prelievo (cm)"
+            },
+            {
+              "label": "Distanze orizzontali di prelievo (cm)"
+            },
+            {
+              "label": "Altezze di deposito (cm)"
+            },
+            {
+              "label": "Distanze orizzontali di deposito (cm)"
+            },
+            {
+              "label": "Asimmetria > 45° presente/assente"
+            },
+            {
+              "label": "Range di peso (kg)"
+            },
+            {
+              "label": "Addetti al compito"
+            },
+            {
+              "label": "Distanza di trasporto (m)"
+            },
+            {
+              "label": "Altezza mani nel trasporto (cm)"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "testo": "[MM02D] Mansione 2 – traino e spinta (se T)",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "MM02D",
+          "campi": [
+            {
+              "label": "Attrezzatura e operazione"
+            },
+            {
+              "label": "Distanza (m)"
+            },
+            {
+              "label": "Altezza mani (cm)"
+            },
+            {
+              "label": "Frequenza (azioni/min)"
+            },
+            {
+              "label": "Traino – forza iniziale / mantenimento (N)"
+            },
+            {
+              "label": "Spinta – forza iniziale / mantenimento (N)"
+            },
+            {
+              "label": "Percorso e pavimento",
+              "multiriga": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "M. Mansione 3 (salta se non serve)",
+      "domande": [
+        {
+          "id": 10,
+          "testo": "[MM03A] Mansione 3",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "MM03A",
+          "campi": [
+            {
+              "label": "Nome e sigla"
+            },
+            {
+              "label": "Descrizione attività prevalente",
+              "multiriga": true
+            },
+            {
+              "label": "N. addetti"
+            },
+            {
+              "label": "di cui donne"
+            },
+            {
+              "label": "di cui < 20 o > 45 anni"
+            },
+            {
+              "label": "Attività con M (sollevamento), T (traino/spinta), R (ripetitivi) – una per riga",
+              "multiriga": true
+            },
+            {
+              "label": "Movimenti ripetitivi – nessuno / da approfondire"
+            },
+            {
+              "label": "Esiti EPM (VLI / CLI / LI)"
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "testo": "[MM03C] Mansione 3 – sollevamento (se M)",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "MM03C",
+          "campi": [
+            {
+              "label": "Compito analizzato",
+              "multiriga": true
+            },
+            {
+              "label": "Oggetti > 3 kg per turno (tutto il gruppo)"
+            },
+            {
+              "label": "Altezze di prelievo (cm)"
+            },
+            {
+              "label": "Distanze orizzontali di prelievo (cm)"
+            },
+            {
+              "label": "Altezze di deposito (cm)"
+            },
+            {
+              "label": "Distanze orizzontali di deposito (cm)"
+            },
+            {
+              "label": "Asimmetria > 45° presente/assente"
+            },
+            {
+              "label": "Range di peso (kg)"
+            },
+            {
+              "label": "Addetti al compito"
+            },
+            {
+              "label": "Distanza di trasporto (m)"
+            },
+            {
+              "label": "Altezza mani nel trasporto (cm)"
+            }
+          ]
+        },
+        {
+          "id": 12,
+          "testo": "[MM03D] Mansione 3 – traino e spinta (se T)",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "MM03D",
+          "campi": [
+            {
+              "label": "Attrezzatura e operazione"
+            },
+            {
+              "label": "Distanza (m)"
+            },
+            {
+              "label": "Altezza mani (cm)"
+            },
+            {
+              "label": "Frequenza (azioni/min)"
+            },
+            {
+              "label": "Traino – forza iniziale / mantenimento (N)"
+            },
+            {
+              "label": "Spinta – forza iniziale / mantenimento (N)"
+            },
+            {
+              "label": "Percorso e pavimento",
+              "multiriga": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "M. Mansione 4 (salta se non serve)",
+      "domande": [
+        {
+          "id": 13,
+          "testo": "[MM04A] Mansione 4",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "MM04A",
+          "campi": [
+            {
+              "label": "Nome e sigla"
+            },
+            {
+              "label": "Descrizione attività prevalente",
+              "multiriga": true
+            },
+            {
+              "label": "N. addetti"
+            },
+            {
+              "label": "di cui donne"
+            },
+            {
+              "label": "di cui < 20 o > 45 anni"
+            },
+            {
+              "label": "Attività con M (sollevamento), T (traino/spinta), R (ripetitivi) – una per riga",
+              "multiriga": true
+            },
+            {
+              "label": "Movimenti ripetitivi – nessuno / da approfondire"
+            },
+            {
+              "label": "Esiti EPM (VLI / CLI / LI)"
+            }
+          ]
+        },
+        {
+          "id": 14,
+          "testo": "[MM04C] Mansione 4 – sollevamento (se M)",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "MM04C",
+          "campi": [
+            {
+              "label": "Compito analizzato",
+              "multiriga": true
+            },
+            {
+              "label": "Oggetti > 3 kg per turno (tutto il gruppo)"
+            },
+            {
+              "label": "Altezze di prelievo (cm)"
+            },
+            {
+              "label": "Distanze orizzontali di prelievo (cm)"
+            },
+            {
+              "label": "Altezze di deposito (cm)"
+            },
+            {
+              "label": "Distanze orizzontali di deposito (cm)"
+            },
+            {
+              "label": "Asimmetria > 45° presente/assente"
+            },
+            {
+              "label": "Range di peso (kg)"
+            },
+            {
+              "label": "Addetti al compito"
+            },
+            {
+              "label": "Distanza di trasporto (m)"
+            },
+            {
+              "label": "Altezza mani nel trasporto (cm)"
+            }
+          ]
+        },
+        {
+          "id": 15,
+          "testo": "[MM04D] Mansione 4 – traino e spinta (se T)",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "MM04D",
+          "campi": [
+            {
+              "label": "Attrezzatura e operazione"
+            },
+            {
+              "label": "Distanza (m)"
+            },
+            {
+              "label": "Altezza mani (cm)"
+            },
+            {
+              "label": "Frequenza (azioni/min)"
+            },
+            {
+              "label": "Traino – forza iniziale / mantenimento (N)"
+            },
+            {
+              "label": "Spinta – forza iniziale / mantenimento (N)"
+            },
+            {
+              "label": "Percorso e pavimento",
+              "multiriga": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "M. Mansione 5 (salta se non serve)",
+      "domande": [
+        {
+          "id": 16,
+          "testo": "[MM05A] Mansione 5",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "MM05A",
+          "campi": [
+            {
+              "label": "Nome e sigla"
+            },
+            {
+              "label": "Descrizione attività prevalente",
+              "multiriga": true
+            },
+            {
+              "label": "N. addetti"
+            },
+            {
+              "label": "di cui donne"
+            },
+            {
+              "label": "di cui < 20 o > 45 anni"
+            },
+            {
+              "label": "Attività con M (sollevamento), T (traino/spinta), R (ripetitivi) – una per riga",
+              "multiriga": true
+            },
+            {
+              "label": "Movimenti ripetitivi – nessuno / da approfondire"
+            },
+            {
+              "label": "Esiti EPM (VLI / CLI / LI)"
+            }
+          ]
+        },
+        {
+          "id": 17,
+          "testo": "[MM05C] Mansione 5 – sollevamento (se M)",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "MM05C",
+          "campi": [
+            {
+              "label": "Compito analizzato",
+              "multiriga": true
+            },
+            {
+              "label": "Oggetti > 3 kg per turno (tutto il gruppo)"
+            },
+            {
+              "label": "Altezze di prelievo (cm)"
+            },
+            {
+              "label": "Distanze orizzontali di prelievo (cm)"
+            },
+            {
+              "label": "Altezze di deposito (cm)"
+            },
+            {
+              "label": "Distanze orizzontali di deposito (cm)"
+            },
+            {
+              "label": "Asimmetria > 45° presente/assente"
+            },
+            {
+              "label": "Range di peso (kg)"
+            },
+            {
+              "label": "Addetti al compito"
+            },
+            {
+              "label": "Distanza di trasporto (m)"
+            },
+            {
+              "label": "Altezza mani nel trasporto (cm)"
+            }
+          ]
+        },
+        {
+          "id": 18,
+          "testo": "[MM05D] Mansione 5 – traino e spinta (se T)",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "MM05D",
+          "campi": [
+            {
+              "label": "Attrezzatura e operazione"
+            },
+            {
+              "label": "Distanza (m)"
+            },
+            {
+              "label": "Altezza mani (cm)"
+            },
+            {
+              "label": "Frequenza (azioni/min)"
+            },
+            {
+              "label": "Traino – forza iniziale / mantenimento (N)"
+            },
+            {
+              "label": "Spinta – forza iniziale / mantenimento (N)"
+            },
+            {
+              "label": "Percorso e pavimento",
+              "multiriga": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "M. Mansione 6 (salta se non serve)",
+      "domande": [
+        {
+          "id": 19,
+          "testo": "[MM06A] Mansione 6",
+          "tipo": "gruppo-testo",
+          "foto": false,
+          "note": false,
+          "codice": "MM06A",
+          "campi": [
+            {
+              "label": "Nome e sigla"
+            },
+            {
+              "label": "Descrizione attività prevalente",
+              "multiriga": true
+            },
+            {
+              "label": "N. addetti"
+            },
+            {
+              "label": "di cui donne"
+            },
+            {
+              "label": "di cui < 20 o > 45 anni"
+            },
+            {
+              "label": "Attività con M (sollevamento), T (traino/spinta), R (ripetitivi) – una per riga",
+              "multiriga": true
+            },
+            {
+              "label": "Movimenti ripetitivi – nessuno / da approfondire"
+            },
+            {
+              "label": "Esiti EPM (VLI / CLI / LI)"
+            }
+          ]
+        },
+        {
+          "id": 20,
+          "testo": "[MM06C] Mansione 6 – sollevamento (se M)",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "MM06C",
+          "campi": [
+            {
+              "label": "Compito analizzato",
+              "multiriga": true
+            },
+            {
+              "label": "Oggetti > 3 kg per turno (tutto il gruppo)"
+            },
+            {
+              "label": "Altezze di prelievo (cm)"
+            },
+            {
+              "label": "Distanze orizzontali di prelievo (cm)"
+            },
+            {
+              "label": "Altezze di deposito (cm)"
+            },
+            {
+              "label": "Distanze orizzontali di deposito (cm)"
+            },
+            {
+              "label": "Asimmetria > 45° presente/assente"
+            },
+            {
+              "label": "Range di peso (kg)"
+            },
+            {
+              "label": "Addetti al compito"
+            },
+            {
+              "label": "Distanza di trasporto (m)"
+            },
+            {
+              "label": "Altezza mani nel trasporto (cm)"
+            }
+          ]
+        },
+        {
+          "id": 21,
+          "testo": "[MM06D] Mansione 6 – traino e spinta (se T)",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "MM06D",
+          "campi": [
+            {
+              "label": "Attrezzatura e operazione"
+            },
+            {
+              "label": "Distanza (m)"
+            },
+            {
+              "label": "Altezza mani (cm)"
+            },
+            {
+              "label": "Frequenza (azioni/min)"
+            },
+            {
+              "label": "Traino – forza iniziale / mantenimento (N)"
+            },
+            {
+              "label": "Spinta – forza iniziale / mantenimento (N)"
+            },
+            {
+              "label": "Percorso e pavimento",
+              "multiriga": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titolo": "Z. Misure in atto",
+      "domande": [
+        {
+          "id": 22,
+          "testo": "[MMZ01] Misure in atto",
+          "tipo": "gruppo-testo",
+          "foto": true,
+          "note": false,
+          "codice": "MMZ01",
+          "campi": [
+            {
+              "label": "Ausili disponibili (transpallet, sollevatori, secondo operatore)",
+              "multiriga": true
+            },
+            {
+              "label": "Formazione MMC (date)"
+            },
+            {
+              "label": "Mansioni già in sorveglianza sanitaria per MMC"
+            },
+            {
+              "label": "DPI (calzature, guanti, indumenti)"
+            },
+            {
+              "label": "Dinamometro usato (modello, taratura)"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
