@@ -26,6 +26,21 @@ const secretHeaders=()=>({authorization:'Bearer '+key,apikey:key,'content-type':
   const photo=await launch('supabase/functions/photo-access/index.ts',18092),manage=await launch('supabase/functions/manage-users/index.ts',18091);
   const photoCall=(method,user,p=oldPath,body=undefined,extra={})=>fetch(photo+'?'+new URLSearchParams({sopralluogo_id:inspectionId,path:p,...extra}),{method,headers:{...(user?{authorization:'Bearer '+user.token}:{}),'content-type':'image/png'},body});
   const manageCall=(action,user,body={})=>fetch(manage,{method:'POST',headers:{...(user?{authorization:'Bearer '+user.token}:{}),'content-type':'application/json'},body:JSON.stringify({action,...body})});
+  await check('deployed v4 telemetry contract preserves history and binds writes to Firebase identity',async()=>{
+    assert.equal((await manageCall('usagePing',allowed,{uid:admin.uid,event:'access',syncState:'parziale',pendingCloud:2,diagnostics:[{id:'qa-record',error:'QA outage'}],note:'never-store'})).status,200);
+    const r=await manageCall('usage',admin);assert.equal(r.status,200);const record=(await r.json()).usage.find(u=>u.uid===allowed.uid);assert.ok(record?.last_access);assert.equal(record.pending_cloud,2);assert.equal(record.accessi_30gg,1);assert.equal(record.note,undefined);
+    assert.equal((await manageCall('usage',allowed)).status,403);
+    assert.equal((await manageCall('usagePing',allowed,{event:'heartbeat',syncState:'sincronizzato'})).status,200);
+    const after=(await(await manageCall('usage',admin)).json()).usage.find(u=>u.uid===allowed.uid);assert.equal(after.last_access,record.last_access);assert.equal(after.accessi_30gg,1);
+  });
+  await check('telemetry tables deny direct anonymous reads',async()=>{
+    if(!process.env.QA_REAL_STORAGE_URL)return;
+    const anon=process.env.QA_REAL_STORAGE_ANON;
+    for(const table of ['safety_app_usage','safety_app_access_events']){
+      const r=await fetch(storage+'/rest/v1/'+table+'?select=*',{headers:{apikey:anon,authorization:'Bearer '+anon}});
+      if(r.ok)assert.deepEqual(await r.json(),[]);else assert.ok([401,403].includes(r.status));
+    }
+  });
   await check('existing legacy path remains readable byte-for-byte through authorized Deno gateway',async()=>{const r=await photoCall('GET',allowed);assert.equal(r.status,200);assert.deepEqual(Buffer.from(await r.arrayBuffer()),original);assert.equal(r.headers.get('cache-control'),'private, no-store');});
   for(const [label,user] of [['anonymous',null],['inactive',inactive],['unauthorized inspection',denied]])for(const method of ['GET','POST','DELETE'])await check(label+' denied '+method,async()=>{const r=await photoCall(method,user,oldPath,method==='POST'?original:undefined,{foto_id:'attempt'});assert.ok([401,403].includes(r.status));});
   await check('invalid Firebase token rejected',async()=>{assert.equal((await photoCall('GET',{token:'not-a-token'})).status,401);});
@@ -73,6 +88,7 @@ const secretHeaders=()=>({authorization:'Bearer '+key,apikey:key,'content-type':
     assert.ok(!(await fetch(objectUrl(forbidden),{method:'POST',headers,body:original})).ok,'Authenticated direct upload bypassed policy');
     const listing=await fetch(storage+'/storage/v1/object/list/foto-sopralluoghi',{method:'POST',headers:{...headers,'content-type':'application/json'},body:JSON.stringify({prefix:inspectionId,limit:100})});if(listing.ok)assert.deepEqual(await listing.json(),[]);
     assert.equal((await photoCall('GET',{token:signed.access_token})).status,401,'Supabase token must not authorize a Firebase account');
+    for(const table of ['safety_app_usage','safety_app_access_events']){const r=await fetch(storage+'/rest/v1/'+table+'?select=*',{headers});if(r.ok)assert.deepEqual(await r.json(),[]);else assert.ok([401,403].includes(r.status));}
     const deletion=await fetch(storage+'/storage/v1/object/foto-sopralluoghi',{method:'DELETE',headers:{...headers,'content-type':'application/json'},body:JSON.stringify({prefixes:[oldPath]})});assert.ok(!deletion.ok||!((await deletion.json())||[]).length);
     assert.deepEqual(Buffer.from(await(await photoCall('GET',allowed)).arrayBuffer()),original);
   });
@@ -91,6 +107,7 @@ const secretHeaders=()=>({authorization:'Bearer '+key,apikey:key,'content-type':
   if(inspectionId)await fetch(documents+'/sopralluoghi/'+inspectionId,{method:'DELETE',headers:{authorization:'Bearer owner'}});
   for(const u of users){await fetch(documents+'/utenti/'+u.uid,{method:'DELETE',headers:{authorization:'Bearer owner'}});await fetch(authOrigin+'/identitytoolkit.googleapis.com/v1/accounts:delete?key=qa-only',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({idToken:u.token})});}
   if(supabaseUser)assert.ok((await fetch(storage+'/auth/v1/admin/users/'+supabaseUser,{method:'DELETE',headers:serviceHeadersForAuth()})).ok);
+  for(const user of users)for(const table of ['safety_app_usage','safety_app_access_events'])assert.ok((await fetch(storage+'/rest/v1/'+table+'?uid=eq.'+encodeURIComponent(user.uid),{method:'DELETE',headers:serviceHeadersForAuth()})).ok);
   if(process.env.QA_REAL_STORAGE_URL){const r=await fetch(storage+'/storage/v1/object/list/foto-sopralluoghi',{method:'POST',headers:{...secretHeaders(),'content-type':'application/json'},body:JSON.stringify({prefix:inspectionId,limit:100})});assert.ok(r.ok);assert.deepEqual(await r.json(),[],'Synthetic Storage objects remain after cleanup');}
   const counts={};for(const collection of ['sopralluoghi','utenti']){const r=await fetch(documents+'/'+collection+'?pageSize=1',{headers:{authorization:'Bearer owner'}});assert.ok(r.ok);counts[collection]=((await r.json()).documents||[]).length;assert.equal(counts[collection],0);}
   report.cleanup={firebase:counts,storageObjectsRemaining:0,supabaseTestUserDeleted:!!supabaseUser};

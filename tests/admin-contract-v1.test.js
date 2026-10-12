@@ -1,11 +1,12 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 function setup({paged=false,profileFailure=false}={}) {
-  let handler;const requests=[];
+  let handler;const requests=[];const telemetry=require('./qa-telemetry-store.cjs').telemetryStore();
   const user=(uid,role='tecnico',active=true)=>({name:'projects/qa/databases/(default)/documents/utenti/'+uid,fields:{uid:{stringValue:uid},username:{stringValue:uid},nome:{stringValue:'QA'},cognome:{stringValue:uid},ruolo:{stringValue:role},attivo:{booleanValue:active}}});
   const source=process.env.QA_BASELINE_REF?require('node:child_process').execFileSync('git',['show',process.env.QA_BASELINE_REF+':supabase/functions/manage-users/index.ts'],{encoding:'utf8'}):fs.readFileSync('supabase/functions/manage-users/index.ts','utf8');
   const fetch=async(input,options={})=>{
     const u=new URL(String(input));const body=JSON.parse(options.body||'{}');requests.push({pathname:u.pathname,query:u.search,method:options.method||'GET',body});
     const json=(data,status=200)=>new Response(JSON.stringify(data),{status});
+    if(u.pathname.startsWith('/rest/v1/'))return telemetry.request(input,options);
     if(u.pathname.endsWith('/accounts:lookup'))return json({users:[{localId:body.idToken,email:body.idToken+'@qa.local'}]});
     if(u.pathname.endsWith('/accounts:signUp'))return json({localId:'new-user',idToken:'new-only-token'});
     if(u.pathname.endsWith('/accounts:delete'))return json({});
@@ -16,7 +17,7 @@ function setup({paged=false,profileFailure=false}={}) {
     if(options.method==='PATCH')return json(profileFailure?{error:'QA write failure'}:user(uid),profileFailure?503:200);
     return json(user(uid,uid==='admin'?'admin':'tecnico',uid!=='inactive'));
   };
-  vm.runInNewContext(require('node:module').stripTypeScriptTypes(source),{Deno:{serve:(opts,h)=>{handler=h||opts;}},fetch,Request,Response,URL,URLSearchParams,console});
+  vm.runInNewContext(require('node:module').stripTypeScriptTypes(source),{Deno:{env:{get:k=>({SUPABASE_URL:'https://qa-supabase.invalid',SUPABASE_SERVICE_ROLE_KEY:'qa-service-only'})[k]},serve:(opts,h)=>{handler=h||opts;}},fetch,Request,Response,URL,URLSearchParams,console});
   return {requests,call:(action,token='admin',body={})=>handler(new Request('http://qa.local/',{method:'POST',headers:{'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{})},body:JSON.stringify({action,...body})}))};
 }
 test('account listing follows Firestore pagination and includes user 101',async()=>{
@@ -28,13 +29,22 @@ test('admin actions reject anonymous, technician and inactive callers',async()=>
 });
 test('usage heartbeat uses verified uid and server timestamp, ignores inspection payload',async()=>{
   const h=setup(),r=await h.call('usagePing','tech',{uid:'admin',event:'access',syncState:'sincronizzato',pendingData:2,note:'never-store'});assert.equal(r.status,200);
-  const write=h.requests.find(r=>r.pathname.endsWith('/documents:commit')).body.writes[0];
-  assert.ok(write.update.name.endsWith('/utilizzo_app/tech'));assert.equal(write.update.fields.uid.stringValue,'tech');assert.equal(write.update.fields.note,undefined);
-  assert.ok(write.updateTransforms.some(t=>t.fieldPath==='last_access'&&t.setToServerValue==='REQUEST_TIME'));
+  const write=h.requests.find(r=>r.pathname.endsWith('/rest/v1/safety_app_usage')&&r.method==='POST').body;
+  assert.equal(write.uid,'tech');assert.equal(write.note,undefined);assert.ok(Date.parse(write.last_seen));assert.ok(Date.parse(write.last_access));
+  assert.ok(h.requests.some(r=>r.pathname.endsWith('/rest/v1/safety_app_access_events')&&r.method==='POST'));
 });
 test('self role/deactivation blocked and usage list limited to admin',async()=>{
   const h=setup();assert.equal((await h.call('setRole','admin',{uid:'admin',role:'tecnico'})).status,400);assert.equal((await h.call('setActive','admin',{uid:'admin',active:false})).status,400);
   assert.equal((await h.call('usage','tech')).status,403);assert.equal((await h.call('usage')).status,200);
+});
+
+test('v4 telemetry retains diagnostics, access events and last access after heartbeats',async()=>{
+  const h=setup();
+  assert.equal((await h.call('usagePing','tech',{event:'access',pendingCloud:3,diagnostics:[{id:'qa-doc',error:'QA only'}]})).status,200);
+  const first=(await(await h.call('usage')).json()).usage.find(u=>u.uid==='tech');
+  assert.equal(first.accessi_30gg,1);assert.equal(first.pending_cloud,3);assert.equal(first.diagnostics[0].error,'QA only');
+  assert.equal((await h.call('usagePing','tech',{event:'heartbeat'})).status,200);
+  const second=(await(await h.call('usage')).json()).usage.find(u=>u.uid==='tech');assert.equal(second.last_access,first.last_access);assert.equal(second.accessi_30gg,1);
 });
 test('profile creation failure compensates only the account just created',async()=>{
   const h=setup({profileFailure:true}),r=await h.call('create','admin',{username:'qa.created',nome:'QA',cognome:'Fittizio',ruolo:'tecnico',password:'QA-only!Fittizio2026'});assert.equal(r.status,503);

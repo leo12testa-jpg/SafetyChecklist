@@ -34,7 +34,7 @@ async function seed(username,role='tecnico') {
   await put('utenti',profile.uid,profile);
   return {...profile,password,token:data.idToken};
 }
-function edgeHandler() {
+function edgeHandler(telemetry) {
   let handler;
   const source=fs.readFileSync(path.join(root,'supabase/functions/manage-users/index.ts'),'utf8').replace('"safety-checklist-colligo"',`"${project}"`);
   const translated=require('node:module').stripTypeScriptTypes(source);
@@ -42,14 +42,17 @@ function edgeHandler() {
     let url=String(input);
     if(url.startsWith('https://identitytoolkit.googleapis.com/'))url=url.replace('https://identitytoolkit.googleapis.com',authOrigin+'/identitytoolkit.googleapis.com');
     else if(url.startsWith('https://firestore.googleapis.com/'))url=url.replace('https://firestore.googleapis.com',firestoreOrigin).replace('projects/safety-checklist-colligo/','projects/'+project+'/');
+    else if(url.startsWith('https://qa-supabase.invalid/rest/v1/'))return telemetry.request(url,opts);
     else throw new Error('QA guard: unexpected outbound request');
     return fetch(url,opts);
   };
-  vm.runInNewContext(translated,{Deno:{serve:(opts,h)=>{handler=h||opts;}},Request,Response,fetch:guardedFetch,console,URL,URLSearchParams},{filename:'manage-users.test.js'});
+  const env={SUPABASE_URL:'https://qa-supabase.invalid',SUPABASE_SERVICE_ROLE_KEY:'qa-service-only'};
+  vm.runInNewContext(translated,{Deno:{env:{get:k=>env[k]},serve:(opts,h)=>{handler=h||opts;}},Request,Response,fetch:guardedFetch,console,URL,URLSearchParams},{filename:'manage-users.test.js'});
   return handler;
 }
 function makeServer({emulator=false}={}) {
-  const edge=emulator?edgeHandler():null;
+  const telemetry=require('./qa-telemetry-store.cjs').telemetryStore();
+  const edge=emulator?edgeHandler(telemetry):null;
   let photoHandler;
   const storage=new Map();let storageDown=false,endpointDown=false,serverDown=false;
   const requests=[];
@@ -65,6 +68,11 @@ function makeServer({emulator=false}={}) {
       if(serverDown)return req.socket.destroy();
       const u=new URL(req.url,'http://127.0.0.1');
       requests.push({path:u.pathname,build:server.build,time:Date.now()});
+      if(u.pathname.startsWith('/rest/v1/')){
+        let body='';for await(const d of req)body+=d;
+        const response=await telemetry.request('http://127.0.0.1'+req.url,{method:req.method,headers:req.headers,body:body||undefined});
+        res.writeHead(response.status,Object.fromEntries(response.headers));return res.end(await response.text());
+      }
       if(u.pathname==='/qa/manage-users') {
         if(endpointDown){res.writeHead(503,{'content-type':'application/json'});return res.end('{"error":"QA outage"}');}
         let body='';for await(const data of req)body+=data;
@@ -120,7 +128,7 @@ function makeServer({emulator=false}={}) {
       res.setHeader('cache-control','no-store');res.end(body);
     } catch(error){res.writeHead(500);res.end(error.stack);}
   });
-  server.requests=requests;server.storage=storage;server.storageDown=v=>{storageDown=v;};server.endpointDown=v=>{endpointDown=v;};server.serverDown=v=>{serverDown=v;};
+  server.telemetry=telemetry;server.requests=requests;server.storage=storage;server.storageDown=v=>{storageDown=v;};server.endpointDown=v=>{endpointDown=v;};server.serverDown=v=>{serverDown=v;};
   server.start=async()=>{await new Promise(r=>server.listen(Number(process.env.QA_STORAGE_PORT||0),'127.0.0.1',r));server.origin=`http://127.0.0.1:${server.address().port}`;return server.origin+'/SafetyChecklist/';};
   return server;
 }

@@ -2,3 +2,4 @@
 # Disable newline conversion and textual diffing so exported bytes remain valid.
 reports/qa-v1/pdf/*.pdf binary
 tests/fixtures/historical/*.pdf binary
+*.sh text eol=lf
