@@ -4,7 +4,7 @@ Gli harness usano esclusivamente `demo-safety-qa-v1`: Auth `127.0.0.1:19099`, Fi
 
 ## QA applicativa
 
-Node 22 aggiornato, Java 21, Google Chrome e strumenti di test: Playwright 1.55.0 e Firebase CLI 15.31.0. In Actions vengono installati anche Firefox e WebKit. I browser hanno profili temporanei separati e un blocco di rete che ammette soltanto server locale ed emulatori.
+Node 22 aggiornato, Java 21, Google Chrome e strumenti di test: Playwright 1.63.0 e Firebase CLI 15.31.0. In Actions vengono installati anche Firefox e WebKit. I browser hanno profili temporanei separati e un blocco di rete che ammette soltanto server locale ed emulatori. Il precedente WebKit 1.55 mostrava una cache vuota anche dopo l'installazione; il rapporto ora verifica la presenza effettiva dell'entry point prima dell'interruzione di rete.
 
 ```sh
 firebase emulators:exec --only auth,firestore --project demo-safety-qa-v1 --config firebase.qa.json "node tests/qa-v1-run.cjs"
@@ -35,6 +35,8 @@ supabase stop --workdir tests/storage-local --no-backup
 ```
 
 Il gate prova accesso autorizzato byte-per-byte ai percorsi legacy, anonimi/inattivi/non autorizzati, revoca, traversal, upload immutabile e retry, listing Storage e utenti Supabase autenticati senza identità Firebase. Le chiavi privilegiate restano soltanto nell'ambiente Deno. L'output dichiara esplicitamente se Storage è reale o mock; solo il caso reale certifica RLS. Docker assente sul PC non impedisce di usare il job CI isolato.
+
+Lo staging replica inoltre il contratto delle tabelle di telemetria già distribuite con `manage-users` v4: RLS, scrittura server legata al UID Firebase, diagnostica e storico degli accessi. Le migrazioni in `tests/storage-local` creano esclusivamente lo schema del container fittizio e non sono destinate alla produzione.
 
 ## Evidenze e pulizia
 

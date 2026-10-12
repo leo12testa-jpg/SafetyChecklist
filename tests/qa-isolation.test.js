@@ -28,4 +28,6 @@ test('service worker bypasses same-origin APIs outside the application scope', (
   let handled=false;
   handlers.fetch({request:{method:'GET',url:'https://qa.test/functions/v1/photo-access?path=qa'},respondWith(){handled=true;}});
   assert.equal(handled,false,'private API responses must never enter the shell cache');
+  handlers.fetch({request:{method:'GET',url:'https://qa.test/SafetyChecklist/version.json?t=123'},respondWith(){handled=true;}});
+  assert.equal(handled,false,'release discovery must bypass caches even offline');
 });

@@ -1,17 +1,18 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {root,project,authOrigin,documents,playwright,seed,put,makeServer,guard}=require('./qa-support.cjs');
 const browserName=process.env.QA_BROWSER||'chromium';
-const out=path.join(root,'reports/qa-v1/'+(process.env.QA_BROWSER?'browser-'+browserName:'browser'));fs.mkdirSync(out,{recursive:true});
+const out=path.join(root,'reports/qa-v1/'+(process.env.QA_DEVICE_MATRIX?'realtime':process.env.QA_BROWSER?'browser-'+browserName:'browser'));fs.mkdirSync(out,{recursive:true});
 const report={tests:[],pageErrors:[],consoleErrors:[],blocked:[],timings:[],profiles:[]};
 const devices=[],users=[];let id,url;const server=makeServer({emulator:true});
 async function check(name,fn){try{const details=await fn();report.tests.push({name,status:'PASS',details});console.log('PASS '+name);}
   catch(e){report.tests.push({name,status:'FAIL',error:e.stack});console.error('FAIL '+name+' '+e.message);if(devices[0]){report.failureState=await devices[0].page.evaluate(async()=>({history:Array.from(document.querySelectorAll('#storico-lista li')).map(x=>x.textContent),controls:Array.from(document.querySelectorAll('.storico-filtri input,.storico-filtri select')).map(x=>({id:x.id,value:x.value})),records:(await db.elencaSopralluoghi()).map(r=>({id:r.id,checklist:r.checklist_id,title:r.punto_vendita}))})).catch(()=>null);await devices[0].page.screenshot({path:path.join(out,'last-failure.png'),fullPage:true}).catch(()=>{});}}
   fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(report,null,2));}
 async function open(user,viewport={width:1440,height:1000},{sw=false}={}) {
+  const engines=(process.env.QA_DEVICE_MATRIX||browserName).split(',');const engine=engines[devices.length%engines.length];
   const profile=fs.mkdtempSync(path.join(out,'profile-'));report.profiles.push(profile);
-  const context=await playwright()[browserName].launchPersistentContext(profile,{...(browserName==='chromium'?{channel:'chrome'}:{}),headless:true,serviceWorkers:sw?'allow':'block',viewport,acceptDownloads:true});
+  const context=await playwright(engine)[engine].launchPersistentContext(profile,{...(engine==='chromium'?{channel:'chrome'}:{}),headless:true,serviceWorkers:sw?'allow':'block',viewport,acceptDownloads:true});
   const blocked=await guard(context,server.origin,{emulator:true});report.blocked.push(blocked);
-  const page=context.pages()[0];const d={context,page,user,profile,viewport};devices.push(d);page.setDefaultTimeout(20000);
+  const page=context.pages()[0];const d={context,page,user,profile,viewport,engine};devices.push(d);(report.engines||=[]).push({engine,version:context.browser()?.version()});page.setDefaultTimeout(20000);
   page.on('pageerror',e=>{
     const entry={user:user.username,message:e.message};
     if(/127\.0\.0\.1:18085\/google\.firestore\.v1\.Firestore\//.test(e.message)&&/due to access control checks/.test(e.message))(report.transportErrors||=[]).push(entry);
@@ -172,6 +173,14 @@ async function receivePhoto(d,f) {
   await check('Firestore interrotto: dati pending persistono e ripartono',async()=>{
     await B.context.route('http://127.0.0.1:18085/**',r=>r.abort());await answer(B,28,'QA-FIRESTORE-DOWN');assert.ok(await B.page.evaluate(async id=>(await db.leggiSopralluogo(id)).risposte.some(r=>r.note==='QA-FIRESTORE-DOWN'),id));
     await B.context.unroute('http://127.0.0.1:18085/**');await B.page.evaluate(()=>window.dispatchEvent(new Event('online')));await waitRecord(A,"r.risposte.some(r=>r.note==='QA-FIRESTORE-DOWN')");
+  });
+  await check('record legacy solo IndexedDB recuperato nel cloud e su altro dispositivo',async()=>{
+    const legacy='qa-legacy-recovery-'+suffix;
+    await A.context.route('http://127.0.0.1:18085/**',r=>r.abort());
+    await A.page.evaluate(async legacy=>db.applicaSopralluogoRemoto({id:legacy,punto_vendita:'QA Recupero legacy',checklist_id:'interparking_sopralluogo',data:'2025-01-01T00:00:00Z',aggiornato_il:'2025-01-01T00:00:00Z',risposte:[{domanda_id:1,risposta:'C',note:'QA LEGACY RECUPERATO',foto:[]}]}),legacy);
+    assert.equal((await fetch(documents+'/sopralluoghi/'+legacy,{headers:{authorization:'Bearer owner'}})).status,404);
+    await A.context.unroute('http://127.0.0.1:18085/**');await A.page.evaluate(()=>sync.sincronizzaCompleto());
+    await waitRecord(B,"r.risposte.some(x=>x.note==='QA LEGACY RECUPERATO')",legacy);
   });
   await check('storico filtri cliente tecnico data checklist ricerca ordinamento',async()=>{
     await A.page.evaluate(async()=>{

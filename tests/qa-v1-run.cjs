@@ -27,6 +27,7 @@ const value=field=>Number(new RegExp('# '+field+' (\\d+)').exec(unit.stdout)?.[1
 report.groups.push({name:'regressioni unitarie SafetyChecklist',total:value('tests'),pass:value('pass'),fail:value('fail'),skipped:value('skipped'),exit:unit.status});
 console.log('Unit: '+value('pass')+'/'+value('tests')+' passed');
 const scenarios=[['qa-pdf-browser.cjs','pdf'],['qa-browser.cjs','browser'],['qa-pwa.cjs','pwa'],['qa-dvr-browser.cjs','dvr'],['qa-upgrade-browser.cjs','upgrade']];
+if(process.env.QA_CROSS_BROWSER==='1')scenarios.push(['realtime-browser.cjs','realtime']);
 for(const [script,folder] of scenarios){
   console.log('Running '+script);const r=spawnSync(process.execPath,['tests/'+script],{encoding:'utf8',maxBuffer:10*1024*1024});
   fs.writeFileSync(path.join(out,folder+'-final.log'),r.stdout+r.stderr);

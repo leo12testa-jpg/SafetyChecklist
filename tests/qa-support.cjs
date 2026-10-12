@@ -6,11 +6,11 @@ const project='demo-safety-qa-v1';
 const authOrigin='http://127.0.0.1:19099';
 const firestoreOrigin='http://127.0.0.1:18085';
 const documents=`${firestoreOrigin}/v1/projects/${project}/databases/(default)/documents`;
-function playwright() {
+function playwright(selectedBrowser=process.env.QA_BROWSER) {
   if(process.env.PLAYWRIGHT_MODULE)return require(process.env.PLAYWRIGHT_MODULE);
   try{return require('playwright');}catch{}
   const cache=path.join(process.env.LOCALAPPDATA||'','npm-cache/_npx');
-  if(process.env.QA_BROWSER==='firefox' && process.platform==='win32') {
+  if(selectedBrowser==='firefox' && process.platform==='win32') {
     const legacy=path.join(cache,'5c6d8c4f680fcd0a/node_modules/playwright');
     if(fs.existsSync(path.join(legacy,'package.json'))&&fs.existsSync(path.join(process.env.LOCALAPPDATA,'ms-playwright/firefox-1465')))return require(legacy);
   }

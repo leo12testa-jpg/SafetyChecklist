@@ -1,11 +1,11 @@
 // Service worker per il funzionamento offline della checklist.
-const CACHE_NAME = 'safety-checklist-shell-20261012-134010';
+const CACHE_NAME = 'safety-checklist-shell-20261012-134815';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=20261012-134010',
+  './css/style.css?v=20261012-134815',
   './js/vendor/jspdf.umd.min.js',
   './js/vendor/jspdf.plugin.autotable.min.js',
   './js/vendor/jszip.min.js',
@@ -13,24 +13,24 @@ const APP_SHELL = [
   './js/vendor/firebase-firestore-compat.js',
   './js/vendor/firebase-auth-compat.js',
   './js/firebase-config.js',
-  './js/auth.js?v=20261012-134010',
+  './js/auth.js?v=20261012-134815',
   './js/supabase-config.js',
   './js/vendor/pdf.min.js',
   './js/vendor/pdf.worker.min.js',
-  './js/app.js?v=20261012-134010',
+  './js/app.js?v=20261012-134815',
   './js/identity.js',
-  './js/account-screens.js?v=20261012-134010',
-  './js/db.js?v=20261012-134010',
-  './js/checklist.js?v=20261012-134010',
+  './js/account-screens.js?v=20261012-134815',
+  './js/db.js?v=20261012-134815',
+  './js/checklist.js?v=20261012-134815',
   './js/question-navigator.js',
-  './js/storico-filtri.js?v=20261012-134010',
-  './js/foto-sync.js?v=20261012-134010',
-  './js/pdf.js?v=20261012-134010',
-  './js/pdf-import.js?v=20261012-134010',
-  './js/import-matching.js?v=20261012-134010',
+  './js/storico-filtri.js?v=20261012-134815',
+  './js/foto-sync.js?v=20261012-134815',
+  './js/pdf.js?v=20261012-134815',
+  './js/pdf-import.js?v=20261012-134815',
+  './js/import-matching.js?v=20261012-134815',
   './js/camera.js',
-  './js/sync.js?v=20261012-134010',
-  './js/aggiornamento.js?v=20261012-134010',
+  './js/sync.js?v=20261012-134815',
+  './js/aggiornamento.js?v=20261012-134815',
   './checklists/index.json',
   './checklists/clients.json',
   './checklists/tecnici.json',
@@ -118,12 +118,14 @@ self.addEventListener('fetch', event => {
   // own authorization and private response semantics, including offline errors.
   const base = new URL('./', self.location.href);
   if (!url.pathname.startsWith(base.pathname)) return;
+  // Release discovery is always network-only. Timestamped version requests
+  // must neither grow the shell cache nor become stale release announcements.
+  if (url.pathname.endsWith('/version.json')) return;
   const isChecklist = url.pathname.includes('/checklists/');
   const isLogo = url.pathname.includes('/assets/logo_');
-  const isVersione = url.pathname.endsWith('/version.json');
   const isDocumento = event.request.mode === 'navigate' || url.pathname.endsWith('/index.html');
   const isCodice = event.request.destination === 'script' || event.request.destination === 'style';
-  event.respondWith(isChecklist || isLogo || isVersione || isDocumento || isCodice
+  event.respondWith(isChecklist || isLogo || isDocumento || isCodice
     ? networkFirst(event.request, {bypassHttpCache: true})
     : cacheFirst(event.request));
 });

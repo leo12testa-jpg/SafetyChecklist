@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const assert = require('node:assert/strict');
-const { chromium } = require('playwright-core');
+const { chromium } = require('./qa-support.cjs').playwright();
 
 const root = path.resolve(__dirname, '..');
 const chrome = process.env.CHROME_PATH;
@@ -40,6 +40,7 @@ const server = http.createServer((req, res) => {
   const base = `http://127.0.0.1:${server.address().port}/SafetyChecklist/`;
   const browser = await chromium.launch({ executablePath: chrome, headless:true, args:['--no-sandbox'] });
   const context = await browser.newContext();
+  await require('./qa-support.cjs').guard(context,new URL(base).origin);
   const page = await context.newPage();
   try {
     await page.goto(base, { waitUntil:'load', timeout:45000 });
