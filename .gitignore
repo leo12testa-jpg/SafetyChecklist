@@ -1,0 +1,7 @@
+/firebase-debug.log
+/firestore-debug.log
+/tests/storage-local/.env.qa
+/tests/private-source/
+/tests/storage-local/supabase/.temp/
+/supabase/.temp/
+/reports/qa-v1/**/profile-*/

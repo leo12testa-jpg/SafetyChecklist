@@ -5,11 +5,22 @@ const root = path.resolve(__dirname, '..');
 // The real DOM/application with isolated local persistence. No cloud clients or SW.
 function harness() {
   return fs.readFileSync(path.join(root, 'index.html'), 'utf8')
-    .replace(/<script src="js\/(?:vendor\/firebase[^" ]*|firebase-config|vendor\/supabase|supabase-config|foto-sync|sync|aggiornamento)\.js"><\/script>/g, '')
-    .replace('<script src="js/app.js">', `<script>
-      const sync = { statoAttuale: () => 'offline', onCambioStato() {}, onDatiAggiornati() {}, init: async () => false, sincronizzaTutto: async () => true };
+    .replace(/<script src="js\/(?:vendor\/firebase[^" ]*|firebase-config\.js|auth\.js(?:\?v=[^"]*)?|identity\.js|account-screens\.js(?:\?v=[^"]*)?|vendor\/supabase\.js|supabase-config\.js|foto-sync\.js(?:\?v=[^"]*)?|sync\.js(?:\?v=[^"]*)?|aggiornamento\.js(?:\?v=[^"]*)?)"><\/script>/g, '')
+    .replace(/<script src="js\/app\.js(?:\?v=[^"]*)?"><\/script>/, `<script>
+      const appIdentity = {
+        current: () => ({ uid:'pdf-test', username:'pdf.test', nome:'PDF', cognome:'Test', ruolo:'admin' }),
+        ready: async () => appIdentity.current(),
+        isAdmin: () => true,
+        trackUsage: async () => ({}),
+        callAdmin: async () => ({ users: [] })
+      };
+      const auditAttivita = { record: async () => {}, flush: async () => {} };
+      const accountScreens = { init() {} };
+      document.body.dataset.authReady = 'true'; document.body.dataset.authenticated = 'true'; document.body.dataset.role = 'admin';
+      document.getElementById('login-view').hidden = true; document.getElementById('screens').hidden = false;
+      const sync = { statoAttuale: () => 'offline', onCambioStato() {}, onDatiAggiornati() {}, init: async () => false, sincronizzaTutto: async () => true, sincronizzaCompleto: async () => true };
       const fotoSync = { caricaFoto: async () => {}, riprovaInSospeso: async () => {}, init() {}, onCambioStato() {}, statoDi: () => null, eliminaFotoRemota() {}, risolviFoto: id => db.leggiFoto(id) };
-    </script><script src="js/app.js">`);
+    </script><script src="js/app.js"></script>`);
 }
 const server = http.createServer((req, res) => {
   const route = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
@@ -24,3 +35,4 @@ const server = http.createServer((req, res) => {
 });
 if (require.main === module) server.listen(8765, '127.0.0.1', () => console.log('PDF test server http://127.0.0.1:8765'));
 module.exports = server;
+module.exports.harness = harness;

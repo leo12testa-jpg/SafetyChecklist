@@ -16,3 +16,5 @@
 const SUPABASE_URL = "https://twznfiygzzbqdgudpwav.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_Ljz9zk26Q6_se1Zh28lENw_gOPQ14QW";
 const SUPABASE_BUCKET = "foto-sopralluoghi";
+// All photo I/O is authorized by Firebase on the backend. No direct Storage fallback.
+const PHOTO_ACCESS_ENDPOINT = `${SUPABASE_URL}/functions/v1/photo-access`;

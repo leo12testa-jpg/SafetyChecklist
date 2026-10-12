@@ -919,7 +919,14 @@ const pdfImport = (() => {
       if (!cella.length) continue;
       const header=cella.some(it => storico ? INTESTAZIONI_STORICO.includes(it.testo.trim()) : it.testo.trim()==='n.');
       const banner=cella.find(it => /^(AUDIT DOCUMENTALE|ANALISI DOCUMENTALE|SOPRALLUOGO AMBIENTI DI LAVORO)$/.test(it.testo.trim()));
-      if (banner) { sezione=banner.testo; contesto.ultimaRiga=null; continue; }
+      if (banner) {
+        // Our AutoTable repeats the group banner on continuation pages. It does
+        // not start a new logical row/section and must not discard its owner.
+        if (storico && banner.testo !== sezione) {
+          sezione=banner.testo; contesto.ultimaRiga=null;
+        }
+        continue;
+      }
       if (header) {
         if (!storico) {
           const h=cella.find(it => it.testo.trim()==='n.');
@@ -1578,6 +1585,14 @@ const pdfImport = (() => {
           ((r.right < r.larghezzaPagina * 0.4 && s.x > r.larghezzaPagina * 0.6) ||
            (s.right < r.larghezzaPagina * 0.4 && r.x > r.larghezzaPagina * 0.6)) &&
           Math.abs((r.y + r.top) / 2 - (s.y + s.top) / 2) <= 24)) escludi(r);
+      // Un logo cliente può essere l'unica immagine decodificabile dell'intestazione
+      // (es. Carrefour rasterizzato in JPEG mentre il logo Colligo WebP non viene esposto come
+      // regione immagine separata da pdf.js). Se è in alto a destra, sopra DATI GENERALI e senza
+      // didascalia Foto, è intestazione: non deve finire negli allegati importati.
+      if (r.pagina === 1 && !r.didascaliaFoto &&
+          r.x >= r.larghezzaPagina * 0.55 && r.right <= r.larghezzaPagina + 4 &&
+          r.larghezza <= r.larghezzaPagina * 0.40 && r.altezza <= 130) escludi(r);
+
       // Alcuni report Interparking incorporano Colligo + cliente in un'unica immagine
       // orizzontale sopra DATI GENERALI: è intestazione, non una foto del sopralluogo.
       if (r.pagina === 1 && r.sopraDati && !r.didascaliaFoto &&
@@ -1633,6 +1648,16 @@ const pdfImport = (() => {
       const nearby = items.filter(it => it.y < region.y + 2 && it.y > minY && it.x + it.w / 2 >= left && it.x + it.w / 2 < right && !/^(Pag\.|C = Conforme)/i.test(it.testo));
       nearby.sort((a, b) => Math.abs(a.y - b.y) > 3 ? b.y - a.y : a.x - b.x);
       const didascalia = nearby.map(it => it.testo).join(' ').trim();
+
+      // Nei PDF generati dall'app il logo cliente di pagina 1 può essere esposto da pdf.js come
+      // un'unica immagine raster (Carrefour: 383x130) senza che analizzaHeader riesca a
+      // ricostruirne con precisione la geometria. In quel caso il primo testo immediatamente
+      // sotto è sempre il blocco "DATI GENERALI": è intestazione, non allegato fotografico.
+      // Una vera foto ha invece didascalia "Foto N ..." oppure si trova nella sezione Allegati.
+      if (numeroPagina === 1 && /^DATI\s+GENERALI\b/i.test(didascalia)) {
+        continue;
+      }
+
       const canvas = document.createElement('canvas');
       let metodo = 'originale';
       try {
@@ -1718,7 +1743,10 @@ const pdfImport = (() => {
       }
 
       precedente.testo_originale = unisciTesto(precedente.testo_originale, riga.testo_originale);
-      precedente.nota_originale = unisciTesto(precedente.nota_originale, riga.nota_originale);
+      // Page fragments are consecutive text, even when a phrase repeats. Substring
+      // deduplication used to silently remove entire pages of long/repeated notes.
+      precedente.nota_originale = [precedente.nota_originale, riga.nota_originale]
+        .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim() || null;
       const stati = [precedente.stato_originale, riga.stato_originale].filter(Boolean);
       const unici = Array.from(new Set(stati));
       if (unici.length === 1) precedente.stato_originale = unici[0];

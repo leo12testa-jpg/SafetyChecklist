@@ -78,6 +78,13 @@ test('nota molto lunga continua su una pagina senza nuove domande', () => {
   const rows=parse([page([{id:17,text:['Estintori'],note:['Inizio']}]),page([{note:['Segue']}]),page([{note:['Fine']},{id:18,text:['Uscite']}])]);
   assert.equal(rows[0].nota_originale,'Inizio Segue Fine'); assert.equal(rows[1].nota_originale,null);
 });
+
+test('banner gruppo ripetuto sulla continuazione non interrompe la nota multipagina', () => {
+  const pages=[page([{id:17,text:['Estintori'],note:['INIZIO']}]),page([{note:['CONTINUA']},{id:18,text:['Uscite'],note:['SOLO 18']}])];
+  for(const p of pages){p.push(item('ANALISI DOCUMENTALE',20,250));p.bordi.push({x1:15,x2:500,y:260},{x1:15,x2:500,y:240});}
+  const rows=parse(pages);
+  assert.equal(rows.length,2);assert.equal(rows[0].nota_originale,'INIZIO CONTINUA');assert.equal(rows[1].nota_originale,'SOLO 18');
+});
 test('cambio sezione non sposta la nota nella sezione successiva', () => {
   const rows=parse([page([{id:17,text:['Estintori'],note:['Nota 17']}]),page([{id:18,text:['Uscite'],note:['Nota 18']}],'ALTRA SEZIONE')]);
   assert.equal(rows[0].nota_originale,'Nota 17'); assert.equal(rows[1].nota_originale,'Nota 18');

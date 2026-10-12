@@ -1,5 +1,7 @@
 # 📋 TASKS.md — Roadmap Safety Checklist v1.0
 
+> Roadmap originaria: le caselle seguenti non rappresentano l'esito del QA corrente. Il [rapporto del 9 ottobre 2026](reports/COLLAUDO_SAFETYCHECKLIST_V1_20261009.md) distingue test superati, correzioni e requisiti non verificabili. La firma grafica rimane assente; non è stato effettuato alcun merge o deploy.
+
 Riferimento obbligatorio: `PROJECT.md`. Ogni fase produce codice funzionante e testabile prima di passare alla successiva.
 
 ---

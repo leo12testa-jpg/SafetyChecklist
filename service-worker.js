@@ -1,11 +1,11 @@
 // Service worker per il funzionamento offline della checklist.
-const CACHE_NAME = 'safety-checklist-shell-20261012-101054';
+const CACHE_NAME = 'safety-checklist-shell-20261012-092407';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=20261012-101054',
+  './css/style.css?v=20261012-092407',
   './js/vendor/jspdf.umd.min.js',
   './js/vendor/jspdf.plugin.autotable.min.js',
   './js/vendor/jszip.min.js',
@@ -13,25 +13,24 @@ const APP_SHELL = [
   './js/vendor/firebase-firestore-compat.js',
   './js/vendor/firebase-auth-compat.js',
   './js/firebase-config.js',
-  './js/auth.js?v=20261012-101054',
-  './js/vendor/supabase.js',
+  './js/auth.js?v=20261012-092407',
   './js/supabase-config.js',
   './js/vendor/pdf.min.js',
   './js/vendor/pdf.worker.min.js',
-  './js/app.js?v=20261012-101054',
+  './js/app.js?v=20261012-092407',
   './js/identity.js',
-  './js/account-screens.js?v=20261012-101054',
-  './js/db.js?v=20261012-101054',
-  './js/checklist.js?v=20261012-101054',
+  './js/account-screens.js?v=20261012-092407',
+  './js/db.js?v=20261012-092407',
+  './js/checklist.js?v=20261012-092407',
   './js/question-navigator.js',
-  './js/storico-filtri.js?v=20261012-101054',
-  './js/foto-sync.js',
-  './js/pdf.js?v=20261012-101054',
-  './js/pdf-import.js?v=20261012-101054',
-  './js/import-matching.js?v=20261012-101054',
+  './js/storico-filtri.js?v=20261012-092407',
+  './js/foto-sync.js?v=20261012-092407',
+  './js/pdf.js?v=20261012-092407',
+  './js/pdf-import.js?v=20261012-092407',
+  './js/import-matching.js?v=20261012-092407',
   './js/camera.js',
-  './js/sync.js?v=20261012-101054',
-  './js/aggiornamento.js?v=20261012-101054',
+  './js/sync.js?v=20261012-092407',
+  './js/aggiornamento.js?v=20261012-092407',
   './checklists/index.json',
   './checklists/clients.json',
   './checklists/tecnici.json',
@@ -47,22 +46,24 @@ const APP_SHELL = [
 ];
 
 async function precacheTutto(cache) {
-  // Non rendere inutilizzabile l'aggiornamento per il guasto a una singola risorsa.
+  // Keep the previous working shell until every required asset is available.
   const risultati = await Promise.allSettled(APP_SHELL.map(async (url) => {
     await cache.add(url);
   }));
   const falliti = risultati.map((r, i) => r.status === 'rejected' ? APP_SHELL[i] : null).filter(Boolean);
-  if (falliti.length) console.warn('[SafetyChecklist SW] Asset non memorizzati:', falliti);
+  if (falliti.length) throw new Error('Asset non memorizzati: ' + falliti.join(', '));
   try {
     const response = await fetch('./checklists/index.json', { cache: 'no-store' });
     if (!response.ok) throw new Error('Indice checklist HTTP ' + response.status);
     const { checklists } = await response.json();
-    await Promise.allSettled((checklists || []).map(c =>
+    await Promise.all((checklists || []).map(c =>
       cache.add('./checklists/' + c.id + '.json?v=' + encodeURIComponent(c.versione || ''))
     ));
   } catch (errore) {
-    console.warn('[SafetyChecklist SW] Precache checklist parziale:', errore);
+    console.warn('[SafetyChecklist SW] Installazione rimandata: checklist non disponibili:', errore);
+    throw errore;
   }
+  await cache.put('./.shell-ready', new Response(CACHE_NAME));
 }
 
 self.addEventListener('install', event => {

@@ -509,3 +509,11 @@ test('formato nostro: marcature discordanti su frammenti duplicati restano da ve
   assert.equal(consolidate[0].stato_originale, null);
   assert.equal(consolidate[0].da_verificare, true);
 });
+
+test('nota multipagina con frasi ripetute conserva tutti i frammenti in ordine', () => {
+  const api = caricaPdfImport()._test;
+  const base = { formato:'nostro', id_originale:4, numero_originale:4, sezione_originale:'S', testo_originale:'Domanda quattro', stato_originale:'NA' };
+  const fragments = ['INIZIO ripetuto ripetuto', 'ripetuto ripetuto', 'ripetuto ripetuto FINE'];
+  const [r] = api.consolidaRigheNostre(fragments.map(nota_originale => ({ ...base, nota_originale })));
+  assert.equal(r.nota_originale, fragments.join(' '));
+});

@@ -35,6 +35,13 @@ test('paired letterhead above general-data block excludes both graphics without 
   const result=classify([region({sopraDati:true}),region({indice:2,x:440,right:565,sopraDati:true})]);
   assert.equal(result.get(1).size,2);
 });
+test('standalone client logo at top-right above DATI GENERALI is excluded', () => {
+  const carrefour=region({sopraDati:false,x:430,right:570,larghezza:140,altezza:105,impronta:'carrefour'});
+  const result=classify([carrefour]);
+  assert.ok(result.get(1).has(1));
+  assert.equal(classify([region({sopraDati:true,x:430,right:570,larghezza:140,altezza:105,didascaliaFoto:true})]).size,0);
+});
+
 test('combined wide letterhead above DATI GENERALI is excluded, ordinary/captioned images are retained', () => {
   const wide=region({sopraDati:true,x:118,right:476,larghezza:358,altezza:48});
   const result=classify([wide]);
