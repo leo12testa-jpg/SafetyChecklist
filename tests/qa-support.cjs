@@ -51,7 +51,7 @@ function edgeHandler(telemetry) {
   vm.runInNewContext(translated,{Deno:{env:{get:k=>env[k]},serve:(opts,h)=>{handler=h||opts;}},Request,Response,fetch:guardedFetch,console,URL,URLSearchParams},{filename:'manage-users.test.js'});
   return handler;
 }
-function makeServer({emulator=false}={}) {
+function makeServer({emulator=false,raw=false}={}) {
   const telemetry=require('./qa-telemetry-store.cjs').telemetryStore();
   const edge=emulator?edgeHandler(telemetry):null;
   let photoHandler;
@@ -120,7 +120,7 @@ function makeServer({emulator=false}={}) {
         firebaseClient.firestore().useEmulator('127.0.0.1',18085);
       `;
       if(emulator&&rel==='js/supabase-config.js')body=body.toString().replace(/const SUPABASE_URL = "[^"]+"/,`const SUPABASE_URL = "${server.origin}"`);
-      if(!emulator&&rel==='index.html')body=require('./pdf-local-server.cjs').harness();
+      if(!emulator&&!raw&&rel==='index.html')body=require('./pdf-local-server.cjs').harness();
       if(server.build){
         if(rel==='index.html'||rel==='service-worker.js'||rel==='js/aggiornamento.js')body=body.toString().replaceAll(JSON.parse(content('version.json')).buildId,server.build);
         if(rel==='version.json')body=JSON.stringify({buildId:server.build});

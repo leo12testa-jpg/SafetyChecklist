@@ -83,6 +83,11 @@ jobs:
           PLAYWRIGHT_MODULE: playwright-core
         run: node tests/pdf-browser.cjs
 
+      - name: Isolated UI layout smoke before release
+        env:
+          UI_LOCAL: '1'
+        run: node tests/final-ui-smoke.cjs
+
       - name: Wait for published build
         if: github.event_name != 'pull_request'
         shell: bash
