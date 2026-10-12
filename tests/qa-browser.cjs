@@ -151,6 +151,8 @@ async function receivePhoto(d,f) {
   });
   await check('offline, foto e nota, reload con SW, ritorno online senza perdita',async()=>{
     await A.page.evaluate(()=>navigator.serviceWorker.ready);await A.page.reload();await ready(A);await A.page.waitForFunction(()=>navigator.serviceWorker.controller!==null);
+    report.offlineShell=await A.page.evaluate(async()=>({controller:navigator.serviceWorker.controller.scriptURL,caches:await Promise.all((await caches.keys()).map(async name=>({name,urls:(await (await caches.open(name)).keys()).map(r=>r.url)}))),entry:(await caches.match(new URL('index.html',location.href)))?.status}));
+    assert.equal(report.offlineShell.entry,200,'installed app shell must contain the entry document');
     const unreachable='http://127.0.0.1:18085/**';let f;
     try {
       if(browserName==='chromium')await A.context.setOffline(true);
@@ -174,7 +176,7 @@ async function receivePhoto(d,f) {
       await db.creaSopralluogo({checklist_id:'melluso_sopralluogo',punto_vendita:'QA-Secondo',tecnico:'QA Tecnico Beta',data_sopralluogo:'2025-01-02'});
       await db.applicaSopralluogoRemoto({id:'qa-legacy-'+Date.now(),checklist_id:'coin_checklist_v1',punto_vendita:'QA Legacy Coin',data:'2024-01-01T00:00:00Z',risposte:[{domanda_id:'1',risposta:'C',note:'legacy'}]});
     });
-    await history(A);await A.page.locator('#storico-ricerca').fill('QA-');await A.page.waitForFunction(()=>document.querySelectorAll('#storico-lista li').length>=3);
+    await history(A);await A.page.locator('#storico-ricerca').fill('QA');await A.page.waitForFunction(()=>document.querySelectorAll('#storico-lista li').length>=3);
     await A.page.locator('#storico-filtro-cliente').selectOption('Coin');await A.page.waitForFunction(()=>document.querySelectorAll('#storico-lista li').length===2);
     await A.page.locator('#storico-filtro-checklist').selectOption('coin_sopralluogo');await A.page.waitForFunction(()=>document.querySelectorAll('#storico-lista li').length===1);
     await A.page.locator('#storico-filtro-tecnico').selectOption('QA Tecnico Alpha');assert.equal(await A.page.locator('#storico-lista li').count(),1);
