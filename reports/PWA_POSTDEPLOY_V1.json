@@ -1,0 +1,34 @@
+{
+  "url": "https://leo12testa-jpg.github.io/SafetyChecklist/",
+  "build": "20261012-140126",
+  "tests": [
+    {
+      "name": "published PWA installs complete actual release shell",
+      "status": "PASS",
+      "shell": {
+        "worker": "https://leo12testa-jpg.github.io/SafetyChecklist/service-worker.js?v=20261012-140126",
+        "keys": [
+          "safety-checklist-shell-20261012-140126"
+        ],
+        "entry": true,
+        "ready": true,
+        "checklists": 12
+      }
+    },
+    {
+      "name": "published PWA reopens offline from persistent profile with Carrefour logo",
+      "status": "PASS",
+      "logo": {
+        "status": 200,
+        "bytes": 5459
+      }
+    },
+    {
+      "name": "published current version has no update banner or reload loop, no application JS errors",
+      "status": "PASS"
+    }
+  ],
+  "errors": [],
+  "dataOperations": "none; production data services blocked",
+  "profileCleaned": true
+}

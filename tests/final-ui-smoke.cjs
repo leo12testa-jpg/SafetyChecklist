@@ -1,9 +1,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { chromium } = require('playwright-core');
+const {playwright,makeServer,guard}=require('./qa-support.cjs');
+const { chromium } = playwright();
 
-const url = process.env.LIVE_URL || 'https://leo12testa-jpg.github.io/SafetyChecklist/';
+let url = process.env.LIVE_URL || 'https://leo12testa-jpg.github.io/SafetyChecklist/';
+let isolatedServer;
 const executablePath = process.env.CHROME_PATH;
 if (!executablePath) throw new Error('CHROME_PATH mancante');
 
@@ -63,9 +65,13 @@ async function bodyFits(page) {
 }
 
 (async () => {
+  if(process.env.UI_LOCAL==='1'){isolatedServer=makeServer({raw:true});url=await isolatedServer.start();}
   const browser = await chromium.launch({ executablePath, headless:true, args:['--no-sandbox'] });
   try {
     const context = await browser.newContext({ serviceWorkers:'block' });
+    // This is a visual/layout smoke. Auth and data are tested in demo emulators;
+    // never let simulated dashboard roles reach production data services.
+    await guard(context,new URL(url).origin);
     const page = await context.newPage();
 
     // Real login page, desktop.
@@ -156,7 +162,8 @@ async function bodyFits(page) {
     assert.equal(await page.locator('[data-nav="admin-users"].side-nav-item').isVisible(), true);
     assert.equal(await page.locator('[data-nav="settings"].side-nav-item').isVisible(), true);
     assert.equal(await page.locator('[data-nav="my-work"].side-nav-item').isVisible(), true);
-    assert.equal(await page.locator('.dashboard-action-card:visible').count(), 5);
+    assert.equal(await page.locator('.dashboard-action-card:visible').count(), 6);
+    assert.equal(await page.locator('.dashboard-action-card[data-modalita="dvr"]:visible').count(), 1);
     assert.equal(await page.locator('#admin-user-search').count(), 1);
     assert.equal(await page.locator('#storico-ordinamento').count(), 1);
     await assertNoCardOverlap(page, '.dashboard-action-card');
@@ -192,7 +199,8 @@ async function bodyFits(page) {
     assert.equal(await mobile.locator('.dashboard-mini-card:visible').count(), 4);
     assert.equal(await mobile.locator('.dashboard-recent-panel').isVisible(), true);
     assert.equal(await mobile.locator('#dashboard-resume-panel').count(), 1);
-    assert.equal(await mobile.locator('.dashboard-action-card:visible').count(), 2);
+    assert.equal(await mobile.locator('.dashboard-action-card:visible').count(), 3);
+    assert.equal(await mobile.locator('.dashboard-action-card[data-modalita="dvr"]:visible').count(), 1);
     assert.equal(await mobile.locator('#dashboard-install-card').count(), 1);
     const gridCols = await mobile.locator('.dashboard-mini-grid').evaluate(el => getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
     assert.equal(gridCols, 1, 'mobile mini cards not one column');
@@ -310,5 +318,6 @@ async function bodyFits(page) {
     console.log('FINAL UI SMOKE PASS');
   } finally {
     await browser.close();
+    isolatedServer?.close();
   }
-})().catch(error => { console.error(error); process.exit(1); });
+})().catch(error => { isolatedServer?.close(); console.error(error); process.exit(1); });
