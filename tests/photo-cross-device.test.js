@@ -44,8 +44,21 @@ function caricaFotoSync({ fotoLocale = null, blobRemoto = new Blob(['foto-remota
   };
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/foto-sync.js'), 'utf8'), context);
-  return { fotoSync: vm.runInContext('fotoSync', context), download, blobRemoto };
+  return { fotoSync: vm.runInContext('fotoSync', context), download, blobRemoto, context };
 }
+
+test('photo ACL also protects cached local blobs after logout or switching users', async () => {
+  const {fotoSync,context,download}=caricaFotoSync({fotoLocale:{id:'cached',blob:new Blob(['private'])}});
+  const record={id:'private',foto_accesso_uids:['qa']};
+  assert.ok(await fotoSync.risolviFoto('cached',record));
+  context.appIdentity.current=()=>({uid:'other',ruolo:'tecnico'});
+  assert.equal(await fotoSync.risolviFoto('cached',record),null);
+  context.appIdentity.current=()=>null;
+  assert.equal(await fotoSync.risolviFoto('cached',record),null);
+  context.appIdentity.current=()=>({uid:'admin',ruolo:'admin',attivo:true});
+  assert.ok(await fotoSync.risolviFoto('cached',record));
+  assert.deepEqual(download,[]);
+});
 
 test('foto cross-device: se manca in IndexedDB viene scaricata dal path Supabase sincronizzato', async () => {
   const { fotoSync, download, blobRemoto } = caricaFotoSync();

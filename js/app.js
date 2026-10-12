@@ -2894,6 +2894,7 @@ const storicoScreen = (() => {
   let testoRicerca = '';
   let timerDebounce = null;
   let revisioneRender = 0;
+  let caricamentoFiltri = null;
   const selezionati = new Set();
 
   function formattaData(iso) {
@@ -2918,6 +2919,7 @@ const storicoScreen = (() => {
       console.error('[app.js] Impossibile caricare checklists/clients.json per il filtro Storico:', errore);
     }
     clientiConfigurati = clienti;
+    const selezionato = filtroClienteContainer.value;
 
     Array.from(filtroClienteContainer.options).forEach((opzione) => {
       if (opzione.value !== '' && opzione.value !== VALORE_CLIENTE_ALTRO) {
@@ -2931,6 +2933,7 @@ const storicoScreen = (() => {
       opzione.textContent = nome;
       filtroClienteContainer.insertBefore(opzione, opzioneAltro);
     });
+    filtroClienteContainer.value = selezionato;
   }
 
   /**
@@ -3593,9 +3596,10 @@ const storicoScreen = (() => {
   async function render({ reset = true } = {}) {
     const revisione = ++revisioneRender;
     if (reset) resetFiltri();
+    if (reset) caricamentoFiltri = Promise.all([popolaFiltroCliente(), popolaFiltroChecklist()]);
     const [sopralluoghi] = await Promise.all([
       db.elencaSopralluoghi(),
-      ...(reset ? [popolaFiltroCliente(), popolaFiltroChecklist()] : [])
+      caricamentoFiltri
     ]);
     if (revisione !== revisioneRender) return;
     // Capture the CURRENT filters after async reads. A realtime refresh must not

@@ -26,7 +26,7 @@ test('realtime notification during pending save does not overwrite the active co
 test('history refresh preserves a date changed while IndexedDB is being read',async()=>{
   const start=source.indexOf('  async function render({ reset = true }');const render=source.slice(start,source.indexOf('\n  }\n',start)+5);
   let release;const reading=new Promise(r=>release=r);
-  const c=vm.createContext({revisioneRender:0,db:{elencaSopralluoghi:async()=>{await reading;return[];}},
+  const c=vm.createContext({revisioneRender:0,caricamentoFiltri:null,db:{elencaSopralluoghi:async()=>{await reading;return[];}},
     clienteAttivo:'Coin',checklistAttiva:'coin_sopralluogo',statoChiusuraAttivo:'',tecnicoAttivo:'',dataDaAttiva:'2020-01-01',dataAAttiva:'',ordinamentoAttivo:'data-desc',testoRicerca:'',
     sopralluoghiCache:[],selezionati:new Set(),popolaFiltroTecnico(){},popolaFiltroCliente:async()=>{},popolaFiltroChecklist:async()=>{},applicaFiltri(){},aggiornaContatoreCestino:async()=>{},
     filtroClienteContainer:{},filtroChecklistContainer:{options:[{value:'coin_sopralluogo'}]},filtroTecnicoContainer:{options:[{value:''}]},filtroStatoChiusuraContainer:{},inputDataDa:{},inputDataA:{},filtroOrdinamento:{},inputRicerca:{value:''}

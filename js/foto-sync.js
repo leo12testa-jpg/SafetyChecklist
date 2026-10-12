@@ -300,11 +300,22 @@ const fotoSync = (() => {
    * pubblico salvato: il bucket di questo progetto non è marcato "Public" (vedi
    * supabase-config.js), quindi un fetch diretto sull'url fallirebbe.
    */
-  function risolviFoto(fotoId, sopralluogo) {
-    if (downloads.has(fotoId)) return downloads.get(fotoId);
+  function accessoFotoConsentito(sopralluogo) {
+    const user = typeof appIdentity !== 'undefined' ? appIdentity.current() : null;
+    if (!user || user.attivo === false) return false;
+    if (!sopralluogo || !('foto_accesso_uids' in sopralluogo)) return true;
+    return user.ruolo === 'admin' || (Array.isArray(sopralluogo.foto_accesso_uids) && sopralluogo.foto_accesso_uids.includes(user.uid));
+  }
+  async function risolviFoto(fotoId, sopralluogo) {
+    if (!accessoFotoConsentito(sopralluogo)) return null;
+    if (downloads.has(fotoId)) {
+      const result = await downloads.get(fotoId);
+      return accessoFotoConsentito(sopralluogo) ? result : null;
+    }
     const lavoro = risolviFotoInterna(fotoId, sopralluogo).finally(() => downloads.delete(fotoId));
     downloads.set(fotoId, lavoro);
-    return lavoro;
+    const result = await lavoro;
+    return accessoFotoConsentito(sopralluogo) ? result : null;
   }
   async function risolviFotoInterna(fotoId, sopralluogo) {
     const locale = await db.leggiFoto(fotoId);

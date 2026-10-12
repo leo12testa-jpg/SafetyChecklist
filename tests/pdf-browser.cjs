@@ -205,6 +205,7 @@ async function run(name, browserType, origin) {
     await page.locator('#import-immagini button').first().click();
     assert.equal(await page.locator('#import-immagini img').count(), 2);
     await page.locator('#import-immagini').screenshot({ path:path.join(out, `${name}-anteprima-rimozione.png`) });
+    while(await page.locator('.import-riga-conferma').count())await page.locator('.import-riga-conferma').first().click();
     await page.locator('#btn-conferma-import').click();
     await page.waitForFunction(() => anteprimaImportazionePendente === null);
     report.tests.push(await page.evaluate(async () => {
@@ -263,7 +264,7 @@ async function run(name, browserType, origin) {
     const confirmDetection=page.locator('#import-conferma-rilevamento');
     if(await confirmDetection.count()) await confirmDetection.check();
     // Confirm proposed historical associations explicitly; numbering is not identity.
-    for(const button of await page.locator('.import-riga-conferma').all())await button.click();
+    while(await page.locator('.import-riga-conferma').count())await page.locator('.import-riga-conferma').first().click();
     const expectedPhotos = await page.evaluate(() => anteprimaImportazionePendente.immagini.map(f => ({ domanda: f.domanda_id_collegata, didascalia: f.didascalia })));
     await page.locator('#btn-conferma-import').click();
     await page.waitForFunction(()=>anteprimaImportazionePendente===null);

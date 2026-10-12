@@ -5,7 +5,7 @@ const out=path.join(root,'reports/qa-v1/'+(process.env.QA_BROWSER?'browser-'+bro
 const report={tests:[],pageErrors:[],consoleErrors:[],blocked:[],timings:[],profiles:[]};
 const devices=[],users=[];let id,url;const server=makeServer({emulator:true});
 async function check(name,fn){try{const details=await fn();report.tests.push({name,status:'PASS',details});console.log('PASS '+name);}
-  catch(e){report.tests.push({name,status:'FAIL',error:e.stack});console.error('FAIL '+name+' '+e.message);if(devices[0])await devices[0].page.screenshot({path:path.join(out,'last-failure.png'),fullPage:true}).catch(()=>{});}
+  catch(e){report.tests.push({name,status:'FAIL',error:e.stack});console.error('FAIL '+name+' '+e.message);if(devices[0]){report.failureState=await devices[0].page.evaluate(async()=>({history:Array.from(document.querySelectorAll('#storico-lista li')).map(x=>x.textContent),controls:Array.from(document.querySelectorAll('.storico-filtri input,.storico-filtri select')).map(x=>({id:x.id,value:x.value})),records:(await db.elencaSopralluoghi()).map(r=>({id:r.id,checklist:r.checklist_id,title:r.punto_vendita}))})).catch(()=>null);await devices[0].page.screenshot({path:path.join(out,'last-failure.png'),fullPage:true}).catch(()=>{});}}
   fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(report,null,2));}
 async function open(user,viewport={width:1440,height:1000},{sw=false}={}) {
   const profile=fs.mkdtempSync(path.join(out,'profile-'));report.profiles.push(profile);
@@ -147,10 +147,19 @@ async function receivePhoto(d,f) {
   });
   await check('offline, foto e nota, reload con SW, ritorno online senza perdita',async()=>{
     await A.page.evaluate(()=>navigator.serviceWorker.ready);await A.page.reload();await ready(A);await A.page.waitForFunction(()=>navigator.serviceWorker.controller!==null);
-    await A.context.setOffline(true);await answer(A,26,'QA-OFFLINE-RECOVERY');const f=await photo(A,27);
-    await A.page.reload();await ready(A);await waitRecord(A,"r.risposte.some(r=>r.note==='QA-OFFLINE-RECOVERY')");
-    assert.ok(await A.page.evaluate(async f=>(await db.leggiFoto(f)).blob.size>0,f));await A.context.setOffline(false);await A.page.evaluate(()=>window.dispatchEvent(new Event('online')));
-    await waitRecord(B,"r.risposte.some(r=>r.note==='QA-OFFLINE-RECOVERY')");return {bytes:await receivePhoto(B,f)};
+    const unreachable='http://127.0.0.1:18085/**';let f;
+    try {
+      if(browserName==='chromium')await A.context.setOffline(true);
+      else {server.serverDown(true);await A.context.route(unreachable,r=>r.abort());}
+      await answer(A,26,'QA-OFFLINE-RECOVERY');f=await photo(A,27);
+      await A.page.reload();await ready(A);await waitRecord(A,"r.risposte.some(r=>r.note==='QA-OFFLINE-RECOVERY')");
+      assert.ok(await A.page.evaluate(async f=>(await db.leggiFoto(f)).blob.size>0,f));
+    } finally {
+      server.serverDown(false);await A.context.setOffline(false);if(browserName!=='chromium')await A.context.unroute(unreachable);
+      if(!await A.page.evaluate(()=>typeof db!=='undefined').catch(()=>false)){await A.page.goto(url);await ready(A);}
+    }
+    await A.page.evaluate(()=>window.dispatchEvent(new Event('online')));
+    await waitRecord(B,"r.risposte.some(r=>r.note==='QA-OFFLINE-RECOVERY')");return {bytes:await receivePhoto(B,f),network:browserName==='chromium'?'browser offline':'HTTP server outage and blocked Firestore'};
   });
   await check('Firestore interrotto: dati pending persistono e ripartono',async()=>{
     await B.context.route('http://127.0.0.1:18085/**',r=>r.abort());await answer(B,28,'QA-FIRESTORE-DOWN');assert.ok(await B.page.evaluate(async id=>(await db.leggiSopralluogo(id)).risposte.some(r=>r.note==='QA-FIRESTORE-DOWN'),id));

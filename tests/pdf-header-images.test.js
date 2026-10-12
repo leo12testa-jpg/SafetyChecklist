@@ -19,6 +19,11 @@ test('same decoded image and header geometry across pages: both copies excluded'
 test('unique portrait or landscape at top is retained, including page one', () => {
   assert.equal(classify([region({larghezza:40,altezza:100}),region({pagina:2,impronta:'pixels-B',larghezza:120,altezza:40})]).size,0);
 });
+
+test('exact bundled header logo is excluded without textual general-data anchors, captioned copies retained', () => {
+  assert.ok(classify([region({logoNoto:true})]).get(1).has(1));
+  assert.equal(classify([region({logoNoto:true,didascaliaFoto:true})]).size,0);
+});
 test('identical geometry or page-local XObject reference alone is insufficient', () => {
   assert.equal(classify([region({ref:'img_1'}),region({pagina:2,ref:'img_1',impronta:'pixels-B'})]).size,0);
   assert.equal(classify([region({impronta:null}),region({pagina:2,impronta:null})]).size,0);

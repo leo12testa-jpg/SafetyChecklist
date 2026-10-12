@@ -23,6 +23,8 @@ for name, output in mapping.items():
     note_x = None
     columns = None
     replaced = set()
+    photo_number = 0
+    fixture['photos'] = []
     for page_index, page in enumerate(doc):
         words = page.get_text('words')
         note_headers = [w for w in words if w[4] in ('NOTE','Note')]
@@ -80,6 +82,11 @@ for name, output in mapping.items():
             page.insert_text((columns[state]+1, w[3]-1), 'X', fontsize=8)
             fixture['rows'].append({'page':page_index+1,'number':number,'note':note,'state':state})
         # Replace every source raster, including masks/logos, so no real photo can survive.
+        photo_rectangles = {}
+        for image in page.get_images(full=True):
+            for rect in page.get_image_rects(image[0]):
+                if rect.y1 >= 100:
+                    photo_rectangles[tuple(round(v, 3) for v in rect)] = rect
         for image in page.get_images(full=True):
             xref=image[0]
             if xref in replaced:
@@ -95,6 +102,14 @@ for name, output in mapping.items():
                 pix.clear_with(160)
                 page.replace_image(xref,pixmap=pix)
             replaced.add(xref)
+        # Preserve caption geometry with entirely synthetic descriptions/owners.
+        # Redaction removes private free text; no original photograph or caption survives.
+        for rect in sorted(photo_rectangles.values(), key=lambda r: (r.y0, r.x0)):
+            photo_number += 1
+            question = 16 + photo_number
+            caption = f'Foto {photo_number} - Domanda {question}: QA FOTO {photo_number}'
+            page.insert_text((rect.x0 + 8, rect.y1 + 14), caption, fontsize=9)
+            fixture['photos'].append({'number': photo_number, 'page': page_index + 1, 'question': question, 'caption': caption})
     doc.set_metadata({'title':'QA storico anonimizzato','author':'QA Fittizio'})
     if doc.get_xml_metadata():
         doc.del_xml_metadata()

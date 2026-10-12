@@ -1,33 +1,31 @@
-# Account e accesso — implementazione corrente
+# Account e accesso — SafetyChecklist V1
 
-Firebase Authentication verifica username/password: lo username normalizzato diventa internamente `username@safetychecklist.local`. Il profilo `utenti/{uid}` deve essere attivo. I ruoli previsti sono `admin` e `tecnico`.
+Lo username normalizzato diventa internamente `username@safetychecklist.local`. Firebase Authentication verifica la password e conserva la sessione nel browser. Il profilo Firestore `utenti/{uid}` deve corrispondere all'account, avere `attivo=true` e ruolo `admin` o `tecnico`.
 
-La sessione è persistita dal Firebase SDK. Dopo la prima verifica online è conservato un profilo locale non segreto per consentire l'uso offline. Password e token non vengono copiati dall'app nell'audit o nei sopralluoghi. La disattivazione online provoca il logout; offline una sessione già verificata rimane disponibile fino al ritorno online. I cambi ruolo sono riletti al focus, al ritorno online e periodicamente.
+Dopo una prima verifica online, un profilo locale consente l'uso offline. La disattivazione blocca subito i servizi online, anche con token già emessi; al ritorno online il client verifica nuovamente il profilo e nasconde le schermate. I ruoli vengono riletti al focus, al ritorno online e periodicamente. I bytes già scaricati offline non sono revocabili senza rete: il logout non cancella il lavoro aziendale salvato nel profilo browser.
 
-## Autorizzazione
+## Permessi
 
-Le regole `firestore.rules` autorizzano le operazioni in base al profilo server attivo. I sopralluoghi sono condivisi da tutti i tecnici attivi: non è previsto isolamento per cliente o assegnatario. Creazioni e aggiornamenti devono riportare l'identità autenticata; account inattivi e anonimi non possono leggere o scrivere. Solo gli admin possono gestire i profili e consultare tutti gli audit.
+I sopralluoghi sono condivisi tra tecnici attivi della stessa azienda. V1 non ha separazione per cliente/assegnatario o più tenant. Creazioni e aggiornamenti riportano l'identità autenticata; anonimi, profili assenti e account inattivi sono respinti dalle regole. Solo gli admin gestiscono utenti e leggono l'audit di tutti.
 
-Le rotte Impostazioni, Utenti e Il mio lavoro sono riservate agli admin. La protezione server rimane necessaria anche quando un pulsante è nascosto. L'audit salva soltanto identità, tipo di operazione e riferimenti; in caso di guasto cloud l'evento viene accodato in IndexedDB e ritentato.
+L'area amministrativa verifica il ruolo sia nelle rotte sia sul server. Quando `foto_accesso_uids` è presente, i download di foto sono limitati a quell'elenco e agli admin; un tecnico non può cambiare l'ACL. Il controllo si applica anche al recupero dei blob locali tramite l'app. I documenti legacy senza ACL mantengono la condivisione aziendale esistente.
 
 ## Gestione utenti
 
-`supabase/functions/manage-users/index.ts` implementa la funzione HTTPS indicata in `js/firebase-config.js`. Verifica il token Firebase tramite l'API Auth e usa quel token per Firestore: non contiene credenziali Admin SDK o service-role.
+`manage-users` usa il token Firebase del chiamante per Auth e Firestore; non espone credenziali privilegiate al client.
 
 | Azione | Autorizzazione |
 |---|---|
-| `sessionStatus` | Utente con token Firebase verificabile |
+| `sessionStatus` | Token Firebase verificabile; restituisce lo stato del profilo |
 | `list`, `create`, `setActive`, `setRole`, `usage` | Admin attivo |
-| `usagePing` | Utente attivo; scrittura soltanto su `utilizzo_app/{proprio uid}` |
+| `usagePing` | Utente attivo, soltanto il proprio documento `utilizzo_app` |
 
-L'elenco segue la paginazione Firestore anche oltre 100 utenti. La creazione compensa un errore di salvataggio del profilo eliminando soltanto l'account appena creato. È impedito cambiare il proprio ruolo o disattivare sé stessi dalla funzione amministrativa. Il tecnico cambia la propria password dalla UI, previa verifica della password attuale.
+L'elenco segue la paginazione oltre 100 utenti. Se il salvataggio del nuovo profilo fallisce, la funzione elimina soltanto l'account appena creato. Non consente di disattivarsi o cambiare il proprio ruolo durante la sessione amministrativa; mantiene almeno un admin attivo. Il cambio password personale richiede la password corrente.
 
-`utilizzo_app` conserva ultimo accesso, heartbeat, build e conteggi della coda. I timestamp sono trasformazioni server; non conserva note, risposte, fotografie o password. Le nuove regole e la funzione devono essere pubblicate insieme al frontend in una fase di rilascio separata. Questo collaudo non esegue deploy.
+La telemetria registra timestamp server, build e quantità della coda; non registra risposte, note, foto, password o token. L'audit è accodato in IndexedDB durante i guasti cloud e invia soltanto eventi dell'identità corrente.
 
-## Fotografie e limiti
+## Fotografie
 
-Le fotografie usano il client Supabase con una chiave publishable. Questa integrazione non inoltra automaticamente l'identità Firebase allo Storage. Il login dell'app, da solo, **non dimostra** che le fotografie siano protette sul bucket: occorre collaudare le policy con account autorizzati e non autorizzati in un progetto Supabase di test. Nessuna policy o dato del bucket produttivo è stato modificato.
+Il frontend usa `photo-access` con il Firebase ID token. Ogni richiesta verifica progetto/issuer, token, account attivo, profilo e sopralluogo. Percorsi legacy rimangono invariati. Storage è privato, con policy restrittiva che nega accessi diretti a `anon` e `authenticated` sul solo bucket `foto-sopralluoghi`; soltanto il server usa la service role. Un retry identico non sovrascrive l'oggetto e una sostituzione diversa è negata. Non vengono emessi link pubblici o firmati.
 
-Il backend attuale è una Supabase Edge Function; non richiede il deploy di una Firebase Cloud Function. Le istruzioni precedenti su `functions/bootstrap-team.js`, Admin SDK e piano Firebase Blaze non corrispondevano ai file di `main` e sono state rimosse.
-
-Il QA usa Firebase Auth/Firestore emulator e Storage mock. Il codice TypeScript della funzione viene eseguito con uno shim `Deno.serve` e API Firebase emulata. Non sostituisce una prova della funzione nel runtime Deno/Supabase reale. Evidenze e limiti: [rapporto](../reports/COLLAUDO_SAFETYCHECKLIST_V1_20261009.md).
+Firebase Auth, regole, funzioni e policy devono essere distribuiti come descritto in [architettura e rilascio](ARCHITETTURA_V1.md). Il rapporto distingue il codice candidato dai backend effettivamente distribuiti. Nessuna Firebase Cloud Function, Admin SDK o conversione al piano Blaze è richiesta da questo percorso.

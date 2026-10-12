@@ -19,18 +19,20 @@ async function check(name,fn){try{const details=await fn();report.tests.push({na
         for(const row of ex.righe)if(!tokens(row).size && (row.stato_originale!=null || row.nota_originale))throw Error('Unexpected non-anonymized response/note: number='+row.numero_originale+' state='+row.stato_originale+' noteLength='+String(row.nota_originale||'').length);
         const expectedPhotos=fixture.file.startsWith('coin')?0:5;
         if(ex.immagini.length!==expectedPhotos)throw Error('Wrong historical photo count '+ex.immagini.length+' expected '+expectedPhotos);
+        for(const [i,photo] of (fixture.photos||[]).entries())if(ex.immagini[i].didascalia!==photo.caption)throw Error('Synthetic caption/owner contamination '+photo.caption+' actual='+ex.immagini[i].didascalia);
         const client=fixture.file.startsWith('coin')?'coin':'restage',cl=await checklistEngine.carica(client+'_sopralluogo');
         const matched=importMatching.abbinaRighe(ex.righe,cl,{puntoDivisioneGruppi:pdf.calcolaPuntoDivisioneGruppi(cl)});
         const photos=importMatching.collegaImmaginiAlleDomande(ex.immagini,matched.righe,cl);
-        window.historical={ex,matched,photos,cl};
+        window.historical={ex,matched,photos,cl,file:fixture.file};
         return {rows:ex.righe.length,photos:photos.length,uncertain:matched.righe.filter(r=>!importMatching.rigaImportabile(r)).length,states:ex.righe.map(r=>({note:r.nota_originale,state:r.stato_originale,question:r.testo_originale})),photoOwners:photos.map(p=>p.domanda_id_collegata)};
       },fixture);report.documents.push({file:fixture.file,...result});return{rows:result.rows,photos:result.photos,uncertain:result.uncertain};
     });
     await check(fixture.file+' preview and manual confirmation preserve uncertain source ownership',async()=>{
-      await page.evaluate(()=>{
+      await page.evaluate(file=>{
+        if(historical.file!==file)throw Error('No verified extraction for this fixture');
         const {ex,matched,photos,cl}=historical;
         anteprimaImportazionePendente={...ex,...matched,immagini:photos,checklist:cl,checklistTitolo:cl.titolo,rilevamentoAutomatico:true,bozzaAnagrafica:{checklist_id:cl.id,punto_vendita:'QA Storico Anonimo',tecnico:'QA'}};router.navigate('import-preview');
-      });
+      },fixture.file);
       const unresolved=await page.evaluate(()=>anteprimaImportazionePendente.righe.filter(r=>r.domanda_id!=null&&!importMatching.rigaImportabile(r)).length);
       if(unresolved){page.once('dialog',d=>d.accept());await page.locator('#btn-conferma-import').click();assert.equal(await page.evaluate(()=>!!anteprimaImportazionePendente),true);}
       await page.screenshot({path:path.join(out,fixture.file+'.png'),fullPage:true});

@@ -2,7 +2,7 @@ const fs=require('node:fs'),path=require('node:path'),{spawn}=require('node:chil
 const {root,project,authOrigin,documents,seed,put,makeServer}=require('./qa-support.cjs');
 const out=path.join(root,'reports/qa-security');fs.mkdirSync(out,{recursive:true});
 const report={runtime:'Deno real',storage:process.env.QA_REAL_STORAGE_URL?'Supabase local real':'isolated HTTP mock',tests:[]};
-const server=makeServer({emulator:true}),children=[],users=[],paths=[];let storage,key,inspectionId,allowed,admin;
+const server=makeServer({emulator:true}),children=[],users=[],paths=[];let storage,key,inspectionId,allowed,admin,supabaseUser;
 function deno(){if(process.env.DENO_BIN)return process.env.DENO_BIN;if(process.platform!=='win32')return'deno';const cache=path.join(process.env.LOCALAPPDATA,'npm-cache/_npx');for(const d of fs.readdirSync(cache)){const p=path.join(cache,d,'node_modules/deno/deno.exe');if(fs.existsSync(p))return p;}throw Error('Deno not installed');}
 async function launch(file,port){const env={...process.env,FIREBASE_PROJECT_ID:project,FIREBASE_API_KEY:'qa-only',FIREBASE_AUTH_EMULATOR_HOST:'127.0.0.1:19099',FIRESTORE_EMULATOR_HOST:'127.0.0.1:18085',SUPABASE_URL:storage,SUPABASE_SERVICE_ROLE_KEY:key,PHOTO_ALLOWED_ORIGINS:server.origin,PORT:String(port),LISTEN_HOST:'127.0.0.1'};
   const hosts=['127.0.0.1:19099','127.0.0.1:18085',new URL(storage).host,'127.0.0.1:'+port];
@@ -40,7 +40,8 @@ const secretHeaders=()=>({authorization:'Bearer '+key,apikey:key,'content-type':
   await check('direct anon access to Storage is denied for GET INSERT DELETE and replacement',async()=>{
     const anon=process.env.QA_REAL_STORAGE_ANON||'anon';const headers={authorization:'Bearer '+anon,apikey:anon,'content-type':'image/png','x-upsert':'true'};
     for(const [url,method,body] of [[objectUrl(oldPath),'GET',undefined],[objectUrl(inspectionId+'/anon.jpg'),'POST',original],[objectUrl(oldPath),'PUT',original],[storage+'/storage/v1/object/foto-sopralluoghi','DELETE',JSON.stringify({prefixes:[oldPath]})]]){
-      const r=await fetch(url,{method,headers:method==='DELETE'?{...headers,'content-type':'application/json'}:headers,body});assert.ok(!r.ok,'Unauthorized direct Storage '+method+' succeeded');
+      const r=await fetch(url,{method,headers:method==='DELETE'?{...headers,'content-type':'application/json'}:headers,body});
+      if(method==='DELETE'&&r.ok)assert.deepEqual(await r.json(),[],'Unauthorized deletion changed objects');else assert.ok(!r.ok,'Unauthorized direct Storage '+method+' succeeded');
     }
     assert.deepEqual(Buffer.from(await(await photoCall('GET',allowed)).arrayBuffer()),original);
   });
@@ -48,6 +49,19 @@ const secretHeaders=()=>({authorization:'Bearer '+key,apikey:key,'content-type':
     const anon=process.env.QA_REAL_STORAGE_ANON||'anon';
     const r=await fetch(storage+'/storage/v1/object/list/foto-sopralluoghi',{method:'POST',headers:{authorization:'Bearer '+anon,apikey:anon,'content-type':'application/json'},body:JSON.stringify({prefix:inspectionId,limit:100})});
     if(r.ok)assert.deepEqual(await r.json(),[]);else assert.ok([400,401,403,404].includes(r.status));
+  });
+  if(process.env.QA_REAL_STORAGE_URL)await check('real Supabase authenticated role cannot bypass the Firebase gateway or Storage policy',async()=>{
+    const anon=process.env.QA_REAL_STORAGE_ANON;
+    const signup=await fetch(storage+'/auth/v1/signup',{method:'POST',headers:{apikey:anon,'content-type':'application/json'},body:JSON.stringify({email:'qa.storage.'+suffix+'@example.invalid',password:'QA-only!Fittizio2026'})});
+    assert.equal(signup.status,200);const signed=await signup.json();supabaseUser=signed.user?.id;assert.ok(supabaseUser&&signed.access_token,'Local signup must auto-confirm only test accounts');
+    const headers={apikey:anon,authorization:'Bearer '+signed.access_token,'content-type':'image/png'};
+    assert.ok(!(await fetch(objectUrl(oldPath),{headers})).ok,'Authenticated direct read leaked bytes');
+    const forbidden=inspectionId+'/supabase-auth.jpg';paths.push(forbidden);
+    assert.ok(!(await fetch(objectUrl(forbidden),{method:'POST',headers,body:original})).ok,'Authenticated direct upload bypassed policy');
+    const listing=await fetch(storage+'/storage/v1/object/list/foto-sopralluoghi',{method:'POST',headers:{...headers,'content-type':'application/json'},body:JSON.stringify({prefix:inspectionId,limit:100})});if(listing.ok)assert.deepEqual(await listing.json(),[]);
+    assert.equal((await photoCall('GET',{token:signed.access_token})).status,401,'Supabase token must not authorize a Firebase account');
+    const deletion=await fetch(storage+'/storage/v1/object/foto-sopralluoghi',{method:'DELETE',headers:{...headers,'content-type':'application/json'},body:JSON.stringify({prefixes:[oldPath]})});assert.ok(!deletion.ok||!((await deletion.json())||[]).length);
+    assert.deepEqual(Buffer.from(await(await photoCall('GET',allowed)).arrayBuffer()),original);
   });
   await check('Deno manage-users authentication/admin authorization/error validation',async()=>{assert.equal((await manageCall('list',null)).status,401);assert.equal((await manageCall('list',allowed)).status,403);assert.equal((await manageCall('list',admin)).status,200);assert.equal((await manageCall('create',admin,{username:'invalid..name',password:'short'})).status,400);assert.equal((await manageCall('setActive',admin,{uid:admin.uid,active:false})).status,400);});
   let created;
@@ -63,5 +77,10 @@ const secretHeaders=()=>({authorization:'Bearer '+key,apikey:key,'content-type':
   for(const p of paths)if(storage)await fetch(storage+'/storage/v1/object/foto-sopralluoghi',{method:'DELETE',headers:{...secretHeaders(),'content-type':'application/json'},body:JSON.stringify({prefixes:[p]})}).catch(()=>{});
   if(inspectionId)await fetch(documents+'/sopralluoghi/'+inspectionId,{method:'DELETE',headers:{authorization:'Bearer owner'}});
   for(const u of users){await fetch(documents+'/utenti/'+u.uid,{method:'DELETE',headers:{authorization:'Bearer owner'}});await fetch(authOrigin+'/identitytoolkit.googleapis.com/v1/accounts:delete?key=qa-only',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({idToken:u.token})});}
+  if(supabaseUser)assert.ok((await fetch(storage+'/auth/v1/admin/users/'+supabaseUser,{method:'DELETE',headers:serviceHeadersForAuth()})).ok);
+  if(process.env.QA_REAL_STORAGE_URL){const r=await fetch(storage+'/storage/v1/object/list/foto-sopralluoghi',{method:'POST',headers:{...secretHeaders(),'content-type':'application/json'},body:JSON.stringify({prefix:inspectionId,limit:100})});assert.ok(r.ok);assert.deepEqual(await r.json(),[],'Synthetic Storage objects remain after cleanup');}
+  const counts={};for(const collection of ['sopralluoghi','utenti']){const r=await fetch(documents+'/'+collection+'?pageSize=1',{headers:{authorization:'Bearer owner'}});assert.ok(r.ok);counts[collection]=((await r.json()).documents||[]).length;assert.equal(counts[collection],0);}
+  report.cleanup={firebase:counts,storageObjectsRemaining:0,supabaseTestUserDeleted:!!supabaseUser};
   server.storage.clear();server.close();report.cleaned=true;fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(report,null,2));if(report.tests.some(t=>t.status==='FAIL'))process.exitCode=1;
 });
+function serviceHeadersForAuth(){return{authorization:'Bearer '+key,apikey:key};}

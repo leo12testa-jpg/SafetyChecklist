@@ -100,7 +100,7 @@ function makeServer({emulator=false}={}) {
       let body=fs.readFileSync(file);
       if(emulator&&rel==='js/firebase-config.js')body=body.toString().replace(/projectId: "[^"]+"/,`projectId: "${project}"`).replace(/const USER_ADMIN_ENDPOINT = '[^']+'/,`const USER_ADMIN_ENDPOINT = '${server.origin}/qa/manage-users'`)+`
         firebaseClient.initApp(); firebase.auth().useEmulator('${authOrigin}',{disableWarnings:true});
-        firebase.firestore().useEmulator('127.0.0.1',18085);
+        firebaseClient.firestore().useEmulator('127.0.0.1',18085);
       `;
       if(emulator&&rel==='js/supabase-config.js')body=body.toString().replace(/const SUPABASE_URL = "[^"]+"/,`const SUPABASE_URL = "${server.origin}"`);
       if(!emulator&&rel==='index.html')body=require('./pdf-local-server.cjs').harness();

@@ -27,7 +27,7 @@ jobs:
       - name: Type check actual Deno backends
         run: deno check supabase/functions/manage-users/index.ts supabase/functions/photo-access/index.ts
       - name: Start dedicated local Storage and real RLS
-        run: supabase start --workdir tests/storage-local --exclude gotrue,realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+        run: supabase start --workdir tests/storage-local --exclude realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
       - name: Configure only local test credentials
         run: |
           supabase status --workdir tests/storage-local -o env > "$RUNNER_TEMP/storage-env.txt"
