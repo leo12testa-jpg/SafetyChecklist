@@ -38,6 +38,16 @@ test('index.json: ogni voce ha una categoria e le checklist DVR esistono con la 
   }
 });
 
+test('menu nuova raccolta DVR: mostra cinque modelli generali, conserva i due specifici per lo storico', () => {
+  const f = caricaFunzioni();
+  const idVisibili = indice.filter((v) => f.checklistNelMenuNuovaRaccolta(v, 'dvr')).map((v) => v.id);
+  assert.deepEqual(idVisibili, ['dvr_asili', 'dvr_ristoranti_alberghi', 'dvr_uffici', 'dvr_generico', 'dvr_edilizia']);
+  assert.ok(indice.some((v) => v.id === 'dvr_chimico'));
+  assert.ok(indice.some((v) => v.id === 'dvr_mmc'));
+  const audit = indice.filter((v) => v.categoria === 'audit');
+  assert.equal(indice.filter((v) => f.checklistNelMenuNuovaRaccolta(v, 'audit')).length, audit.length);
+});
+
 test('checklist DVR: id e codici univoci, codice nel testo, tipi supportati, nessun ":" nel testo', () => {
   for (const voce of indice.filter((v) => v.categoria === 'dvr')) {
     const cl = JSON.parse(fs.readFileSync(path.join(root, 'checklists', `${voce.id}.json`), 'utf8'));
