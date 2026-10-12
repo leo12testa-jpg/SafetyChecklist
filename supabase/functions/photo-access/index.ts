@@ -1,6 +1,8 @@
 /** Private photo gateway. The Storage service key exists only in server secrets. */
-const project = Deno.env.get('FIREBASE_PROJECT_ID') || '';
-const apiKey = Deno.env.get('FIREBASE_API_KEY') || '';
+// Public Firebase identifiers already shipped in firebase-config.js. Staging
+// overrides these with a demo project; privileged Storage credentials stay in env.
+const project = Deno.env.get('FIREBASE_PROJECT_ID') || 'safety-checklist-colligo';
+const apiKey = Deno.env.get('FIREBASE_API_KEY') || 'AIzaSyAdgCc8TQ1TVfF8l0NMxtm7NS95ZOl4lCA';
 const storageUrl = Deno.env.get('SUPABASE_URL') || '';
 const storageKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 const authEmulator = Deno.env.get('FIREBASE_AUTH_EMULATOR_HOST');
