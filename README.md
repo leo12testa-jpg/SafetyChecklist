@@ -4,7 +4,7 @@ PWA di Colligo Ingegneria per sopralluoghi HSE e Raccolte dati DVR. L'app salva 
 
 App: https://leo12testa-jpg.github.io/SafetyChecklist/
 
-**Candidato V1.0: il merge e la pubblicazione richiedono tutti i gate verdi e la verifica del backend distribuito.** Stato e prove: [rapporto di rilascio](reports/RILASCIO_V1_20261012.md).
+**V1.0 — build 20261012-140126.** Collaudo, backend distribuiti e limiti delle verifiche hardware: [rapporto di rilascio](reports/RILASCIO_V1_20261012.md). La pubblicazione avviene tramite merge della PR verificata; tutti i gate di rilascio devono essere verdi.
 
 ## Utilizzo
 
