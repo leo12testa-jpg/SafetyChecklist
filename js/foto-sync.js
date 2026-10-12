@@ -2,7 +2,7 @@
  * Sincronizzazione delle FOTO su Supabase Storage: le foto restano sempre salvate in locale
  * per prime (db.js, invariato), questo modulo è un livello "best effort" aggiuntivo che, quando
  * online, ne carica anche una copia sul bucket Supabase configurato in js/supabase-config.js e
- * ne salva il riferimento (url pubblico + percorso nel bucket) sia sul record locale della foto
+ * ne salva il riferimento (endpoint autorizzato + percorso nel bucket) sia sul record locale della foto
  * sia sulla mappa "foto_url" del sopralluogo, così il riferimento viaggia con la sincronizzazione
  * testuale già esistente (js/sync.js, via Firestore) e resta consultabile anche da un dispositivo
  * che non ha mai avuto quella foto in locale (vedi risolviFoto, usata da js/pdf.js).
@@ -25,23 +25,39 @@ const fotoSync = (() => {
     return navigator.onLine;
   }
 
-  /** Inizializza il client Supabase al primo utilizzo. Ritorna null se SDK/config non disponibili. */
+  /** Adapter HTTP per il gateway Firebase; nessuna chiave privilegiata nel browser. */
   function inizializzaClient() {
     if (client) {
       return client;
     }
-    if (typeof supabase === 'undefined' || typeof SUPABASE_URL === 'undefined') {
-      console.warn('FotoSync: SDK Supabase o supabase-config.js non caricati, sincronizzazione foto disabilitata.');
+    if (typeof PHOTO_ACCESS_ENDPOINT === 'undefined') {
+      console.warn('FotoSync: backend fotografie non configurato.');
       return null;
     }
-    client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { fetch: async (url, options = {}) => {
+    const address = (path, extra = {}) => PHOTO_ACCESS_ENDPOINT + '?' + new URLSearchParams({ sopralluogo_id: path.split('/')[0], path, ...extra });
+    const request = async (url, options = {}) => {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 25000);
-        try { return await fetch(url, { ...options, signal: controller.signal }); }
+        try {
+          if (typeof appIdentity === 'undefined' || !appIdentity.current()) throw new Error('Sessione non disponibile.');
+          const token = await appIdentity.token();
+          const response = await fetch(url, { ...options, headers: { ...options.headers, authorization: `Bearer ${token}` }, signal: controller.signal });
+          if (!response.ok) throw Object.assign(new Error((await response.json().catch(() => ({}))).error || 'Servizio foto non disponibile.'), { status: response.status });
+          return response;
+        }
         finally { clearTimeout(timer); }
-      } }
-    });
+    };
+    client = { storage: { from: () => ({
+      async upload(path, blob, options) {
+        try {
+          await request(address(path, { foto_id: options.photoId, domanda_id: options.question ?? '' }), { method: 'POST', headers: { 'content-type': blob.type }, body: blob });
+          return { error: null };
+        } catch (error) { return { error }; }
+      },
+      getPrivateUrl: path => ({ data: { privateUrl: address(path) } }),
+      async download(path) { try { return { data: await (await request(address(path))).blob(), error: null }; } catch(error) { return { data: null, error }; } },
+      async remove(paths) { try { for (const path of paths) await request(address(path), { method: 'DELETE' }); return { error: null }; } catch(error) { return { error }; } }
+    }) } };
     return client;
   }
 
@@ -106,13 +122,13 @@ const fotoSync = (() => {
     try {
       const path = percorsoStorage({ sopralluogo_id, domanda_id, fotoId });
       const { error: erroreUpload } = await supa.storage.from(SUPABASE_BUCKET).upload(path, blob, {
-        contentType: 'image/jpeg',
-        upsert: false
+        photoId: fotoId,
+        question: domanda_id
       });
-      if (erroreUpload && !['409', 'Duplicate'].includes(String(erroreUpload.statusCode || erroreUpload.error)) && !/already exists/i.test(erroreUpload.message || '')) throw erroreUpload;
+      if (erroreUpload) throw erroreUpload;
 
-      const { data } = supa.storage.from(SUPABASE_BUCKET).getPublicUrl(path);
-      const url = data ? data.publicUrl : null;
+      const { data } = supa.storage.from(SUPABASE_BUCKET).getPrivateUrl(path);
+      const url = data ? data.privateUrl : null;
 
       // No-op se la foto è stata eliminata in locale mentre l'upload era ancora in corso (vedi
       // db.impostaUrlFoto): niente da aggiornare, la foto non è più referenziata da nessuna parte.
@@ -135,7 +151,10 @@ const fotoSync = (() => {
     (sopralluoghi || []).forEach((sopralluogo) => {
       if (!sopralluogo || sopralluogo.eliminato_definitivamente) return;
       const risposte = Array.isArray(sopralluogo.risposte) ? sopralluogo.risposte : Object.values(sopralluogo.risposte || {});
-      risposte.forEach((risposta) => (risposta && risposta.foto || []).forEach((id) => riferimenti.add(String(id))));
+      risposte.forEach(risposta => {
+        [risposta, ...(risposta?.versioni_precedenti || [])].forEach(versione =>
+          (versione?.foto || []).forEach(id => riferimenti.add(String(id))));
+      });
       (sopralluogo.altri_aspetti_foto || []).forEach((id) => riferimenti.add(String(id)));
     });
     return riferimenti;
@@ -281,11 +300,22 @@ const fotoSync = (() => {
    * pubblico salvato: il bucket di questo progetto non è marcato "Public" (vedi
    * supabase-config.js), quindi un fetch diretto sull'url fallirebbe.
    */
-  function risolviFoto(fotoId, sopralluogo) {
-    if (downloads.has(fotoId)) return downloads.get(fotoId);
+  function accessoFotoConsentito(sopralluogo) {
+    const user = typeof appIdentity !== 'undefined' ? appIdentity.current() : null;
+    if (!user || user.attivo === false) return false;
+    if (!sopralluogo || !('foto_accesso_uids' in sopralluogo)) return true;
+    return user.ruolo === 'admin' || (Array.isArray(sopralluogo.foto_accesso_uids) && sopralluogo.foto_accesso_uids.includes(user.uid));
+  }
+  async function risolviFoto(fotoId, sopralluogo) {
+    if (!accessoFotoConsentito(sopralluogo)) return null;
+    if (downloads.has(fotoId)) {
+      const result = await downloads.get(fotoId);
+      return accessoFotoConsentito(sopralluogo) ? result : null;
+    }
     const lavoro = risolviFotoInterna(fotoId, sopralluogo).finally(() => downloads.delete(fotoId));
     downloads.set(fotoId, lavoro);
-    return lavoro;
+    const result = await lavoro;
+    return accessoFotoConsentito(sopralluogo) ? result : null;
   }
   async function risolviFotoInterna(fotoId, sopralluogo) {
     const locale = await db.leggiFoto(fotoId);

@@ -28,23 +28,18 @@ function executable(name) {
 }
 
 const BASE_URL = 'http://127.0.0.1:8765/';
-const CHECKLISTS = ['coin_sopralluogo', 'interparking_sopralluogo', 'restage_sopralluogo', 'melluso_sopralluogo'];
+const CHECKLISTS = ['coin_sopralluogo', 'interparking_sopralluogo', 'restage_sopralluogo', 'melluso_sopralluogo', 'carrefour_sopralluogo'];
 
-// L'harness (pdf-local-server.cjs) rimuove già firebase/supabase/sync/aggiornamento e li stubba
-// con no-op. QUI invece vogliamo il vero sync.js + firebase-config.js caricati, per verificare
-// che un fallimento REALE di rete verso Firestore/Supabase non impedisca il salvataggio locale
-// — quindi usiamo l'app SENZA lo stub, servita dallo stesso server statico, con le chiamate
-// verso i servizi cloud bloccate/404 a livello di rete (mai eseguite realmente).
+// This local persistence smoke uses the isolated session from pdf-local-server.
+// qa-browser separately exercises actual Firebase authentication and cloud failures.
 function pageCompleta() {
-  return fs.readFileSync(path.resolve(__dirname, '../index.html'), 'utf8')
-    // Il service worker in un browser di test è solo rumore/rischio di cache tra un run e
-    // l'altro: lo togliamo qui (js/aggiornamento.js è l'unico punto che lo registra), non è
-    // quello che questi test verificano.
-    .replace('<script src="js/aggiornamento.js"></script>', '');
+  // Exercise the real application and IndexedDB with a fictitious local session.
+  // Auth/cloud outages are verified separately by qa-browser against emulators.
+  return server.harness();
 }
 
 async function creaContestoPagina(browser, { failMode = 'abort' } = {}) {
-  const context = await browser.newContext();
+  const context = await browser.newContext({serviceWorkers:'block'});
   const chiamateRemoteViste = [];
   await context.route('**/*', (route) => {
     const url = route.request().url();
@@ -133,8 +128,7 @@ async function run(browserName, browserType, launchOptions) {
       await page.waitForFunction(() => location.hash === '#compilazione', { timeout: 10000 });
       await page.locator('input[type="radio"][name="risposta"][value="NC"]').first().click();
       await page.waitForTimeout(150);
-      // Le note si autosalvano solo al blur (vedi checklist.js/app.js), non a ogni tasto: bisogna
-      // aprire l'editor nota, scrivere e uscire dal campo prima di verificare il salvataggio.
+      // Le note si autosalvano durante la digitazione; il blur conclude l'interazione.
       await page.locator('#btn-note').click();
       await page.locator('#nota-testo').fill('nota-e2e-' + checklistId);
       await page.locator('#nota-testo').blur();
@@ -207,12 +201,12 @@ async function run(browserName, browserType, launchOptions) {
       await context.close();
     }
 
-    // --- Checklist JSON introvabile dopo una creazione locale riuscita: il record resta salvato,
-    //     l'utente viene mandato in Storico con un messaggio chiaro (mai una promise silenziosa) ---
+    // --- An unavailable checklist is rejected before creating an empty record.
+    //     Keep the operator's form intact and explain how to retry. ---
     {
       const { context, page } = await creaContestoPagina(browser, { failMode: 'abort' });
       const puntoVendita = `E2E-checklist-404-${Date.now()}`;
-      await context.route('**/checklists/coin_sopralluogo.json', (route) => route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not Found' }));
+      await context.route('**/checklists/coin_sopralluogo.json*', (route) => route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not Found' }));
       const messaggiDialogo = [];
       page.on('dialog', async (dialog) => { messaggiDialogo.push(dialog.message()); await dialog.accept(); });
 
@@ -220,12 +214,12 @@ async function run(browserName, browserType, launchOptions) {
       await page.goto(BASE_URL, { waitUntil: 'load', timeout: 20000 });
       await apriNuovoSopralluogo(page, 'coin_sopralluogo', puntoVendita);
       await page.locator('button:has-text("INIZIA")').click();
-      await page.waitForFunction(() => location.hash === '#history', { timeout: 10000 }).catch(() => {});
+      await page.waitForFunction(() => !document.querySelector('#form-nuovo-sopralluogo button[type=submit]').disabled);
 
       const tutti = await leggiSopralluoghiIDB(page);
-      verifica('checklist non caricabile dopo creazione: il sopralluogo resta comunque salvato', tutti.some((s) => s.punto_vendita === puntoVendita));
-      verifica('checklist non caricabile dopo creazione: l\'utente viene portato in Storico', page.url().endsWith('#history'));
-      verifica('checklist non caricabile dopo creazione: viene mostrato un messaggio chiaro (non una promise silenziosa)', messaggiDialogo.some((m) => m.includes('salvato correttamente')));
+      verifica('checklist non caricabile: nessun documento vuoto viene creato', !tutti.some((s) => s.punto_vendita === puntoVendita));
+      verifica('checklist non caricabile: i dati del form restano recuperabili', page.url().endsWith('#new-inspection') && await page.locator('#input-punto-vendita').inputValue() === puntoVendita);
+      verifica('checklist non caricabile: errore chiaro e retry disponibile', messaggiDialogo.some((m) => m.includes('Nessun sopralluogo è stato creato')));
       await context.close();
     }
 
@@ -283,6 +277,8 @@ async function run(browserName, browserType, launchOptions) {
   server.close();
 
   const falliti = tuttiRisultati.filter((r) => !r.ok);
+  fs.mkdirSync(path.join(__dirname,'../reports/local-first'),{recursive:true});
+  fs.writeFileSync(path.join(__dirname,'../reports/local-first/results.json'),JSON.stringify({mode:'local application and IndexedDB; cloud/auth covered by qa-browser',tests:tuttiRisultati},null,2));
   console.log(`\n${tuttiRisultati.length - falliti.length}/${tuttiRisultati.length} PASS`);
   if (falliti.length > 0) {
     console.error(`${falliti.length} test FALLITI.`);

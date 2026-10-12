@@ -2,7 +2,7 @@
  * A controller change alone is not an update. Never reload unsaved input automatically.
  */
 const aggiornamentoApp = (() => {
-  const BUILD_ID = '20261012-101054';
+  const BUILD_ID = '20261012-140126';
   let buildServer = null;
   // "import-preview" (anteprima importazione PDF, vedi js/pdf-import.js + js/import-matching.js
   // in app.js) esiste SOLO in memoria finchÃ© non si preme "Conferma importazione": un reload lÃ¬
@@ -40,7 +40,11 @@ const aggiornamentoApp = (() => {
       if (sessionStorage.getItem(chiave)) return false;
       sessionStorage.setItem(chiave, '1');
     } catch (_) {}
-    await attendiNuovoServiceWorker(10000);
+    if (!await attendiNuovoServiceWorker(10000)) {
+      try { sessionStorage.removeItem(chiave); } catch (_) {}
+      return false;
+    }
+    if (typeof compilazioneScreen !== 'undefined' && !await compilazioneScreen.attendiSalvataggi()) return false;
     // Durante l'attesa l'utente potrebbe aver iniziato un nuovo sopralluogo o aperto un dialogo.
     // Ricontrollare immediatamente prima del reload per non perdere dati non confermati.
     if (!schermataSicuraPerAggiornamento()) {
@@ -68,8 +72,7 @@ const aggiornamentoApp = (() => {
       // quando ne verifica gli aggiornamenti (su GitHub Pages, senza controllo sugli header
       // Cache-Control, altrimenti il controllo vedrebbe una copia non aggiornata del file per la
       // durata della sua cache HTTP).
-      navigator.serviceWorker.register('service-worker.js', { scope: './', updateViaCache: 'none' })
-        .then((registrazione) => registrazione.update())
+      navigator.serviceWorker.register(`service-worker.js?v=${BUILD_ID}`, { scope: './', updateViaCache: 'none' })
         .catch((errore) => console.error('[SW] Registrazione non riuscita:', errore));
     });
 
@@ -86,7 +89,15 @@ const aggiornamentoApp = (() => {
         bannerBottone.disabled = true;
         // The shell is served cache-first: reloading before the new worker has activated would
         // bring back the old build (and the banner). Wait for it, bounded, then reload once.
-        await attendiNuovoServiceWorker(10000);
+        if (!await attendiNuovoServiceWorker(10000)) {
+          bannerBottone.disabled = false;
+          alert('Aggiornamento non ancora disponibile. Verifica la connessione e riprova.');
+          return;
+        }
+        if (typeof compilazioneScreen !== 'undefined' && !await compilazioneScreen.attendiSalvataggi()) {
+          bannerBottone.disabled = false;
+          return;
+        }
         if (!schermataSicuraPerAggiornamento()) {
           bannerBottone.disabled = false;
           alert('Aggiornamento rimandato: ci sono modifiche in corso che potrebbero andare perse.');
@@ -99,19 +110,29 @@ const aggiornamentoApp = (() => {
 
   async function attendiNuovoServiceWorker(timeoutMs) {
     try {
-      const registrazione = await navigator.serviceWorker.getRegistration();
-      if (!registrazione) return;
-      await registrazione.update();
-      const worker = registrazione.installing || registrazione.waiting;
-      if (!worker || worker.state === 'activated') return;
-      await new Promise((resolve) => {
-        const timer = setTimeout(resolve, timeoutMs);
-        worker.addEventListener('statechange', () => {
-          if (worker.state === 'activated' || worker.state === 'redundant') { clearTimeout(timer); resolve(); }
-        });
-      });
+      let registrazione = await navigator.serviceWorker.getRegistration();
+      if (!registrazione) return false;
+      // update() itself can remain pending after a network interruption. Bound
+      // the whole operation and let controllerchange/focus retry later.
+      navigator.serviceWorker.register(`service-worker.js?v=${encodeURIComponent(buildServer)}`, { scope: './', updateViaCache: 'none' })
+        .then(value => { registrazione = value; })
+        .catch(error => console.warn('[SW] Verifica rimandata:', error));
+      // Reload only when the complete new shell is available. An offline/failed
+      // install must retain the running build and allow another attempt.
+      const name = `safety-checklist-shell-${buildServer}`;
+      const scadenza = Date.now() + timeoutMs;
+      do {
+        if (await caches.has(name)) {
+          const cache = await caches.open(name);
+          if (await cache.match('.shell-ready') && await cache.match('index.html') && await cache.match(`js/aggiornamento.js?v=${buildServer}`)
+              && !registrazione.installing && !registrazione.waiting) return true;
+        }
+        await new Promise(resolve => setTimeout(resolve, 150));
+      } while (Date.now() < scadenza);
+      return false;
     } catch (errore) {
-      console.warn('[SW] Verifica aggiornamento non riuscita, ricarico comunque:', errore);
+      console.warn('[SW] Aggiornamento rimandato:', errore);
+      return false;
     }
   }
 
@@ -138,7 +159,7 @@ const aggiornamentoApp = (() => {
     });
   }
 
-  return { init, _test: { schermataARischioAttiva } };
+  return { init, _test: { schermataARischioAttiva, schermataSicuraPerAggiornamento, stato: () => ({ buildServer, BUILD_ID }) } };
 })();
 
 document.addEventListener('DOMContentLoaded', () => aggiornamentoApp.init());

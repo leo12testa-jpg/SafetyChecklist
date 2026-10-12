@@ -24,7 +24,16 @@ function caricaFotoSync({ fotoLocale = null, blobRemoto = new Blob(['foto-remota
   };
   const context = {
     console,
-    Blob,
+    Blob, Response, URL, URLSearchParams, AbortController, setTimeout, clearTimeout,
+    PHOTO_ACCESS_ENDPOINT:'https://example.test/photo-access',
+    appIdentity:{current:()=>({uid:'qa'}),token:async()=>'qa-firebase-token'},
+    fetch:async(url,options={})=>{
+      assert.equal(options.headers.authorization,'Bearer qa-firebase-token');
+      const p=new URL(url).searchParams.get('path');
+      if(options.method==='POST'){const r=await storage.upload(p,options.body);return new Response(JSON.stringify(r),{status:r.error?503:200});}
+      if(options.method==='DELETE'){await storage.remove([p]);return new Response('{}');}
+      return new Response((await storage.download(p)).data);
+    },
     navigator: { onLine: true },
     window: { addEventListener() {} },
     db,
@@ -35,8 +44,21 @@ function caricaFotoSync({ fotoLocale = null, blobRemoto = new Blob(['foto-remota
   };
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/foto-sync.js'), 'utf8'), context);
-  return { fotoSync: vm.runInContext('fotoSync', context), download, blobRemoto };
+  return { fotoSync: vm.runInContext('fotoSync', context), download, blobRemoto, context };
 }
+
+test('photo ACL also protects cached local blobs after logout or switching users', async () => {
+  const {fotoSync,context,download}=caricaFotoSync({fotoLocale:{id:'cached',blob:new Blob(['private'])}});
+  const record={id:'private',foto_accesso_uids:['qa']};
+  assert.ok(await fotoSync.risolviFoto('cached',record));
+  context.appIdentity.current=()=>({uid:'other',ruolo:'tecnico'});
+  assert.equal(await fotoSync.risolviFoto('cached',record),null);
+  context.appIdentity.current=()=>null;
+  assert.equal(await fotoSync.risolviFoto('cached',record),null);
+  context.appIdentity.current=()=>({uid:'admin',ruolo:'admin',attivo:true});
+  assert.ok(await fotoSync.risolviFoto('cached',record));
+  assert.deepEqual(download,[]);
+});
 
 test('foto cross-device: se manca in IndexedDB viene scaricata dal path Supabase sincronizzato', async () => {
   const { fotoSync, download, blobRemoto } = caricaFotoSync();
@@ -47,7 +69,7 @@ test('foto cross-device: se manca in IndexedDB viene scaricata dal path Supabase
   const foto = await fotoSync.risolviFoto('foto-123', sopralluogo);
   assert.equal(foto.id, 'foto-123');
   assert.equal(foto.sopralluogo_id, 'sop-1');
-  assert.equal(foto.blob, blobRemoto);
+  assert.equal(await foto.blob.text(), await blobRemoto.text());
   assert.deepEqual(download, ['sop-1/17_123_foto-123.jpg']);
 });
 
@@ -147,7 +169,13 @@ test('foto pending: gli upload vengono ritentati automaticamente in parallelo li
     remove: async () => ({ error: null })
   };
   const context = {
-    console, Blob, AbortController, setTimeout, clearTimeout,
+    console, Blob, Response, URL, URLSearchParams, AbortController, setTimeout, clearTimeout,
+    PHOTO_ACCESS_ENDPOINT:'https://example.test/photo-access',
+    appIdentity:{current:()=>({uid:'qa'}),token:async()=>'qa-firebase-token'},
+    fetch:async(url,options={})=>{
+      assert.equal(options.headers.authorization,'Bearer qa-firebase-token');
+      await storage.upload(new URL(url).searchParams.get('path'),options.body);return new Response('{}');
+    },
     navigator:{onLine:true}, window:{addEventListener(){}}, db,
     SUPABASE_URL:'https://example.supabase.co', SUPABASE_ANON_KEY:'anon', SUPABASE_BUCKET:'foto-sopralluoghi',
     supabase:{createClient:()=>({storage:{from:()=>storage}})}

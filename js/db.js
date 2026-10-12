@@ -192,6 +192,15 @@ const db = (() => {
     record.campi_aggiornati.aggiornato_il = record.aggiornato_il;
   }
 
+  function prossimoTimestamp(record) {
+    // Browser clocks may repeat or move backwards. A later local edit must
+    // remain later than the values it replaces when a stale snapshot arrives.
+    const precedenti = [record.aggiornato_il, ...Object.values(record.campi_aggiornati || {}),
+      ...normalizzaRisposte(record.risposte).map(r => r.aggiornato_il)]
+      .map(value => Date.parse(value)).filter(Number.isFinite);
+    return new Date(Math.max(Date.now(), ...precedenti.map(value => value + 1))).toISOString();
+  }
+
   function marcaCreazione(record) {
     const creatore = typeof appIdentity !== 'undefined' ? appIdentity.current() : null;
     if (!creatore) return;
@@ -386,7 +395,7 @@ const db = (() => {
 
     stabilizzaTempi(sopralluogo);
     sopralluogo.risposte = normalizzaRisposte(risposte);
-    sopralluogo.aggiornato_il = new Date().toISOString();
+    sopralluogo.aggiornato_il = prossimoTimestamp(sopralluogo);
     marcaModifica(sopralluogo, []);
     await richiesta(store.put(sopralluogo));
     await transazioneCompletata(tx);
@@ -412,12 +421,13 @@ const db = (() => {
     }
 
     stabilizzaTempi(sopralluogo);
-    const adesso = new Date().toISOString();
+    const adesso = prossimoTimestamp(sopralluogo);
     const rispostaConTimestamp = { ...risposta, aggiornato_il: adesso };
 
     const risposte = normalizzaRisposte(sopralluogo.risposte);
     const idx = risposte.findIndex((r) => String(r.domanda_id) === String(risposta.domanda_id));
     const precedente = idx >= 0 ? risposte[idx] : null;
+    rispostaConTimestamp._base_aggiornato_il = precedente?.aggiornato_il || null;
     if (idx >= 0) {
       risposte[idx] = { ...risposte[idx], ...rispostaConTimestamp };
     } else {
@@ -436,7 +446,10 @@ const db = (() => {
     const rispostaSalvata = risposte[idx >= 0 ? idx : risposte.length - 1];
     const verificato = await leggiSopralluogoGrezzo(sopralluogoId);
     const rispostaVerificata = verificato && normalizzaRisposte(verificato.risposte).find((r) => String(r.domanda_id) === String(risposta.domanda_id));
-    if (!rispostaVerificata || rispostaVerificata.aggiornato_il !== adesso) {
+    const conservata = rispostaVerificata && [rispostaVerificata, ...(rispostaVerificata.versioni_precedenti || [])]
+      .some(r => r.aggiornato_il === adesso);
+    const successiva = rispostaVerificata?._base_aggiornato_il === adesso;
+    if (!conservata && !successiva) {
       throw new Error(`Salvataggio locale non verificabile per la risposta alla domanda ${risposta.domanda_id} del sopralluogo ${sopralluogoId}.`);
     }
 
@@ -460,7 +473,7 @@ const db = (() => {
       return;
     }
     stabilizzaTempi(sopralluogo);
-    const adesso = new Date().toISOString();
+    const adesso = prossimoTimestamp(sopralluogo);
     const valore = { url, path };
     sopralluogo.foto_url = { ...(sopralluogo.foto_url || {}), [fotoId]: valore };
     sopralluogo.aggiornato_il = adesso;
@@ -492,7 +505,7 @@ const db = (() => {
 
     stabilizzaTempi(sopralluogo);
     Object.assign(sopralluogo, cambiamenti);
-    sopralluogo.aggiornato_il = new Date().toISOString();
+    sopralluogo.aggiornato_il = prossimoTimestamp(sopralluogo);
     marcaModifica(sopralluogo, Object.keys(cambiamenti));
     await richiesta(store.put(sopralluogo));
     await transazioneCompletata(tx);
@@ -559,7 +572,8 @@ const db = (() => {
     (sopralluoghi || []).forEach((sopralluogo) => {
       if (!sopralluogo || sopralluogo.eliminato_definitivamente) return;
       normalizzaRisposte(sopralluogo.risposte).forEach((risposta) => {
-        (risposta.foto || []).forEach((fotoId) => ids.add(String(fotoId)));
+        [risposta, ...(risposta.versioni_precedenti || [])].forEach(versione =>
+          (versione.foto || []).forEach(fotoId => ids.add(String(fotoId))));
       });
       (sopralluogo.altri_aspetti_foto || []).forEach((fotoId) => ids.add(String(fotoId)));
     });
@@ -691,7 +705,7 @@ const db = (() => {
 
     stabilizzaTempi(sopralluogo);
     sopralluogo.eliminato_il = null;
-    sopralluogo.aggiornato_il = new Date().toISOString();
+    sopralluogo.aggiornato_il = prossimoTimestamp(sopralluogo);
     marcaModifica(sopralluogo, ['eliminato_il']);
     await richiesta(store.put(sopralluogo));
     await transazioneCompletata(tx);

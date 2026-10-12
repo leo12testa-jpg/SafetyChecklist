@@ -19,6 +19,7 @@ const camera = (() => {
         const file = input.files && input.files[0];
         resolve(file || null);
       }, { once: true });
+      input.addEventListener('cancel', () => resolve(null), { once: true });
 
       input.click();
     });

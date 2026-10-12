@@ -27,8 +27,8 @@ Riferimenti: `PROJECT.md` (specifica; §5 e §5.1 formato checklist), `TASKS.md`
 - Nessuna migrazione distruttiva: i sopralluoghi esistenti devono continuare ad aprirsi.
 - Nelle checklist DVR: id e `codice` univoci, testo che inizia con `[codice] `, nessun ":" nel testo.
   A ogni modifica aumentare `versione` nel JSON e in `checklists/index.json`.
-- Non aggiornare a mano `?v=`, `CACHE_NAME` o `version.json`: lo fa `./pubblica.sh` (test → commit →
-  push → verifica GitHub Pages).
+- Non aggiornare a mano `?v=`, `CACHE_NAME` o `version.json`: usare `./pubblica.sh --prepare`.
+  Il rilascio avviene tramite PR verso main dopo QA e sicurezza verificate; `--verify` controlla Pages.
 - Testi dell'interfaccia in italiano.
 
 ## Verifica

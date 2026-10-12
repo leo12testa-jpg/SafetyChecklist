@@ -51,7 +51,8 @@ const auditAttivita = (() => {
     const actor = identity();
     if (!actor || !sopralluogo_id || !tipo) return;
     const item = { id: crypto.randomUUID(), ...actor, sopralluogo_id, tipo, domanda_id, timestamp: new Date() };
-    if (await send(item)) return;
+    try { if (await send(item)) return; }
+    catch (_) { /* Keep the audit event locally when the cloud write fails. */ }
     await enqueue(item);
   }
   window.addEventListener('online', flush);

@@ -2,7 +2,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { chromium, firefox, webkit } = require('playwright');
+const support = require('./qa-support.cjs');
 
 const root = path.join(__dirname, '..');
 const mime = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.png':'image/png','.webp':'image/webp'};
@@ -10,6 +10,10 @@ const mime = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.js
 const server = http.createServer((req,res) => {
   const clean = decodeURIComponent((req.url || '/').split('?')[0]);
   const rel = clean === '/' ? 'index.html' : clean.replace(/^\//,'');
+  if(rel==='index.html'){
+    const html=require('./pdf-local-server.cjs').harness().replace(/      const sync = [^\n]+/,()=>fs.readFileSync(path.join(root,'js/sync.js'),'utf8'));
+    res.setHeader('Content-Type','text/html; charset=utf-8');return res.end(html);
+  }
   const file = path.join(root, rel);
   if (!file.startsWith(root)) { res.writeHead(403); return res.end(); }
   fs.readFile(file,(err,data)=>{
@@ -23,9 +27,10 @@ async function prova(nome, browserType) {
   const browser = await browserType.launch({headless:true});
   try {
     const context = await browser.newContext({serviceWorkers:'block'});
+    await support.guard(context,'http://127.0.0.1:8766');
     const page = await context.newPage();
     await page.goto('http://127.0.0.1:8766/',{waitUntil:'domcontentloaded'});
-    await page.waitForSelector('#login-view:not([hidden])');
+    await page.waitForFunction(()=>appAutenticataAvviata);
 
     await page.evaluate(() => {
       document.body.dataset.authReady='true';
@@ -64,7 +69,6 @@ async function prova(nome, browserType) {
         return fake;
       };
       checklistEngine.avvia(checklist,fake);
-      compilazioneScreen.init();
       compilazioneScreen.renderDomandaCorrente();
     });
 
@@ -89,7 +93,10 @@ async function prova(nome, browserType) {
 
 server.listen(8766,'127.0.0.1',async()=>{
   try {
-    for(const [nome,type] of [['Chromium',chromium],['Firefox',firefox],['WebKit',webkit]]) await prova(nome,type);
+    for(const engine of ['chromium','firefox','webkit']) {
+      if(process.env.MARKER_BROWSERS&&!process.env.MARKER_BROWSERS.split(',').includes(engine))continue;
+      await prova(engine,support.playwright(engine)[engine]);
+    }
     console.log('INTERPARKING CROSS-BROWSER PASS');
     server.close(()=>process.exit(0));
   } catch(error) {

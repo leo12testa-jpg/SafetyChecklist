@@ -86,14 +86,15 @@ test('id stabile e testo invariato: abbinamento automatico al 100%', () => {
   assert.equal(risultato[0].risposta, 'NC');
 });
 
-test('id stabile ma testo leggermente diverso (piccola modifica): resta automatico, la somiglianza rimane alta', () => {
+test('id stabile ma testo sotto soglia alta: richiede conferma anche per una piccola modifica', () => {
   const im = caricaImportMatching();
   const checklist = clonaChecklist();
   // riformulazione minima della domanda 4, stesse parole chiave
   const righe = [rigaNostro({ id: 4, testo: 'Gli estintori sono accessibili e ben visibili?' })];
   const { righe: risultato } = im.abbinaRighe(righe, checklist);
   assert.equal(risultato[0].domanda_id, 4);
-  assert.equal(risultato[0].stato_riga, 'sicuro');
+  assert.equal(risultato[0].stato_riga, 'da_verificare');
+  assert.equal(im.rigaImportabile(risultato[0]), false);
 });
 
 test('id stabile ma testo MOLTO diverso (domanda probabilmente cambiata): NON automatico, va verificato', () => {
@@ -518,45 +519,41 @@ test('Interparking storico: riconosce le domande ritirate anche se il PDF conser
 });
 
 
-test('Interparking legacy completo: l ordine fisico 1..75 prevale su numeri PDF sovrapposti o incoerenti', () => {
+test('Interparking legacy completo: ordine fisico propone candidati ma non certifica testi sconosciuti', () => {
   const im = caricaImportMatching();
   const checklist = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'checklists', 'interparking_sopralluogo.json'), 'utf8'));
   const righeLegacy = Array.from({ length: 75 }, (_, indice) =>
     rigaNostro({ id: indice < 15 ? indice + 1 : 700 + indice, testo: `Riga fisica Interparking ${indice + 1}`, stato: 'C' })
   );
   const { righe, riepilogo } = im.abbinaRighe(righeLegacy, checklist);
-  const idsAttesi = checklist.sezioni.flatMap((sezione) => sezione.domande.map((domanda) => domanda.id));
-  const idsImportati = righe.filter((riga) => riga.stato_riga !== 'ritirata').map((riga) => riga.domanda_id);
-  assert.deepEqual(Array.from(idsImportati), Array.from(idsAttesi));
-  assert.equal(righe[24].stato_riga, 'ritirata');
-  assert.equal(righe[48].stato_riga, 'ritirata');
+  assert.ok(righe.every(riga => !im.rigaImportabile(riga)));
+  assert.equal(righe[24].stato_riga, 'non_riconosciuta');
+  assert.equal(righe[48].stato_riga, 'non_riconosciuta');
   assert.equal(righe[43].domanda_id, 77);
-  assert.equal(riepilogo.daVerificare, 0);
+  assert.equal(riepilogo.daVerificare, 73);
   assert.equal(riepilogo.conflitti, 0);
 });
 
-test('Interparking legacy completo: 75 righe storiche diventano 73 domande correnti e 2 ritirate', () => {
+test('Interparking legacy completo: 75 testi sconosciuti non importano o ritirano risposte automaticamente', () => {
   const im = caricaImportMatching();
   const checklist = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'checklists', 'interparking_sopralluogo.json'), 'utf8'));
   const righeLegacy = Array.from({ length: 75 }, (_, indice) =>
     rigaNostro({ id: indice + 1, testo: `Riga Interparking legacy ${indice + 1}`, stato: 'C' })
   );
   const { righe, riepilogo } = im.abbinaRighe(righeLegacy, checklist);
-  const idsAttesi = checklist.sezioni.flatMap((sezione) => sezione.domande.map((domanda) => domanda.id));
-  const idsImportati = righe.filter((riga) => riga.stato_riga !== 'ritirata').map((riga) => riga.domanda_id);
-  assert.deepEqual(Array.from(idsImportati), Array.from(idsAttesi));
-  assert.equal(righe[24].stato_riga, 'ritirata');
-  assert.equal(righe[48].stato_riga, 'ritirata');
+  assert.ok(righe.every(riga => !im.rigaImportabile(riga)));
+  assert.equal(righe[24].stato_riga, 'non_riconosciuta');
+  assert.equal(righe[48].stato_riga, 'non_riconosciuta');
   assert.equal(righe[43].domanda_id, 77);
-  assert.equal(riepilogo.sicure, 73);
-  assert.equal(riepilogo.ritirate, 2);
-  assert.equal(riepilogo.daVerificare, 0);
-  assert.equal(riepilogo.nonRiconosciute, 0);
+  assert.equal(riepilogo.sicure, 0);
+  assert.equal(riepilogo.ritirate, 0);
+  assert.equal(riepilogo.daVerificare, 73);
+  assert.equal(riepilogo.nonRiconosciute, 2);
   assert.equal(riepilogo.conflitti, 0);
 });
 
 
-test('Interparking legacy pulito 73 righe: conflitti fuzzy vengono risolti dal numero storico senza bloccare l import', () => {
+test('Interparking legacy 73 righe: testo duplicato mantiene il conflitto fino a conferma manuale', () => {
   const im = caricaImportMatching();
   const checklist = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'checklists', 'interparking_sopralluogo.json'), 'utf8'));
   const perId = new Map(checklist.sezioni.flatMap(s => s.domande).map(d => [d.id, d]));
@@ -580,11 +577,13 @@ test('Interparking legacy pulito 73 righe: conflitti fuzzy vengono risolti dal n
   righeLegacy[idx27].testo_originale = righeLegacy[idx26].testo_originale;
 
   const { righe, riepilogo } = im.abbinaRighe(righeLegacy, checklist);
-  assert.equal(riepilogo.conflitti, 0);
+  assert.equal(riepilogo.conflitti, 2);
   assert.equal(righe[idx26].domanda_id, 28);
-  assert.equal(righe[idx27].domanda_id, 29);
-  assert.equal(righe[idx26].stato_riga, 'sicuro');
-  assert.equal(righe[idx27].stato_riga, 'sicuro');
+  assert.equal(righe[idx27].domanda_id, 28);
+  assert.equal(righe[idx26].stato_riga, 'conflitto');
+  assert.equal(righe[idx27].stato_riga, 'conflitto');
+  assert.equal(im.rigaImportabile(righe[idx26]), false);
+  assert.equal(im.rigaImportabile(righe[idx27]), false);
 });
 
 test('Interparking storico: testo certo vince sul numero slittato e conserva risposta + nota', () => {

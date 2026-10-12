@@ -919,7 +919,14 @@ const pdfImport = (() => {
       if (!cella.length) continue;
       const header=cella.some(it => storico ? INTESTAZIONI_STORICO.includes(it.testo.trim()) : it.testo.trim()==='n.');
       const banner=cella.find(it => /^(AUDIT DOCUMENTALE|ANALISI DOCUMENTALE|SOPRALLUOGO AMBIENTI DI LAVORO)$/.test(it.testo.trim()));
-      if (banner) { sezione=banner.testo; contesto.ultimaRiga=null; continue; }
+      if (banner) {
+        // Our AutoTable repeats the group banner on continuation pages. It does
+        // not start a new logical row/section and must not discard its owner.
+        if (storico && banner.testo !== sezione) {
+          sezione=banner.testo; contesto.ultimaRiga=null;
+        }
+        continue;
+      }
       if (header) {
         if (!storico) {
           const h=cella.find(it => it.testo.trim()==='n.');
@@ -1534,9 +1541,43 @@ const pdfImport = (() => {
     });
   }
 
+  function improntaPixel(width, height, data) {
+    let a = 2166136261, b = 5381;
+    for (let i = 0; i < data.length; i++) {
+      a = Math.imul(a ^ data[i], 16777619);
+      b = Math.imul(b, 33) ^ data[i];
+    }
+    return `${width}:${height}:${data.length}:${a >>> 0}:${b >>> 0}`;
+  }
+
+  let impronteLoghiPromise;
+  function impronteLoghiBundled() {
+    if (!impronteLoghiPromise) impronteLoghiPromise = Promise.all([
+      'logo_colligo.webp', 'logo_coin.webp', 'logo_interparking.webp',
+      'logo_restage.png', 'logo_melluso.png', 'logo_carrefour.png'
+    ].map(file => new Promise(resolve => {
+      const img = new Image();
+      const timer = setTimeout(() => resolve(null), 5000);
+      img.onerror = () => { clearTimeout(timer);resolve(null); };
+      img.onload = () => {
+        clearTimeout(timer);
+        try {
+          const c = document.createElement('canvas');c.width = img.naturalWidth;c.height = img.naturalHeight;
+          const ctx = c.getContext('2d');ctx.fillStyle = '#fff';ctx.fillRect(0, 0, c.width, c.height);ctx.drawImage(img, 0, 0);
+          const rgba = ctx.getImageData(0, 0, c.width, c.height).data;
+          const rgb = new Uint8Array(c.width * c.height * 3);
+          for (let p = 0, q = 0; p < rgba.length; p += 4, q += 3) { rgb[q] = rgba[p];rgb[q + 1] = rgba[p + 1];rgb[q + 2] = rgba[p + 2]; }
+          resolve({ width: c.width, height: c.height, rgb });
+        } catch (_) { resolve(null); }
+      };
+      img.src = 'assets/' + file;
+    }))).then(groups => groups.filter(Boolean));
+    return impronteLoghiPromise;
+  }
+
   // Hash all decoded pixels, not the PDF.js page-local name (img_p0_1 etc.).
   // Those names can differ for identical XObjects, or collide across pages.
-  async function improntaImmagine(pagina, region) {
+  async function improntaImmagine(pagina, region, loghi = []) {
     const img = await leggiImmagine(pagina, region);
     if (!img || !img.width || !img.height || img.width * img.height > 24000000) return null;
     let data = img.data;
@@ -1550,12 +1591,23 @@ const pdfImport = (() => {
         data = ctx.getImageData(0, 0, img.width, img.height).data;
       }
       if (!data) return null;
-      let a = 2166136261, b = 5381;
-      for (let i = 0; i < data.length; i++) {
-        a = Math.imul(a ^ data[i], 16777619);
-        b = Math.imul(b, 33) ^ data[i];
+      const step = data.length / (img.width * img.height);
+      if (step === 3 || step === 4) {
+        region.logoNoto = loghi.some(logo => {
+          if (logo.width !== img.width || logo.height !== img.height) return false;
+          let differenza = 0;
+          for (let p = 0, q = 0; p < data.length; p += step, q += 3) {
+            for (let channel = 0; channel < 3; channel++) {
+              const delta = Math.abs(data[p + channel] - logo.rgb[q + channel]);
+              // WebP/PNG decoders can differ by one or two levels; no fuzzy shape match.
+              if (delta > 2) return false;
+              differenza += delta;
+            }
+          }
+          return differenza / logo.rgb.length <= 0.25;
+        });
       }
-      return `${img.width}:${img.height}:${data.length}:${a >>> 0}:${b >>> 0}`;
+      return improntaPixel(img.width, img.height, data);
     } finally { if (canvas) canvas.width = canvas.height = 0; }
   }
 
@@ -1566,6 +1618,9 @@ const pdfImport = (() => {
       esclusi.get(r.pagina).add(r.indice);
     };
     for (const r of candidati) {
+      // An exact bundled logo in the header remains a logo even when legacy
+      // general-data labels are absent/redacted. Body copies and captioned photos stay.
+      if (r.logoNoto && !r.didascaliaFoto) escludi(r);
       // Repetition needs both image identity and stable geometry on another page.
       // A reused photo in the body, a unique image or a moved image is retained.
       if (r.impronta && candidati.some(s => s.pagina !== r.pagina && s.impronta === r.impronta &&
@@ -1578,6 +1633,14 @@ const pdfImport = (() => {
           ((r.right < r.larghezzaPagina * 0.4 && s.x > r.larghezzaPagina * 0.6) ||
            (s.right < r.larghezzaPagina * 0.4 && r.x > r.larghezzaPagina * 0.6)) &&
           Math.abs((r.y + r.top) / 2 - (s.y + s.top) / 2) <= 24)) escludi(r);
+      // Un logo cliente può essere l'unica immagine decodificabile dell'intestazione
+      // (es. Carrefour rasterizzato in JPEG mentre il logo Colligo WebP non viene esposto come
+      // regione immagine separata da pdf.js). Se è in alto a destra, sopra DATI GENERALI e senza
+      // didascalia Foto, è intestazione: non deve finire negli allegati importati.
+      if (r.pagina === 1 && !r.didascaliaFoto &&
+          r.x >= r.larghezzaPagina * 0.55 && r.right <= r.larghezzaPagina + 4 &&
+          r.larghezza <= r.larghezzaPagina * 0.40 && r.altezza <= 130) escludi(r);
+
       // Alcuni report Interparking incorporano Colligo + cliente in un'unica immagine
       // orizzontale sopra DATI GENERALI: è intestazione, non una foto del sopralluogo.
       if (r.pagina === 1 && r.sopraDati && !r.didascaliaFoto &&
@@ -1588,6 +1651,7 @@ const pdfImport = (() => {
 
   async function analizzaHeader(documento) {
     const candidati = [];
+    const loghi = await impronteLoghiBundled();
     for (let n = 1; n <= documento.numPages; n++) {
       const pagina = await documento.getPage(n);
       try {
@@ -1599,7 +1663,7 @@ const pdfImport = (() => {
           // This is only a candidate zone, not an exclusion criterion.
           if (pagina.view[3] - r.y > Math.min(180, (pagina.view[3] - pagina.view[1]) * 0.23)) continue;
           let impronta = null;
-          try { impronta = await improntaImmagine(pagina, r); } catch (_) { /* No identity: retain unique images. */ }
+          try { impronta = await improntaImmagine(pagina, r, loghi); } catch (_) { /* No identity: retain unique images. */ }
           candidati.push({ ...r, pagina: n, impronta, distanzaTop: pagina.view[3] - r.top,
             larghezza: r.right - r.x, altezza: r.top - r.y, larghezzaPagina: pagina.view[2],
             sopraDati: limiteDati !== null && r.y > limiteDati,
@@ -1633,6 +1697,16 @@ const pdfImport = (() => {
       const nearby = items.filter(it => it.y < region.y + 2 && it.y > minY && it.x + it.w / 2 >= left && it.x + it.w / 2 < right && !/^(Pag\.|C = Conforme)/i.test(it.testo));
       nearby.sort((a, b) => Math.abs(a.y - b.y) > 3 ? b.y - a.y : a.x - b.x);
       const didascalia = nearby.map(it => it.testo).join(' ').trim();
+
+      // Nei PDF generati dall'app il logo cliente di pagina 1 può essere esposto da pdf.js come
+      // un'unica immagine raster (Carrefour: 383x130) senza che analizzaHeader riesca a
+      // ricostruirne con precisione la geometria. In quel caso il primo testo immediatamente
+      // sotto è sempre il blocco "DATI GENERALI": è intestazione, non allegato fotografico.
+      // Una vera foto ha invece didascalia "Foto N ..." oppure si trova nella sezione Allegati.
+      if (numeroPagina === 1 && /^DATI\s+GENERALI\b/i.test(didascalia)) {
+        continue;
+      }
+
       const canvas = document.createElement('canvas');
       let metodo = 'originale';
       try {
@@ -1718,7 +1792,10 @@ const pdfImport = (() => {
       }
 
       precedente.testo_originale = unisciTesto(precedente.testo_originale, riga.testo_originale);
-      precedente.nota_originale = unisciTesto(precedente.nota_originale, riga.nota_originale);
+      // Page fragments are consecutive text, even when a phrase repeats. Substring
+      // deduplication used to silently remove entire pages of long/repeated notes.
+      precedente.nota_originale = [precedente.nota_originale, riga.nota_originale]
+        .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim() || null;
       const stati = [precedente.stato_originale, riga.stato_originale].filter(Boolean);
       const unici = Array.from(new Set(stati));
       if (unici.length === 1) precedente.stato_originale = unici[0];
@@ -1746,7 +1823,7 @@ const pdfImport = (() => {
     }
 
     const buffer = await pdf.leggiArrayBuffer(file);
-    const documento = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+    const documento = await pdfjsLib.getDocument({ data: new Uint8Array(buffer), isEvalSupported: false }).promise;
     try {
       const headerEsclusi = await analizzaHeader(documento);
       const pagine = [];

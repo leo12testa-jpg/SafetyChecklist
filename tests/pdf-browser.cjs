@@ -15,6 +15,7 @@ function playwright() {
   return require(candidates[0]);
 }
 function executable(name) {
+  if (name === 'chromium' && process.env.CHROME_PATH) return process.env.CHROME_PATH;
   const base = path.join(process.env.LOCALAPPDATA || '', 'ms-playwright');
   if (!fs.existsSync(base)) return undefined;
   const dirs = fs.readdirSync(base).filter(d => d.startsWith(name + '-')).sort((a,b) => b.localeCompare(a, undefined, { numeric: true }));
@@ -51,7 +52,15 @@ async function run(name, browserType, origin) {
     await context.route('**/*', route => route.request().url().startsWith(origin) || /^(blob:|data:)/.test(route.request().url()) ? route.continue() : route.abort());
     await page.goto(origin);
     await page.waitForFunction(() => typeof pdf !== 'undefined' && typeof importPreviewScreen !== 'undefined');
+    // The isolated PDF harness intentionally has no real authentication backend. db.js still
+    // records the actor on locally-created inspections, so expose a deterministic test identity.
     await page.evaluate(() => {
+      globalThis.appIdentity = {
+        current: () => ({ uid:'pdf-test', username:'pdf.test', nome:'PDF', cognome:'Test', ruolo:'admin' }),
+        ready: async () => null,
+        isAdmin: () => true
+      };
+      globalThis.auditAttivita = { record: async () => {}, flush: async () => {} };
       window.check = (value, message) => { if (!value) throw new Error(message); };
       window.roundtrip = async blob => {
         const bytes = await pdf.leggiArrayBuffer(blob);
@@ -69,7 +78,7 @@ async function run(name, browserType, origin) {
         } finally { await doc.destroy(); }
       };
     });
-    for (const client of ['coin', 'interparking', 'restage', 'melluso']) {
+    for (const client of ['coin', 'interparking', 'restage', 'melluso', 'carrefour']) {
       console.log(`${name}: generating and importing ${client}`);
       const result = await page.evaluate(async client => {
         const checklist = await (await fetch(`checklists/${client}_sopralluogo.json`)).json();
@@ -90,13 +99,19 @@ async function run(name, browserType, origin) {
         const pages = await roundtrip(blob);
         window.fixture = { checklist, record, blob };
         const extracted = await pdfImport.estraiRighe(blob);
+        // Validate the same path used by the real import UI. Visible PDF numbering is progressive,
+        // so it is not always equal to stable domanda_id (Interparking intentionally has gaps).
+        const matching = importMatching.abbinaRighe(extracted.righe, checklist, {
+          puntoDivisioneGruppi: pdf.calcolaPuntoDivisioneGruppi(checklist)
+        });
+        check(matching.riepilogo.conflitti === 0, `${client}: unexpected import conflicts`);
         for (const answer of record.risposte) {
-          const row = extracted.righe.find(r => Number(r.id_originale) === Number(answer.domanda_id));
-          check(row, `Missing source row ${answer.domanda_id}`);
-          check(row.stato_originale === answer.risposta, `Wrong state on ${answer.domanda_id}: ${row.stato_originale}`);
+          const row = matching.righe.find(r => Number(r.domanda_id) === Number(answer.domanda_id));
+          check(row, `Missing matched row ${answer.domanda_id}`);
+          check(row.risposta === answer.risposta, `Wrong state on ${answer.domanda_id}: ${row.risposta}`);
           const clean = value => String(value || '').replace(/\s+/g, ' ').trim();
-          check(clean(row.nota_originale).startsWith(clean(answer.note)), `Note lost or shifted on ${answer.domanda_id}`);
-          check(answer.note.includes('FINE-NOTA') || !String(row.nota_originale).includes('FINE-NOTA'), `Neighbor note on ${answer.domanda_id}`);
+          check(clean(row.note).startsWith(clean(answer.note)), `Note lost or shifted on ${answer.domanda_id}`);
+          check(answer.note.includes('FINE-NOTA') || !String(row.note).includes('FINE-NOTA'), `Neighbor note on ${answer.domanda_id}`);
         }
         check(extracted.immagini.length === 3, `Expected 3 photos, found ${extracted.immagini.length}`);
         check(extracted.immagini.every(p => p.metodo === 'originale'), 'Original XObjects not used');
@@ -106,6 +121,11 @@ async function run(name, browserType, origin) {
         const withoutPhotos = await pdfImport.estraiRighe(await pdf.generaReport(checklist,noPhotos));
         check(withoutPhotos.immagini.length===0, `${client}: letterhead imported in PDF without photos`);
         window.extracted = extracted;
+        // The later UI removal test is intentionally generic; keep a stable Coin fixture instead
+        // of inheriting client-specific import gates from whichever client happens to run last.
+        if (client === 'coin') {
+          window.previewFixture = { extracted, checklist };
+        }
         return { pages, noPhotoHeader:'pass', photos: extracted.immagini.map(p => ({ width:p.larghezza, height:p.altezza, caption:p.didascalia, method:p.metodo })), bytes: Array.from(new Uint8Array(await pdf.leggiArrayBuffer(blob))) };
       }, client);
       fs.writeFileSync(path.join(out, `${name}-${client}.pdf`), Buffer.from(result.bytes));
@@ -175,16 +195,17 @@ async function run(name, browserType, origin) {
     report.tests.push({ boundary:'pass', pages:boundary.text.length });
     // Confirm real preview removal using the actual UI and IndexedDB implementation.
     await page.evaluate(async () => {
-      const { checklist } = fixture;
-      const matching = importMatching.abbinaRighe(extracted.righe, checklist, { puntoDivisioneGruppi:pdf.calcolaPuntoDivisioneGruppi(checklist) });
+      const { extracted: previewExtracted, checklist } = previewFixture;
+      const matching = importMatching.abbinaRighe(previewExtracted.righe, checklist, { puntoDivisioneGruppi:pdf.calcolaPuntoDivisioneGruppi(checklist) });
       window.beforeImport = (await db.elencaSopralluoghi()).length;
-      anteprimaImportazionePendente = { ...extracted, ...matching, checklist, rilevamentoAutomatico:true, checklistTitolo:checklist.titolo, bozzaAnagrafica:{ checklist_id:checklist.id, punto_vendita:'Importazione test', tecnico:'Test' } };
+      anteprimaImportazionePendente = { ...previewExtracted, ...matching, checklist, rilevamentoAutomatico:true, checklistTitolo:checklist.titolo, bozzaAnagrafica:{ checklist_id:checklist.id, punto_vendita:'Importazione test', tecnico:'Test' } };
       router.navigate('import-preview');
       check((await db.elencaSopralluoghi()).length === beforeImport, 'Preview persisted a record');
     });
     await page.locator('#import-immagini button').first().click();
     assert.equal(await page.locator('#import-immagini img').count(), 2);
     await page.locator('#import-immagini').screenshot({ path:path.join(out, `${name}-anteprima-rimozione.png`) });
+    while(await page.locator('.import-riga-conferma').count())await page.locator('.import-riga-conferma').first().click();
     await page.locator('#btn-conferma-import').click();
     await page.waitForFunction(() => anteprimaImportazionePendente === null);
     report.tests.push(await page.evaluate(async () => {
@@ -201,10 +222,10 @@ async function run(name, browserType, origin) {
       const cropped = await pdfImport.estraiRighe(fixture.blob, { forzaCrop:true });
       check(cropped.immagini.length === 3 && cropped.immagini.every(p=>p.metodo==='crop'), 'Crop fallback failed');
       const historical = [];
-      for (const file of ['esempio_formato_storico_coin.pdf','restage_reale.pdf.pdf']) {
-        const blob = await (await fetch(`test-sample/${file}`)).blob();
+      for (const file of ['coin-storico-anonimo.pdf','restage-storico-anonimo.pdf']) {
+        const blob = await (await fetch(`tests/fixtures/historical/${file}`)).blob();
         const result = await pdfImport.estraiRighe(blob);
-        check(result.immagini.length === (file.startsWith('esempio') ? 0 : 5), `Historical photo count incorrect: ${file}, found ${result.immagini.length}: ${JSON.stringify(result.immagini.map(p=>({page:p.pagina,w:p.larghezza,h:p.altezza,caption:p.didascalia})))}`);
+        check(result.immagini.length === (file.startsWith('coin') ? 0 : 5), `Historical photo count incorrect: ${file}, found ${result.immagini.length}: ${JSON.stringify(result.immagini.map(p=>({page:p.pagina,w:p.larghezza,h:p.altezza,caption:p.didascalia})))}`);
         if (file.startsWith('restage')) result.immagini.forEach((p,i) => {
           check(p.didascalia.startsWith(`Foto ${i+1}`), 'Wrong caption association');
           check(!p.didascalia.includes(`Foto ${i+2}`), 'Neighbor column leaked into caption');
@@ -232,7 +253,7 @@ async function run(name, browserType, origin) {
     console.log(`${name}: testing real file upload`);
     await page.evaluate(() => router.navigate('new-inspection'));
     await page.waitForFunction(() => document.querySelector('#select-checklist').options.length > 0);
-    await page.locator('#input-importa-pdf').setInputFiles(path.resolve(__dirname,'../test-sample/restage_reale.pdf.pdf'));
+    await page.locator('#input-importa-pdf').setInputFiles(path.resolve(__dirname,'fixtures/historical/restage-storico-anonimo.pdf'));
     await page.waitForFunction(() => anteprimaImportazionePendente && anteprimaImportazionePendente.immagini.length===5);
     await page.locator('#screen-new-inspection button[type=submit]').click();
     await page.waitForSelector('#screen-import-preview:not([hidden])');
@@ -242,6 +263,8 @@ async function run(name, browserType, origin) {
     await page.locator('#import-immagini').screenshot({path:path.join(out,`${name}-restage-foto-rimossa.png`)});
     const confirmDetection=page.locator('#import-conferma-rilevamento');
     if(await confirmDetection.count()) await confirmDetection.check();
+    // Confirm proposed historical associations explicitly; numbering is not identity.
+    while(await page.locator('.import-riga-conferma').count())await page.locator('.import-riga-conferma').first().click();
     const expectedPhotos = await page.evaluate(() => anteprimaImportazionePendente.immagini.map(f => ({ domanda: f.domanda_id_collegata, didascalia: f.didascalia })));
     await page.locator('#btn-conferma-import').click();
     await page.waitForFunction(()=>anteprimaImportazionePendente===null);
