@@ -10,7 +10,7 @@ Node 22 aggiornato, Java 21, Google Chrome e strumenti di test: Playwright 1.63.
 firebase emulators:exec --only auth,firestore --project demo-safety-qa-v1 --config firebase.qa.json "node tests/qa-v1-run.cjs"
 ```
 
-Con `QA_CROSS_BROWSER=1` si aggiungono i 31 scenari di Firefox e WebKit. `QA_BROWSER=firefox` seleziona una singola esecuzione di `qa-browser.cjs`. Il loader Windows può riutilizzare i browser/driver già presenti, registrando separatamente il motore usato; la CI usa versioni coerenti installate nel job.
+Con `QA_CROSS_BROWSER=1` si aggiungono i 32 scenari di Firefox e WebKit, la suite realtime con Chromium/Firefox/WebKit simultanei e la regressione originale dei marcatori Interparking nei tre motori. `QA_BROWSER=firefox` seleziona una singola esecuzione di `qa-browser.cjs`. Il loader Windows può riutilizzare i browser/driver già presenti, registrando separatamente il motore usato; la CI usa versioni coerenti installate nel job.
 
 La QA include tutte le regressioni originali V1, 320 domande audit con roundtrip PDF, tutti i 262 quesiti DVR, sette PDF/ZIP, menu e layout 1440/768/390 px, controlli strutturati, login/ruoli/utenti, concorrenza, foto lente, retry/outbox, cestino, ricerca, crash del renderer e riapertura del browser, aggiornamenti e cache offline. I fixture storici sono copie anonimizzate, con risposte, note, foto e didascalie fittizie; gli originali non sono necessari alla CI e non vengono modificati.
 
