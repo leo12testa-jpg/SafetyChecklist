@@ -44,6 +44,12 @@ if(process.env.QA_CROSS_BROWSER==='1')for(const engine of ['firefox','webkit']){
 const historical=spawnSync(process.execPath,['tests/qa-historical-pdf.cjs'],{encoding:'utf8',maxBuffer:10*1024*1024});
 const historyResult=JSON.parse(fs.readFileSync('reports/qa-historical/results.json','utf8')),historyTests=historyResult.tests||[];
 report.groups.push({name:'historical PDF',total:historyTests.length,pass:historyTests.filter(t=>t.status==='PASS').length,fail:historyTests.filter(t=>t.status==='FAIL').length,exit:historical.status});
+if(process.env.QA_CROSS_BROWSER==='1'){
+  const markers=spawnSync(process.execPath,['tests/interparking-marker-cross-browser.cjs'],{encoding:'utf8',maxBuffer:10*1024*1024});
+  fs.writeFileSync(path.join(out,'markers-final.log'),markers.stdout+markers.stderr);
+  const passed=(markers.stdout.match(/^(?:chromium|firefox|webkit): PASS$/gm)||[]).length;
+  report.groups.push({name:'original Interparking marker browser suite',total:3,pass:passed,fail:3-passed,exit:markers.status});
+}
 const cleanup=spawnSync(process.execPath,['tests/qa-cleanup-audit.cjs'],{encoding:'utf8'});
 if(cleanup.status!==0){console.error(cleanup.stderr);process.exitCode=1;report.cleanupError=cleanup.stderr;}
 else report.cleanup=JSON.parse(cleanup.stdout.trim());

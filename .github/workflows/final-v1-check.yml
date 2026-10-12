@@ -64,7 +64,7 @@ jobs:
           echo "Build/ruoli coerenti: ${BUILD}"
 
       - name: Install Playwright driver only
-        run: npm install --no-save playwright-core@1.55.0
+        run: npm install --no-save playwright-core@1.63.0
 
       - name: Find Chrome
         shell: bash

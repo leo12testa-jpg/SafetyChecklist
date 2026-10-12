@@ -9,6 +9,7 @@ const documents=`${firestoreOrigin}/v1/projects/${project}/databases/(default)/d
 function playwright(selectedBrowser=process.env.QA_BROWSER) {
   if(process.env.PLAYWRIGHT_MODULE)return require(process.env.PLAYWRIGHT_MODULE);
   try{return require('playwright');}catch{}
+  try{return require('playwright-core');}catch{}
   const cache=path.join(process.env.LOCALAPPDATA||'','npm-cache/_npx');
   if(selectedBrowser==='firefox' && process.platform==='win32') {
     const legacy=path.join(cache,'5c6d8c4f680fcd0a/node_modules/playwright');
