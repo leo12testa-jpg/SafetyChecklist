@@ -8,6 +8,8 @@
   const form = document.getElementById('dg-form');
   const contractors = document.getElementById('dg-contractors');
   const addContractorButton = document.getElementById('dg-add-contractor');
+  const checklistInput = document.getElementById('dg-checklist-file');
+  const checklistFileStatus = document.getElementById('dg-checklist-file-status');
   const filesInput = document.getElementById('dg-files');
   const filesList = document.getElementById('dg-files-list');
   const resultPanel = document.getElementById('dg-result');
@@ -50,6 +52,14 @@
     updateContractorCards();
   });
 
+  checklistInput.addEventListener('change', () => {
+    const file = checklistInput.files && checklistInput.files[0];
+    checklistFileStatus.textContent = file
+      ? 'Checklist selezionata: ' + file.name + ' · ' + (file.size < 1024 * 1024 ? Math.max(1, Math.round(file.size / 1024)) + ' KB' : (file.size / (1024 * 1024)).toFixed(1) + ' MB') + '. In questa versione resta sul dispositivo.'
+      : 'Checklist non selezionata: scegli il file compilato per continuare.';
+    checklistFileStatus.classList.toggle('is-selected', !!file);
+  });
+
   filesInput.addEventListener('change', () => {
     filesList.replaceChildren();
     const files = Array.from(filesInput.files || []);
@@ -89,7 +99,13 @@
 
   function collectMissing(data) {
     const missing = [];
+    if (!data.job.title) missing.push('Titolo esatto del DUVRI da confermare: non inventare il titolo del frontespizio.');
+    if (!data.job.documentDate) missing.push('Data da riportare sul DUVRI da confermare esplicitamente.');
+    if (!data.client.legalName) missing.push('Ragione sociale del committente da estrarre e/o confermare.');
+    if (!data.site.address) missing.push('Sede e indirizzo dell’intervento da estrarre e/o confermare.');
+    if (!data.work.description) missing.push('Descrizione dell’appalto da ricostruire dalla checklist e confermare.');
     data.contractors.forEach((company, index) => {
+      if (!company.company) missing.push('Impresa ' + (index + 1) + ': ragione sociale da estrarre dalla checklist e confermare.');
       const label = company.company || ('Impresa ' + (index + 1));
       if (!company.preposto.name) missing.push(label + ': nominativo del preposto da acquisire o confermare.');
       if (!company.preposto.roleOrArea) missing.push(label + ': mansione/area di competenza del preposto da specificare.');
@@ -115,6 +131,14 @@
 
   function createRecord() {
     const data = new FormData(form);
+    const checklist = checklistInput.files && checklistInput.files[0];
+    const checklistFile = checklist ? {
+      name: checklist.name,
+      size: checklist.size,
+      mimeType: checklist.type || 'application/octet-stream',
+      lastModified: checklist.lastModified,
+      contentIncluded: false
+    } : null;
     const documents = Array.from(filesInput.files || []).map((file) => ({
       name: file.name,
       size: file.size,
@@ -123,7 +147,7 @@
       contentIncluded: false
     }));
     return {
-      schema: 'colligo-duvri-intake/0.1',
+      schema: 'colligo-duvri-intake/0.2',
       recordId: (globalThis.crypto && typeof crypto.randomUUID === 'function')
         ? crypto.randomUUID()
         : 'duvri-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9),
@@ -132,6 +156,13 @@
       cloudSubmission: false,
       aiGenerationStarted: false,
       humanReviewRequired: true,
+      workflow: [
+        { agent: 'coordinator', label: 'Coordinatore', status: 'not_connected' },
+        { agent: 'document-reader', label: 'Analista documentale', status: 'not_connected' },
+        { agent: 'duvri-analyst', label: 'Analista interferenze', status: 'not_connected' },
+        { agent: 'docx-writer', label: 'Redattore Word', status: 'not_connected' },
+        { agent: 'quality-check', label: 'Verificatore', status: 'not_connected' }
+      ],
       job: {
         title: escapeText(data.get('title')).trim(),
         documentDate: escapeText(data.get('documentDate')),
@@ -148,6 +179,7 @@
       work: { description: escapeText(data.get('workDescription')).trim() },
       contractors: readContractors(),
       modules: checkedModules(),
+      sourceChecklist: checklistFile,
       documents,
       notes: escapeText(data.get('notes')).trim(),
       notices: [
@@ -222,6 +254,8 @@
   resetButton.addEventListener('click', () => {
     if (!confirm('Vuoi azzerare i dati inseriti in questa scheda? Le informazioni non saranno recuperabili.')) return;
     form.reset();
+    checklistFileStatus.textContent = 'Checklist non selezionata: scegli il file compilato per continuare.';
+    checklistFileStatus.classList.remove('is-selected');
     const cards = Array.from(contractors.querySelectorAll('.dg-contractor-card'));
     cards.slice(1).forEach((card) => card.remove());
     filesList.replaceChildren();
