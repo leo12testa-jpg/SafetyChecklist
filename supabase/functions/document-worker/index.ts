@@ -266,7 +266,7 @@ async function uploadAIFile(file: JobFile, bytes: Uint8Array): Promise<{ id: str
   if (AI_PROVIDER === 'anthropic') body.append('expires_in_seconds', '3600');
   else body.append('purpose', image ? 'vision' : 'user_data');
   body.append('file', new File([stableArrayBuffer(bytes)], file.filename, { type: file.mime_type }), file.filename);
-  const authHeaders = AI_PROVIDER === 'anthropic'
+  const authHeaders: Record<string,string> = AI_PROVIDER === 'anthropic'
     ? { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' }
     : { authorization: `Bearer ${OPENAI_API_KEY}` };
   const response = await remote(url, { method: 'POST', headers: authHeaders, body });
@@ -283,7 +283,7 @@ async function deleteAIFile(id: string) {
   const url = AI_PROVIDER === 'anthropic'
     ? `https://api.anthropic.com/v1/files/${encodeURIComponent(id)}`
     : `https://api.openai.com/v1/files/${encodeURIComponent(id)}`;
-  const authHeaders = AI_PROVIDER === 'anthropic'
+  const authHeaders: Record<string,string> = AI_PROVIDER === 'anthropic'
     ? { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' }
     : { authorization: `Bearer ${OPENAI_API_KEY}` };
   await remote(url, { method: 'DELETE', headers: authHeaders }).catch(() => {});
