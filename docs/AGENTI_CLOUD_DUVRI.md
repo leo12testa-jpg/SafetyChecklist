@@ -112,12 +112,12 @@ Sono presenti nel branch di sviluppo:
 - Frontend: raccoglie la checklist sorgente e gli allegati, ma in questa versione ne conserva solo i metadati e non richiama ancora il gateway.
 - Gateway backend: sorgente implementato, necessita deployment e schema attivo in un ambiente di test.
 - Worker: può eseguire estrazione e analisi solo dopo aver configurato API key/modello, consentito il trasferimento dei documenti e impostato `DOCUMENT_PIPELINE_ENABLED=true`. Il default è disabilitato.
-- Redattore Word / validatore OOXML: NON completati. Il worker si ferma esplicitamente in attesa di configurazione e non dichiara di avere generato un DOCX.
+- Redattore Word / validatore: codice implementato in branch. Il worker può generare una bozza DOCX e passarla al controllo QA soltanto quando template, regola rischio e motore OOXML sono abilitati esplicitamente. La bozza viene sempre posta in revisione umana; non è ancora verificato end-to-end sul modello reale.
 - Storage, tabelle, secret, Cron/schedule e funzioni non sono stati creati o modificati nel progetto Supabase live.
 
 ### Secret / impostazioni attese (non configurate)
 
-`DOCUMENT_WORKER_SECRET`, `DOCUMENT_PIPELINE_ENABLED=false`, `OPENAI_API_KEY`, `DOCUMENT_AI_MODEL`, `DUVRI_TEMPLATE_OBJECT_PATH`, `DUVRI_RISK_RULE_APPROVED=false`, `DUVRI_DOCX_ENGINE_ENABLED=false`.
+`DOCUMENT_WORKER_SECRET`, `DOCUMENT_PIPELINE_ENABLED=false`, `DOCUMENT_AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`, `DOCUMENT_AI_MODEL=claude-sonnet-5-5`, `DUVRI_TEMPLATE_OBJECT_PATH`, `DUVRI_TEMPLATE_VERSION`, `DUVRI_RISK_RULE_APPROVED=false`, `DUVRI_RISK_RULE_DESCRIPTION`, `DUVRI_DOCX_ENGINE_ENABLED=false`.
 
 L'uso di OpenAI via API comporta costi API potenzialmente separati dall'abbonamento ChatGPT o Claude. Nessuna chiamata AI deve avvenire finché il proprietario del progetto non configura intenzionalmente il provider e non viene registrato il consenso dell'utente al trasferimento dei file.
 
@@ -128,4 +128,4 @@ L'uso di OpenAI via API comporta costi API potenzialmente separati dall'abboname
 - Configurare i segreti server-side: `ANTHROPIC_API_KEY`, `DOCUMENT_AI_PROVIDER=anthropic`, `DOCUMENT_AI_MODEL`; non aggiungere mai la chiave API al repository o alla PWA.
 - Per usare i crediti API inclusi in Claude Team, un amministratore/owner deve collegare la propria organizzazione Claude Console dalla sezione di fatturazione del piano Claude Team. I crediti API sono separati dai limiti d'uso della chat e di Claude Code; sono condivisi a livello di organizzazione e possono cessare quando il credito è esaurito.
 - Testare la pipeline su allegati non sensibili in ambiente isolato e verificare i crediti/consumo prima di considerare qualunque dato reale.
-- La generazione del DOCX rimane bloccata finché template, matrice del rischio e controlli di conservazione OOXML non sono stati approvati.
+- Modello raccomandato per il primo test: `claude-sonnet-5-5`; il prezzo ufficiale attualmente indicato è $2 per milione di token in ingresso e $10 per milione in uscita. Il costo effettivo dipende dai file e dalla lunghezza degli output. La generazione rimane bloccata finché template, matrice del rischio e controlli OOXML non sono approvati. Lasciare disattivata la ricarica automatica e non aggiungere crediti acquistati: in caso di saldo esaurito, l’API deve fermarsi.
