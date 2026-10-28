@@ -125,6 +125,8 @@ L'uso di OpenAI via API comporta costi API potenzialmente separati dall'abboname
 ## Provider AI e credito Claude Team
 
 - Il provider predefinito previsto nel codice è `anthropic`, ma `DOCUMENT_PIPELINE_ENABLED` rimane disattivato.
+- Il lettore documentale usa per impostazione predefinita `claude-haiku-5-5` (`DOCUMENT_AI_EXTRACT_MODEL`), pensato per estrazione ad alto volume; analisi interferenze, redazione e QA usano `claude-sonnet-5-5` (`DOCUMENT_AI_MODEL`). Entrambi si possono sostituire tramite secret.
+- Ogni chiamata riuscita scrive un evento `ai_usage` con modello, fase/agente, token input/output e costo stimato in USD. Il pannello del job somma i dati registrati per documento. Il costo è una stima basata sui prezzi pubblici; il saldo effettivo della Console resta la fonte contabile autorevole.
 - Configurare i segreti server-side: `ANTHROPIC_API_KEY`, `DOCUMENT_AI_PROVIDER=anthropic`, `DOCUMENT_AI_MODEL`; non aggiungere mai la chiave API al repository o alla PWA.
 - Per usare i crediti API inclusi in Claude Team, un amministratore/owner deve collegare la propria organizzazione Claude Console dalla sezione di fatturazione del piano Claude Team. I crediti API sono separati dai limiti d'uso della chat e di Claude Code; sono condivisi a livello di organizzazione e possono cessare quando il credito è esaurito.
 - Testare la pipeline su allegati non sensibili in ambiente isolato e verificare i crediti/consumo prima di considerare qualunque dato reale.
