@@ -2783,3 +2783,35 @@ textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:
 .dg-ai-consent strong, .dg-ai-consent small { display:block; }
 .dg-ai-consent strong { font-size:.87rem; color:var(--color-primary); }
 .dg-ai-consent small { margin-top:5px; font-size:.8rem; line-height:1.5; font-weight:400; color:var(--color-text-muted); }
+
+
+/* Coda documentale persistente e revisione lavori cloud */
+.dg-cloud-status { margin:8px 0 14px; padding:11px 13px; border-radius:8px; background:#f2f4f7; border:1px solid #dbe1e8; color:#495566; font-size:.87rem; line-height:1.5; overflow-wrap:anywhere; }
+.dg-queue-toolbar { display:flex; justify-content:flex-end; margin-bottom:12px; }
+.dg-queue-list { display:grid; gap:12px; }
+.dg-job-card { padding:15px; border:1px solid #d7e0ea; border-radius:10px; background:#fbfcfe; min-width:0; }
+.dg-job-card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.dg-job-card h4 { margin:0; color:var(--color-primary); font-size:.98rem; overflow-wrap:anywhere; }
+.dg-job-status { display:inline-flex; flex:none; padding:5px 8px; border-radius:999px; font-size:.73rem; line-height:1.25; background:#e9edf2; color:#485465; }
+.dg-job-status[data-status="approved"] { background:#e1f4e7; color:#17673a; }
+.dg-job-status[data-status="needs_review"] { background:#fff3d7; color:#78530a; }
+.dg-job-status[data-status="error"], .dg-job-status[data-status="rejected"] { background:#fde8e8; color:#932b2b; }
+.dg-job-status[data-status="processing"] { background:#e4effd; color:#1d518c; }
+.dg-job-meta, .dg-job-message { margin:7px 0 0; font-size:.82rem; line-height:1.5; color:var(--color-text-muted); overflow-wrap:anywhere; }
+.dg-job-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:13px; }
+.dg-job-actions .btn { width:auto; }
+.dg-job-details { margin-top:14px; padding-top:13px; border-top:1px solid #e0e6ed; overflow-wrap:anywhere; }
+.dg-job-details h5 { margin:0 0 9px; color:var(--color-primary); font-size:.9rem; }
+.dg-job-details p, .dg-job-details ul { font-size:.82rem; line-height:1.5; color:var(--color-text-muted); }
+.dg-job-details ul { padding-left:20px; }
+.dg-job-details li { margin:5px 0; }
+.dg-link-button { background:none; border:0; color:var(--color-primary); text-decoration:underline; font:inherit; text-align:left; overflow-wrap:anywhere; cursor:pointer; padding:0; }
+.dg-review-actions { display:grid; gap:9px; margin-top:12px; }
+.dg-review-actions textarea { width:100%; border:1px solid #ccd7e3; border-radius:8px; padding:9px; font:inherit; }
+.dg-review-buttons { display:flex; flex-wrap:wrap; gap:8px; }
+.dg-review-buttons .btn { width:auto; }
+@media (max-width: 520px) {
+  .dg-job-card-top { flex-direction:column; align-items:flex-start; }
+  .dg-queue-toolbar .btn { width:100%; }
+  .dg-review-buttons .btn { flex:1 1 100%; }
+}
