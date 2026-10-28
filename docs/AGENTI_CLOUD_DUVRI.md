@@ -117,7 +117,7 @@ Sono presenti nel branch di sviluppo:
 
 ### Secret / impostazioni attese (non configurate)
 
-`DOCUMENT_WORKER_SECRET`, `DOCUMENT_PIPELINE_ENABLED=false`, `DOCUMENT_AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`, `DOCUMENT_AI_MODEL=claude-sonnet-5-5`, `DUVRI_TEMPLATE_OBJECT_PATH`, `DUVRI_TEMPLATE_VERSION`, `DUVRI_RISK_RULE_APPROVED=false`, `DUVRI_RISK_RULE_DESCRIPTION`, `DUVRI_DOCX_ENGINE_ENABLED=false`.
+`DOCUMENT_WORKER_SECRET`, `DOCUMENT_PIPELINE_ENABLED=false`, `DOCUMENT_AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`, `DOCUMENT_AI_MODEL=claude-sonnet-5`, `DUVRI_TEMPLATE_OBJECT_PATH`, `DUVRI_TEMPLATE_VERSION`, `DUVRI_RISK_RULE_APPROVED=false`, `DUVRI_RISK_RULE_DESCRIPTION`, `DUVRI_DOCX_ENGINE_ENABLED=false`.
 
 L'uso di OpenAI via API comporta costi API potenzialmente separati dall'abbonamento ChatGPT o Claude. Nessuna chiamata AI deve avvenire finché il proprietario del progetto non configura intenzionalmente il provider e non viene registrato il consenso dell'utente al trasferimento dei file.
 
@@ -128,4 +128,4 @@ L'uso di OpenAI via API comporta costi API potenzialmente separati dall'abboname
 - Configurare i segreti server-side: `ANTHROPIC_API_KEY`, `DOCUMENT_AI_PROVIDER=anthropic`, `DOCUMENT_AI_MODEL`; non aggiungere mai la chiave API al repository o alla PWA.
 - Per usare i crediti API inclusi in Claude Team, un amministratore/owner deve collegare la propria organizzazione Claude Console dalla sezione di fatturazione del piano Claude Team. I crediti API sono separati dai limiti d'uso della chat e di Claude Code; sono condivisi a livello di organizzazione e possono cessare quando il credito è esaurito.
 - Testare la pipeline su allegati non sensibili in ambiente isolato e verificare i crediti/consumo prima di considerare qualunque dato reale.
-- Modello raccomandato per il primo test: `claude-sonnet-5-5`; il prezzo ufficiale attualmente indicato è $2 per milione di token in ingresso e $10 per milione in uscita. Il costo effettivo dipende dai file e dalla lunghezza degli output. La generazione rimane bloccata finché template, matrice del rischio e controlli OOXML non sono approvati. Lasciare disattivata la ricarica automatica e non aggiungere crediti acquistati: in caso di saldo esaurito, l’API deve fermarsi.
+- Modello raccomandato per il primo test: `claude-sonnet-5`; la documentazione ufficiale Anthropic lo indica a $2 per milione di token in ingresso e $10 per milione in uscita. La modalità thinking sarà disattivata per contenere i costi durante il prototipo. Il costo effettivo dipende dai file e dalla lunghezza degli output. La generazione rimane bloccata finché template, matrice del rischio e controlli OOXML non sono approvati. Lasciare disattivata la ricarica automatica e non aggiungere crediti acquistati: in caso di saldo esaurito, l’API deve fermarsi.
