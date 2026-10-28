@@ -203,3 +203,19 @@ File campione ricevuto: `DUVRI_CENTROBORGO_SPAZI_CONFINATI_2026_rev3.pdf` (56 pa
 ### Distinzione da mantenere
 
 Il PDF campione è una fonte per la struttura e la complessità del documento, non una fonte normativa da copiare senza verifica e non un modello per riutilizzare nominativi, date, indirizzi, attrezzature o misure nel documento di un altro cliente.
+
+
+## Modello Word originale ricevuto — DUVRI_BASE_GENERALE_2026.docx
+
+Il file Word originale è stato fornito come modello da compilare. L'ispezione tecnica rileva 434 paragrafi, 13 tabelle e 19 sezioni Word, con sezioni sia verticali sia orizzontali. Questi elementi confermano che il documento deve essere compilato nel DOCX originale, evitando una ricostruzione da zero che potrebbe alterare impaginazione e contenuti grafici.
+
+### Requisiti specifici per la compilazione del DOCX
+
+- Usare `DUVRI_BASE_GENERALE_2026.docx` come template di partenza versionato.
+- Preservare stili, font, dimensioni, colori, intestazioni, piè di pagina, logo, tabelle, immagini, interruzioni di sezione e orientamento pagina.
+- Sostituire esclusivamente i segnaposto e aggiornare le sezioni che dipendono dal caso concreto; non riscrivere automaticamente il testo generale approvato.
+- Non eliminare o riordinare tabelle e fattori di rischio solo perché sembrano non pertinenti: applicare le regole del modello approvato e segnalare i casi che richiedono decisione del responsabile.
+- Validare l'output confrontando DOCX sorgente e generato: conteggio delle sezioni, orientamento, header/footer, tabelle, immagini, stili e presenza di segnaposto residui.
+- Rigenerare/aggiornare indice e numerazione pagine solo con un processo Word-compatible verificato; il controllo visivo finale è obbligatorio.
+- Produrre un report separato delle modifiche, dei dati mancanti e delle verifiche richieste, senza inserirlo arbitrariamente nel modello ufficiale.
+- Non considerare il solo testo estratto come prova di fedeltà: alcune informazioni e layout sono in tabelle, intestazioni, piè di pagina, immagini o elementi grafici.
