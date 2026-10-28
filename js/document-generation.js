@@ -207,7 +207,14 @@
           usageSummary.textContent = inputTokens.toLocaleString('it-IT') + ' token input · ' +
             outputTokens.toLocaleString('it-IT') + ' token output · ' +
             (knownCosts.length === usageEvents.length
-              ? 'circa 
+              ? 'circa USD ' + totalCost.toFixed(4) + ' di credito stimato'
+              : 'costo parziale: alcuni modelli non sono ancora contabilizzati');
+          usageBox.append(usageTitle, usageSummary);
+          details.appendChild(usageBox);
+        }
+      }
+
+      if (Array.isArray(data.events) && data.events.length) {
         const title = document.createElement('strong');
         title.textContent = 'Cronologia agenti';
         details.appendChild(title);
