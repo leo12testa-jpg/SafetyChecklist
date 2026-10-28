@@ -258,3 +258,10 @@ La sezione "Generazione documenti" è pensata come console di un workflow cloud,
 La schermata pilota è stata ulteriormente orientata al caricamento di una checklist compilata come file sorgente, con allegati di supporto e schede opzionali per committente/impresa. Sono visibili i ruoli degli agenti previsti (coordinatore, analista documentale, analista interferenze, redattore Word e verificatore) ma i relativi stati sono esplicitamente "da attivare" fino alla realizzazione del backend. L'interfaccia non deve mai simulare un'elaborazione cloud inesistente.
 
 Requisito operativo non negoziabile: i job sono persistenti nel cloud e riprendibili per fase; il dispositivo può essere spento dopo la conferma di accodamento. La prima versione UI resta locale finché gateway, storage privato, database/coda durevole, worker e provider AI non sono stati configurati e collaudati. La sequenza e i vincoli sono documentati in `docs/AGENTI_CLOUD_DUVRI.md`.
+
+
+## Stato backend — primo scheletro cloud in branch
+
+Aggiunti il gateway `document-jobs`, il worker `document-worker`, lo schema SQL marcato DRAFT e test di contratto. Il gateway utilizza autenticazione Firebase e profilo aziendale attivo; i documenti sono destinati a un bucket privato e non sono accessibili dal browser tramite service-role key. Il worker fa claim atomico dei job, usa lease/checkpoint e può riprendere il lavoro nelle invocazioni successive anche quando il browser è chiuso.
+
+**Limiti attuali:** la UI non è ancora collegata al gateway; schema/Storage/cron/Edge Functions non sono distribuiti sul Supabase live; la pipeline AI è disabilitata di default; il generatore Word che preserva il template e il controllo visivo sono ancora da implementare. La funzione non deve essere attivata finché non è pronto il motore DOCX e finché non è approvata la regola Colligo per la valutazione dei rischi.
