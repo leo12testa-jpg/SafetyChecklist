@@ -525,10 +525,12 @@ async function processOne(job: Job) {
     // This intentionally blocks DUVRI risk scoring while the 1–9 vs I.R. 1–3 rule is unresolved.
     const draftGateRiskRuleApproved = Deno.env.get('DUVRI_RISK_RULE_APPROVED') === 'true';
     const draftGateRiskRuleDescription = (Deno.env.get('DUVRI_RISK_RULE_DESCRIPTION') || '').trim();
+    const draftGateRiskRuleApprovalId = (Deno.env.get('DUVRI_RISK_RULE_APPROVAL_ID') || '').trim();
+    const draftGateRiskRuleVersion = (Deno.env.get('DUVRI_RISK_RULE_VERSION') || '').trim();
     const draftGateTemplatePath = (Deno.env.get('DUVRI_TEMPLATE_OBJECT_PATH') || '').trim();
     const draftGateTemplateVersion = (Deno.env.get('DUVRI_TEMPLATE_VERSION') || '').trim();
     const draftGateDocxEngineEnabled = Deno.env.get('DUVRI_DOCX_ENGINE_ENABLED') === 'true';
-    if (!draftGateRiskRuleApproved || !draftGateRiskRuleDescription || !draftGateTemplatePath || !draftGateTemplateVersion || !draftGateDocxEngineEnabled) {
+    if (!draftGateRiskRuleApproved || !draftGateRiskRuleDescription || !draftGateRiskRuleApprovalId || !draftGateRiskRuleVersion || !draftGateTemplatePath || !draftGateTemplateVersion || !draftGateDocxEngineEnabled) {
       await awaitConfiguration(job, 'Redazione e valutazione del rischio bloccate: serve approvazione esplicita della metodologia Colligo, modello Word controllato/versionato e abilitazione tecnica. Nessun punteggio è stato calcolato.');
       return { id: job.id, state: 'awaiting_configuration' };
     }
@@ -616,7 +618,9 @@ async function processOne(job: Job) {
     const templateVersion = savedMeta.templateVersion || payload.templateVersion || Deno.env.get('DUVRI_TEMPLATE_VERSION') || null;
     const riskRuleApproved = Deno.env.get('DUVRI_RISK_RULE_APPROVED') === 'true';
     const approvedRiskRule = (Deno.env.get('DUVRI_RISK_RULE_DESCRIPTION') || '').trim();
-    if (!templatePath || !riskRuleApproved || !approvedRiskRule || Deno.env.get('DUVRI_DOCX_ENGINE_ENABLED') !== 'true') {
+    const riskRuleApprovalId = (Deno.env.get('DUVRI_RISK_RULE_APPROVAL_ID') || '').trim();
+    const riskRuleVersion = (Deno.env.get('DUVRI_RISK_RULE_VERSION') || '').trim();
+    if (!templatePath || !riskRuleApproved || !approvedRiskRule || !riskRuleApprovalId || !riskRuleVersion || Deno.env.get('DUVRI_DOCX_ENGINE_ENABLED') !== 'true') {
       await awaitConfiguration(job, 'Il checkpoint di redazione è salvato. La generazione Word resta in attesa del template, della regola di rischio approvata e dell’abilitazione del compilatore.');
       return { id: job.id, state: 'awaiting_configuration' };
     }
