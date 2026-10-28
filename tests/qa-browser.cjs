@@ -1,18 +1,27 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {root,project,authOrigin,documents,playwright,seed,put,makeServer,guard}=require('./qa-support.cjs');
-const {EMULATOR,recordAbort,classifyPageError}=require('./qa-transport-filter.cjs');
+const {EMULATOR,recordAbort,classifyPageError,resolvePending,unresolved}=require('./qa-transport-filter.cjs');
 const browserName=process.env.QA_BROWSER||'chromium';
 const out=path.join(root,'reports/qa-v1/'+(process.env.QA_DEVICE_MATRIX?'realtime':process.env.QA_BROWSER?'browser-'+browserName:'browser'));fs.mkdirSync(out,{recursive:true});
 const report={tests:[],pageErrors:[],consoleErrors:[],blocked:[],timings:[],profiles:[]};
 const devices=[],users=[];let id,url;const server=makeServer({emulator:true});
 // Step/action context recorded with every transport error, to attribute it instead of guessing.
-let currentStep='avvio',stepStart=Date.now();
-function errorContext(d){return {user:d.user.username,engine:d.engine,step:currentStep,action:d.action,msInStep:Date.now()-stepStart,at:new Date().toISOString(),emulatorBlocked:d.emulatorBlocked};}
+let currentStep='avvio',stepStart=Date.now(),stepVerifiesRecovery=false;const pendingTransport=[];
+function errorContext(d){return {user:d.user.username,engine:d.engine,step:currentStep,action:d.action,navigating:d.navigating,stepVerifiesRecovery,msInStep:Date.now()-stepStart,at:new Date().toISOString(),emulatorBlocked:d.emulatorBlocked};}
+function settle({kind,entry}){if(kind==='transport')(report.transportErrors||=[]).push(entry);else if(kind==='pending')pendingTransport.push(entry);else report.pageErrors.push(entry);}
+// Diagnostics only (does not affect acceptance): sync queue in memory and persisted records still to send.
+const queueState=evaluate=>evaluate(async()=>{const s={};try{s.memoria=await sync.diagnosticaInAttesa();}catch(e){s.memoria='n/d: '+e.message;}
+  try{s.persistenti=(await db.elencaSopralluoghi()).filter(r=>r._sync_rev).map(r=>r.id);}catch(e){s.persistenti='n/d: '+e.message;}return s;}).catch(e=>({errore:e.message}));
+const TRANSACTION_REQUEST=/^http:\/\/127\.0\.0\.1:18085\/v1\/projects\/demo-safety-qa-v1\/databases\/\(default\)\/documents:(batchGet|commit)/;
 // Voluntary Firestore outage: every aborted request is recorded so that the WebKit error it
 // produces can be matched to it. Errors not matched to an abort of this block still fail.
 async function blockEmulator(d){d.emulatorBlocked=true;d.action='blocco-emulatore';await d.context.route(EMULATOR+'/**',r=>{recordAbort(d,r.request().url(),currentStep);return r.abort();});}
 async function unblockEmulator(d){await d.context.unroute(EMULATOR+'/**');d.emulatorBlocked=false;d.action='sblocco-emulatore';}
-async function check(name,fn){currentStep=name;stepStart=Date.now();try{const details=await fn();report.tests.push({name,status:'PASS',details});console.log('PASS '+name);}
+// verifiesRecovery: the step itself asserts data presence after reload and arrival on another device.
+async function check(name,fn,{verifiesRecovery=false}={}){currentStep=name;stepStart=Date.now();stepVerifiesRecovery=verifiesRecovery;try{await runStep(name,fn);}
+  finally{const passed=report.tests.at(-1)?.status==='PASS';for(let i=pendingTransport.length-1;i>=0;i--)if(pendingTransport[i].step===name)settle(resolvePending(pendingTransport.splice(i,1)[0],passed));stepVerifiesRecovery=false;}
+  fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(report,null,2));}
+async function runStep(name,fn){try{const details=await fn();report.tests.push({name,status:'PASS',details});console.log('PASS '+name);}
   catch(e){report.tests.push({name,status:'FAIL',error:e.stack});console.error('FAIL '+name+' '+e.message);if(devices[0]){report.failureState=await devices[0].page.evaluate(async()=>({history:Array.from(document.querySelectorAll('#storico-lista li')).map(x=>x.textContent),controls:Array.from(document.querySelectorAll('.storico-filtri input,.storico-filtri select')).map(x=>({id:x.id,value:x.value})),records:(await db.elencaSopralluoghi()).map(r=>({id:r.id,checklist:r.checklist_id,title:r.punto_vendita}))})).catch(()=>null);await devices[0].page.screenshot({path:path.join(out,'last-failure.png'),fullPage:true}).catch(()=>{});}}
   fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(report,null,2));}
 async function open(user,viewport={width:1440,height:1000},{sw=false}={}) {
@@ -23,12 +32,22 @@ async function open(user,viewport={width:1440,height:1000},{sw=false}={}) {
   const page=context.pages()[0];const d={context,page,user,profile,viewport,engine,action:'apertura',emulatorBlocked:false,aborted:[]};devices.push(d);(report.engines||=[]).push({engine,version:context.browser()?.version()});page.setDefaultTimeout(20000);
   // Track the action in progress on this device (login/logout are set by their helpers).
   const reload=page.reload.bind(page),goto=page.goto.bind(page),evaluate=page.evaluate.bind(page);
-  page.reload=(...a)=>{d.action='reload';return reload(...a);};page.goto=(...a)=>{d.action='navigazione';return goto(...a);};
+  // navigating is true only while a reload/navigation started by the test is in progress.
+  const navigate=async(action,run)=>{d.action=action;d.navigating=true;try{return await run();}finally{d.navigating=false;}};
+  page.reload=async(...a)=>{
+    const entry={user:user.username,step:currentStep,before:await queueState(evaluate)};(report.reloadQueue||=[]).push(entry);
+    try{return await navigate('reload',()=>reload(...a));}finally{entry.after=await queueState(evaluate);}
+  };
+  page.goto=(...a)=>navigate('navigazione',()=>goto(...a));
+  // Diagnostics only: start, end and failure reason of every sync transaction request.
+  const requests=new Map();
+  page.on('request',r=>{const m=TRANSACTION_REQUEST.exec(r.url());if(!m)return;const e={user:user.username,call:m[1],step:currentStep,action:d.action,navigating:d.navigating,emulatorBlocked:d.emulatorBlocked,startedAt:new Date().toISOString()};requests.set(r,e);(report.transactionRequests||=[]).push(e);});
+  page.on('requestfailed',r=>{const e=requests.get(r);if(e)Object.assign(e,{failedAt:new Date().toISOString(),failure:r.failure()?.errorText||'',actionAtFailure:d.action,navigatingAtFailure:d.navigating});});
+  page.on('requestfinished',r=>{const e=requests.get(r);if(e)r.response().then(res=>Object.assign(e,{finishedAt:new Date().toISOString(),status:res?.status()})).catch(()=>{});});
   page.evaluate=(fn,...a)=>{const s=String(fn);if(/sincronizza/.test(s))d.action='sync';else if(/new Event\('online'\)/.test(s))d.action='ripresa-online';else if(/new Event\('focus'\)/.test(s))d.action='focus';return evaluate(fn,...a);};
   page.on('pageerror',e=>{
     // Rules in tests/qa-transport-filter.cjs (unit-tested): 'page' entries make the test fail.
-    const {kind,entry}=classifyPageError(e.message,d,errorContext(d));
-    if(kind==='transport')(report.transportErrors||=[]).push(entry);else report.pageErrors.push(entry);
+    settle(classifyPageError(e.message,d,errorContext(d)));
   });
   page.on('console',m=>{if(m.type()==='error'||(m.type()==='warning'&&m.text().includes('FotoSync')))report.consoleErrors.push({user:user.username,message:m.text()});});
   page.on('dialog',dialog=>dialog.accept());await page.goto(url);return d;
@@ -182,7 +201,7 @@ async function receivePhoto(d,f) {
     }
     await A.page.evaluate(()=>window.dispatchEvent(new Event('online')));
     await waitRecord(B,"r.risposte.some(r=>r.note==='QA-OFFLINE-RECOVERY')");return {bytes:await receivePhoto(B,f),network:browserName==='chromium'?'browser offline':'HTTP server outage and blocked Firestore'};
-  });
+  },{verifiesRecovery:true});
   await check('Firestore interrotto: dati pending persistono e ripartono',async()=>{
     await blockEmulator(B);await answer(B,28,'QA-FIRESTORE-DOWN');assert.ok(await B.page.evaluate(async id=>(await db.leggiSopralluogo(id)).risposte.some(r=>r.note==='QA-FIRESTORE-DOWN'),id));
     await unblockEmulator(B);await B.page.evaluate(()=>window.dispatchEvent(new Event('online')));await waitRecord(A,"r.risposte.some(r=>r.note==='QA-FIRESTORE-DOWN')");
@@ -258,7 +277,7 @@ async function receivePhoto(d,f) {
     await put('utenti',techA.uid,{uid:techA.uid,username:techA.username,nome:techA.nome,cognome:techA.cognome,ruolo:'tecnico',attivo:false});
     await A.page.evaluate(()=>window.dispatchEvent(new Event('focus')));await A.page.waitForFunction(()=>document.body.dataset.authenticated==='false');assert.equal(await A.page.locator('#screens').isVisible(),false);
   });
-  await check('nessun errore JavaScript applicativo',async()=>{assert.deepEqual(report.pageErrors,[]);return {consoleErrors:report.consoleErrors.length,blocked:report.blocked.flat().length};});
+  await check('nessun errore JavaScript applicativo',async()=>{for(const e of pendingTransport.splice(0))settle(unresolved(e));assert.deepEqual(report.pageErrors,[]);return {consoleErrors:report.consoleErrors.length,blocked:report.blocked.flat().length};});
 })().catch(e=>{report.fatal=e.stack;process.exitCode=1;console.error(e);}).finally(async()=>{
   server.storageDown(false);server.endpointDown(false);server.serverDown(false);
   for(const d of devices){await d.context.setOffline(false).catch(()=>{});await d.context.close().catch(()=>{});}

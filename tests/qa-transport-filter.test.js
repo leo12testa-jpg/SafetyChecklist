@@ -1,6 +1,6 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {EMULATOR,OUTSIDE_BLOCK,recordAbort,classifyPageError}=require('./qa-transport-filter.cjs');
+const {EMULATOR,OUTSIDE_BLOCK,NOT_RECOVERED,UNRESOLVED,recordAbort,classifyPageError,resolvePending,unresolved}=require('./qa-transport-filter.cjs');
 
 // Messages exactly as WebKit reported them in the isolated QA (run 40731337703).
 const REST='/v1/projects/demo-safety-qa-v1/databases/(default)/documents:';
@@ -70,4 +70,59 @@ test('regola esistente: canali streaming Firestore dell emulatore restano errori
 
 test('errori JavaScript applicativi restano errori di pagina',()=>{
   assert.equal(classifyPageError('TypeError: undefined is not an object',device()).kind,'page');
+});
+
+// Policy (b): reload/navigation started by the test, in a step that verifies data recovery.
+const testReload={step:'offline, foto e nota',action:'reload',navigating:true,stepVerifiesRecovery:true};
+
+test('WebKit: reload del test in un passo con verifiche di recupero resta in attesa dell esito',()=>{
+  const r=classifyPageError(msg(REST+'batchGet'),device(),testReload);
+  assert.equal(r.kind,'pending');assert.equal(r.entry.step,testReload.step);
+});
+
+test('WebKit: reload del test e dati recuperati nel passo → errore di trasporto registrato',()=>{
+  const r=resolvePending(classifyPageError(msg(REST+'commit'),device(),testReload).entry,true);
+  assert.equal(r.kind,'transport');assert.equal(r.entry.recoveryVerified,true);assert.equal(r.entry.testNavigation,true);
+  assert.equal(r.entry.action,'reload');
+});
+
+test('WebKit: reload del test ma dati non recuperati → il test fallisce',()=>{
+  const r=resolvePending(classifyPageError(msg(REST+'batchGet'),device(),testReload).entry,false);
+  assert.equal(r.kind,'page');assert.equal(r.entry.reason,NOT_RECOVERED);
+});
+
+test('WebKit: navigazione del test con dati recuperati è ammessa come il reload',()=>{
+  const r=classifyPageError(msg(REST+'batchGet'),device(),{...testReload,action:'navigazione'});
+  assert.equal(r.kind,'pending');assert.equal(resolvePending(r.entry,true).kind,'transport');
+});
+
+test('WebKit: azione reload ma navigazione già conclusa → fallisce (condizione a)',()=>{
+  const r=classifyPageError(msg(REST+'batchGet'),device(),{...testReload,navigating:false});
+  assert.equal(r.kind,'page');assert.equal(r.entry.reason,OUTSIDE_BLOCK);
+});
+
+for(const action of ['logout','sync','login','ripresa-online']){
+  test(`WebKit: ${action} in un passo con verifiche di recupero non è ammesso (condizione a)`,()=>{
+    const r=classifyPageError(msg(REST+'batchGet'),device(),{...testReload,action});
+    assert.equal(r.kind,'page');assert.equal(r.entry.reason,OUTSIDE_BLOCK);
+  });
+}
+
+test('WebKit: reload del test in un passo senza verifiche di recupero → fallisce (condizione b)',()=>{
+  const r=classifyPageError(msg(REST+'batchGet'),device(),{...testReload,step:'cambio ruolo',stepVerifiesRecovery:false});
+  assert.equal(r.kind,'page');assert.equal(r.entry.reason,OUTSIDE_BLOCK);
+});
+
+test('Chromium: reload del test con dati recuperati fa comunque fallire',()=>{
+  assert.equal(classifyPageError(msg(REST+'batchGet'),device('chromium'),testReload).kind,'page');
+});
+
+test('host o progetto diversi durante il reload del test fanno fallire',()=>{
+  assert.equal(classifyPageError(msg(REST+'batchGet','firestore.googleapis.com'),device(),testReload).kind,'page');
+  assert.equal(classifyPageError(msg('/v1/projects/altro/databases/(default)/documents:commit'),device(),testReload).kind,'page');
+});
+
+test('errore in attesa senza esito del passo a fine collaudo → fallisce',()=>{
+  const r=unresolved(classifyPageError(msg(REST+'batchGet'),device(),testReload).entry);
+  assert.equal(r.kind,'page');assert.equal(r.entry.reason,UNRESOLVED);
 });
