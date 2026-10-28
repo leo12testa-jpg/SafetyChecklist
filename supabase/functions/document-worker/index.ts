@@ -17,6 +17,7 @@ const REQUEST_TIMEOUT_MS = 120000;
 
 type Job = {
   id: string;
+  document_type: string;
   phase: string;
   status: string;
   status_message: string;
@@ -293,6 +294,12 @@ async function claimOne() {
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 async function processOne(job: Job) {
+  // The platform is multi-document, but an adapter must be reviewed before a new
+  // document type can enter the drafting pipeline. Never route an unknown type through DUVRI prompts.
+  if (job.document_type !== 'duvri') {
+    await awaitConfiguration(job, 'Il tipo di documento è registrato, ma il suo agente specializzato e il generatore corrispondente non sono ancora attivi. Nessun modello DUVRI verrà applicato.');
+    return { id: job.id, state: 'awaiting_configuration', documentType: job.document_type };
+  }
   if (!PIPELINE_ENABLED || !OPENAI_API_KEY || !AI_MODEL) {
     await awaitConfiguration(job, 'Il lavoro è salvato nel cloud; il provider AI è disattivato o non configurato. Nessun documento è stato inviato al provider.');
     return { id: job.id, state: 'awaiting_configuration' };
