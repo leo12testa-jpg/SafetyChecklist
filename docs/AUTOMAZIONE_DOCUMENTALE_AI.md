@@ -123,3 +123,49 @@ Le skill devono essere versionate nel repository e includere esempi, criteri di 
 2. Provider AI: API server-side da selezionare dopo aver confrontato qualità, privacy e costo; l'abbonamento ChatGPT/Claude non implica automaticamente credito API.
 3. Fonte dati iniziale: checklist di sopralluogo, raccolta dati DVR o entrambe.
 4. Regole di accesso: chi può avviare, leggere, revisionare e approvare ogni documento.
+
+
+## Requisiti iniziali confermati — checklist DUVRI
+
+Queste scelte sono requisiti di progettazione e NON dati riferiti a un appalto reale:
+
+- Scenario di riferimento per il prototipo: cantiere o area di lavoro esterna.
+- Complessità: elevata.
+- Imprese appaltatrici: una impresa appaltatrice; la checklist deve comunque permettere di aggiungere subappaltatori e ulteriori imprese quando pertinenti.
+- Documenti inizialmente disponibili: DVR specifico e cronoprogramma lavori.
+- La checklist deve chiedere e distinguere i documenti disponibili, quelli non applicabili e quelli mancanti; non deve considerare automaticamente sufficienti i due documenti selezionati.
+
+### Principio di progettazione della checklist DUVRI
+
+La checklist non deve essere un modulo statico uguale per tutti i lavori. Deve usare una struttura a sezioni:
+
+1. **Dati comuni obbligatori:** committente, appaltatore, luogo, oggetto e titolo dell'appalto, date, referenti e preposto (nominativo, mansione/area di competenza).
+2. **Descrizione dell'intervento:** attività dettagliate, fasi, cronoprogramma, orari, aree interessate, accessi, viabilità, depositi, eventuale lavoro in quota e condizioni del sito.
+3. **Mezzi e attrezzature:** descrizione, utilizzatore, proprietario, modalità d'impiego e documentazione pertinente.
+4. **DPI:** DPI previsti dall'impresa per le attività, con motivazione/fonte quando disponibile; non dedurre DPI specifici senza informazioni sufficienti.
+5. **Contesto del luogo:** cantiere/area esterna, ambienti interni o scenario misto; presenza di lavoratori del committente, pubblico, altre imprese, impianti in esercizio, percorsi condivisi e possibili sovrapposizioni.
+6. **Documenti e allegati:** DVR specifico, cronoprogramma, planimetrie, procedure, schede di sicurezza se pertinenti, autorizzazioni e documenti relativi a mezzi/attrezzature. Per ciascuno registrare stato (disponibile, da acquisire, non applicabile), data/versione e fonte.
+7. **Interferenze e misure:** raccogliere fatti e condizioni necessarie per valutare le interferenze; separare i dati forniti dall'impresa, le informazioni estratte dai documenti e le valutazioni proposte dal sistema.
+8. **Controllo di completezza:** prima della generazione, produrre un elenco di lacune e domande mirate. Le informazioni critiche mancanti devono bloccare la generazione della relativa sezione o mantenere la bozza esplicitamente incompleta, senza inventare dati.
+9. **Output e revisione:** bozza Word basata sul file originale approvato, report delle informazioni mancanti e verifiche da compiere; revisione umana obbligatoria.
+
+### Regole per gli approfondimenti condizionali
+
+- Se sono previsti lavori in quota, chiedere accessi, modalità operative, protezioni collettive e individuali, aree sottostanti e misure per impedire la presenza di terzi, secondo le informazioni e i documenti applicabili.
+- Se si usano prodotti chimici, chiedere identificazione dei prodotti e schede di sicurezza pertinenti.
+- Se sono impiegati mezzi o macchine, chiedere tipo, proprietà, utilizzatore, percorsi, manovre e interferenze con pedoni o altre attività.
+- Se sono coinvolte più imprese o subappaltatori, abilitare raccolte separate per ciascuna impresa e valutare le sovrapposizioni tra fasi.
+- Se le attività si svolgono vicino a impianti in esercizio, aree aperte al pubblico, vie di esodo o attività del committente, chiedere le condizioni operative e le misure di coordinamento.
+- Gli esempi sono regole di attivazione della raccolta dati, non una valutazione automatica esaustiva dei rischi.
+
+### Regole del modello DUVRI da rispettare
+
+- Modificare il file DOCX originale approvato, non ricostruire il documento da zero.
+- Conservare intestazioni, piè di pagina, logo, grafica, tabelle e immagini incorporate, salvo modifiche autorizzate.
+- Mantenere la struttura e i capitoli indicati nel modello Colligo, correggendo indice e numeri di pagina in fase di validazione.
+- Inserire l'immagine di segnaletica fornita alla fine del capitolo 2.3 senza contorni, come richiesto.
+- Mantenere la tabella "TABELLA INDICI DI RISCHIO" al termine del paragrafo "Valutazione dell'indice di rischio".
+- Le tabelle finali devono conservare tutti i fattori di rischio del modello; non eliminare un fattore perché ritenuto assente. Ogni valore deve essere giustificabile con il metodo aziendale approvato e i dati disponibili.
+- È presente una regola da chiarire prima dell'automazione: il modello descrive una matrice con indici da 1 a 9, mentre le istruzioni richiedono celle "I.R." da 1 a 3 e colori specifici. Non applicare una conversione arbitraria: richiedere conferma del criterio aziendale.
+- Verificare i riferimenti normativi rispetto alle fonti ufficiali e registrare le verifiche; non aggiornare silenziosamente formulazioni tecniche o normative.
+- Il documento generato è sempre una bozza fino alla revisione e approvazione di personale competente.
