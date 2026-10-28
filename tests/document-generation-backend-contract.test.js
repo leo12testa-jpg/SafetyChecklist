@@ -41,7 +41,9 @@ test('il motore AI supporta Claude API e OpenAI, ma resta disattivato senza conf
   assert.match(worker, /api\.anthropic\.com\/v1\/messages/);
   assert.match(worker, /anthropic-beta/);
   assert.match(worker, /files-api-2025-04-14/);
-  assert.match(worker, /thinking: \\{ type: 'disabled' \\}/);
+  assert.match(worker, /thinkingConfig/);
+  assert.match(worker, /type: 'between_tools'/);
+  assert.match(worker, /output_config: \\{ effort: 'low' \\}/);
   assert.match(worker, /extractDocxText/);
   assert.match(worker, /extractXlsxText/);
   assert.match(worker, /DOCUMENT_AI_MODEL/);
