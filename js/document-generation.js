@@ -105,6 +105,7 @@
     if (!data.site.address) missing.push('Sede e indirizzo dell’intervento da estrarre e/o confermare.');
     if (!data.site.context || data.site.context === 'unknown' || data.site.context === 'other') missing.push('Tipo di area (interno, cantiere/esterno o misto) da confermare dopo l’analisi della checklist.');
     if (!data.work.description) missing.push('Descrizione dell’appalto da ricostruire dalla checklist e confermare.');
+    if (!data.aiDataProcessingConsent) missing.push('Consenso al trasferimento di checklist e allegati al provider AI da raccogliere prima di attivare l’elaborazione cloud.');
     data.contractors.forEach((company, index) => {
       if (!company.company) missing.push('Impresa ' + (index + 1) + ': ragione sociale da estrarre dalla checklist e confermare.');
       const label = company.company || ('Impresa ' + (index + 1));
@@ -183,6 +184,7 @@
       modules: checkedModules(),
       sourceChecklist: checklistFile,
       documents,
+      aiDataProcessingConsent: data.get('aiDataProcessingConsent') === 'yes',
       notes: escapeText(data.get('notes')).trim(),
       notices: [
         'Scheda di raccolta dati del prototipo: i documenti selezionati non sono stati caricati e il loro contenuto non è incluso.',
