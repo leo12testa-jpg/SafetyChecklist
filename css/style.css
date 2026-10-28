@@ -2776,3 +2776,10 @@ textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:
 @media (max-width: 1100px) { .dg-agent-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media (max-width: 700px) { .dg-agent-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width: 420px) { .dg-agent-grid { grid-template-columns:1fr; } }
+
+
+.dg-ai-consent { display:flex; align-items:flex-start; gap:10px; padding:13px 14px; margin-top:14px; border:1px solid #d5dfe9; border-radius:9px; background:#f8fafc; cursor:pointer; }
+.dg-ai-consent > input { flex:none; width:18px; height:18px; margin:2px 0 0; accent-color:var(--color-primary); }
+.dg-ai-consent strong, .dg-ai-consent small { display:block; }
+.dg-ai-consent strong { font-size:.87rem; color:var(--color-primary); }
+.dg-ai-consent small { margin-top:5px; font-size:.8rem; line-height:1.5; font-weight:400; color:var(--color-text-muted); }
