@@ -96,3 +96,27 @@ Supabase Edge Functions possono ricevere richieste e fare piccoli passaggi, ma u
 6. Revisione, regressioni, verifiche privacy/costi e attivazione controllata.
 
 Non avviare scritture schema, bucket, segreti o deployment sul progetto Supabase di produzione finché la PR e i gate non sono stati approvati.
+
+
+## Stato sorgente backend (non distribuito)
+
+Sono presenti nel branch di sviluppo:
+- `supabase/functions/document-jobs/index.ts`: gateway autenticato con Firebase, controlli profilo/ruolo attivo, upload privato, lista/stato/download, annullamento, retry e registrazione della revisione.
+- `supabase/functions/document-worker/index.ts`: worker attivabile solo con secret interno; claim atomico del job, lease, retry e due fasi AI logiche (estrazione documentale e analisi interferenze) con stato persistito.
+- `supabase/document-generation/schema.draft.sql`: DDL proposto per job, file, eventi, funzione di claim atomico e bucket privato. È un file DRAFT e non deve essere applicato direttamente in produzione; dopo approvazione va convertito in una migrazione con Supabase CLI e provato in ambiente isolato.
+- `tests/document-generation-backend-contract.test.js`: test di contratto per controlli di accesso, bucket privato, coda e gate di attivazione.
+- `tests/document-generation-ui-contract.test.js`: verifica dei collegamenti di base della sezione UI e dell'informativa sui costi/consenso.
+
+### Stato del flusso
+
+- Frontend: raccoglie la checklist sorgente e gli allegati, ma in questa versione ne conserva solo i metadati e non richiama ancora il gateway.
+- Gateway backend: sorgente implementato, necessita deployment e schema attivo in un ambiente di test.
+- Worker: può eseguire estrazione e analisi solo dopo aver configurato API key/modello, consentito il trasferimento dei documenti e impostato `DOCUMENT_PIPELINE_ENABLED=true`. Il default è disabilitato.
+- Redattore Word / validatore OOXML: NON completati. Il worker si ferma esplicitamente in attesa di configurazione e non dichiara di avere generato un DOCX.
+- Storage, tabelle, secret, Cron/schedule e funzioni non sono stati creati o modificati nel progetto Supabase live.
+
+### Secret / impostazioni attese (non configurate)
+
+`DOCUMENT_WORKER_SECRET`, `DOCUMENT_PIPELINE_ENABLED=false`, `OPENAI_API_KEY`, `DOCUMENT_AI_MODEL`, `DUVRI_TEMPLATE_OBJECT_PATH`, `DUVRI_RISK_RULE_APPROVED=false`, `DUVRI_DOCX_ENGINE_ENABLED=false`.
+
+L'uso di OpenAI via API comporta costi API potenzialmente separati dall'abbonamento ChatGPT o Claude. Nessuna chiamata AI deve avvenire finché il proprietario del progetto non configura intenzionalmente il provider e non viene registrato il consenso dell'utente al trasferimento dei file.
