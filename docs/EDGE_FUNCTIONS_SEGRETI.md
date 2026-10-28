@@ -68,11 +68,11 @@ Legenda: **obbligatoria** = senza di essa la funzione non serve richieste autent
 
 ### `ore-produttivita-api` (in produzione per la funzione «Ore»)
 
-| Variabile | Note |
-|---|---|
-| `SAFETYCHECKLIST_FIREBASE_API_KEY` | **obbligatoria**; altrimenti 503 sulle richieste con token valido |
-| `SUPABASE_URL` | *piattaforma* |
-| `SUPABASE_SECRET_KEYS` oppure `SUPABASE_SERVICE_ROLE_KEY` | *piattaforma*; usata la prima se presente |
+**Non modificata in questo branch:** la chiave è ancora scritta nel codice. Il gate di QA
+vieta modifiche all'app Ore in questa PR (`tests/qa-v1-run.cjs`), quindi il passaggio
+alla variabile `SAFETYCHECKLIST_FIREBASE_API_KEY` va fatto con una PR separata. Finché non
+avviene, la chiave **browser** non può ricevere la restrizione HTTP referrer senza fermare
+questa funzione.
 
 ### `document-worker`
 
@@ -83,9 +83,9 @@ abilitazioni DUVRI) sono descritte in `docs/AGENTI_CLOUD_DUVRI.md` e
 ## Ordine obbligatorio prima del prossimo deploy
 
 I segreti Supabase sono condivisi da tutte le funzioni dello stesso progetto. La
-variabile va impostata **prima** di ridistribuire una qualsiasi delle quattro
+variabile va impostata **prima** di ridistribuire una qualsiasi delle tre
 funzioni, altrimenti la versione nuova risponderà 503 a tutti gli utenti autenticati
-(per `ore-produttivita-api` significa fermare l'app Ore in produzione).
+(manage-users, photo-access, document-jobs).
 
 ```bash
 # Inserire il valore solo nel terminale dell'amministratore, mai in file o chat.
@@ -106,11 +106,11 @@ non versionato con `supabase secrets set --env-file <file>` e cancellarlo subito
 4. [ ] Ridistribuire **una funzione alla volta**, iniziando da una non critica
        (`photo-access` o `document-jobs`), e verificare un accesso reale:
        nessun 503 «chiave Firebase non impostata», nessun 401 inatteso.
-5. [ ] Solo dopo, ridistribuire `manage-users` e infine `ore-produttivita-api`;
-       verificare login e lettura dati nell'app Ore.
+5. [ ] Solo dopo, ridistribuire `manage-users` e verificare login e gestione utenti.
+       `ore-produttivita-api` resta invariata finché la PR separata non è approvata.
 6. [ ] Se compare il 503: impostare il segreto (la funzione lo legge a ogni richiesta;
        se il 503 persiste, ridistribuirla) oppure ripristinare la versione precedente.
-7. [ ] Solo quando tutte e quattro le funzioni usano la chiave server, applicare la
+7. [ ] Solo quando le tre funzioni di questo branch e `ore-produttivita-api` (PR separata) usano la chiave server, applicare la
        restrizione HTTP referrer alla chiave **browser**.
 8. [ ] Prima del punto 7, migrare anche gli usi non-browser della chiave browser
        (vedi sotto), altrimenti smetteranno di funzionare.

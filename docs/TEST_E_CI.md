@@ -85,7 +85,8 @@ Politica:
    rete (`localCredentials` richiede Windows o `ORE_SMOKE_PASSWORD`). La guardia aggiuntiva
    raccomandata nello script stesso è descritta sotto.
 
-Guardia raccomandata in `tests/ore-live-permissions.cjs` (all'inizio di `run()`):
+Guardia raccomandata in `tests/ore-live-permissions.cjs` (all'inizio di `run()`), da applicare
+con una PR separata: il gate di QA (`tests/qa-v1-run.cjs`) vieta modifiche a `tests/ore-*` in questa PR.
 
 ```js
 if (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') {

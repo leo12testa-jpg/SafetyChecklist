@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 
+const FIREBASE_API_KEY = "AIzaSyAdgCc8TQ1TVfF8l0NMxtm7NS95ZOl4lCA";
 const FIREBASE_PROJECT_ID = "safety-checklist-colligo";
 const FIREBASE_AUTH = "https://identitytoolkit.googleapis.com/v1";
 const FIRESTORE = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
@@ -111,19 +112,9 @@ async function verifyFirebaseJwt(token:string){
     return claims.sub;
   }catch{bad("Sessione non valida.",401);}
 }
-// Server-side Web API key from secrets only (no literal fallback), read per request:
-// when missing, authenticated calls fail closed with 503; OPTIONS/CORS unaffected.
-function firebaseApiKey(): string {
-  const key = Deno.env.get("SAFETYCHECKLIST_FIREBASE_API_KEY") || "";
-  if (!key) {
-    console.error("[ore-produttivita-api] SAFETYCHECKLIST_FIREBASE_API_KEY non impostata: autenticazione rifiutata (503).");
-    bad("Configurazione server incompleta: chiave Firebase non impostata.", 503);
-  }
-  return key;
-}
 async function firebaseLookup(idToken: string) {
   const verifiedUid=await verifyFirebaseJwt(idToken);
-  const response = await fetch(`${FIREBASE_AUTH}/accounts:lookup?key=${firebaseApiKey()}`, {
+  const response = await fetch(`${FIREBASE_AUTH}/accounts:lookup?key=${FIREBASE_API_KEY}`, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idToken })
   });
   if (!response.ok) bad("Sessione non valida.", 401);
