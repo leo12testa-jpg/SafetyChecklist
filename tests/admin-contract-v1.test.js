@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-function setup({paged=false,profileFailure=false}={}) {
+function setup({paged=false,profileFailure=false,firebaseKey='qa-only'}={}) {
   let handler;const requests=[];const telemetry=require('./qa-telemetry-store.cjs').telemetryStore();
   const user=(uid,role='tecnico',active=true)=>({name:'projects/qa/databases/(default)/documents/utenti/'+uid,fields:{uid:{stringValue:uid},username:{stringValue:uid},nome:{stringValue:'QA'},cognome:{stringValue:uid},ruolo:{stringValue:role},attivo:{booleanValue:active}}});
   const source=process.env.QA_BASELINE_REF?require('node:child_process').execFileSync('git',['show',process.env.QA_BASELINE_REF+':supabase/functions/manage-users/index.ts'],{encoding:'utf8'}):fs.readFileSync('supabase/functions/manage-users/index.ts','utf8');
@@ -17,7 +17,7 @@ function setup({paged=false,profileFailure=false}={}) {
     if(options.method==='PATCH')return json(profileFailure?{error:'QA write failure'}:user(uid),profileFailure?503:200);
     return json(user(uid,uid==='admin'?'admin':'tecnico',uid!=='inactive'));
   };
-  vm.runInNewContext(require('node:module').stripTypeScriptTypes(source),{Deno:{env:{get:k=>({SUPABASE_URL:'https://qa-supabase.invalid',SUPABASE_SERVICE_ROLE_KEY:'qa-service-only'})[k]},serve:(opts,h)=>{handler=h||opts;}},fetch,Request,Response,URL,URLSearchParams,console});
+  vm.runInNewContext(require('node:module').stripTypeScriptTypes(source),{Deno:{env:{get:k=>({SUPABASE_URL:'https://qa-supabase.invalid',SUPABASE_SERVICE_ROLE_KEY:'qa-service-only',SAFETYCHECKLIST_FIREBASE_API_KEY:firebaseKey})[k]},serve:(opts,h)=>{handler=h||opts;}},fetch,Request,Response,URL,URLSearchParams,console});
   return {requests,call:(action,token='admin',body={})=>handler(new Request('http://qa.local/',{method:'POST',headers:{'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{})},body:JSON.stringify({action,...body})}))};
 }
 test('account listing follows Firestore pagination and includes user 101',async()=>{
@@ -49,4 +49,8 @@ test('v4 telemetry retains diagnostics, access events and last access after hear
 test('profile creation failure compensates only the account just created',async()=>{
   const h=setup({profileFailure:true}),r=await h.call('create','admin',{username:'qa.created',nome:'QA',cognome:'Fittizio',ruolo:'tecnico',password:'QA-only!Fittizio2026'});assert.equal(r.status,503);
   const deletes=h.requests.filter(r=>r.pathname.endsWith('/accounts:delete'));assert.equal(deletes.length,1);assert.equal(deletes[0].body.idToken,'new-only-token');
+});
+test('missing SAFETYCHECKLIST_FIREBASE_API_KEY fails closed with 503 and never calls Firebase',async()=>{
+  const h=setup({firebaseKey:null}),r=await h.call('list','admin');assert.equal(r.status,503);
+  assert.ok(!h.requests.some(q=>q.pathname.includes('accounts:')),'no Identity Toolkit call without a configured key');
 });

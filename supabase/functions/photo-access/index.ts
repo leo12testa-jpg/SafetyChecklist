@@ -4,10 +4,19 @@
 const authEmulator = Deno.env.get('FIREBASE_AUTH_EMULATOR_HOST');
 const firestoreEmulator = Deno.env.get('FIRESTORE_EMULATOR_HOST');
 const project = Deno.env.get('SAFETYCHECKLIST_FIREBASE_PROJECT_ID') || (authEmulator || firestoreEmulator ? Deno.env.get('FIREBASE_PROJECT_ID') : null) || 'safety-checklist-colligo';
-const apiKey = Deno.env.get('SAFETYCHECKLIST_FIREBASE_API_KEY') || (authEmulator ? Deno.env.get('FIREBASE_API_KEY') : null) || 'AIzaSyAdgCc8TQ1TVfF8l0NMxtm7NS95ZOl4lCA';
+// Server-side Web API key: secrets only, no literal fallback. Read per request so a
+// missing secret fails closed with 503 without breaking OPTIONS/CORS at import.
+function apiKey(): string {
+  const key = Deno.env.get('SAFETYCHECKLIST_FIREBASE_API_KEY') || (authEmulator ? Deno.env.get('FIREBASE_API_KEY') : null) || '';
+  if (!key) {
+    console.error('[photo-access] SAFETYCHECKLIST_FIREBASE_API_KEY non impostata: autenticazione rifiutata (503).');
+    fail(503, 'Configurazione server incompleta: chiave Firebase non impostata.');
+  }
+  return key;
+}
 const storageUrl = Deno.env.get('SUPABASE_URL') || '';
 const storageKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-if (!project || !apiKey || !storageUrl || !storageKey) throw new Error('Photo backend configuration missing');
+if (!project || !storageUrl || !storageKey) throw new Error('Photo backend configuration missing');
 if ((authEmulator || firestoreEmulator) && !project.startsWith('demo-')) throw new Error('Emulators require a demo project');
 const authUrl = authEmulator ? `http://${authEmulator}/identitytoolkit.googleapis.com/v1` : 'https://identitytoolkit.googleapis.com/v1';
 const firestoreUrl = `${firestoreEmulator ? `http://${firestoreEmulator}` : 'https://firestore.googleapis.com'}/v1/projects/${project}/databases/(default)/documents`;
@@ -59,7 +68,7 @@ async function actor(req: Request) {
   if(claims.aud!==project || claims.iss!==`https://securetoken.google.com/${project}`
     || typeof claims.sub!=='string' || !claims.sub || !Number.isFinite(claims.iat)
     || !Number.isFinite(claims.exp) || claims.exp<=Date.now()/1000)fail(401,'Invalid or expired session');
-  const r = await remote(`${authUrl}/accounts:lookup?key=${encodeURIComponent(apiKey)}`, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({idToken:token}) });
+  const r = await remote(`${authUrl}/accounts:lookup?key=${encodeURIComponent(apiKey())}`, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({idToken:token}) });
   if (!r.ok) fail(r.status >= 500 ? 503 : 401,'Invalid session');
   const account = (await r.json()).users?.[0];
   if (!account?.localId || account.disabled) fail(401,'Invalid session');
