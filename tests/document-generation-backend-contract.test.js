@@ -4,6 +4,7 @@ const fs = require('node:fs');
 
 const gateway = fs.readFileSync('supabase/functions/document-jobs/index.ts', 'utf8');
 const worker = fs.readFileSync('supabase/functions/document-worker/index.ts', 'utf8');
+const duvriAgent = fs.readFileSync('supabase/functions/document-worker/duvri-agent.ts', 'utf8');
 const schema = fs.readFileSync('supabase/document-generation/schema.draft.sql', 'utf8');
 
 test('il gateway richiede identità Firebase attiva e ruolo aziendale autorizzato', () => {
@@ -58,5 +59,16 @@ test('il worker non dichiara di aver generato un DOCX finché il motore Word e l
   assert.match(worker, /DUVRI_DOCX_ENGINE_ENABLED/);
   assert.match(worker, /DUVRI_RISK_RULE_APPROVED/);
   assert.match(worker, /Il compilatore OOXML Word deve superare i test/);
-  assert.match(worker, /Il criterio ufficiale degli indici di rischio deve essere approvato/);
+  assert.match(worker, /La regola ufficiale degli indici di rischio deve essere approvata/);
+  assert.match(worker, /DUVRI_RISK_RULE_DESCRIPTION/);
+});
+
+test('il redattore e il verificatore producono soltanto bozze sotto revisione umana', () => {
+  assert.match(worker, /populateDuvriTemplate\(templateBytes, draft\)/);
+  assert.match(worker, /status: 'needs_review'/);
+  assert.match(worker, /awaitInput\(job/);
+  assert.match(duvriAgent, /validateDuvriDraft/);
+  assert.match(duvriAgent, /buildDuvriQaPrompt/);
+  assert.match(duvriAgent, /humanReviewRequired: true/);
+  assert.match(duvriAgent, /La regola di valutazione approvata da Colligo/);
 });
