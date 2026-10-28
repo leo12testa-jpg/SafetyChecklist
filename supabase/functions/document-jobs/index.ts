@@ -178,8 +178,13 @@ function validateFile(file: File) {
   if (!ALLOWED_EXTENSIONS.has(ext) || !ALLOWED_MIME.has(mime)) fail(415, `Formato file non supportato: ${safeName(file.name)}.`);
   if (file.size <= 0 || file.size > MAX_FILE_BYTES) fail(413, 'Ogni file deve pesare meno di 18 MB.');
 }
+function stableArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
+}
 async function digest(bytes: Uint8Array) {
-  const hash = await crypto.subtle.digest('SHA-256', bytes);
+  const hash = await crypto.subtle.digest('SHA-256', stableArrayBuffer(bytes));
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2,'0')).join('');
 }
 function storagePath(path: string) {
@@ -189,7 +194,7 @@ async function storageUpload(path: string, bytes: Uint8Array, mime: string) {
   const response = await fetchTimeout(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${storagePath(path)}`, {
     method: 'POST',
     headers: dbHeaders({ 'content-type': mime, 'x-upsert': 'false', 'cache-control': 'private, max-age=0' }),
-    body: bytes
+    body: stableArrayBuffer(bytes)
   }, 60000);
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
