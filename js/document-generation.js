@@ -234,7 +234,7 @@
     const missing = collectMissing(preparedRecord);
     resultTitle.textContent = 'Scheda dati pronta per il test';
     const selectedType = form.elements.documentType.selectedOptions[0]?.textContent || 'Documento';
-    resultSummary.textContent = selectedType + ' · ' + (preparedRecord.sourceChecklist ? preparedRecord.sourceChecklist.name : 'Checklist non selezionata') + ' · '
+    resultSummary.textContent = selectedType + ' · ' + (preparedRecord.sourceChecklist ? preparedRecord.sourceChecklist.name : 'Checklist non selezionata') + ' · ' +
       preparedRecord.contractors.length + (preparedRecord.contractors.length === 1 ? ' scheda impresa' : ' schede impresa') + ' · ' +
       preparedRecord.documents.length + (preparedRecord.documents.length === 1 ? ' allegato di supporto' : ' allegati di supporto') +
       ' · ' + missing.length + (missing.length === 1 ? ' verifica da completare' : ' verifiche da completare');
@@ -251,7 +251,7 @@
     link.href = url;
     const safeName = (preparedRecord.job.title || 'nuovo-duvri')
       .normalize('NFKD').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'nuovo-duvri';
-    link.download = 'scheda-duvri-' + safeName + '.json';
+    link.download = 'scheda-documento-' + safeName + '.json';
     document.body.appendChild(link);
     link.click();
     link.remove();
