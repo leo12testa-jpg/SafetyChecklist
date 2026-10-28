@@ -150,10 +150,11 @@
       contentIncluded: false
     }));
     return {
-      schema: 'colligo-duvri-intake/0.2',
+      schema: 'colligo-document-intake/0.3',
+      documentType: escapeText(data.get('documentType') || 'duvri'),
       recordId: (globalThis.crypto && typeof crypto.randomUUID === 'function')
         ? crypto.randomUUID()
-        : 'duvri-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9),
+        : 'document-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9),
       createdAt: new Date().toISOString(),
       prototypeStatus: 'local-intake-only',
       cloudSubmission: false,
@@ -168,6 +169,7 @@
       ],
       job: {
         title: escapeText(data.get('title')).trim(),
+        documentType: escapeText(data.get('documentType') || 'duvri'),
         documentDate: escapeText(data.get('documentDate')),
         complexity: escapeText(data.get('complexity')),
         startDate: escapeText(data.get('startDate')),
@@ -188,7 +190,7 @@
       notes: escapeText(data.get('notes')).trim(),
       notices: [
         'Scheda di raccolta dati del prototipo: i documenti selezionati non sono stati caricati e il loro contenuto non è incluso.',
-        'Nessun dato è stato inviato a un backend o a un provider AI. Non è stato generato alcun DUVRI.',
+        'Nessun dato è stato inviato a un backend o a un provider AI. Non è stato generato alcun documento.',
         'Le lacune riportate sono promemoria di raccolta, non una valutazione esaustiva di completezza o sicurezza.'
       ]
     };
@@ -231,7 +233,8 @@
     preparedRecord = createRecord();
     const missing = collectMissing(preparedRecord);
     resultTitle.textContent = 'Scheda dati pronta per il test';
-    resultSummary.textContent = (preparedRecord.sourceChecklist ? preparedRecord.sourceChecklist.name : 'Checklist non selezionata') + ' · ' +
+    const selectedType = form.elements.documentType.selectedOptions[0]?.textContent || 'Documento';
+    resultSummary.textContent = selectedType + ' · ' + (preparedRecord.sourceChecklist ? preparedRecord.sourceChecklist.name : 'Checklist non selezionata') + ' · '
       preparedRecord.contractors.length + (preparedRecord.contractors.length === 1 ? ' scheda impresa' : ' schede impresa') + ' · ' +
       preparedRecord.documents.length + (preparedRecord.documents.length === 1 ? ' allegato di supporto' : ' allegati di supporto') +
       ' · ' + missing.length + (missing.length === 1 ? ' verifica da completare' : ' verifiche da completare');
