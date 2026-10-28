@@ -266,11 +266,10 @@ async function uploadAIFile(file: JobFile, bytes: Uint8Array): Promise<{ id: str
   const image = file.mime_type === 'image/png' || file.mime_type === 'image/jpeg';
   const url = AI_PROVIDER === 'anthropic' ? 'https://api.anthropic.com/v1/files' : 'https://api.openai.com/v1/files';
   const body = new FormData();
-  if (AI_PROVIDER === 'anthropic') body.append('expires_in_seconds', '3600');
-  else body.append('purpose', image ? 'vision' : 'user_data');
+  if (AI_PROVIDER === 'openai') body.append('purpose', image ? 'vision' : 'user_data');
   body.append('file', new File([stableArrayBuffer(bytes)], file.filename, { type: file.mime_type }), file.filename);
   const authHeaders: Record<string,string> = AI_PROVIDER === 'anthropic'
-    ? { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' }
+    ? { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-beta': 'files-api-2025-04-14' }
     : { authorization: `Bearer ${OPENAI_API_KEY}` };
   const response = await remote(url, { method: 'POST', headers: authHeaders, body });
   if (!response.ok) {
@@ -315,12 +314,20 @@ async function runAIResponse(input: unknown[], systemPrompt: string, tokenLimit 
   if (AI_PROVIDER === 'anthropic') {
     const response = await remote('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      headers: {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        ...(input.some((message: any) => (message.content || []).some((item: any) => item.type === 'input_file' || item.type === 'input_image'))
+          ? { 'anthropic-beta': 'files-api-2025-04-14' }
+          : {})
+      },
       body: JSON.stringify({
         model: AI_MODEL,
         system: systemPrompt,
         messages: contentForAnthropic(input),
-        max_tokens: tokenLimit
+        max_tokens: tokenLimit,
+        thinking: { type: 'disabled' }
       })
     });
     if (!response.ok) {
