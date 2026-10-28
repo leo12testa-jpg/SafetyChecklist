@@ -523,12 +523,12 @@ async function processOne(job: Job) {
     // Hard safety gate: do not send draft/scoring prompts until Colligo has explicitly
     // approved the exact risk method and a controlled template/version is configured.
     // This intentionally blocks DUVRI risk scoring while the 1–9 vs I.R. 1–3 rule is unresolved.
-    const riskRuleApproved = Deno.env.get('DUVRI_RISK_RULE_APPROVED') === 'true';
-    const riskRuleDescription = (Deno.env.get('DUVRI_RISK_RULE_DESCRIPTION') || '').trim();
-    const templatePath = (Deno.env.get('DUVRI_TEMPLATE_OBJECT_PATH') || '').trim();
-    const templateVersion = (Deno.env.get('DUVRI_TEMPLATE_VERSION') || '').trim();
-    const docxEngineEnabled = Deno.env.get('DUVRI_DOCX_ENGINE_ENABLED') === 'true';
-    if (!riskRuleApproved || !riskRuleDescription || !templatePath || !templateVersion || !docxEngineEnabled) {
+    const draftGateRiskRuleApproved = Deno.env.get('DUVRI_RISK_RULE_APPROVED') === 'true';
+    const draftGateRiskRuleDescription = (Deno.env.get('DUVRI_RISK_RULE_DESCRIPTION') || '').trim();
+    const draftGateTemplatePath = (Deno.env.get('DUVRI_TEMPLATE_OBJECT_PATH') || '').trim();
+    const draftGateTemplateVersion = (Deno.env.get('DUVRI_TEMPLATE_VERSION') || '').trim();
+    const draftGateDocxEngineEnabled = Deno.env.get('DUVRI_DOCX_ENGINE_ENABLED') === 'true';
+    if (!draftGateRiskRuleApproved || !draftGateRiskRuleDescription || !draftGateTemplatePath || !draftGateTemplateVersion || !draftGateDocxEngineEnabled) {
       await awaitConfiguration(job, 'Redazione e valutazione del rischio bloccate: serve approvazione esplicita della metodologia Colligo, modello Word controllato/versionato e abilitazione tecnica. Nessun punteggio è stato calcolato.');
       return { id: job.id, state: 'awaiting_configuration' };
     }
