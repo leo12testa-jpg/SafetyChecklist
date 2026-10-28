@@ -1,6 +1,6 @@
 # Architettura proposta: agenti cloud per Generazione documenti
 
-Stato: prototipo backend in branch, non deployato. Il worker supporta ora un adapter Claude API (predefinito) e OpenAI; resta disattivato fino a configurazione, test e approvazione.
+Stato: prototipo backend in branch, non deployato. Il worker supporta un adapter Claude API (predefinito) e OpenAI. La fase DUVRI include ora codice di redazione e QA indipendente, con salvataggio DOCX privato; resta disattivata fino a configurazione, test e approvazione.
 
 ## Requisito cardine
 
@@ -113,7 +113,7 @@ Sono presenti nel branch di sviluppo:
 - Gateway backend: sorgente implementato, necessita deployment e schema attivo in un ambiente di test.
 - Worker: può eseguire estrazione e analisi solo dopo aver configurato API key/modello, consentito il trasferimento dei documenti e impostato `DOCUMENT_PIPELINE_ENABLED=true`. Il default è disabilitato.
 - Redattore Word / validatore: codice implementato in branch. Il worker può generare una bozza DOCX e passarla al controllo QA soltanto quando template, regola rischio e motore OOXML sono abilitati esplicitamente. La bozza viene sempre posta in revisione umana; non è ancora verificato end-to-end sul modello reale.
-- Storage, tabelle, secret, Cron/schedule e funzioni non sono stati creati o modificati nel progetto Supabase live.
+- Storage, tabelle, secret, Cron/schedule e funzioni non sono stati creati o modificati nel progetto Supabase live. È stato aggiunto solo uno script di pianificazione in bozza (`supabase/document-generation/schedule.draft.sql`): usa `pg_cron` + `pg_net` e legge URL/secret da Supabase Vault; va testato in un progetto isolato prima dell’uso.
 
 ### Secret / impostazioni attese (non configurate)
 
