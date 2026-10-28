@@ -2829,3 +2829,11 @@ textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:
   font-size: 0.92rem;
   line-height: 1.45;
 }
+
+.dg-org-usage-summary {
+  margin: 0 0 0.75rem;
+}
+.dg-org-usage-summary .dg-usage-note {
+  font-size: 0.82rem;
+  color: var(--muted, #5d6672);
+}
