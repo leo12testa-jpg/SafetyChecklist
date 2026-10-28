@@ -286,7 +286,7 @@ async function deleteAIFile(id: string) {
     ? `https://api.anthropic.com/v1/files/${encodeURIComponent(id)}`
     : `https://api.openai.com/v1/files/${encodeURIComponent(id)}`;
   const authHeaders: Record<string,string> = AI_PROVIDER === 'anthropic'
-    ? { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' }
+    ? { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-beta': 'files-api-2025-04-14' }
     : { authorization: `Bearer ${OPENAI_API_KEY}` };
   await remote(url, { method: 'DELETE', headers: authHeaders }).catch(() => {});
 }
