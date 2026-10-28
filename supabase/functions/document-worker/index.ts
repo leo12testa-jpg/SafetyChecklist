@@ -642,19 +642,27 @@ async function processOne(job: Job) {
       await awaitConfiguration(job, message.slice(0,800) + ' Nessun DOCX viene pubblicato; serve verifica tecnica del modello.');
       return { id: job.id, state: 'awaiting_configuration' };
     }
-    const qaPrompt = buildDuvriQaPrompt({
-      extraction: savedOutputs.extraction || {},
-      analysis: savedOutputs.analysis || {},
-      draft,
-      compilerReport: generated.report
-    });
     let qaReport;
     try {
-      const rawQa = await runAIResponse([{
-        role: 'user',
-        content: [{ type: 'input_text', text: qaPrompt.userText }]
-      }], qaPrompt.systemPrompt, 5000);
-      qaReport = validateDuvriQa(rawQa);
+      if (isJsonRecord(savedOutputs.qaReport)) {
+        qaReport = validateDuvriQa(savedOutputs.qaReport);
+      } else {
+        const qaPrompt = buildDuvriQaPrompt({
+          extraction: savedOutputs.extraction || {},
+          analysis: savedOutputs.analysis || {},
+          draft,
+          compilerReport: generated.report
+        });
+        const rawQa = await runAIResponse([{
+          role: 'user',
+          content: [{ type: 'input_text', text: qaPrompt.userText }]
+        }], qaPrompt.systemPrompt, 5000);
+        qaReport = validateDuvriQa(rawQa);
+        await updateClaimedJob(job, {
+          agent_outputs: { ...savedOutputs, qaReport },
+          status_message: 'Controllo QA salvato; completamento e archiviazione della bozza in corso.'
+        });
+    }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Il controllo QA non ha prodotto un risultato valido.';
       await awaitConfiguration(job, message.slice(0,800) + ' La bozza strutturata resta salvata; riprovare il controllo QA solo dopo la verifica del messaggio.');
@@ -695,7 +703,7 @@ async function processOne(job: Job) {
       status_message: 'Bozza Word disponibile. Controllare contenuti, matrice dei rischi e impaginazione prima dell’approvazione.',
       output_path: outputPath,
       validation_report: finalReport,
-      agent_outputs: { ...(job.agent_outputs || {}), draftSummary: {
+      agent_outputs: { ...savedOutputs, qaReport, draftSummary: {
         title: draft.title,
         documentDate: draft.documentDate,
         missingInformation: draft.missingInformation,
