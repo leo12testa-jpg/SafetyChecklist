@@ -2760,3 +2760,19 @@ textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:
   .dg-form-actions .btn { width: 100%; }
   .dg-panel-heading h3 { font-size: 1rem; }
 }
+
+
+/* Catena degli agenti e upload della checklist sorgente */
+.dg-agent-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; }
+.dg-agent-card { min-width:0; border:1px solid #dbe3ec; border-radius:10px; padding:12px; background:#fbfcfe; }
+.dg-agent-top { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:12px; }
+.dg-agent-avatar { display:grid; place-items:center; width:32px; height:32px; border-radius:9px; background:#e7eef7; color:var(--color-primary); font-size:.78rem; font-weight:850; }
+.dg-agent-status { display:inline-flex; border-radius:999px; padding:4px 7px; font-size:.65rem; line-height:1.2; background:#edf0f3; color:#5b6470; white-space:nowrap; }
+.dg-agent-card h4 { margin:0 0 6px; color:var(--color-primary); font-size:.9rem; }
+.dg-agent-card p { margin:0; color:var(--color-text-muted); font-size:.78rem; line-height:1.45; }
+.dg-checklist-upload { border-color:#789bbc; background:#f2f7fd; }
+.dg-checklist-file-status { padding:9px 12px; border-radius:8px; margin:9px 0 18px; background:#f3f5f7; color:var(--color-text-muted); font-size:.83rem; overflow-wrap:anywhere; }
+.dg-checklist-file-status.is-selected { background:#edf8f0; color:#17663a; border:1px solid #b7dcc1; }
+@media (max-width: 1100px) { .dg-agent-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media (max-width: 700px) { .dg-agent-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width: 420px) { .dg-agent-grid { grid-template-columns:1fr; } }
