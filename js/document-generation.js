@@ -18,10 +18,293 @@
   const missingList = document.getElementById('dg-missing-list');
   const downloadButton = document.getElementById('dg-download-json');
   const resetButton = document.getElementById('dg-reset');
+  const submitButton = form.querySelector('button[type="submit"]');
+  const cloudStatus = document.getElementById('dg-cloud-status');
+  const queueList = document.getElementById('dg-queue-list');
+  const refreshJobsButton = document.getElementById('dg-refresh-jobs');
   let preparedRecord = null;
+  let currentJobId = null;
+  let submitting = false;
+  const cloudEnabled = typeof DOCUMENT_GENERATION_CLOUD_ENABLED !== 'undefined' &&
+    DOCUMENT_GENERATION_CLOUD_ENABLED === true;
 
   function escapeText(value) {
     return String(value == null ? '' : value);
+  }
+
+  function statusLabel(status) {
+    const labels = {
+      queued: 'In coda',
+      processing: 'In elaborazione',
+      retry_wait: 'Nuovo tentativo programmato',
+      awaiting_input: 'Informazioni da integrare',
+      awaiting_configuration: 'Configurazione da completare',
+      needs_review: 'Da revisionare',
+      approved: 'Approvato dal revisore',
+      rejected: 'Rifiutato',
+      error: 'Errore',
+      cancelled: 'Annullato'
+    };
+    return labels[status] || 'Stato non riconosciuto';
+  }
+
+  async function requestJobs(action, options = {}) {
+    if (!cloudEnabled || typeof DOCUMENT_JOBS_ENDPOINT === 'undefined') {
+      throw new Error('Il backend documentale cloud non è ancora attivo.');
+    }
+    if (typeof appIdentity === 'undefined') throw new Error('Servizio di autenticazione non disponibile.');
+    await appIdentity.ready();
+    const token = await appIdentity.token();
+    const url = new URL(DOCUMENT_JOBS_ENDPOINT);
+    url.searchParams.set('action', action);
+    Object.entries(options.query || {}).forEach(([key, value]) => url.searchParams.set(key, String(value)));
+    const isForm = options.body instanceof FormData;
+    const response = await fetch(url.toString(), {
+      method: options.method || (options.body ? 'POST' : 'GET'),
+      headers: {
+        authorization: 'Bearer ' + token,
+        ...(options.body && !isForm ? { 'content-type': 'application/json' } : {})
+      },
+      ...(options.body ? { body: isForm ? options.body : JSON.stringify(options.body) } : {})
+    });
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.ok) {
+      let message = 'Richiesta documentale non riuscita.';
+      if (contentType.includes('application/json')) {
+        const error = await response.json().catch(() => ({}));
+        if (error && typeof error.error === 'string') message = error.error;
+      }
+      throw new Error(message);
+    }
+    if (!contentType.includes('application/json')) throw new Error('Risposta del backend non valida.');
+    return await response.json();
+  }
+
+  async function downloadJobFile(jobId, fileId, filename) {
+    if (!cloudEnabled) return;
+    try {
+      await appIdentity.ready();
+      const token = await appIdentity.token();
+      const url = new URL(DOCUMENT_JOBS_ENDPOINT);
+      url.searchParams.set('action', 'download');
+      url.searchParams.set('id', jobId);
+      url.searchParams.set('file_id', fileId);
+      const response = await fetch(url.toString(), { headers: { authorization: 'Bearer ' + token } });
+      if (!response.ok) throw new Error('Download non disponibile.');
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = filename || 'documento';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+    } catch (error) {
+      cloudStatus.textContent = error.message || 'Impossibile scaricare il file.';
+    }
+  }
+
+  function queueMessage(title, detail) {
+    queueList.replaceChildren();
+    const empty = document.createElement('div');
+    empty.className = 'dg-queue-empty';
+    const strong = document.createElement('strong');
+    strong.textContent = title;
+    const text = document.createElement('p');
+    text.textContent = detail;
+    empty.append(strong, text);
+    queueList.appendChild(empty);
+  }
+
+  async function showJobDetails(jobId, card) {
+    const previous = card.querySelector('.dg-job-details');
+    if (previous) { previous.remove(); return; }
+    const details = document.createElement('div');
+    details.className = 'dg-job-details';
+    details.textContent = 'Caricamento dettagli…';
+    card.appendChild(details);
+    try {
+      const data = await requestJobs('status', { query: { id: jobId } });
+      details.replaceChildren();
+      const heading = document.createElement('h5');
+      heading.textContent = 'Dettagli del lavoro';
+      details.appendChild(heading);
+      const status = document.createElement('p');
+      status.textContent = (data.job.status_message || statusLabel(data.job.status)) + ' · fase: ' + (data.job.phase || '—');
+      details.appendChild(status);
+
+      if (Array.isArray(data.files) && data.files.length) {
+        const title = document.createElement('strong');
+        title.textContent = 'File associati';
+        details.appendChild(title);
+        const fileList = document.createElement('ul');
+        data.files.forEach((file) => {
+          const li = document.createElement('li');
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'dg-link-button';
+          button.textContent = 'Scarica ' + file.filename + ' (' + Math.round(Number(file.size_bytes || 0) / 1024) + ' KB)';
+          button.addEventListener('click', () => downloadJobFile(jobId, file.id, file.filename));
+          li.appendChild(button);
+          fileList.appendChild(li);
+        });
+        details.appendChild(fileList);
+      }
+
+      if (Array.isArray(data.events) && data.events.length) {
+        const title = document.createElement('strong');
+        title.textContent = 'Cronologia agenti';
+        details.appendChild(title);
+        const eventList = document.createElement('ul');
+        data.events.forEach((event) => {
+          const li = document.createElement('li');
+          const stamp = event.created_at ? new Date(event.created_at).toLocaleString('it-IT') + ' — ' : '';
+          li.textContent = stamp + (event.agent ? event.agent + ': ' : '') + (event.message || event.event_type || '');
+          eventList.appendChild(li);
+        });
+        details.appendChild(eventList);
+      }
+
+      if (data.job.status === 'needs_review' && typeof appIdentity !== 'undefined' && appIdentity.isAdmin()) {
+        const reviewBox = document.createElement('div');
+        reviewBox.className = 'dg-review-actions';
+        const comment = document.createElement('textarea');
+        comment.rows = 2;
+        comment.maxLength = 2000;
+        comment.placeholder = 'Note per la revisione (facoltative)';
+        const actions = document.createElement('div');
+        actions.className = 'dg-review-buttons';
+        [['approved','Approva'],['changes_requested','Richiedi modifiche'],['rejected','Rifiuta']].forEach(([decision, label]) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = decision === 'approved' ? 'btn btn-primary' : 'btn';
+          button.textContent = label;
+          button.addEventListener('click', async () => {
+            button.disabled = true;
+            try {
+              await requestJobs('review', { method: 'POST', body: { id: jobId, decision, comment: comment.value } });
+              await loadCloudJobs();
+            } catch (error) {
+              cloudStatus.textContent = error.message || 'Revisione non riuscita.';
+            } finally {
+              button.disabled = false;
+            }
+          });
+          actions.appendChild(button);
+        });
+        reviewBox.append(comment, actions);
+        details.appendChild(reviewBox);
+      }
+    } catch (error) {
+      details.textContent = error.message || 'Dettagli non disponibili.';
+    }
+  }
+
+  async function loadCloudJobs() {
+    if (!cloudEnabled) {
+      cloudStatus.textContent = 'Backend cloud non attivo: le schede vengono preparate soltanto in locale. Il caricamento e la generazione non sono disponibili.';
+      queueMessage('Coda cloud non attiva', 'Prima di abilitare il servizio occorre distribuire il gateway, applicare lo schema approvato e attivare il worker schedulato.');
+      return;
+    }
+    refreshJobsButton.disabled = true;
+    cloudStatus.textContent = 'Lettura delle elaborazioni cloud…';
+    try {
+      const result = await requestJobs('list');
+      const jobs = Array.isArray(result.jobs) ? result.jobs : [];
+      queueList.replaceChildren();
+      if (!jobs.length) {
+        queueMessage('Nessun lavoro documentale', 'Quando invierai una checklist, il lavoro comparirà qui e continuerà sul cloud anche se spegni il dispositivo.');
+      } else {
+        jobs.forEach((job) => {
+          const card = document.createElement('article');
+          card.className = 'dg-job-card';
+          const top = document.createElement('div');
+          top.className = 'dg-job-card-top';
+          const title = document.createElement('h4');
+          title.textContent = job.title || 'Documento senza titolo';
+          const badge = document.createElement('span');
+          badge.className = 'dg-job-status';
+          badge.dataset.status = String(job.status || 'unknown');
+          badge.textContent = statusLabel(job.status);
+          top.append(title, badge);
+          const meta = document.createElement('p');
+          meta.className = 'dg-job-meta';
+          meta.textContent = (job.document_type || 'documento') + ' · ' +
+            (job.created_at ? new Date(job.created_at).toLocaleString('it-IT') : 'data non disponibile') +
+            (job.phase ? ' · fase ' + job.phase : '');
+          const message = document.createElement('p');
+          message.className = 'dg-job-message';
+          message.textContent = job.status_message || '';
+          const actions = document.createElement('div');
+          actions.className = 'dg-job-actions';
+          const detailButton = document.createElement('button');
+          detailButton.type = 'button';
+          detailButton.className = 'btn';
+          detailButton.textContent = 'Dettagli';
+          detailButton.addEventListener('click', () => showJobDetails(job.id, card));
+          actions.appendChild(detailButton);
+
+          if (['queued','retry_wait','awaiting_input','awaiting_configuration'].includes(job.status)) {
+            const cancelButton = document.createElement('button');
+            cancelButton.type = 'button';
+            cancelButton.className = 'btn';
+            cancelButton.textContent = 'Annulla';
+            cancelButton.addEventListener('click', async () => {
+              cancelButton.disabled = true;
+              try {
+                await requestJobs('cancel', { method: 'POST', body: { id: job.id } });
+                await loadCloudJobs();
+              } catch (error) {
+                cloudStatus.textContent = error.message || 'Annullamento non riuscito.';
+              } finally {
+                cancelButton.disabled = false;
+              }
+            });
+            actions.appendChild(cancelButton);
+          }
+          if (['error','retry_wait','awaiting_configuration','awaiting_input'].includes(job.status)) {
+            const retryButton = document.createElement('button');
+            retryButton.type = 'button';
+            retryButton.className = 'btn';
+            retryButton.textContent = 'Rimetti in coda';
+            retryButton.addEventListener('click', async () => {
+              retryButton.disabled = true;
+              try {
+                await requestJobs('retry', { method: 'POST', body: { id: job.id } });
+                await loadCloudJobs();
+              } catch (error) {
+                cloudStatus.textContent = error.message || 'Ripresa non riuscita.';
+              } finally {
+                retryButton.disabled = false;
+              }
+            });
+            actions.appendChild(retryButton);
+          }
+
+          card.append(top, meta, message, actions);
+          queueList.appendChild(card);
+        });
+      }
+      cloudStatus.textContent = 'Collegamento cloud raggiungibile. Stati e cronologia sono letti dal server.';
+    } catch (error) {
+      cloudStatus.textContent = error.message || 'Impossibile leggere le elaborazioni cloud.';
+      queueMessage('Elenco non disponibile', 'Verifica la connessione e la configurazione del backend; i lavori già salvati sul cloud non dipendono dal browser.');
+    } finally {
+      refreshJobsButton.disabled = false;
+    }
+  }
+
+  function renderPreparedRecord(record, missing, mode = 'local') {
+    resultTitle.textContent = mode === 'cloud' ? 'Lavoro documentale accodato' : 'Scheda dati pronta per il test';
+    const selectedType = form.elements.documentType.selectedOptions[0]?.textContent || 'Documento';
+    resultSummary.textContent = selectedType + ' · ' + (record.sourceChecklist ? record.sourceChecklist.name : 'Checklist non selezionata') + ' · ' +
+      record.contractors.length + (record.contractors.length === 1 ? ' scheda impresa' : ' schede impresa') + ' · ' +
+      record.documents.length + (record.documents.length === 1 ? ' allegato di supporto' : ' allegati di supporto') +
+      ' · ' + missing.length + (missing.length === 1 ? ' verifica da completare' : ' verifiche da completare');
+    renderMissing(missing);
+    resultPanel.hidden = false;
+    resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function contractorCardCount() {
@@ -42,7 +325,22 @@
     const template = document.getElementById('dg-contractor-template');
     if (!template) return;
     contractors.appendChild(template.content.cloneNode(true));
-    updateContractorCards();
+    refreshJobsButton?.addEventListener('click', loadCloudJobs);
+  document.addEventListener('click', (event) => {
+    const trigger = event.target.closest('[data-nav="document-generation"]');
+    if (trigger) loadCloudJobs();
+  });
+  if (cloudEnabled) {
+    const localNotice = screen.querySelector('.dg-prototype-alert p');
+    if (localNotice) localNotice.textContent = 'Il backend documentale è attivo. La checklist e gli allegati verranno caricati in area privata; il processo cloud prosegue senza tenere aperto il browser.';
+    if (submitButton) submitButton.textContent = 'Carica checklist e avvia agenti';
+    queueMessage('Carica la checklist per avviare il primo lavoro', 'Una volta ricevuta la conferma di accodamento, puoi chiudere il browser o spegnere il dispositivo.');
+    loadCloudJobs();
+  } else {
+    loadCloudJobs();
+  }
+
+  updateContractorCards();
   });
 
   contractors.addEventListener('click', (event) => {
@@ -220,9 +518,9 @@
   form.addEventListener('input', invalidatePreparedRecord);
   form.addEventListener('change', invalidatePreparedRecord);
 
-  form.addEventListener('submit', (event) => {
+  form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    if (!form.reportValidity()) return;
+    if (submitting || !form.reportValidity()) return;
     const start = form.elements.startDate.value;
     const end = form.elements.endDate.value;
     if (start && end && end < start) {
@@ -232,15 +530,69 @@
     }
     preparedRecord = createRecord();
     const missing = collectMissing(preparedRecord);
-    resultTitle.textContent = 'Scheda dati pronta per il test';
-    const selectedType = form.elements.documentType.selectedOptions[0]?.textContent || 'Documento';
-    resultSummary.textContent = selectedType + ' · ' + (preparedRecord.sourceChecklist ? preparedRecord.sourceChecklist.name : 'Checklist non selezionata') + ' · ' +
-      preparedRecord.contractors.length + (preparedRecord.contractors.length === 1 ? ' scheda impresa' : ' schede impresa') + ' · ' +
-      preparedRecord.documents.length + (preparedRecord.documents.length === 1 ? ' allegato di supporto' : ' allegati di supporto') +
-      ' · ' + missing.length + (missing.length === 1 ? ' verifica da completare' : ' verifiche da completare');
-    renderMissing(missing);
-    resultPanel.hidden = false;
-    resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    if (!cloudEnabled) {
+      renderPreparedRecord(preparedRecord, missing, 'local');
+      cloudStatus.textContent = 'Backend cloud non attivo: la checklist non viene caricata e nessun agente è stato avviato.';
+      return;
+    }
+
+    if (!preparedRecord.aiDataProcessingConsent) {
+      cloudStatus.textContent = 'Prima di inviare i file al provider AI devi confermare il consenso al trattamento cloud.';
+      const consent = form.querySelector('[name="aiDataProcessingConsent"]');
+      consent?.focus();
+      renderPreparedRecord(preparedRecord, missing, 'local');
+      return;
+    }
+
+    const checklist = checklistInput.files && checklistInput.files[0];
+    if (!checklist) {
+      cloudStatus.textContent = 'Seleziona la checklist compilata prima di avviare il lavoro.';
+      checklistInput.focus();
+      return;
+    }
+
+    const upload = new FormData();
+    upload.append('metadata', JSON.stringify({
+      ...preparedRecord,
+      title: preparedRecord.job.title,
+      documentType: preparedRecord.documentType,
+      siteType: preparedRecord.site.context,
+      complexity: preparedRecord.job.complexity,
+      aiDataProcessingConsent: preparedRecord.aiDataProcessingConsent
+    }));
+    upload.append('checklist', checklist, checklist.name);
+    Array.from(filesInput.files || []).forEach((file) => upload.append('files', file, file.name));
+
+    submitting = true;
+    submitButton.disabled = true;
+    submitButton.textContent = 'Caricamento e accodamento…';
+    cloudStatus.textContent = 'Caricamento privato della checklist e degli allegati…';
+    try {
+      const created = await requestJobs('create', { method: 'POST', body: upload });
+      currentJobId = created.job?.id || null;
+      if (currentJobId) {
+        preparedRecord.cloudSubmission = true;
+        preparedRecord.aiGenerationStarted = false;
+        preparedRecord.recordId = currentJobId;
+        preparedRecord.serverJob = created.job;
+      }
+      const message = created.message || 'Lavoro salvato nel cloud.';
+      resultTitle.textContent = 'Lavoro documentale salvato';
+      resultSummary.textContent = (created.job?.documentTypeName || created.job?.documentType || preparedRecord.documentType) +
+        ' · ID ' + (currentJobId || 'non disponibile') + ' · stato: ' + statusLabel(created.job?.status || 'queued');
+      renderMissing(missing);
+      resultPanel.hidden = false;
+      resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      cloudStatus.textContent = message;
+      await loadCloudJobs();
+    } catch (error) {
+      cloudStatus.textContent = error.message || 'Non è stato possibile accodare il lavoro. Verifica la connessione e riprova.';
+    } finally {
+      submitting = false;
+      submitButton.disabled = false;
+      submitButton.textContent = 'Carica checklist e avvia agenti';
+    }
   });
 
   downloadButton.addEventListener('click', () => {
