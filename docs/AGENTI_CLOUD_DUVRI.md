@@ -130,4 +130,30 @@ L'uso di OpenAI via API comporta costi API potenzialmente separati dall'abboname
 - Configurare i segreti server-side: `ANTHROPIC_API_KEY`, `DOCUMENT_AI_PROVIDER=anthropic`, `DOCUMENT_AI_MODEL`; non aggiungere mai la chiave API al repository o alla PWA.
 - Per usare i crediti API inclusi in Claude Team, un amministratore/owner deve collegare la propria organizzazione Claude Console dalla sezione di fatturazione del piano Claude Team. I crediti API sono separati dai limiti d'uso della chat e di Claude Code; sono condivisi a livello di organizzazione e possono cessare quando il credito è esaurito.
 - Testare la pipeline su allegati non sensibili in ambiente isolato e verificare i crediti/consumo prima di considerare qualunque dato reale.
-- Modello raccomandato per il primo test: `claude-sonnet-5`; la documentazione ufficiale Anthropic lo indica a $2 per milione di token in ingresso e $10 per milione in uscita. La modalità thinking sarà disattivata per contenere i costi durante il prototipo. Il costo effettivo dipende dai file e dalla lunghezza degli output. La generazione rimane bloccata finché template, matrice del rischio e controlli OOXML non sono approvati. Lasciare disattivata la ricarica automatica e non aggiungere crediti acquistati: in caso di saldo esaurito, l’API deve fermarsi.
+- Modelli iniziali: `claude-haiku-5-5` per estrazione ($0,10/milione di token input e $0,50/milione output per prompt fino a 100.000 token; prezzi superiori oltre soglia) e `claude-sonnet-5-5` per analisi, redazione e QA ($2/milione input e $10/milione output). La chiamata Sonnet usa `thinking: between_tools` per ridurre il ragionamento iniziale; Haiku usa effort basso. Riferimento prezzi ufficiale: https://platform.claude.com/docs/en/about-claude/pricing. Il costo effettivo dipende da file, immagini, lunghezza e output. La generazione rimane bloccata finché template, matrice del rischio e controlli OOXML non sono approvati. Lasciare disattivata la ricarica automatica e non acquistare crediti: con solo i crediti Team e senza saldo aggiuntivo, Anthropic interrompe le chiamate quando i crediti si esauriscono.
+
+
+## Architettura agenti, consumi e alternative a costo nullo aggiuntivo
+
+### Agenti logici in SafetyChecklist
+
+- **Coordinatore/orchestratore (codice, senza chiamata AI):** accoda il job, controlla lo stato, salva checkpoint e indirizza le fasi. Nessun token di modello.
+- **A1 Lettore documentale — Haiku 5.5:** estrae fatti, fonti, lacune e conflitti da checklist e allegati.
+- **A2 Analista interferenze — Sonnet 5.5:** identifica scenari e misure proposte, senza attribuire punteggi di rischio.
+- **A3 Redattore DUVRI — Sonnet 5.5:** costruisce i campi destinati al modello Word e completa solo i dati supportati; matrice e modello devono corrispondere.
+- **A4 Verificatore qualità — Sonnet 5.5:** controlla coerenza con estrazione, analisi e report del compilatore, senza approvare il documento.
+- **Revisione umana:** sempre obbligatoria e non fatturata come chiamata AI.
+
+Ogni risposta API riuscita deve produrre un evento `ai_usage` con token in ingresso/uscita e costo USD stimato dal listino configurato. Il backend espone un riepilogo mensile riservato agli amministratori; il riquadro copre solo i job di SafetyChecklist, non tutte le attività della Console.
+
+### Esempio numerico (ipotesi, non consumo misurato)
+
+Con input/output ipotetici di 50k/5k token per Haiku, 25k/4k per l’analisi Sonnet, 60k/10k per la redazione Sonnet e 60k/4k per il QA Sonnet, il costo stimato è circa **0,48 USD per DUVRI**. In questo scenario 40 USD corrisponderebbero teoricamente a circa **83 job**. Se le quattro richieste usassero circa tre volte quei volumi, il costo indicativo sarebbe circa **1,52 USD per documento**, ovvero circa **26 job** su 40 USD. Gli allegati lunghi, le immagini e i token di ragionamento possono cambiare molto questi numeri; finché non saranno elaborati file di prova, non è possibile conoscere il costo medio reale. I crediti potrebbero inoltre essere usati da Playground o altre chiavi della medesima organizzazione.
+
+### Alternative senza spesa API oltre al piano
+
+1. **Modalità strutturata senza AI:** checklist e campi obbligatori, regole deterministiche, template DOCX e controlli automatici. Nessun costo token; meno flessibile e richiede più dati strutturati e compilazione manuale.
+2. **Ibrida a consumo ridotto:** estrazione Haiku, tre chiamate Sonnet, output JSON limitato, allegati testuali dove possibile e niente chiamate di riparazione non necessarie. È la modalità configurata nel prototipo.
+3. **Modello locale (ad esempio Ollama su PC/server aziendale):** niente costo API per token, ma richiede hardware, amministrazione, aggiornamenti e prove di qualità; non è garantito che la qualità su DUVRI sia equivalente. Il lavoro cloud dopo lo spegnimento del PC richiederebbe un server aziendale sempre acceso.
+
+Vincolo economico: **0 EUR aggiuntivi autorizzati**. Non attivare Auto-reload, non acquistare crediti e non collegare un piano di fatturazione postpagata. Lasciare `DOCUMENT_PIPELINE_ENABLED=false` finché i test non sono verdi e il modello Word, la regola del rischio e il worker non sono stati verificati in ambiente isolato.
