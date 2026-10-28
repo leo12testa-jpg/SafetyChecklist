@@ -154,9 +154,27 @@ function extension(name: string) {
   const dot = name.lastIndexOf('.');
   return dot >= 0 ? name.slice(dot).toLowerCase() : '';
 }
+function mimeFor(file: File) {
+  const supplied = (file.type || '').split(';')[0].trim().toLowerCase();
+  if (supplied && supplied !== 'application/octet-stream' && ALLOWED_MIME.has(supplied)) return supplied;
+  const byExtension: Record<string,string> = {
+    '.pdf': 'application/pdf',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.doc': 'application/msword',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.xls': 'application/vnd.ms-excel',
+    '.csv': 'text/csv',
+    '.json': 'application/json',
+    '.txt': 'text/plain',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg'
+  };
+  return byExtension[extension(file.name)] || supplied || 'application/octet-stream';
+}
 function validateFile(file: File) {
   const ext = extension(file.name);
-  const mime = (file.type || 'application/octet-stream').split(';')[0].trim().toLowerCase();
+  const mime = mimeFor(file);
   if (!ALLOWED_EXTENSIONS.has(ext) || !ALLOWED_MIME.has(mime)) fail(415, `Formato file non supportato: ${safeName(file.name)}.`);
   if (file.size <= 0 || file.size > MAX_FILE_BYTES) fail(413, 'Ogni file deve pesare meno di 18 MB.');
 }
@@ -260,7 +278,8 @@ async function createJob(req: Request, actor: Actor, form: FormData) {
       const filename = safeName(file.name);
       const role = index === 0 ? 'checklist' : 'supporting';
       const path = `${actor.uid}/${job.id}/${String(index + 1).padStart(2,'0')}_${filename}`;
-      await storageUpload(path, fileBytes, (file.type || 'application/octet-stream').split(';')[0].trim());
+      const mimeType = mimeFor(file);
+      await storageUpload(path, fileBytes, mimeType);
       uploadedPaths.push(path);
       fileRows.push({
         job_id: job.id,
@@ -268,7 +287,7 @@ async function createJob(req: Request, actor: Actor, form: FormData) {
         role,
         object_path: path,
         filename,
-        mime_type: file.type || 'application/octet-stream',
+        mime_type: mimeFor(file),
         size_bytes: file.size,
         sha256: await digest(fileBytes)
       });
