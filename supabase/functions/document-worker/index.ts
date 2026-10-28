@@ -292,6 +292,13 @@ async function processOne(job: Job) {
     await awaitConfiguration(job, 'Il lavoro è salvato nel cloud; il provider AI è disattivato o non configurato. Nessun documento è stato inviato al provider.');
     return { id: job.id, state: 'awaiting_configuration' };
   }
+  const fields = job.input_payload?.fields && typeof job.input_payload.fields === 'object'
+    ? job.input_payload.fields as Record<string,unknown>
+    : {};
+  if (fields.aiDataProcessingConsent !== true) {
+    await awaitConfiguration(job, 'Consenso al trasferimento degli allegati al provider AI non registrato. Nessun file è stato inviato.');
+    return { id: job.id, state: 'awaiting_configuration' };
+  }
   if (job.phase === 'extract') {
     await recordEvent(job.id, 'extract', 'started', 'Avvio analisi della checklist e degli allegati.', 'document-reader', {});
     const files = await loadJobFiles(job);
