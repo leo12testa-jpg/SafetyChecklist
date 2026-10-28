@@ -331,9 +331,9 @@ async function logModelUsage(
       context.agent,
       {
         usageKind: 'ai_usage',
+        ...cost,
         provider,
         model,
-        ...cost,
         pricingBasis: 'Prezzi pubblici Claude API; costo stimato token, esclusi eventuali costi non token.',
         recordedAt: new Date().toISOString()
       }
