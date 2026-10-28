@@ -219,3 +219,13 @@ Il file Word originale è stato fornito come modello da compilare. L'ispezione t
 - Rigenerare/aggiornare indice e numerazione pagine solo con un processo Word-compatible verificato; il controllo visivo finale è obbligatorio.
 - Produrre un report separato delle modifiche, dei dati mancanti e delle verifiche richieste, senza inserirlo arbitrariamente nel modello ufficiale.
 - Non considerare il solo testo estratto come prova di fedeltà: alcune informazioni e layout sono in tabelle, intestazioni, piè di pagina, immagini o elementi grafici.
+
+
+## Prima consegna di progettazione — skill e schema intake
+
+Sono stati aggiunti nel branch `feat/documenti-ai-checklist`:
+
+- `skills/duvri-colligo/SKILL.md`: sequenza operativa della skill, domande condizionali, gestione delle fonti e delle incertezze, vincoli di conservazione del modello Word, output e test di accettazione.
+- `schemas/duvri-intake.schema.json`: schema dati iniziale per un incarico DUVRI, con più imprese, fasi di lavoro, preposto, attrezzature, DPI, allegati, moduli condizionali e revisione umana.
+
+Questi file costituiscono specifiche di progettazione versionate; non sono ancora eseguiti dall'app. Il prossimo passaggio tecnico è implementare il flusso di acquisizione dati e job persistente in un ambiente di test, poi il generatore DOCX e i test di regressione. Prima di attribuire punteggi/colori alle tabelle di rischio occorre una regola Colligo approvata per risolvere la differenza tra scala 1–9 e celle I.R. 1–3.
