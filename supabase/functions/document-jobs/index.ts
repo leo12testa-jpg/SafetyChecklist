@@ -343,7 +343,7 @@ async function listJobs(req: Request, actor: Actor) {
 async function statusJob(req: Request, actor: Actor, id: string) {
   const job = await findJob(id, actor);
   const files = await db(`document_job_files?job_id=eq.${encodeURIComponent(id)}&select=id,role,filename,mime_type,size_bytes,created_at&order=created_at.asc`) as Record<string,unknown>[];
-  const events = await db(`document_job_events?job_id=eq.${encodeURIComponent(id)}&select=agent,phase,event_type,message,created_at&order=created_at.asc&limit=100`) as Record<string,unknown>[];
+  const events = await db(`document_job_events?job_id=eq.${encodeURIComponent(id)}&select=agent,phase,event_type,message,details,created_at&order=created_at.asc&limit=100`) as Record<string,unknown>[];
   return json(req, { job, files: files || [], events: events || [] });
 }
 async function downloadFile(req: Request, actor: Actor, id: string, fileId: string) {
