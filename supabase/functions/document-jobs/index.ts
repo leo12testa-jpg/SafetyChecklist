@@ -232,6 +232,9 @@ async function createJob(req: Request, actor: Actor, form: FormData) {
   }
   if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) fail(400, 'Metadati della checklist non validi.');
   if (JSON.stringify(metadata).length > 80000) fail(413, 'Metadati troppo voluminosi.');
+  if (Deno.env.get('DOCUMENT_PIPELINE_ENABLED') === 'true' && metadata.aiDataProcessingConsent !== true) {
+    fail(400, 'Per avviare l’elaborazione cloud devi confermare il trasferimento dei file al provider AI configurato.');
+  }
   const checklist = form.get('checklist');
   if (!(checklist instanceof File)) fail(400, 'Carica la checklist compilata.');
   const support = form.getAll('files').filter((item): item is File => item instanceof File && item.size > 0);
@@ -355,6 +358,30 @@ async function cancelJob(req: Request, actor: Actor, id: string) {
   await event(id, actor.uid, String(job.phase || 'review'), 'review', 'Lavoro annullato.', {});
   return json(req, { ok: true, status: 'cancelled' });
 }
+async function retryJob(req: Request, actor: Actor, id: string) {
+  const job = await findJob(id, actor);
+  if (!['awaiting_configuration','error','retry_wait','awaiting_input'].includes(job.status)) {
+    fail(409, 'Questo lavoro non è in uno stato ripristinabile.');
+  }
+  const outputs = job.agent_outputs && typeof job.agent_outputs === 'object' ? job.agent_outputs as Record<string,unknown> : {};
+  const phase = outputs.analysis ? 'draft' : outputs.extraction ? 'analyze' : 'extract';
+  await db(`document_jobs?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      status: 'queued',
+      phase,
+      status_message: 'Lavoro rimesso in coda su richiesta autorizzata.',
+      attempt_count: 0,
+      lease_until: null,
+      claim_token: null,
+      next_attempt_at: null,
+      updated_at: new Date().toISOString()
+    })
+  });
+  await event(id, actor.uid, phase, 'retry', 'Lavoro rimesso in coda.', {});
+  return json(req, { ok: true, status: 'queued', phase });
+}
 async function reviewJob(req: Request, actor: Actor, body: any, id: string) {
   if (actor.role !== 'admin') fail(403, 'La revisione finale è riservata a un amministratore autorizzato.');
   const job = await findJob(id, actor);
@@ -405,6 +432,7 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const id = String(body.id || '');
     if (action === 'cancel') return await cancelJob(req, actor, id);
+    if (action === 'retry') return await retryJob(req, actor, id);
     if (action === 'review') return await reviewJob(req, actor, body, id);
     return json(req, { error: 'Azione non riconosciuta.' }, 400);
   } catch (error: any) {
