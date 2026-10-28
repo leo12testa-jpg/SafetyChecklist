@@ -470,9 +470,12 @@ export async function inspectDuvriTemplate(bytes: Uint8Array): Promise<{ riskRow
   const tables = findBodyTablesRoot(doc);
   const riskTables = tables.filter((table) => textOf(table).includes('Fattori di rischio') && textOf(table).includes('Indice di rischio da interf.'));
   const riskRows: TemplateRiskRow[] = [];
+  // The official template carries some long mitigation text over into the next risk table/page.
+  // Keep the last known factor across the full sequence of risk tables so continuation rows
+  // are not mistaken for new, unclassified risks.
+  let lastFactor = '';
   riskTables.forEach((table, tableIndex) => {
     const rows = rowsOf(table);
-    let lastFactor = '';
     for (let rowIndex = 1; rowIndex < rows.length; rowIndex += 1) {
       const cells = cellsOf(rows[rowIndex]);
       if (cells.length < 4) throw new Error('Tabella dei rischi non compatibile con il modello.');
