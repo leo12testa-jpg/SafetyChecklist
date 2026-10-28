@@ -36,7 +36,9 @@ test('il prototipo non dichiara di inviare dati al cloud o avviare la generazion
   assert.match(controller, /cloudSubmission: false/);
   assert.match(controller, /aiGenerationStarted: false/);
   assert.match(html, /l’elaborazione cloud con gli agenti e la generazione Word non sono ancora attivi/i);
-  assert.match(html, /La coda cloud non è ancora collegata/);
+  assert.match(html, /Nessun collegamento cloud attivo/);
+  assert.match(controller, /cloudEnabled/);
+  assert.match(controller, /requestJobs\('create'/);
 });
 
 test('il nuovo controller è incluso nell shell precaricata della PWA', () => {
