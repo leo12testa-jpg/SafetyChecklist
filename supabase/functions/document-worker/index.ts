@@ -1,5 +1,7 @@
 import JSZip from 'npm:jszip@3.10.1';
 import { DOMParser } from 'npm:@xmldom/xmldom@0.8.10';
+import { inspectDuvriTemplate, populateDuvriTemplate } from './docx-generator.ts';
+import { buildDuvriQaPrompt, buildDuvriWriterPrompt, isJsonRecord, validateDuvriDraft, validateDuvriQa } from './duvri-agent.ts';
 
 /**
  * Durable document worker for SafetyChecklist.
@@ -23,6 +25,7 @@ const REQUEST_TIMEOUT_MS = 120000;
 type Job = {
   id: string;
   document_type: string;
+  title: string;
   phase: string;
   status: string;
   status_message: string;
