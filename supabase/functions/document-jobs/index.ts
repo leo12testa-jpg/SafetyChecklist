@@ -34,6 +34,7 @@ const ALLOWED_MIME = new Set([
 
 type Actor = { uid: string; role: 'admin' | 'tecnico'; token: string };
 type JobRow = Record<string, unknown> & { id: string; created_by: string; status: string };
+type DocumentTypeConfig = { slug: string; display_name: string; enabled: boolean; skill_path: string; skill_version: string; template_object_path: string | null; template_version: string | null; output_format: string };
 
 function responseHeaders(req: Request, more: Record<string,string> = {}) {
   const origin = req.headers.get('origin') || '';
@@ -251,8 +252,20 @@ async function createJob(req: Request, actor: Actor, form: FormData) {
     total += file.size;
     if (total > MAX_TOTAL_BYTES) fail(413, 'La dimensione totale dei file supera 45 MB.');
   }
+  const requestedType = typeof metadata.documentType === 'string' ? metadata.documentType.trim() : 'duvri';
+  if (!/^[a-z][a-z0-9_-]{1,62}$/.test(requestedType)) fail(400, 'Tipo di documento non valido.');
+  const typeConfigs = await db(
+    `document_type_configs?slug=eq.${encodeURIComponent(requestedType)}&enabled=eq.true&select=slug,display_name,enabled,skill_path,skill_version,template_object_path,template_version,output_format`
+  ) as DocumentTypeConfig[];
+  const typeConfig = typeConfigs?.[0];
+  if (!typeConfig) fail(400, 'Questo tipo di documento non è ancora attivo. Seleziona un tipo disponibile oppure chiedi all’amministratore di configurarlo.');
   const title = typeof metadata.title === 'string' ? metadata.title.trim().slice(0, 180) : '';
   const payload = {
+    documentType: typeConfig.slug,
+    documentTypeName: typeConfig.display_name,
+    outputFormat: typeConfig.output_format,
+    templateObjectPath: typeConfig.template_object_path,
+    skillPath: typeConfig.skill_path,
     title,
     siteType: typeof metadata.siteType === 'string' ? metadata.siteType.slice(0, 80) : 'unknown',
     complexity: typeof metadata.complexity === 'string' ? metadata.complexity.slice(0, 40) : 'to_be_assessed',
@@ -264,14 +277,14 @@ async function createJob(req: Request, actor: Actor, form: FormData) {
     body: JSON.stringify([{
       created_by: actor.uid,
       created_by_role: actor.role,
-      document_type: 'duvri',
+      document_type: typeConfig.slug,
       title,
       status: 'queued',
       phase: 'extract',
-      status_message: 'Checklist ricevuta; in attesa di elaborazione cloud.',
+      status_message: 'Checklist ricevuta per ' + typeConfig.display_name + '; in attesa di elaborazione cloud.',
       input_payload: payload,
-      template_version: 'DUVRI_BASE_GENERALE_2026',
-      skill_version: 'duvri-colligo/0.1.0'
+      template_version: typeConfig.template_version,
+      skill_version: typeConfig.skill_version
     }])
   }) as JobRow[];
   const job = created?.[0];
@@ -311,7 +324,7 @@ async function createJob(req: Request, actor: Actor, form: FormData) {
       body: JSON.stringify({ updated_at: new Date().toISOString(), status_message: 'Checklist e allegati salvati in archivio privato. In coda.' })
     });
     await event(job.id, actor.uid, 'extract', 'created', 'Lavoro documentale creato e allegati archiviati.', { file_count: files.length, total_bytes: total });
-    return json(req, { job: { id: job.id, status: 'queued', phase: 'extract', title, created_at: job.created_at }, message: 'Lavoro salvato. Il browser può essere chiuso dopo la conferma; l’elaborazione richiede che il worker cloud sia configurato e attivo.' }, 201);
+    return json(req, { job: { id: job.id, documentType: typeConfig.slug, documentTypeName: typeConfig.display_name, status: 'queued', phase: 'extract', title, created_at: job.created_at }, message: 'Lavoro salvato. Il browser può essere chiuso dopo la conferma; l’elaborazione richiede che il worker cloud sia configurato e attivo.' }, 201);
   } catch (error) {
     await storageDelete(uploadedPaths);
     await db(`document_jobs?id=eq.${encodeURIComponent(job.id)}`, {
