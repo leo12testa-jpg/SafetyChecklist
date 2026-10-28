@@ -22,7 +22,7 @@ export type DuvriRiskUpdate = {
   rowIndex: number;
   description: string;
   measures: string;
-  irIndex: number;
+  irIndex: number | null;
   rationale: string;
 };
 
@@ -292,13 +292,13 @@ function fillRiskTables(doc: any, updates: DuvriRiskUpdate[]) {
   const tables = findBodyTablesRoot(doc).filter((table) =>
     textOf(table).includes('Fattori di rischio') && textOf(table).includes('Indice di rischio da interf.')
   );
-  const expected: Array<{ tableIndex: number; rowIndex: number; cells: any[] }> = [];
+  const expected: Array<{ tableIndex: number; rowIndex: number; factor: string; cells: any[] }> = [];
   tables.forEach((table, tableIndex) => {
     const rows = rowsOf(table);
     for (let rowIndex = 1; rowIndex < rows.length; rowIndex += 1) {
       const cells = cellsOf(rows[rowIndex]);
       if (cells.length < 4) throw new Error('Tabella dei rischi con un numero di colonne inatteso.');
-      expected.push({ tableIndex, rowIndex, cells });
+      expected.push({ tableIndex, rowIndex, factor: normalized(textOf(cells[0])), cells });
     }
   });
   if (updates.length !== expected.length) {
@@ -307,7 +307,10 @@ function fillRiskTables(doc: any, updates: DuvriRiskUpdate[]) {
   const keyed = new Map<string,DuvriRiskUpdate>();
   for (const update of updates) {
     if (!Number.isInteger(update.tableIndex) || !Number.isInteger(update.rowIndex)) throw new Error('Indice tabella/riga non valido.');
-    if (![1,2,3].includes(Number(update.irIndex))) throw new Error('Indice di rischio fuori dalla scala Colligo 1–3.');
+    const expectedRow = expected.find((row) => row.tableIndex === update.tableIndex && row.rowIndex === update.rowIndex);
+    if (!expectedRow) throw new Error('La riga rischio non esiste nel modello ufficiale.');
+    if (expectedRow.factor && ![1,2,3].includes(Number(update.irIndex))) throw new Error('Indice di rischio fuori dalla scala Colligo 1–3.');
+    if (!expectedRow.factor && update.irIndex !== null) throw new Error('Le righe di continuazione del modello devono mantenere l’indice di rischio vuoto.');
     const key = update.tableIndex + ':' + update.rowIndex;
     if (keyed.has(key)) throw new Error('Riga di rischio duplicata nell’output del redattore.');
     keyed.set(key, update);
@@ -317,7 +320,8 @@ function fillRiskTables(doc: any, updates: DuvriRiskUpdate[]) {
     if (!update) throw new Error('Manca una riga nella valutazione dei rischi: ' + row.tableIndex + ':' + row.rowIndex);
     setCellText(row.cells[1], update.description);
     setCellText(row.cells[2], update.measures);
-    setCellScore(row.cells[3], Number(update.irIndex));
+    if (update.irIndex === null) setCellText(row.cells[3], '');
+    else setCellScore(row.cells[3], Number(update.irIndex));
   }
 }
 function updateHeaderPart(doc: any, titleHeader: string) {
