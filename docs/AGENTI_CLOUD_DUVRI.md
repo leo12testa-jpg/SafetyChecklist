@@ -1,6 +1,6 @@
 # Architettura proposta: agenti cloud per Generazione documenti
 
-Stato: specifica tecnica per la prima implementazione. Non deployata e non collegata a un provider AI.
+Stato: prototipo backend in branch, non deployato. Il worker supporta ora un adapter Claude API (predefinito) e OpenAI; resta disattivato fino a configurazione, test e approvazione.
 
 ## Requisito cardine
 
@@ -16,7 +16,7 @@ Il sistema non deve affidarsi a JavaScript in esecuzione nel browser, a una sche
 4. **Registro dei lavori** — tabella job persistente con stato, fase, percentuale, tentativi, lease, versioni, riferimenti ai file, errori sanitizzati, timestamp e stato della revisione.
 5. **Coda durevole** — messaggi persistenti per avviare/riprendere i job. Il consumer/worker cloud preleva un'attività e salva lo stato dopo ogni fase. Se un'esecuzione fallisce, un retry limitato riparte dall'ultimo checkpoint.
 6. **Worker/orchestratore** — processa uno o più passi per invocazione, evitando dipendenza dal client; i lavori lunghi sono suddivisi in passaggi riprendibili e idempotenti.
-7. **Adapter AI** — usa un provider scelto e configurato lato server. La chiave API e i limiti restano nei secrets; la sottoscrizione ChatGPT/Claude non va trattata come una chiave API del backend.
+7. **Adapter AI** — usa un provider scelto e configurato lato server. La chiave API e i limiti restano nei secrets; non inserire mai chiavi nel frontend. Per Claude Team, collegare prima l'organizzazione Claude Console ai crediti mensili inclusi. Configurazione prevista: DOCUMENT_AI_PROVIDER=anthropic, ANTHROPIC_API_KEY e DOCUMENT_AI_MODEL. I file PDF e immagini possono essere allegati tramite Files API; DOCX/XLSX vengono estratti in testo lato worker; i vecchi DOC/XLS vanno convertiti in PDF/DOCX/XLSX. Questa integrazione è solo codice sorgente e non è ancora stata verificata end-to-end.
 8. **Generatore Word** — compila una copia del template Colligo controllato, conserva gli elementi OOXML e produce anche un report di controllo separato.
 9. **Pannello Revisione** — mostra la bozza, lacune, verifiche, versione template/skill e autore; solo un utente autorizzato può registrare la revisione.
 
@@ -120,3 +120,12 @@ Sono presenti nel branch di sviluppo:
 `DOCUMENT_WORKER_SECRET`, `DOCUMENT_PIPELINE_ENABLED=false`, `OPENAI_API_KEY`, `DOCUMENT_AI_MODEL`, `DUVRI_TEMPLATE_OBJECT_PATH`, `DUVRI_RISK_RULE_APPROVED=false`, `DUVRI_DOCX_ENGINE_ENABLED=false`.
 
 L'uso di OpenAI via API comporta costi API potenzialmente separati dall'abbonamento ChatGPT o Claude. Nessuna chiamata AI deve avvenire finché il proprietario del progetto non configura intenzionalmente il provider e non viene registrato il consenso dell'utente al trasferimento dei file.
+
+
+## Provider AI e credito Claude Team
+
+- Il provider predefinito previsto nel codice è `anthropic`, ma `DOCUMENT_PIPELINE_ENABLED` rimane disattivato.
+- Configurare i segreti server-side: `ANTHROPIC_API_KEY`, `DOCUMENT_AI_PROVIDER=anthropic`, `DOCUMENT_AI_MODEL`; non aggiungere mai la chiave API al repository o alla PWA.
+- Per usare i crediti API inclusi in Claude Team, un amministratore/owner deve collegare la propria organizzazione Claude Console dalla sezione di fatturazione del piano Claude Team. I crediti API sono separati dai limiti d'uso della chat e di Claude Code; sono condivisi a livello di organizzazione e possono cessare quando il credito è esaurito.
+- Testare la pipeline su allegati non sensibili in ambiente isolato e verificare i crediti/consumo prima di considerare qualunque dato reale.
+- La generazione del DOCX rimane bloccata finché template, matrice del rischio e controlli di conservazione OOXML non sono stati approvati.
