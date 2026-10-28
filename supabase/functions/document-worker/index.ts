@@ -38,6 +38,11 @@ type JobFile = {
   size_bytes: number;
 };
 
+function stableArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
+}
 function eq(value: string) {
   return encodeURIComponent(value);
 }
@@ -184,7 +189,7 @@ async function uploadAIFile(file: JobFile, bytes: Uint8Array): Promise<{ id: str
   const image = file.mime_type === 'image/png' || file.mime_type === 'image/jpeg';
   const body = new FormData();
   body.append('purpose', image ? 'vision' : 'user_data');
-  body.append('file', new File([bytes], file.filename, { type: file.mime_type }), file.filename);
+  body.append('file', new File([stableArrayBuffer(bytes)], file.filename, { type: file.mime_type }), file.filename);
   const response = await remote('https://api.openai.com/v1/files', {
     method: 'POST',
     headers: { authorization: `Bearer ${OPENAI_API_KEY}` },
