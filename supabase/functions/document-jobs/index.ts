@@ -4,36 +4,43 @@
  * Draft backend implementation. Not deployed. Uses Firebase Authentication/Firestore
  * for app identity and Supabase service-role access only on the server.
  */
+import {
+  assertCancellable,
+  assertFileId,
+  assertJobAccess,
+  assertJobId,
+  assertRetryable,
+  assertReviewer,
+  buildInputPayload,
+  collectUploadFiles,
+  contentMatchesExtension,
+  errorResponse,
+  fail,
+  jobTitle,
+  normalizeActionBody,
+  parseMetadata,
+  planReview,
+  requestedDocumentType,
+  retryPhase,
+  safeName,
+  storageObjectPath,
+  validateFile
+} from './validation.ts';
+
 const SUPABASE_URL = (Deno.env.get('SUPABASE_URL') || '').replace(/\/$/, '');
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 const FIREBASE_PROJECT = Deno.env.get('SAFETYCHECKLIST_FIREBASE_PROJECT_ID') || 'safety-checklist-colligo';
-const FIREBASE_API_KEY = Deno.env.get('SAFETYCHECKLIST_FIREBASE_API_KEY') || 'AIzaSyAdgCc8TQ1TVfF8l0NMxtm7NS95ZOl4lCA';
 const ALLOWED_ORIGINS = new Set([
   'https://leo12testa-jpg.github.io',
   'http://127.0.0.1:4173',
   'http://localhost:4173'
 ]);
 const BUCKET = 'documenti-generati';
-const MAX_FILES = 12;
-const MAX_FILE_BYTES = 18 * 1024 * 1024;
-const MAX_TOTAL_BYTES = 45 * 1024 * 1024;
-const ALLOWED_EXTENSIONS = new Set(['.pdf','.docx','.doc','.xlsx','.xls','.csv','.json','.txt','.png','.jpg','.jpeg']);
-const ALLOWED_MIME = new Set([
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-excel',
-  'text/plain',
-  'text/csv',
-  'application/json',
-  'image/png',
-  'image/jpeg',
-  'application/octet-stream'
-]);
-
+const UPLOAD_HOLD_MS = 15 * 60 * 1000;
 type Actor = { uid: string; role: 'admin' | 'tecnico'; token: string };
-type JobRow = Record<string, unknown> & { id: string; created_by: string; status: string };
+// Mirrors the check constraint on public.document_jobs.status (schema.draft.sql).
+type JobStatus = 'queued' | 'processing' | 'retry_wait' | 'awaiting_input' | 'awaiting_configuration' | 'needs_review' | 'approved' | 'rejected' | 'error' | 'cancelled';
+type JobRow = Record<string, unknown> & { id: string; created_by: string; status: JobStatus };
 type DocumentTypeConfig = { slug: string; display_name: string; enabled: boolean; skill_path: string; skill_version: string; template_object_path: string | null; template_version: string | null; output_format: string };
 
 function responseHeaders(req: Request, more: Record<string,string> = {}) {
@@ -54,8 +61,18 @@ function json(req: Request, payload: unknown, status = 200) {
     headers: responseHeaders(req, { 'content-type': 'application/json; charset=utf-8' })
   });
 }
-function fail(status: number, message: string): never {
-  throw Object.assign(new Error(message), { status });
+/**
+ * Server-side Firebase Web API key (Identity Toolkit accounts:lookup only).
+ * Read per request and never defaulted: a missing secret fails closed with 503
+ * instead of falling back to a key embedded in the source.
+ */
+function firebaseApiKey(): string {
+  const key = Deno.env.get('SAFETYCHECKLIST_FIREBASE_API_KEY') || '';
+  if (!key) {
+    console.error('[document-jobs] SAFETYCHECKLIST_FIREBASE_API_KEY non impostata: autenticazione rifiutata (503).');
+    fail(503, 'Configurazione server incompleta: chiave Firebase non impostata.');
+  }
+  return key;
 }
 async function fetchTimeout(url: string, init: RequestInit = {}, timeout = 30000) {
   return await fetch(url, { ...init, signal: AbortSignal.timeout(timeout) });
@@ -85,6 +102,7 @@ async function authenticate(req: Request): Promise<Actor> {
     fail(401, 'Sessione non valida.');
   }
   if (
+    !claims || typeof claims !== 'object' ||
     claims.aud !== FIREBASE_PROJECT ||
     claims.iss !== `https://securetoken.google.com/${FIREBASE_PROJECT}` ||
     typeof claims.sub !== 'string' || !claims.sub ||
@@ -92,8 +110,9 @@ async function authenticate(req: Request): Promise<Actor> {
     !Number.isFinite(claims.iat)
   ) fail(401, 'Sessione non valida o scaduta.');
 
+  const apiKey = firebaseApiKey();
   const lookup = await fetchTimeout(
-    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(FIREBASE_API_KEY)}`,
+    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`,
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -142,43 +161,6 @@ async function db(path: string, init: RequestInit = {}) {
   const raw = await response.text();
   return raw ? JSON.parse(raw) : null;
 }
-function safeName(name: string) {
-  const base = name.normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9._-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 100);
-  if (!base || base === '.' || base === '..') fail(400, 'Nome file non valido.');
-  return base;
-}
-function extension(name: string) {
-  const dot = name.lastIndexOf('.');
-  return dot >= 0 ? name.slice(dot).toLowerCase() : '';
-}
-function mimeFor(file: File) {
-  const supplied = (file.type || '').split(';')[0].trim().toLowerCase();
-  if (supplied && supplied !== 'application/octet-stream' && ALLOWED_MIME.has(supplied)) return supplied;
-  const byExtension: Record<string,string> = {
-    '.pdf': 'application/pdf',
-    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    '.doc': 'application/msword',
-    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    '.xls': 'application/vnd.ms-excel',
-    '.csv': 'text/csv',
-    '.json': 'application/json',
-    '.txt': 'text/plain',
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg'
-  };
-  return byExtension[extension(file.name)] || supplied || 'application/octet-stream';
-}
-function validateFile(file: File) {
-  const ext = extension(file.name);
-  const mime = mimeFor(file);
-  if (!ALLOWED_EXTENSIONS.has(ext) || !ALLOWED_MIME.has(mime)) fail(415, `Formato file non supportato: ${safeName(file.name)}.`);
-  if (file.size <= 0 || file.size > MAX_FILE_BYTES) fail(413, 'Ogni file deve pesare meno di 18 MB.');
-}
 function stableArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   const buffer = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(buffer).set(bytes);
@@ -211,17 +193,25 @@ async function storageDelete(paths: string[]) {
     body: JSON.stringify({ prefixes: paths })
   }, 30000).catch(() => {});
 }
-function ownerFilter(actor: Actor, job: JobRow) {
-  if (actor.role === 'admin') return;
-  if (job.created_by !== actor.uid) fail(404, 'Lavoro documentale non trovato.');
-}
 async function findJob(id: string, actor: Actor): Promise<JobRow> {
-  if (!/^[0-9a-f-]{36}$/i.test(id)) fail(400, 'Identificativo lavoro non valido.');
+  assertJobId(id);
   const rows = await db(`document_jobs?id=eq.${encodeURIComponent(id)}&select=*`) as JobRow[];
   const job = rows?.[0];
-  if (!job) fail(404, 'Lavoro documentale non trovato.');
-  ownerFilter(actor, job);
-  return job;
+  assertJobAccess(actor, job);
+  return job as JobRow;
+}
+/**
+ * Applies a user-driven state change only if the job is still in the status we
+ * validated (compare-and-set). Prevents cancel/retry/review from overwriting a
+ * job the worker claimed in the meantime.
+ */
+async function transitionJob(job: JobRow, patch: Record<string, unknown>) {
+  const rows = await db(`document_jobs?id=eq.${encodeURIComponent(job.id)}&status=eq.${encodeURIComponent(job.status)}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify(patch)
+  }) as unknown[];
+  if (!Array.isArray(rows) || rows.length !== 1) fail(409, 'Lo stato del lavoro è cambiato nel frattempo. Aggiorna l’elenco e riprova.');
 }
 async function event(jobId: string, actor: string | null, phase: string, type: string, message: string, details: Record<string,unknown> = {}) {
   await db('document_job_events', {
@@ -231,46 +221,28 @@ async function event(jobId: string, actor: string | null, phase: string, type: s
   });
 }
 async function createJob(req: Request, actor: Actor, form: FormData) {
-  const intakeString = form.get('metadata');
-  let metadata: Record<string,unknown> = {};
-  if (typeof intakeString === 'string' && intakeString.trim()) {
-    try { metadata = JSON.parse(intakeString); } catch { fail(400, 'Metadati della checklist non validi.'); }
-  }
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) fail(400, 'Metadati della checklist non validi.');
-  if (JSON.stringify(metadata).length > 80000) fail(413, 'Metadati troppo voluminosi.');
+  const metadata = parseMetadata(form.get('metadata'));
   if (Deno.env.get('DOCUMENT_PIPELINE_ENABLED') === 'true' && metadata.aiDataProcessingConsent !== true) {
     fail(400, 'Per avviare l’elaborazione cloud devi confermare il trasferimento dei file al provider AI configurato.');
   }
-  const checklist = form.get('checklist');
-  if (!(checklist instanceof File)) fail(400, 'Carica la checklist compilata.');
-  const support = form.getAll('files').filter((item): item is File => item instanceof File && item.size > 0);
-  const files = [checklist, ...support];
-  if (files.length > MAX_FILES) fail(413, 'Sono ammessi al massimo 12 file per lavoro.');
-  let total = 0;
+  const { files, total } = collectUploadFiles(form.get('checklist'), form.getAll('files'));
+  const requestedType = requestedDocumentType(metadata);
+  // Read and sniff every file before creating the job row, so a mislabelled
+  // file never produces an orphan job or a partial upload.
+  const prepared: { file: File; bytes: Uint8Array; mime: string; filename: string }[] = [];
   for (const file of files) {
-    validateFile(file);
-    total += file.size;
-    if (total > MAX_TOTAL_BYTES) fail(413, 'La dimensione totale dei file supera 45 MB.');
+    const { ext, mime } = validateFile(file);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (!contentMatchesExtension(ext, bytes)) fail(415, `Il contenuto di ${safeName(file.name)} non corrisponde all’estensione del file.`);
+    prepared.push({ file, bytes, mime, filename: safeName(file.name) });
   }
-  const requestedType = typeof metadata.documentType === 'string' ? metadata.documentType.trim() : 'duvri';
-  if (!/^[a-z][a-z0-9_-]{1,62}$/.test(requestedType)) fail(400, 'Tipo di documento non valido.');
   const typeConfigs = await db(
     `document_type_configs?slug=eq.${encodeURIComponent(requestedType)}&enabled=eq.true&select=slug,display_name,enabled,skill_path,skill_version,template_object_path,template_version,output_format`
   ) as DocumentTypeConfig[];
   const typeConfig = typeConfigs?.[0];
   if (!typeConfig) fail(400, 'Questo tipo di documento non è ancora attivo. Seleziona un tipo disponibile oppure chiedi all’amministratore di configurarlo.');
-  const title = typeof metadata.title === 'string' ? metadata.title.trim().slice(0, 180) : '';
-  const payload = {
-    documentType: typeConfig.slug,
-    documentTypeName: typeConfig.display_name,
-    outputFormat: typeConfig.output_format,
-    templateObjectPath: typeConfig.template_object_path,
-    skillPath: typeConfig.skill_path,
-    title,
-    siteType: typeof metadata.siteType === 'string' ? metadata.siteType.slice(0, 80) : 'unknown',
-    complexity: typeof metadata.complexity === 'string' ? metadata.complexity.slice(0, 40) : 'to_be_assessed',
-    fields: metadata
-  };
+  const title = jobTitle(metadata);
+  const payload = buildInputPayload(typeConfig, metadata);
   const created = await db('document_jobs', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
@@ -281,6 +253,9 @@ async function createJob(req: Request, actor: Actor, form: FormData) {
       title,
       status: 'queued',
       phase: 'extract',
+      // Hold the job out of claim_document_job() until every file row exists;
+      // cleared below once the upload completes.
+      next_attempt_at: new Date(Date.now() + UPLOAD_HOLD_MS).toISOString(),
       status_message: 'Checklist ricevuta per ' + typeConfig.display_name + '; in attesa di elaborazione cloud.',
       input_payload: payload,
       template_version: typeConfig.template_version,
@@ -293,13 +268,10 @@ async function createJob(req: Request, actor: Actor, form: FormData) {
   const uploadedPaths: string[] = [];
   try {
     const fileRows = [];
-    for (let index = 0; index < files.length; index += 1) {
-      const file = files[index];
-      const fileBytes = new Uint8Array(await file.arrayBuffer());
-      const filename = safeName(file.name);
+    for (let index = 0; index < prepared.length; index += 1) {
+      const { file, bytes: fileBytes, mime: mimeType, filename } = prepared[index];
       const role = index === 0 ? 'checklist' : 'supporting';
-      const path = `${actor.uid}/${job.id}/${String(index + 1).padStart(2,'0')}_${filename}`;
-      const mimeType = mimeFor(file);
+      const path = storageObjectPath(actor.uid, job.id, index, filename);
       await storageUpload(path, fileBytes, mimeType);
       uploadedPaths.push(path);
       fileRows.push({
@@ -308,7 +280,7 @@ async function createJob(req: Request, actor: Actor, form: FormData) {
         role,
         object_path: path,
         filename,
-        mime_type: mimeFor(file),
+        mime_type: mimeType,
         size_bytes: file.size,
         sha256: await digest(fileBytes)
       });
@@ -321,7 +293,7 @@ async function createJob(req: Request, actor: Actor, form: FormData) {
     await db(`document_jobs?id=eq.${encodeURIComponent(job.id)}`, {
       method: 'PATCH',
       headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify({ updated_at: new Date().toISOString(), status_message: 'Checklist e allegati salvati in archivio privato. In coda.' })
+      body: JSON.stringify({ updated_at: new Date().toISOString(), next_attempt_at: null, status_message: 'Checklist e allegati salvati in archivio privato. In coda.' })
     });
     await event(job.id, actor.uid, 'extract', 'created', 'Lavoro documentale creato e allegati archiviati.', { file_count: files.length, total_bytes: total });
     return json(req, { job: { id: job.id, documentType: typeConfig.slug, documentTypeName: typeConfig.display_name, status: 'queued', phase: 'extract', title, created_at: job.created_at }, message: 'Lavoro salvato. Il browser può essere chiuso dopo la conferma; l’elaborazione richiede che il worker cloud sia configurato e attivo.' }, 201);
@@ -389,7 +361,7 @@ async function statusJob(req: Request, actor: Actor, id: string) {
 }
 async function downloadFile(req: Request, actor: Actor, id: string, fileId: string) {
   const job = await findJob(id, actor);
-  if (!/^[0-9a-f-]{36}$/i.test(fileId)) fail(400, 'Identificativo file non valido.');
+  assertFileId(fileId);
   const rows = await db(`document_job_files?id=eq.${encodeURIComponent(fileId)}&job_id=eq.${encodeURIComponent(job.id)}&select=id,filename,mime_type,object_path`) as Record<string,unknown>[];
   const file = rows?.[0];
   if (!file || typeof file.object_path !== 'string') fail(404, 'File non trovato.');
@@ -398,71 +370,53 @@ async function downloadFile(req: Request, actor: Actor, id: string, fileId: stri
   }, 60000);
   if (!response.ok) fail(response.status === 404 ? 404 : 503, 'File non disponibile.');
   const name = safeName(String(file.filename || 'documento.bin'));
+  const length = response.headers.get('content-length');
   return new Response(response.body, {
     headers: responseHeaders(req, {
       'content-type': String(file.mime_type || 'application/octet-stream'),
       'content-disposition': `attachment; filename="${name}"`,
-      'content-length': response.headers.get('content-length') || ''
+      ...(length ? { 'content-length': length } : {})
     })
   });
 }
 async function cancelJob(req: Request, actor: Actor, id: string) {
   const job = await findJob(id, actor);
-  if (!['queued','retry_wait','awaiting_input','awaiting_configuration'].includes(job.status)) fail(409, 'Questo lavoro non può essere annullato nella fase corrente.');
-  await db(`document_jobs?id=eq.${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    headers: { Prefer: 'return=minimal' },
-    body: JSON.stringify({ status: 'cancelled', status_message: 'Lavoro annullato dall’utente.', updated_at: new Date().toISOString(), lease_until: null, claim_token: null })
-  });
+  assertCancellable(job.status);
+  await transitionJob(job, { status: 'cancelled', status_message: 'Lavoro annullato dall’utente.', updated_at: new Date().toISOString(), lease_until: null, claim_token: null });
   await event(id, actor.uid, String(job.phase || 'review'), 'review', 'Lavoro annullato.', {});
   return json(req, { ok: true, status: 'cancelled' });
 }
 async function retryJob(req: Request, actor: Actor, id: string) {
   const job = await findJob(id, actor);
-  if (!['awaiting_configuration','error','retry_wait','awaiting_input'].includes(job.status)) {
-    fail(409, 'Questo lavoro non è in uno stato ripristinabile.');
-  }
-  const outputs = job.agent_outputs && typeof job.agent_outputs === 'object' ? job.agent_outputs as Record<string,unknown> : {};
-  const phase = outputs.draft ? 'validate' : outputs.analysis ? 'draft' : outputs.extraction ? 'analyze' : 'extract';
-  await db(`document_jobs?id=eq.${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    headers: { Prefer: 'return=minimal' },
-    body: JSON.stringify({
-      status: 'queued',
-      phase,
-      status_message: 'Lavoro rimesso in coda su richiesta autorizzata.',
-      attempt_count: 0,
-      lease_until: null,
-      claim_token: null,
-      next_attempt_at: null,
-      updated_at: new Date().toISOString()
-    })
+  assertRetryable(job.status);
+  const phase = retryPhase(job.agent_outputs);
+  await transitionJob(job, {
+    status: 'queued',
+    phase,
+    status_message: 'Lavoro rimesso in coda su richiesta autorizzata.',
+    attempt_count: 0,
+    lease_until: null,
+    claim_token: null,
+    next_attempt_at: null,
+    updated_at: new Date().toISOString()
   });
   await event(id, actor.uid, phase, 'retry', 'Lavoro rimesso in coda.', {});
   return json(req, { ok: true, status: 'queued', phase });
 }
-async function reviewJob(req: Request, actor: Actor, body: any, id: string) {
-  if (actor.role !== 'admin') fail(403, 'La revisione finale è riservata a un amministratore autorizzato.');
+async function reviewJob(req: Request, actor: Actor, body: Record<string, unknown>, id: string) {
+  assertReviewer(actor.role);
   const job = await findJob(id, actor);
-  if (job.status !== 'needs_review') fail(409, 'Il documento non è in attesa di revisione.');
-  const decision = String(body.decision || '');
-  if (!['approved','changes_requested','rejected'].includes(decision)) fail(400, 'Decisione di revisione non valida.');
-  const status = decision === 'approved' ? 'approved' : decision === 'rejected' ? 'rejected' : 'awaiting_input';
-  const message = typeof body.comment === 'string' ? body.comment.trim().slice(0, 2000) : '';
+  const { status, decision, comment: message, statusMessage } = planReview(job.status, body);
   const priorPayload = job.input_payload && typeof job.input_payload === 'object' ? job.input_payload as Record<string,unknown> : {};
-  await db(`document_jobs?id=eq.${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    headers: { Prefer: 'return=minimal' },
-    body: JSON.stringify({
-      status,
-      status_message: decision === 'approved' ? 'Revisione umana registrata come approvata.' : decision === 'rejected' ? 'Documento rifiutato in revisione.' : 'Modifiche/dati aggiuntivi richiesti.',
-      review_decision: decision,
-      reviewed_by: actor.uid,
-      reviewed_at: new Date().toISOString(),
-      input_payload: { ...priorPayload, review: { decision, comment: message } },
-      updated_at: new Date().toISOString(),
-      completed_at: decision === 'approved' ? new Date().toISOString() : null
-    })
+  await transitionJob(job, {
+    status,
+    status_message: statusMessage,
+    review_decision: decision,
+    reviewed_by: actor.uid,
+    reviewed_at: new Date().toISOString(),
+    input_payload: { ...priorPayload, review: { decision, comment: message } },
+    updated_at: new Date().toISOString(),
+    completed_at: decision === 'approved' ? new Date().toISOString() : null
   });
   await event(id, actor.uid, 'review', 'review', 'Esito della revisione umana registrato.', { decision });
   return json(req, { ok: true, status });
@@ -486,18 +440,18 @@ Deno.serve(async (req: Request) => {
     }
     if (action === 'create') {
       if (!(req.headers.get('content-type') || '').includes('multipart/form-data')) fail(415, 'Usa multipart/form-data per checklist e allegati.');
-      const form = await req.formData();
+      const form = await req.formData().catch(() => fail(400, 'Richiesta multipart non valida.'));
       return await createJob(req, actor, form);
     }
-    const body = await req.json().catch(() => ({}));
-    const id = String(body.id || '');
+    const body = normalizeActionBody(await req.json().catch(() => ({})));
+    const id = typeof body.id === 'string' ? body.id : '';
     if (action === 'cancel') return await cancelJob(req, actor, id);
     if (action === 'retry') return await retryJob(req, actor, id);
     if (action === 'review') return await reviewJob(req, actor, body, id);
     return json(req, { error: 'Azione non riconosciuta.' }, 400);
-  } catch (error: any) {
-    const status = Number(error?.status) || 503;
-    const message = status < 500 ? String(error.message || 'Richiesta non valida.') : String(error.message || 'Servizio documentale non disponibile.');
+  } catch (error: unknown) {
+    const { status, message, expected } = errorResponse(error);
+    if (!expected) console.error('[document-jobs] unexpected error', (error as { name?: string } | null)?.name || 'Error');
     return json(req, { error: message }, status);
   }
 });
