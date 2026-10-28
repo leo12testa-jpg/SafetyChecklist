@@ -25,7 +25,7 @@ jobs:
         with:
           version: 2.53.6
       - name: Type check actual Deno backends
-        run: deno check supabase/functions/manage-users/index.ts supabase/functions/photo-access/index.ts supabase/functions/document-jobs/index.ts supabase/functions/document-worker/index.ts
+        run: deno check supabase/functions/manage-users/index.ts supabase/functions/photo-access/index.ts supabase/functions/document-jobs/index.ts supabase/functions/document-worker/index.ts supabase/functions/document-worker/docx-generator.ts
       - name: Start dedicated local Storage and real RLS
         run: supabase start --workdir tests/storage-local --exclude realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
       - name: Configure only local test credentials
