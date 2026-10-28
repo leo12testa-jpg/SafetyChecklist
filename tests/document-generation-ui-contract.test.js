@@ -17,6 +17,8 @@ test('la sezione Generazione documenti è raggiungibile dal menu e registrata co
 
 test('il modulo di raccolta include allegati e ripetizione delle imprese', () => {
   assert.match(html, /id="dg-files"/);
+  assert.match(html, /name="aiDataProcessingConsent"/);
+  assert.match(html, /costi separati dall'abbonamento ChatGPT o Claude/i);
   assert.match(html, /id="dg-add-contractor"/);
   assert.match(html, /data-agent="coordinator"/);
   assert.match(html, /data-agent="document-reader"/);
