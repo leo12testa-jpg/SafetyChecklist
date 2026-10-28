@@ -5,3 +5,52 @@
 /tests/storage-local/supabase/.temp/
 /supabase/.temp/
 /reports/qa-v1/**/profile-*/
+
+# --- Segreti e credenziali (mai nel repository pubblico) ---
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+serviceAccount*.json
+*serviceAccountKey*
+*-firebase-adminsdk-*.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# --- Documenti e output generati con dati reali ---
+# Modelli Word/Excel e documenti prodotti (DUVRI, DVR, COIN...) restano fuori dal repo.
+*.docx
+*.dotx
+*.doc
+*.xlsx
+*.xlsm
+*.xls
+!tests/fixtures/**/*.docx
+!tests/fixtures/**/*.xlsx
+/output/
+/outputs/
+/generated/
+/documenti-generati/
+/private/
+reports/**/*.pdf
+reports/**/*.docx
+reports/**/*.png
+reports/**/*.zip
+
+# --- Cartelle temporanee, dipendenze e log ---
+node_modules/
+tmp/
+temp/
+.tmp/
+*.tmp
+__pycache__/
+*.pyc
+supabase/.branches/
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
