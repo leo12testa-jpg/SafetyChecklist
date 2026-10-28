@@ -229,3 +229,23 @@ Sono stati aggiunti nel branch `feat/documenti-ai-checklist`:
 - `schemas/duvri-intake.schema.json`: schema dati iniziale per un incarico DUVRI, con più imprese, fasi di lavoro, preposto, attrezzature, DPI, allegati, moduli condizionali e revisione umana.
 
 Questi file costituiscono specifiche di progettazione versionate; non sono ancora eseguiti dall'app. Il prossimo passaggio tecnico è implementare il flusso di acquisizione dati e job persistente in un ambiente di test, poi il generatore DOCX e i test di regressione. Prima di attribuire punteggi/colori alle tabelle di rischio occorre una regola Colligo approvata per risolvere la differenza tra scala 1–9 e celle I.R. 1–3.
+
+
+## Stato implementazione — interfaccia pilota Generazione documenti
+
+È stata aggiunta una prima schermata in `index.html`, un controller isolato in `js/document-generation.js` e gli stili dedicati in `css/style.css`.
+
+La schermata include:
+- accesso dal menu principale "Generazione documenti";
+- form iniziale DUVRI con committente, sede, titolo, data, tipo area, complessità e descrizione attività;
+- schede ripetibili per più imprese, preposti, attività, attrezzature/proprietà e DPI;
+- selezione dei moduli condizionali (quota, spazi confinati, elettrico, chimici, sollevamenti, emissioni, scavi, aree occupate);
+- selezione di file locali e visualizzazione dei soli nomi/metadati;
+- riepilogo preliminare di alcuni dati da completare e download di una scheda JSON;
+- riquadro riservato alla futura coda delle elaborazioni documentali.
+
+**Limite esplicito della versione pilota:** non c'è ancora invio/upload dei documenti, persistenza cloud, elaborazione backend, chiamata al provider AI, generazione DOCX o coda consultabile su altri dispositivi. La scheda JSON è un'esportazione locale e i metadati degli allegati non contengono i file. Il testo dell'interfaccia avvisa l'utente di questi limiti, per evitare di confondere il prototipo con una generazione DUVRI operativa.
+
+È stato aggiunto `tests/document-generation-ui-contract.test.js` per verificare i collegamenti basilari tra menu, schermata, controller e app shell. Il test e l'intera suite devono essere eseguiti in CI/ambiente locale prima della revisione; questo commit non ha effettuato deploy e non modifica `main`.
+
+Prossimo passaggio: collaudo della schermata su desktop/mobile, quindi progettazione e implementazione dell'API autenticata, persistenza durevole dei job, upload privato degli allegati e worker cloud. Solo allora il sistema potrà eseguire la generazione in modo asincrono, indipendentemente dallo stato del dispositivo dell'utente.
