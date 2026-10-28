@@ -453,7 +453,7 @@
         <div class="dg-page-heading">
           <span class="eyebrow">PRODUZIONE DOCUMENTALE</span>
           <h2>Generazione documenti</h2>
-          <p>Raccogli le informazioni dell'appalto e gli allegati una sola volta. Il primo flusso previsto è dedicato ai DUVRI Colligo.</p>
+          <p>Un unico motore per i documenti Colligo: iniziamo dai DUVRI, poi aggiungeremo DVR, informative COIN, procedure e altri modelli con le rispettive checklist e skill.</p>
         </div>
 
         <div class="dg-prototype-alert" role="status">
@@ -481,7 +481,18 @@
 
         <form id="dg-form" class="dg-form">
           <section class="dg-panel">
-            <div class="dg-panel-heading"><span class="dg-section-number">00</span><div><h3>Checklist e documenti di partenza</h3><p>Carica prima la checklist compilata. Gli agenti dovranno usarla come fonte primaria e leggere gli allegati utili, poi chiederti soltanto ciò che manca.</p></div></div>
+            <div class="dg-panel-heading"><span class="dg-section-number">00</span><div><h3>Tipo di documento e fonti</h3><p>Il motore è condiviso; ogni tipo usa la propria checklist, skill, modello e controlli specifici.</p></div></div>
+            <label class="campo-form">Tipo di documento da preparare *
+              <select name="documentType" required>
+                <option value="duvri" selected>DUVRI — primo modulo</option>
+                <option value="dvr" disabled>DVR — modulo futuro</option>
+                <option value="informativa-coin" disabled>Informativa COIN — modulo futuro</option>
+                <option value="procedura-operativa" disabled>Procedura operativa — modulo futuro</option>
+                <option value="relazione-tecnica" disabled>Relazione tecnica — modulo futuro</option>
+                <option value="altro" disabled>Altro documento — da configurare</option>
+              </select>
+            </label>
+            <p class="dg-small-note">I tipi indicati come futuri non sono ancora generabili. Per attivarne uno serviranno checklist, istruzioni di redazione, template approvato e test dedicati.</p>
             <label class="dg-upload-zone dg-checklist-upload" for="dg-checklist-file"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Carica la checklist compilata *</strong><small>Il file principale che gli agenti dovranno analizzare: Word, PDF, Excel, JSON o CSV.</small><input id="dg-checklist-file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.json,.csv,.txt" required></label>
             <p id="dg-checklist-file-status" class="dg-checklist-file-status" aria-live="polite">Checklist non selezionata: scegli il file compilato per continuare.</p>
             <label class="dg-upload-zone" for="dg-files"><span class="dg-upload-icon" aria-hidden="true">＋</span><strong>Aggiungi documenti di supporto</strong><small>PDF, Word, Excel, immagini e file di testo. Puoi selezionare più file.</small><input id="dg-files" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt,.csv,.json"></label>
