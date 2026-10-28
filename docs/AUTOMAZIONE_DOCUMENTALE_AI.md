@@ -169,3 +169,37 @@ La checklist non deve essere un modulo statico uguale per tutti i lavori. Deve u
 - È presente una regola da chiarire prima dell'automazione: il modello descrive una matrice con indici da 1 a 9, mentre le istruzioni richiedono celle "I.R." da 1 a 3 e colori specifici. Non applicare una conversione arbitraria: richiedere conferma del criterio aziendale.
 - Verificare i riferimenti normativi rispetto alle fonti ufficiali e registrare le verifiche; non aggiornare silenziosamente formulazioni tecniche o normative.
 - Il documento generato è sempre una bozza fino alla revisione e approvazione di personale competente.
+
+
+## Caso di riferimento analizzato — DUVRI Centroborgo, spazi confinati
+
+File campione ricevuto: `DUVRI_CENTROBORGO_SPAZI_CONFINATI_2026_rev3.pdf` (56 pagine). È un esempio di documento già redatto, da usare per capire variabilità, livello di dettaglio e sezioni del modello. I dati identificativi e operativi del caso non devono diventare valori predefiniti né essere riutilizzati in un nuovo DUVRI.
+
+### Caratteristiche osservate nel campione
+
+- Frontespizio Colligo con logo committente, titolo dell'intervento, tabella firme e data.
+- Indice strutturato e sette capitoli principali, con sottocapitoli tecnici e sezione allegati.
+- Committente: Consorzio Centroborgo.
+- Due imprese appaltatrici indicate: Tedeschi Autospurghi S.r.l. e Netafim Service S.r.l. Questo mostra perché la checklist deve supportare una o più imprese e raccogliere dati separati per ciascuna.
+- Attività in due pozzi pompe/aree esterne gestite come spazi confinati, oltre a possibili attività connesse alla videoispezione.
+- Le fasi delle imprese sono descritte separatamente e in sequenza; il documento evidenzia la necessità di coordinare le fasi di accesso, aspirazione, recupero, sollevamento delle pompe, controlli elettrici e ripristino.
+- Sezioni specifiche su aree e accessi, segnaletica, emergenze, attività del committente e appaltatori, attrezzature con utilizzatore e proprietario, DPI, coordinamento, sospensione del servizio, valutazione delle interferenze e allegati.
+- Sono presenti fotografie delle aree e dei punti di accesso, una tabella di segnaletica e una tabella attrezzature; le immagini e le tabelle non sono contenuti accessori da perdere durante la generazione.
+- Il testo richiama procedure operative e di recupero, permesso di lavoro e allegati specifici. La checklist deve quindi poter registrare documenti collegati e non soltanto un DVR e un cronoprogramma.
+- Il campione presenta anche informazioni da confermare o completare, ad esempio nominativi dei preposti da comunicare e alcune condizioni operative da definire. L'agente deve rilevare questi elementi, non trasformarli in fatti certi.
+- Il documento include riferimenti a norme e procedure specifiche per spazi confinati. In un nuovo incarico la pertinenza di tali richiami deve dipendere dalle attività effettive; non copiare automaticamente il blocco normativo del caso campione.
+
+### Requisiti ricavati per il motore di checklist
+
+1. Ogni impresa deve avere una scheda indipendente con anagrafica, attività, fasi e tempi, preposto, personale, mezzi/attrezzature, proprietà e DPI.
+2. Le lavorazioni devono poter essere scomposte in fasi ordinate, indicando luogo, periodo/orario, impresa esecutrice e dipendenze/sovrapposizioni.
+3. La raccolta deve identificare le aree di intervento e gli accessi, inclusi percorsi, manovre, delimitazioni e presenza di traffico, pubblico o altri lavoratori quando pertinenti.
+4. Deve esistere un modulo condizionale per ambienti sospetti di inquinamento o confinati, attivato soltanto se l'intervento lo richiede. Tale modulo raccoglie procedure, permessi, requisiti delle imprese e lavoratori, sorveglianza, misure atmosferiche, recupero ed emergenza secondo i documenti applicabili; non certifica automaticamente la conformità.
+5. Deve esserci un registro degli allegati con titolo, impresa/fonte, versione o data, stato (ricevuto/mancante/non applicabile) e capitoli del DUVRI cui si riferiscono.
+6. Il generatore deve mantenere immagini e tabelle del modello e poter inserire foto/planimetrie pertinenti nei punti previsti, senza alterare gli originali non coinvolti.
+7. Il controllo finale deve evidenziare dati mancanti, incoerenze tra cronoprogramma e descrizioni, riferimenti normativi da verificare e affermazioni prive di fonte. Non deve assegnare valori di rischio in modo arbitrario.
+8. Questo campione dimostra che la checklist deve essere adattiva: l'opzione iniziale di progettazione "una impresa appaltatrice" resta un requisito generale di test, mentre il modello dati deve gestire anche casi reali con più imprese.
+
+### Distinzione da mantenere
+
+Il PDF campione è una fonte per la struttura e la complessità del documento, non una fonte normativa da copiare senza verifica e non un modello per riutilizzare nominativi, date, indirizzi, attrezzature o misure nel documento di un altro cliente.
