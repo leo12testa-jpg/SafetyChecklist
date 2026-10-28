@@ -41,6 +41,11 @@ function textField(value: unknown, field: string, max = 20000): string {
   if (typeof value !== 'string' || value.length > max) throw new Error('Campo testuale non valido: ' + field);
   return value.trim();
 }
+function requiredField(value: unknown, field: string, max = 20000): string {
+  const result = textField(value, field, max);
+  if (!result) throw new Error('Campo obbligatorio mancante: ' + field + '.');
+  return result;
+}
 function listField(value: unknown, field: string, maxItems = 100): string[] {
   if (!Array.isArray(value) || value.length > maxItems || value.some((item) => typeof item !== 'string')) {
     throw new Error('Elenco non valido: ' + field);
@@ -57,9 +62,9 @@ export function validateDuvriDraft(raw: unknown, templateRows: TemplateRiskRow[]
   const contractors = raw.contractors.map((item, index) => {
     if (!isJsonRecord(item)) throw new Error('Dati impresa non validi al numero ' + (index + 1) + '.');
     return {
-      legalName: textField(item.legalName, 'contractors.legalName', 300),
-      role: textField(item.role, 'contractors.role', 120),
-      activityDescription: textField(item.activityDescription, 'contractors.activityDescription', 4000),
+      legalName: requiredField(item.legalName, 'contractors.legalName', 300),
+      role: requiredField(item.role, 'contractors.role', 120),
+      activityDescription: requiredField(item.activityDescription, 'contractors.activityDescription', 4000),
       equipment: listField(item.equipment, 'contractors.equipment', 100),
       ppe: listField(item.ppe, 'contractors.ppe', 100),
       ...(typeof item.prepostoName === 'string' && item.prepostoName.trim() ? { prepostoName: item.prepostoName.trim().slice(0,300) } : {}),
@@ -94,10 +99,10 @@ export function validateDuvriDraft(raw: unknown, templateRows: TemplateRiskRow[]
     return {
       tableIndex: row.tableIndex,
       rowIndex: row.rowIndex,
-      description: textField(item.description, 'riskRows.description', 6000),
-      measures: textField(item.measures, 'riskRows.measures', 6000),
+      description: isContinuation ? textField(item.description, 'riskRows.description', 6000) : requiredField(item.description, 'riskRows.description', 6000),
+      measures: requiredField(item.measures, 'riskRows.measures', 6000),
       irIndex: isContinuation ? null : Number(item.irIndex),
-      rationale: textField(item.rationale, 'riskRows.rationale', 2000)
+      rationale: isContinuation ? textField(item.rationale, 'riskRows.rationale', 2000) : requiredField(item.rationale, 'riskRows.rationale', 2000)
     };
   });
   const documentDate = textField(raw.documentDate, 'documentDate', 10);
@@ -105,9 +110,9 @@ export function validateDuvriDraft(raw: unknown, templateRows: TemplateRiskRow[]
     throw new Error('La data di redazione della bozza non è valida.');
   }
   return {
-    title: textField(raw.title, 'title', 300),
+    title: requiredField(raw.title, 'title', 300),
     documentDate,
-    clientName: textField(raw.clientName, 'clientName', 300),
+    clientName: requiredField(raw.clientName, 'clientName', 300),
     siteDescription: textField(raw.siteDescription, 'siteDescription', 6000),
     siteCharacteristics: textField(raw.siteCharacteristics, 'siteCharacteristics', 6000),
     accessDescription: textField(raw.accessDescription, 'accessDescription', 6000),
