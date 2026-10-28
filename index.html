@@ -484,7 +484,7 @@
             <div class="dg-panel-heading"><span class="dg-section-number">00</span><div><h3>Checklist e documenti di partenza</h3><p>Carica prima la checklist compilata. Gli agenti dovranno usarla come fonte primaria e leggere gli allegati utili, poi chiederti soltanto ciò che manca.</p></div></div>
             <label class="dg-upload-zone dg-checklist-upload" for="dg-checklist-file"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Carica la checklist compilata *</strong><small>Il file principale che gli agenti dovranno analizzare: Word, PDF, Excel, JSON o CSV.</small><input id="dg-checklist-file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.json,.csv,.txt" required></label>
             <p id="dg-checklist-file-status" class="dg-checklist-file-status" aria-live="polite">Checklist non selezionata: scegli il file compilato per continuare.</p>
-            <label class="dg-upload-zone" for="dg-files"><span class="dg-upload-icon" aria-hidden="true">＋</span><strong>Aggiungi documenti di supporto</strong><small>PDF, Word, Excel, immagini e ZIP. Puoi selezionare più file.</small><input id="dg-files" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip,.txt"></label>
+            <label class="dg-upload-zone" for="dg-files"><span class="dg-upload-icon" aria-hidden="true">＋</span><strong>Aggiungi documenti di supporto</strong><small>PDF, Word, Excel, immagini e file di testo. Puoi selezionare più file.</small><input id="dg-files" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt,.csv,.json"></label>
             <ul id="dg-files-list" class="dg-files-list"><li>Nessun documento selezionato.</li></ul>
             <p class="dg-small-note">Esempi: DVR specifico, cronoprogramma, planimetria, procedure operative, piano di emergenza, schede di sicurezza e permessi pertinenti.</p>
             <label class="campo-form">Altre informazioni / osservazioni
@@ -509,8 +509,8 @@
                 <input name="site" type="text" maxlength="240" placeholder="Sede e indirizzo, se già disponibili">
               </label>
               <label class="campo-form">Tipo di area *
-                <select name="siteType" required>
-                  <option value="">Seleziona…</option>
+                <select name="siteType">
+                  <option value="unknown" selected>Da determinare dai documenti</option>
                   <option value="internal_area">Area interna</option>
                   <option value="construction_site_or_outdoor_area">Cantiere o area esterna</option>
                   <option value="mixed">Area interna ed esterna</option>
