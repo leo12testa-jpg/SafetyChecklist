@@ -117,7 +117,7 @@ Sono presenti nel branch di sviluppo:
 
 ### Secret / impostazioni attese (non configurate)
 
-`DOCUMENT_WORKER_SECRET`, `DOCUMENT_PIPELINE_ENABLED=false`, `ANTHROPIC_API_KEY`, `DOCUMENT_AI_MODEL=claude-sonnet-5-5` (default, opzionale), `DOCUMENT_AI_EXTRACT_MODEL=claude-haiku-5-5` (default, opzionale), `DUVRI_TEMPLATE_OBJECT_PATH`, `DUVRI_TEMPLATE_VERSION`, `DUVRI_RISK_RULE_APPROVED=false`, `DUVRI_RISK_RULE_DESCRIPTION`, `DUVRI_DOCX_ENGINE_ENABLED=false`.
+`DOCUMENT_WORKER_SECRET`, `DOCUMENT_PIPELINE_ENABLED=false`, `ANTHROPIC_API_KEY`, `DOCUMENT_AI_MODEL=claude-sonnet-5-5` (default, opzionale), `DOCUMENT_AI_EXTRACT_MODEL=claude-haiku-5-5` (default, opzionale), `DUVRI_TEMPLATE_OBJECT_PATH`, `DUVRI_TEMPLATE_VERSION`, `DUVRI_RISK_RULE_APPROVED=false`, `DUVRI_RISK_RULE_DESCRIPTION`, `DUVRI_RISK_RULE_APPROVAL_ID`, `DUVRI_RISK_RULE_VERSION`, `DUVRI_DOCX_ENGINE_ENABLED=false`. Le ultime quattro variabili della metodologia devono restare non configurate finché Colligo non approva formalmente scala, mapping e versione della regola.
 
 `DOCUMENT_AI_PROVIDER` è legacy: va rimosso o lasciato a `anthropic`; qualsiasi altro valore (es. `openai`) blocca i lavori in `awaiting_configuration` senza chiamare alcun provider. `OPENAI_API_KEY` non è più letto. Override opzionali per agente: `DOCUMENT_AI_<FASE>_EFFORT`, `DOCUMENT_AI_<FASE>_THINKING`, `DOCUMENT_AI_<FASE>_MAX_TOKENS` con FASE = `EXTRACT`, `ANALYZE`, `DRAFT`, `VALIDATE` (vedi tabella sotto); combinazioni non ammesse dall'API vengono rifiutate all'avvio con messaggio esplicito.
 
