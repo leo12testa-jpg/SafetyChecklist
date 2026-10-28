@@ -222,9 +222,6 @@ async function event(jobId: string, actor: string | null, phase: string, type: s
 }
 async function createJob(req: Request, actor: Actor, form: FormData) {
   const metadata = parseMetadata(form.get('metadata'));
-  if (Deno.env.get('DOCUMENT_PIPELINE_ENABLED') === 'true' && metadata.aiDataProcessingConsent !== true) {
-    fail(400, 'Per avviare l’elaborazione cloud devi confermare il trasferimento dei file al provider AI configurato.');
-  }
   const { files, total } = collectUploadFiles(form.get('checklist'), form.getAll('files'));
   const requestedType = requestedDocumentType(metadata);
   // Read and sniff every file before creating the job row, so a mislabelled
@@ -241,6 +238,13 @@ async function createJob(req: Request, actor: Actor, form: FormData) {
   ) as DocumentTypeConfig[];
   const typeConfig = typeConfigs?.[0];
   if (!typeConfig) fail(400, 'Questo tipo di documento non è ancora attivo. Seleziona un tipo disponibile oppure chiedi all’amministratore di configurarlo.');
+  // Server-side kill switch: when disabled, reject before creating a job or storing any file.
+  if (Deno.env.get('DOCUMENT_PIPELINE_ENABLED') !== 'true') {
+    fail(503, 'Elaborazione documentale cloud disattivata.');
+  }
+  if (metadata.aiDataProcessingConsent !== true) {
+    fail(400, 'Per avviare l’elaborazione cloud devi confermare il trasferimento dei file al provider AI configurato.');
+  }
   const title = jobTitle(metadata);
   const payload = buildInputPayload(typeConfig, metadata);
   const created = await db('document_jobs', {
