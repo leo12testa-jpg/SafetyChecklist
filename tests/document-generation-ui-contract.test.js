@@ -11,14 +11,23 @@ test('la sezione Generazione documenti è raggiungibile dal menu e registrata co
   assert.match(html, /data-screen="document-generation"/);
   assert.match(html, /id="dg-form"/);
   assert.match(html, /id="dg-contractors"/);
+  assert.match(html, /id="dg-checklist-file"/);
+  assert.match(html, /id="dg-agents-title"/);
 });
 
 test('il modulo di raccolta include allegati e ripetizione delle imprese', () => {
   assert.match(html, /id="dg-files"/);
   assert.match(html, /id="dg-add-contractor"/);
+  assert.match(html, /data-agent="coordinator"/);
+  assert.match(html, /data-agent="document-reader"/);
+  assert.match(html, /data-agent="duvri-analyst"/);
+  assert.match(html, /data-agent="docx-writer"/);
+  assert.match(html, /data-agent="quality-check"/);
   assert.match(html, /id="dg-contractor-template"/);
   assert.match(controller, /data-dg-remove-contractor/);
   assert.match(controller, /contentIncluded: false/);
+  assert.match(controller, /sourceChecklist: checklistFile/);
+  assert.match(controller, /agent: 'coordinator'/);
 });
 
 test('il prototipo non dichiara di inviare dati al cloud o avviare la generazione AI', () => {
