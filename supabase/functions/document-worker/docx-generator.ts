@@ -545,8 +545,13 @@ export async function populateDuvriTemplate(templateBytes: Uint8Array, draft: Du
   if (riskSummary2) setParagraphText(riskSummary2.paragraph, draft.interferenceMeasures, true);
 
   fillRiskTables(doc, draft.riskRows);
-  const signatures = draft.contractors.map((c) => ({ legalName: c.legalName, role: c.role }));
-  const contractorRows = signatures.filter((c) => !/subappalt/i.test(c.role)).map((c) => ({ ...c, legalName: c.legalName }));
+  const signatures = draft.contractors.map((c) => ({
+    ...c,
+    activityDescription: c.activityDescription || '',
+    equipment: Array.isArray(c.equipment) ? c.equipment : [],
+    ppe: Array.isArray(c.ppe) ? c.ppe : []
+  }));
+  const contractorRows = signatures.filter((c) => !/subappalt/i.test(c.role));
   const allRowsForCover = [
     ...contractorRows,
     ...signatures.filter((c) => /subappalt/i.test(c.role))
