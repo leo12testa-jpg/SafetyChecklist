@@ -2690,3 +2690,73 @@ textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:
 @media (max-width: 900px) {
   #screens.app-shell > .app-content { padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important; }
 }
+
+
+/* Generazione documenti — modulo pilota DUVRI */
+.dg-screen { max-width: 1180px; margin: 0 auto; padding: 24px; }
+.dg-page-heading { margin-bottom: 18px; }
+.dg-page-heading h2 { margin: 5px 0 8px; color: var(--color-primary); }
+.dg-page-heading p { color: var(--color-text-muted); max-width: 780px; line-height: 1.55; }
+.dg-prototype-alert { border: 1px solid #e7c66a; border-left: 5px solid #d99a0b; border-radius: 10px; background: #fff8df; color: #593d06; padding: 14px 16px; margin: 18px 0; }
+.dg-prototype-alert p { margin: 6px 0 0; line-height: 1.5; font-size: .92rem; }
+.dg-workflow-strip { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin: 20px 0; }
+.dg-workflow-step { display: flex; align-items: center; gap: 10px; padding: 12px; background: #eef2f6; border: 1px solid #d9e1ea; border-radius: 10px; color: #627083; min-width: 0; }
+.dg-workflow-step > span { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #d8e0e9; font-weight: 800; }
+.dg-workflow-step.is-current { background: #eaf2fb; border-color: #83a9d2; color: var(--color-primary); }
+.dg-workflow-step.is-current > span { background: var(--color-primary); color: white; }
+.dg-workflow-step strong, .dg-workflow-step small { display: block; }
+.dg-workflow-step strong { font-size: .87rem; }
+.dg-workflow-step small { font-size: .75rem; margin-top: 3px; opacity: .85; }
+.dg-form { display: grid; gap: 16px; }
+.dg-panel { min-width: 0; padding: 20px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); box-shadow: 0 2px 9px rgba(20,40,63,.035); margin: 16px 0; }
+.dg-panel-heading { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
+.dg-section-number { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 10px; background: #e8eff7; color: var(--color-primary); font-size: .82rem; font-weight: 800; }
+.dg-panel-heading h3 { margin: 0 0 4px; color: var(--color-primary); font-size: 1.08rem; }
+.dg-panel-heading p { margin: 0; color: var(--color-text-muted); line-height: 1.45; font-size: .87rem; }
+.dg-fields-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); column-gap: 18px; }
+.dg-fields-grid .campo-form { min-width: 0; }
+.dg-fields-grid input, .dg-fields-grid select, .dg-fields-grid textarea { min-width: 0; }
+.dg-contractors { display: grid; gap: 14px; }
+.dg-contractor-card { border: 1px solid #d8e1eb; border-radius: 10px; background: #fbfcfe; padding: 16px; margin-bottom: 14px; min-width: 0; }
+.dg-contractor-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; color: var(--color-primary); }
+.dg-remove-contractor { border: 0; color: #9b2c2c; background: transparent; font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; padding: 8px; }
+.dg-remove-contractor[hidden] { display: none; }
+.dg-add-contractor { width: auto; display: inline-flex; margin-top: 2px; }
+.dg-module-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.dg-module-option { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid var(--color-border); border-radius: 9px; background: #fff; cursor: pointer; }
+.dg-module-option input { width: 18px; height: 18px; margin-top: 2px; flex: none; accent-color: var(--color-primary); }
+.dg-module-option strong, .dg-module-option small { display: block; }
+.dg-module-option strong { font-size: .9rem; }
+.dg-module-option small { font-size: .79rem; color: var(--color-text-muted); line-height: 1.4; margin-top: 4px; }
+.dg-upload-zone { display: flex; align-items: center; flex-direction: column; text-align: center; gap: 5px; padding: 24px 14px; border: 2px dashed #afbfce; border-radius: 10px; background: #f8fafc; cursor: pointer; }
+.dg-upload-zone:hover { border-color: #6d91b7; background: #f1f6fc; }
+.dg-upload-zone strong { color: var(--color-primary); }
+.dg-upload-zone small { color: var(--color-text-muted); font-size: .82rem; }
+.dg-upload-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #e7eef7; color: var(--color-primary); font-size: 1.4rem; }
+.dg-upload-zone input { max-width: 100%; font-size: .85rem; margin-top: 10px; }
+.dg-files-list { display: grid; gap: 6px; margin: 12px 0; padding-left: 20px; color: var(--color-text-muted); font-size: .85rem; overflow-wrap: anywhere; }
+.dg-small-note { font-size: .82rem; color: var(--color-text-muted); line-height: 1.5; }
+.dg-form-actions { display: grid; grid-template-columns: minmax(150px,.7fr) minmax(220px,1.3fr); gap: 12px; }
+.dg-form-actions .btn { width: 100%; }
+.dg-result-panel { border-color: #96bca5; }
+.dg-result-heading { display: flex; align-items: flex-start; gap: 12px; }
+.dg-result-icon { width: 36px; height: 36px; display: grid; place-items: center; flex: none; border-radius: 50%; background: #e3f4e8; color: #167238; font-weight: 900; }
+.dg-result-heading h3 { margin: 0 0 5px; color: var(--color-primary); }
+.dg-result-heading p { margin: 0; color: var(--color-text-muted); line-height: 1.45; }
+.dg-next-step-notice { margin: 18px 0; padding: 12px 14px; border-radius: 8px; background: #f4f6f8; }
+.dg-next-step-notice p { margin: 5px 0 0; line-height: 1.5; font-size: .88rem; }
+.dg-missing-list { padding-left: 23px; line-height: 1.55; }
+.dg-missing-list li { margin: 6px 0; }
+.dg-queue-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 26px 16px; color: var(--color-text-muted); background: #f8fafc; border: 1px dashed #d0d8e2; border-radius: 10px; }
+.dg-queue-empty > span { color: #8a9bae; font-size: 1.7rem; }
+.dg-queue-empty strong { color: var(--color-primary); }
+.dg-queue-empty p { max-width: 620px; margin: 0; font-size: .88rem; line-height: 1.5; }
+@media (max-width: 700px) {
+  .dg-screen { padding: 16px; }
+  .dg-panel { padding: 15px; }
+  .dg-workflow-strip { grid-template-columns: 1fr; gap: 7px; }
+  .dg-workflow-step { padding: 9px 11px; }
+  .dg-fields-grid, .dg-module-grid, .dg-form-actions { grid-template-columns: 1fr; }
+  .dg-form-actions .btn { width: 100%; }
+  .dg-panel-heading h3 { font-size: 1rem; }
+}
