@@ -1,10 +1,18 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {root,project,authOrigin,documents,playwright,seed,put,makeServer,guard}=require('./qa-support.cjs');
+const {EMULATOR,recordAbort,classifyPageError}=require('./qa-transport-filter.cjs');
 const browserName=process.env.QA_BROWSER||'chromium';
 const out=path.join(root,'reports/qa-v1/'+(process.env.QA_DEVICE_MATRIX?'realtime':process.env.QA_BROWSER?'browser-'+browserName:'browser'));fs.mkdirSync(out,{recursive:true});
 const report={tests:[],pageErrors:[],consoleErrors:[],blocked:[],timings:[],profiles:[]};
 const devices=[],users=[];let id,url;const server=makeServer({emulator:true});
-async function check(name,fn){try{const details=await fn();report.tests.push({name,status:'PASS',details});console.log('PASS '+name);}
+// Step/action context recorded with every transport error, to attribute it instead of guessing.
+let currentStep='avvio',stepStart=Date.now();
+function errorContext(d){return {user:d.user.username,engine:d.engine,step:currentStep,action:d.action,msInStep:Date.now()-stepStart,at:new Date().toISOString(),emulatorBlocked:d.emulatorBlocked};}
+// Voluntary Firestore outage: every aborted request is recorded so that the WebKit error it
+// produces can be matched to it. Errors not matched to an abort of this block still fail.
+async function blockEmulator(d){d.emulatorBlocked=true;d.action='blocco-emulatore';await d.context.route(EMULATOR+'/**',r=>{recordAbort(d,r.request().url(),currentStep);return r.abort();});}
+async function unblockEmulator(d){await d.context.unroute(EMULATOR+'/**');d.emulatorBlocked=false;d.action='sblocco-emulatore';}
+async function check(name,fn){currentStep=name;stepStart=Date.now();try{const details=await fn();report.tests.push({name,status:'PASS',details});console.log('PASS '+name);}
   catch(e){report.tests.push({name,status:'FAIL',error:e.stack});console.error('FAIL '+name+' '+e.message);if(devices[0]){report.failureState=await devices[0].page.evaluate(async()=>({history:Array.from(document.querySelectorAll('#storico-lista li')).map(x=>x.textContent),controls:Array.from(document.querySelectorAll('.storico-filtri input,.storico-filtri select')).map(x=>({id:x.id,value:x.value})),records:(await db.elencaSopralluoghi()).map(r=>({id:r.id,checklist:r.checklist_id,title:r.punto_vendita}))})).catch(()=>null);await devices[0].page.screenshot({path:path.join(out,'last-failure.png'),fullPage:true}).catch(()=>{});}}
   fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(report,null,2));}
 async function open(user,viewport={width:1440,height:1000},{sw=false}={}) {
@@ -12,16 +20,21 @@ async function open(user,viewport={width:1440,height:1000},{sw=false}={}) {
   const profile=fs.mkdtempSync(path.join(out,'profile-'));report.profiles.push(profile);
   const context=await playwright(engine)[engine].launchPersistentContext(profile,{...(engine==='chromium'?{channel:'chrome'}:{}),headless:true,serviceWorkers:sw?'allow':'block',viewport,acceptDownloads:true});
   const blocked=await guard(context,server.origin,{emulator:true});report.blocked.push(blocked);
-  const page=context.pages()[0];const d={context,page,user,profile,viewport,engine};devices.push(d);(report.engines||=[]).push({engine,version:context.browser()?.version()});page.setDefaultTimeout(20000);
+  const page=context.pages()[0];const d={context,page,user,profile,viewport,engine,action:'apertura',emulatorBlocked:false,aborted:[]};devices.push(d);(report.engines||=[]).push({engine,version:context.browser()?.version()});page.setDefaultTimeout(20000);
+  // Track the action in progress on this device (login/logout are set by their helpers).
+  const reload=page.reload.bind(page),goto=page.goto.bind(page),evaluate=page.evaluate.bind(page);
+  page.reload=(...a)=>{d.action='reload';return reload(...a);};page.goto=(...a)=>{d.action='navigazione';return goto(...a);};
+  page.evaluate=(fn,...a)=>{const s=String(fn);if(/sincronizza/.test(s))d.action='sync';else if(/new Event\('online'\)/.test(s))d.action='ripresa-online';else if(/new Event\('focus'\)/.test(s))d.action='focus';return evaluate(fn,...a);};
   page.on('pageerror',e=>{
-    const entry={user:user.username,message:e.message};
-    if(/127\.0\.0\.1:18085\/google\.firestore\.v1\.Firestore\//.test(e.message)&&/due to access control checks/.test(e.message))(report.transportErrors||=[]).push(entry);
-    else report.pageErrors.push(entry);
+    // Rules in tests/qa-transport-filter.cjs (unit-tested): 'page' entries make the test fail.
+    const {kind,entry}=classifyPageError(e.message,d,errorContext(d));
+    if(kind==='transport')(report.transportErrors||=[]).push(entry);else report.pageErrors.push(entry);
   });
   page.on('console',m=>{if(m.type()==='error'||(m.type()==='warning'&&m.text().includes('FotoSync')))report.consoleErrors.push({user:user.username,message:m.text()});});
   page.on('dialog',dialog=>dialog.accept());await page.goto(url);return d;
 }
 async function login(d,password=d.user.password) {
+  d.action='login';
   await d.page.locator('#login-username').fill(d.user.username);await d.page.locator('#login-password').fill(password);await d.page.locator('#login-submit').click();
 }
 async function ready(d) {await d.page.waitForFunction(()=>appIdentity.current()!=null&&appAutenticataAvviata&&document.body.dataset.authenticated==='true');}
@@ -156,30 +169,30 @@ async function receivePhoto(d,f) {
     await A.page.evaluate(()=>navigator.serviceWorker.ready);await A.page.reload();await ready(A);await A.page.waitForFunction(()=>navigator.serviceWorker.controller!==null);
     report.offlineShell=await A.page.evaluate(async()=>({controller:navigator.serviceWorker.controller.scriptURL,caches:await Promise.all((await caches.keys()).map(async name=>({name,urls:(await (await caches.open(name)).keys()).map(r=>r.url)}))),entry:(await caches.match(new URL('index.html',location.href)))?.status}));
     assert.equal(report.offlineShell.entry,200,'installed app shell must contain the entry document');
-    const unreachable='http://127.0.0.1:18085/**';let f;
+    let f;
     try {
       if(browserName==='chromium')await A.context.setOffline(true);
-      else {server.serverDown(true);await A.context.route(unreachable,r=>r.abort());}
+      else {server.serverDown(true);await blockEmulator(A);}
       await answer(A,26,'QA-OFFLINE-RECOVERY');f=await photo(A,27);
       await A.page.reload();await ready(A);await waitRecord(A,"r.risposte.some(r=>r.note==='QA-OFFLINE-RECOVERY')");
       assert.ok(await A.page.evaluate(async f=>(await db.leggiFoto(f)).blob.size>0,f));
     } finally {
-      server.serverDown(false);await A.context.setOffline(false);if(browserName!=='chromium')await A.context.unroute(unreachable);
+      server.serverDown(false);await A.context.setOffline(false);if(browserName!=='chromium')await unblockEmulator(A);
       if(!await A.page.evaluate(()=>typeof db!=='undefined').catch(()=>false)){await A.page.goto(url);await ready(A);}
     }
     await A.page.evaluate(()=>window.dispatchEvent(new Event('online')));
     await waitRecord(B,"r.risposte.some(r=>r.note==='QA-OFFLINE-RECOVERY')");return {bytes:await receivePhoto(B,f),network:browserName==='chromium'?'browser offline':'HTTP server outage and blocked Firestore'};
   });
   await check('Firestore interrotto: dati pending persistono e ripartono',async()=>{
-    await B.context.route('http://127.0.0.1:18085/**',r=>r.abort());await answer(B,28,'QA-FIRESTORE-DOWN');assert.ok(await B.page.evaluate(async id=>(await db.leggiSopralluogo(id)).risposte.some(r=>r.note==='QA-FIRESTORE-DOWN'),id));
-    await B.context.unroute('http://127.0.0.1:18085/**');await B.page.evaluate(()=>window.dispatchEvent(new Event('online')));await waitRecord(A,"r.risposte.some(r=>r.note==='QA-FIRESTORE-DOWN')");
+    await blockEmulator(B);await answer(B,28,'QA-FIRESTORE-DOWN');assert.ok(await B.page.evaluate(async id=>(await db.leggiSopralluogo(id)).risposte.some(r=>r.note==='QA-FIRESTORE-DOWN'),id));
+    await unblockEmulator(B);await B.page.evaluate(()=>window.dispatchEvent(new Event('online')));await waitRecord(A,"r.risposte.some(r=>r.note==='QA-FIRESTORE-DOWN')");
   });
   await check('record legacy solo IndexedDB recuperato nel cloud e su altro dispositivo',async()=>{
     const legacy='qa-legacy-recovery-'+suffix;
-    await A.context.route('http://127.0.0.1:18085/**',r=>r.abort());
+    await blockEmulator(A);
     await A.page.evaluate(async legacy=>db.applicaSopralluogoRemoto({id:legacy,punto_vendita:'QA Recupero legacy',checklist_id:'interparking_sopralluogo',data:'2025-01-01T00:00:00Z',aggiornato_il:'2025-01-01T00:00:00Z',risposte:[{domanda_id:1,risposta:'C',note:'QA LEGACY RECUPERATO',foto:[]}]}),legacy);
     assert.equal((await fetch(documents+'/sopralluoghi/'+legacy,{headers:{authorization:'Bearer owner'}})).status,404);
-    await A.context.unroute('http://127.0.0.1:18085/**');await A.page.evaluate(()=>sync.sincronizzaCompleto());
+    await unblockEmulator(A);await A.page.evaluate(()=>sync.sincronizzaCompleto());
     await waitRecord(B,"r.risposte.some(x=>x.note==='QA LEGACY RECUPERATO')",legacy);
   });
   await check('storico filtri cliente tecnico data checklist ricerca ordinamento',async()=>{
@@ -224,7 +237,7 @@ async function receivePhoto(d,f) {
     await B.page.locator('#compilazione-ricerca-input').fill('estintori');await B.page.waitForSelector('#compilazione-ricerca-risultati:not([hidden])');await B.context.unroute(server.origin+'/SafetyChecklist/checklists/**');return {ms:Date.now()-start};
   });
   await check('logout e nuovo login con altro account sul dispositivo',async()=>{
-    await B.page.locator('#btn-esci').click();await B.page.waitForFunction(()=>document.body.dataset.authenticated==='false');assert.equal(await B.page.locator('#screens').isVisible(),false);
+    B.action='logout';await B.page.locator('#btn-esci').click();await B.page.waitForFunction(()=>document.body.dataset.authenticated==='false');assert.equal(await B.page.locator('#screens').isVisible(),false);
     B.user=admin;await login(B);await ready(B);assert.equal(await B.page.evaluate(()=>appIdentity.current().uid),admin.uid);
   });
   await check('cambio password: errore credenziale attuale, aggiornamento e nuovo accesso',async()=>{
@@ -233,7 +246,7 @@ async function receivePhoto(d,f) {
     await B.page.locator('#form-cambia-password button[type=submit]').click();await B.page.waitForFunction(()=>document.querySelector('#password-messaggio').textContent.includes('non corretta'));
     await B.page.locator('#password-attuale').fill(old);await B.page.locator('#form-cambia-password button[type=submit]').click();await B.page.waitForFunction(()=>document.querySelector('#password-messaggio').textContent==='Password aggiornata.');
     admin.password=next;admin.token=await B.page.evaluate(()=>firebase.auth().currentUser.getIdToken(true));await B.page.waitForSelector('#dialog-cambia-password',{state:'hidden'});
-    await B.page.locator('#btn-esci').click();await B.page.waitForFunction(()=>document.body.dataset.authenticated==='false');await login(B);await ready(B);assert.equal(await B.page.evaluate(()=>appIdentity.current().uid),admin.uid);
+    B.action='logout';await B.page.locator('#btn-esci').click();await B.page.waitForFunction(()=>document.body.dataset.authenticated==='false');await login(B);await ready(B);assert.equal(await B.page.evaluate(()=>appIdentity.current().uid),admin.uid);
   });
   await check('cambio ruolo online aggiorna privilegi e protegge la schermata già aperta',async()=>{
     await B.page.evaluate(uid=>appIdentity.callAdmin('setRole',{uid,role:'admin'}),techA.uid);await A.page.reload();await ready(A);
