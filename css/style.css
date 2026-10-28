@@ -2815,3 +2815,17 @@ textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:
   .dg-queue-toolbar .btn { width:100%; }
   .dg-review-buttons .btn { flex:1 1 100%; }
 }
+
+
+/* Per-job API usage visibility; deliberately quiet to avoid overstating approximate costs. */
+.dg-usage-summary {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border, #d6dbe1);
+  border-radius: 0.5rem;
+}
+.dg-usage-summary p {
+  margin: 0.35rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
