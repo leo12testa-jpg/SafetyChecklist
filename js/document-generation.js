@@ -173,9 +173,25 @@
     });
   }
 
+  function invalidatePreparedRecord() {
+    if (!preparedRecord) return;
+    preparedRecord = null;
+    resultPanel.hidden = true;
+  }
+
+  form.addEventListener('input', invalidatePreparedRecord);
+  form.addEventListener('change', invalidatePreparedRecord);
+
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     if (!form.reportValidity()) return;
+    const start = form.elements.startDate.value;
+    const end = form.elements.endDate.value;
+    if (start && end && end < start) {
+      alert('La data di fine lavori non può precedere la data di inizio.');
+      form.elements.endDate.focus();
+      return;
+    }
     preparedRecord = createRecord();
     const missing = collectMissing(preparedRecord);
     resultTitle.textContent = 'Scheda dati pronta per il test';
