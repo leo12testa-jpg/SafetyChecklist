@@ -113,7 +113,10 @@
       if (!company.ppe) missing.push(label + ': DPI previsti da documentare o confermare.');
       if (!company.scope) missing.push(label + ': descrizione delle attività da dettagliare.');
     });
-    const fileNames = data.documents.map((file) => file.name.toLowerCase());
+    const fileNames = [
+      ...(data.sourceChecklist ? [data.sourceChecklist.name] : []),
+      ...data.documents.map((file) => file.name)
+    ].map((name) => name.toLowerCase());
     if (!fileNames.some((name) => name.includes('dvr'))) missing.push('DVR specifico: verificare se disponibile o pertinente e acquisirlo se necessario.');
     if (!fileNames.some((name) => name.includes('cronoprogramma') || name.includes('programma lavori') || name.includes('planning'))) {
       missing.push('Cronoprogramma lavori: verificare disponibilità e acquisirlo se necessario.');
@@ -121,8 +124,6 @@
     if (!fileNames.some((name) => name.includes('planimetr') || name.includes('planimetry') || name.includes('layout'))) {
       missing.push('Planimetria/layout dell’area: verificare se necessario e acquisirlo.');
     }
-    if (!data.site.address) missing.push('Indirizzo/sede del luogo di lavoro da completare.');
-    if (!data.work.description) missing.push('Descrizione generale dell’appalto da completare.');
     if (data.modules.includes('confined-space') && !fileNames.some((name) => name.includes('procedura') || name.includes('permesso'))) {
       missing.push('Modulo spazi confinati: verificare procedure e permessi pertinenti prima della valutazione tecnica.');
     }
@@ -227,9 +228,9 @@
     preparedRecord = createRecord();
     const missing = collectMissing(preparedRecord);
     resultTitle.textContent = 'Scheda dati pronta per il test';
-    resultSummary.textContent = preparedRecord.job.title + ' · ' + preparedRecord.contractors.length +
-      (preparedRecord.contractors.length === 1 ? ' impresa' : ' imprese') + ' · ' +
-      preparedRecord.documents.length + (preparedRecord.documents.length === 1 ? ' allegato selezionato' : ' allegati selezionati') +
+    resultSummary.textContent = (preparedRecord.sourceChecklist ? preparedRecord.sourceChecklist.name : 'Checklist non selezionata') + ' · ' +
+      preparedRecord.contractors.length + (preparedRecord.contractors.length === 1 ? ' scheda impresa' : ' schede impresa') + ' · ' +
+      preparedRecord.documents.length + (preparedRecord.documents.length === 1 ? ' allegato di supporto' : ' allegati di supporto') +
       ' · ' + missing.length + (missing.length === 1 ? ' verifica da completare' : ' verifiche da completare');
     renderMissing(missing);
     resultPanel.hidden = false;
