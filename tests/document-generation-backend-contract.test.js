@@ -6,6 +6,7 @@ const gateway = fs.readFileSync('supabase/functions/document-jobs/index.ts', 'ut
 const worker = fs.readFileSync('supabase/functions/document-worker/index.ts', 'utf8');
 const duvriAgent = fs.readFileSync('supabase/functions/document-worker/duvri-agent.ts', 'utf8');
 const schema = fs.readFileSync('supabase/document-generation/schema.draft.sql', 'utf8');
+const costMeter = fs.readFileSync('supabase/functions/document-worker/cost-meter.ts', 'utf8');
 
 test('il gateway richiede identità Firebase attiva e ruolo aziendale autorizzato', () => {
   assert.match(gateway, /accounts:lookup/);
@@ -73,4 +74,17 @@ test('il redattore e il verificatore producono soltanto bozze sotto revisione um
   assert.match(duvriAgent, /buildDuvriQaPrompt/);
   assert.match(duvriAgent, /humanReviewRequired: true/);
   assert.match(duvriAgent, /La regola di valutazione approvata da Colligo/);
+});
+
+test('il backend registra token e costo per agente per stimare la durata dei crediti', () => {
+  assert.match(worker, /calculateAnthropicCost/);
+  assert.match(worker, /usageKind: 'ai_usage'/);
+  assert.match(worker, /phase: 'extract', agent: 'document-reader'/);
+  assert.match(worker, /phase: 'analyze', agent: 'duvri-analyst'/);
+  assert.match(worker, /phase: 'draft', agent: 'docx-writer'/);
+  assert.match(worker, /phase: 'validate', agent: 'quality-check'/);
+  assert.match(gateway, /select=agent,phase,event_type,message,details,created_at/);
+  assert.match(costMeter, /estimateJobsRemaining/);
+  assert.match(costMeter, /claude-sonnet-5-5/);
+  assert.match(costMeter, /claude-haiku-5-5/);
 });
