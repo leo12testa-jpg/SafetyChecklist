@@ -388,7 +388,10 @@
     const template = document.getElementById('dg-contractor-template');
     if (!template) return;
     contractors.appendChild(template.content.cloneNode(true));
-    refreshJobsButton?.addEventListener('click', loadCloudJobs);
+    updateContractorCards();
+  });
+
+  refreshJobsButton?.addEventListener('click', loadCloudJobs);
   document.addEventListener('click', (event) => {
     const trigger = event.target.closest('[data-nav="document-generation"]');
     if (trigger) loadCloudJobs();
@@ -398,13 +401,8 @@
     if (localNotice) localNotice.textContent = 'Il backend documentale è attivo. La checklist e gli allegati verranno caricati in area privata; il processo cloud prosegue senza tenere aperto il browser.';
     if (submitButton) submitButton.textContent = 'Carica checklist e avvia agenti';
     queueMessage('Carica la checklist per avviare il primo lavoro', 'Una volta ricevuta la conferma di accodamento, puoi chiudere il browser o spegnere il dispositivo.');
-    loadCloudJobs();
-  } else {
-    loadCloudJobs();
   }
-
-  updateContractorCards();
-  });
+  loadCloudJobs();
 
   contractors.addEventListener('click', (event) => {
     const removeButton = event.target.closest('[data-dg-remove-contractor]');
