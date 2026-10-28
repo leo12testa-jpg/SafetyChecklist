@@ -230,6 +230,18 @@ Deno.test('malformed action bodies are 400, never a leaked 503 TypeError', async
   assertEquals((await call('nope', 'owner', { body: {} })).status, 400);
 });
 
+Deno.test('create: disabled server pipeline rejects before creating a job or storing files', async () => {
+  env.delete('DOCUMENT_PIPELINE_ENABLED');
+  const before = { jobs: insertedJobs.length, uploads: uploads.length };
+  const r = await call('create', 'owner', {
+    body: form({ documentType: 'duvri', aiDataProcessingConsent: true }, { checklist: pdf() })
+  });
+  assertEquals(r.status, 503);
+  assertEquals(r.body.error, 'Elaborazione documentale cloud disattivata.');
+  assertEquals(insertedJobs.length, before.jobs);
+  assertEquals(uploads.length, before.uploads);
+});
+
 Deno.test('create: consent required when DOCUMENT_PIPELINE_ENABLED=true', async () => {
   env.set('DOCUMENT_PIPELINE_ENABLED', 'true');
   try {
