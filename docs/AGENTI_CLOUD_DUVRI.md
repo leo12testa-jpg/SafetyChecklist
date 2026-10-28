@@ -1,6 +1,6 @@
 # Architettura proposta: agenti cloud per Generazione documenti
 
-Stato: prototipo backend in branch, non deployato. Il worker supporta un adapter Claude API (predefinito) e OpenAI. La fase DUVRI include ora codice di redazione e QA indipendente, con salvataggio DOCX privato; resta disattivata fino a configurazione, test e approvazione.
+Stato: prototipo backend in branch, non deployato. Il worker usa esclusivamente Claude API (Anthropic); il supporto OpenAI è stato rimosso. La fase DUVRI include ora codice di redazione e QA indipendente, con salvataggio DOCX privato; resta disattivata fino a configurazione, test e approvazione.
 
 ## Requisito cardine
 
@@ -16,7 +16,7 @@ Il sistema non deve affidarsi a JavaScript in esecuzione nel browser, a una sche
 4. **Registro dei lavori** — tabella job persistente con stato, fase, percentuale, tentativi, lease, versioni, riferimenti ai file, errori sanitizzati, timestamp e stato della revisione.
 5. **Coda durevole** — messaggi persistenti per avviare/riprendere i job. Il consumer/worker cloud preleva un'attività e salva lo stato dopo ogni fase. Se un'esecuzione fallisce, un retry limitato riparte dall'ultimo checkpoint.
 6. **Worker/orchestratore** — processa uno o più passi per invocazione, evitando dipendenza dal client; i lavori lunghi sono suddivisi in passaggi riprendibili e idempotenti.
-7. **Adapter AI** — usa un provider scelto e configurato lato server. La chiave API e i limiti restano nei secrets; non inserire mai chiavi nel frontend. Per Claude Team, collegare prima l'organizzazione Claude Console ai crediti mensili inclusi. Configurazione prevista: DOCUMENT_AI_PROVIDER=anthropic, ANTHROPIC_API_KEY e DOCUMENT_AI_MODEL. I file PDF e immagini possono essere allegati tramite Files API; DOCX/XLSX vengono estratti in testo lato worker; i vecchi DOC/XLS vanno convertiti in PDF/DOCX/XLSX. Questa integrazione è solo codice sorgente e non è ancora stata verificata end-to-end.
+7. **Adapter AI** — Claude API, configurato lato server (`supabase/functions/document-worker/anthropic-client.ts`). La chiave API e i limiti restano nei secrets; non inserire mai chiavi nel frontend. Per Claude Team, collegare prima l'organizzazione Claude Console ai crediti mensili inclusi. Configurazione prevista: ANTHROPIC_API_KEY e, solo se si vogliono cambiare i default, DOCUMENT_AI_MODEL / DOCUMENT_AI_EXTRACT_MODEL. I file PDF e immagini possono essere allegati tramite Files API; DOCX/XLSX vengono estratti in testo lato worker; i vecchi DOC/XLS vanno convertiti in PDF/DOCX/XLSX. Questa integrazione è solo codice sorgente e non è ancora stata verificata end-to-end.
 8. **Generatore Word** — compila una copia del template Colligo controllato, conserva gli elementi OOXML e produce anche un report di controllo separato.
 9. **Pannello Revisione** — mostra la bozza, lacune, verifiche, versione template/skill e autore; solo un utente autorizzato può registrare la revisione.
 
@@ -117,20 +117,53 @@ Sono presenti nel branch di sviluppo:
 
 ### Secret / impostazioni attese (non configurate)
 
-`DOCUMENT_WORKER_SECRET`, `DOCUMENT_PIPELINE_ENABLED=false`, `DOCUMENT_AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`, `DOCUMENT_AI_MODEL=claude-sonnet-5`, `DUVRI_TEMPLATE_OBJECT_PATH`, `DUVRI_TEMPLATE_VERSION`, `DUVRI_RISK_RULE_APPROVED=false`, `DUVRI_RISK_RULE_DESCRIPTION`, `DUVRI_DOCX_ENGINE_ENABLED=false`.
+`DOCUMENT_WORKER_SECRET`, `DOCUMENT_PIPELINE_ENABLED=false`, `ANTHROPIC_API_KEY`, `DOCUMENT_AI_MODEL=claude-sonnet-5-5` (default, opzionale), `DOCUMENT_AI_EXTRACT_MODEL=claude-haiku-5-5` (default, opzionale), `DUVRI_TEMPLATE_OBJECT_PATH`, `DUVRI_TEMPLATE_VERSION`, `DUVRI_RISK_RULE_APPROVED=false`, `DUVRI_RISK_RULE_DESCRIPTION`, `DUVRI_DOCX_ENGINE_ENABLED=false`.
 
-L'uso di OpenAI via API comporta costi API potenzialmente separati dall'abbonamento ChatGPT o Claude. Nessuna chiamata AI deve avvenire finché il proprietario del progetto non configura intenzionalmente il provider e non viene registrato il consenso dell'utente al trasferimento dei file.
+`DOCUMENT_AI_PROVIDER` è legacy: va rimosso o lasciato a `anthropic`; qualsiasi altro valore (es. `openai`) blocca i lavori in `awaiting_configuration` senza chiamare alcun provider. `OPENAI_API_KEY` non è più letto. Override opzionali per agente: `DOCUMENT_AI_<FASE>_EFFORT`, `DOCUMENT_AI_<FASE>_THINKING`, `DOCUMENT_AI_<FASE>_MAX_TOKENS` con FASE = `EXTRACT`, `ANALYZE`, `DRAFT`, `VALIDATE` (vedi tabella sotto); combinazioni non ammesse dall'API vengono rifiutate all'avvio con messaggio esplicito.
+
+L'uso di Claude via API comporta costi API separati dall'abbonamento Claude. Nessuna chiamata AI deve avvenire finché il proprietario del progetto non configura intenzionalmente il provider e non viene registrato il consenso dell'utente al trasferimento dei file.
 
 
 ## Provider AI e credito Claude Team
 
-- Il provider predefinito previsto nel codice è `anthropic`, ma `DOCUMENT_PIPELINE_ENABLED` rimane disattivato.
+- Il motore usa solo Claude API; `DOCUMENT_PIPELINE_ENABLED` rimane disattivato.
 - Il lettore documentale usa per impostazione predefinita `claude-haiku-5-5` (`DOCUMENT_AI_EXTRACT_MODEL`), pensato per estrazione ad alto volume; analisi interferenze, redazione e QA usano `claude-sonnet-5-5` (`DOCUMENT_AI_MODEL`). Entrambi si possono sostituire tramite secret.
 - Ogni chiamata riuscita scrive un evento `ai_usage` con modello, fase/agente, token input/output e costo stimato in USD. Il pannello del job somma i dati registrati per documento. Il costo è una stima basata sui prezzi pubblici; il saldo effettivo della Console resta la fonte contabile autorevole.
-- Configurare i segreti server-side: `ANTHROPIC_API_KEY`, `DOCUMENT_AI_PROVIDER=anthropic`, `DOCUMENT_AI_MODEL`; non aggiungere mai la chiave API al repository o alla PWA.
+- Ogni evento `ai_usage` viene registrato subito dopo la risposta HTTP riuscita, prima di interpretare l'esito: anche le risposte poi scartate (rifiuto, troncamento, JSON non valido) vengono contabilizzate, perché i token sono comunque fatturati.
+- Configurare i segreti server-side: `ANTHROPIC_API_KEY` (e opzionalmente `DOCUMENT_AI_MODEL`, `DOCUMENT_AI_EXTRACT_MODEL`); non aggiungere mai la chiave API al repository o alla PWA.
 - Per usare i crediti API inclusi in Claude Team, un amministratore/owner deve collegare la propria organizzazione Claude Console dalla sezione di fatturazione del piano Claude Team. I crediti API sono separati dai limiti d'uso della chat e di Claude Code; sono condivisi a livello di organizzazione e possono cessare quando il credito è esaurito.
 - Testare la pipeline su allegati non sensibili in ambiente isolato e verificare i crediti/consumo prima di considerare qualunque dato reale.
-- Modelli iniziali: `claude-haiku-5-5` per estrazione ($0,10/milione di token input e $0,50/milione output per prompt fino a 100.000 token; prezzi superiori oltre soglia) e `claude-sonnet-5-5` per analisi, redazione e QA ($2/milione input e $10/milione output). La chiamata Sonnet usa `thinking: between_tools` per ridurre il ragionamento iniziale; Haiku usa effort basso. Riferimento prezzi ufficiale: https://platform.claude.com/docs/en/about-claude/pricing. Il costo effettivo dipende da file, immagini, lunghezza e output. La generazione rimane bloccata finché template, matrice del rischio e controlli OOXML non sono approvati. Lasciare disattivata la ricarica automatica e non acquistare crediti: con solo i crediti Team e senza saldo aggiuntivo, Anthropic interrompe le chiamate quando i crediti si esauriscono.
+- Modelli iniziali: `claude-haiku-5-5` per estrazione ($0,10/milione di token input e $0,50/milione output per prompt fino a 100.000 token; prezzi superiori oltre soglia) e `claude-sonnet-5-5` per analisi, redazione e QA ($2/milione input e $10/milione output). Thinking ed effort sono configurati per agente (tabella sotto). Riferimento prezzi ufficiale: https://platform.claude.com/docs/en/about-claude/pricing (verificato 2026-10-28; Sonnet 5.5 cache write 5m $2,50, 1h $4, cache read $0,10; Haiku 5.5 oltre 100.000 token di prompt, cache incluse: $0,50/$2,50). I token di ragionamento sono fatturati come token di output e sono già inclusi in `output_tokens`. Il costo effettivo dipende da file, immagini, lunghezza e output. La generazione rimane bloccata finché template, matrice del rischio e controlli OOXML non sono approvati. Lasciare disattivata la ricarica automatica e non acquistare crediti: con solo i crediti Team e senza saldo aggiuntivo, Anthropic interrompe le chiamate quando i crediti si esauriscono.
+
+### Thinking, effort e max_tokens per agente
+
+Configurazione più economica compatibile con una qualità accettabile. `effort` è in `output_config.effort` e riguarda tutti i token di output; i token di ragionamento contano in `max_tokens`. Non vengono mai inviati `temperature`, `top_p`, `top_k` né prefill dell'assistente.
+
+| Fase | Agente | Modello | effort | thinking | max_tokens |
+|---|---|---|---|---|---|
+| `extract` | Lettore documentale | `claude-haiku-5-5` | `low` | `{type:"disabled"}` | 16000 |
+| `analyze` | Analista interferenze | `claude-sonnet-5-5` | `medium` | adattivo (campo omesso) | 16000 |
+| `draft` | Redattore DUVRI | `claude-sonnet-5-5` | `medium` | `{type:"between_tools"}` | 16000 |
+| `validate` | Verificatore qualità | `claude-sonnet-5-5` | `medium` | `{type:"between_tools"}` | 8000 |
+
+- L'analisi delle interferenze è il passaggio che richiede ragionamento: unico agente con thinking adattivo; i token di ragionamento rientrano nei 16000 di `max_tokens`.
+- `max_tokens` è un tetto, non un costo: si pagano solo i token generati. Un output troncato blocca la bozza e spreca l'intera chiamata, per cui i tetti sono ampi (prima 12000/10000/10000/5000). Su Haiku a effort `low` il modello può saltare controlli in prompt lunghi: verificare la qualità dell'estrazione sui file di prova e, se necessario, impostare `DOCUMENT_AI_EXTRACT_EFFORT=medium`.
+- Vincoli verificati e controllati nel codice: Sonnet 5.5 non accetta `disabled`; `between_tools` solo su Sonnet 5.5 e con effort `low`/`medium`/`high`; Haiku 5.5 accetta `disabled` solo con effort fino a `high`. Modelli ammessi: `claude-sonnet-5-5`, `claude-haiku-5-5` (`claude-sonnet-5` non è più selezionabile; resta nel listino solo per eventi storici).
+
+### Esito delle chiamate (stop_reason) ed errori
+
+- `end_turn` (o `stop_sequence`): output accettato se è un oggetto JSON valido.
+- `refusal`: «Claude ha rifiutato la richiesta (categoria: X). Bozza bloccata: serve revisione umana.»; nessun nuovo tentativo automatico.
+- `max_tokens`: output troncato, bozza bloccata, nessun nuovo tentativo (ripetere la stessa richiesta spreca budget).
+- `model_context_window_exceeded`, `pause_turn`, `tool_use` (il motore non definisce strumenti) e qualsiasi valore sconosciuto: errore esplicito, bozza bloccata.
+- Testo vuoto o non JSON: errore esplicito, bozza bloccata.
+- HTTP 400/401/403/404/413 (e altri 4xx): non ritentabili. HTTP 408/409/429/5xx/529, timeout ed errori di rete: ritentabili con backoff.
+
+Gli errori non ritentabili portano il lavoro in stato `error` con `status_message` pari al messaggio esplicito e un evento `failed` (con `stop_reason`/stato HTTP); nessun output della fase viene salvato. Un utente autorizzato può rimettere il lavoro in coda dopo la verifica. Gli errori ritentabili passano da `retry_wait` fino al numero massimo di tentativi.
+
+### Files API
+
+PDF, PNG e JPEG sono caricati con la Files API (`POST /v1/files` → `id`) e referenziati come blocchi nativi `document`/`image` con `source.type="file"`; i file vengono cancellati (`DELETE /v1/files/{id}`) al termine dell'estrazione, anche in caso di errore. La Files API è GA: l'header `anthropic-beta: files-api-2025-04-14` è facoltativo e modifica solo il formato di elenco/paginazione/`expires_at`, non usati dal worker. È mantenuto per prudenza finché non viene verificato con l'API reale ed è centralizzato nella costante `FILES_API_BETA` (rimozione = una riga).
 
 
 ## Architettura agenti, consumi e alternative a costo nullo aggiuntivo
@@ -148,7 +181,7 @@ Ogni risposta API riuscita deve produrre un evento `ai_usage` con token in ingre
 
 ### Esempio numerico (ipotesi, non consumo misurato)
 
-Con input/output ipotetici di 50k/5k token per Haiku, 25k/4k per l’analisi Sonnet, 60k/10k per la redazione Sonnet e 60k/4k per il QA Sonnet, il costo stimato è circa **0,48 USD per DUVRI**. In questo scenario 40 USD corrisponderebbero teoricamente a circa **83 job**. Se le quattro richieste usassero circa tre volte quei volumi, il costo indicativo sarebbe circa **1,52 USD per documento**, ovvero circa **26 job** su 40 USD. Gli allegati lunghi, le immagini e i token di ragionamento possono cambiare molto questi numeri; finché non saranno elaborati file di prova, non è possibile conoscere il costo medio reale. I crediti potrebbero inoltre essere usati da Playground o altre chiavi della medesima organizzazione.
+Con input/output ipotetici (output comprensivo dei token di ragionamento, rilevanti soprattutto per l’analisi interferenze con thinking adattivo) di 50k/5k token per Haiku, 25k/4k per l’analisi Sonnet, 60k/10k per la redazione Sonnet e 60k/4k per il QA Sonnet, il costo stimato è circa **0,48 USD per DUVRI**. In questo scenario 40 USD corrisponderebbero teoricamente a circa **83 job**. Se le quattro richieste usassero circa tre volte quei volumi, il costo indicativo sarebbe circa **1,52 USD per documento**, ovvero circa **26 job** su 40 USD. Gli allegati lunghi, le immagini e i token di ragionamento possono cambiare molto questi numeri; finché non saranno elaborati file di prova, non è possibile conoscere il costo medio reale. I crediti potrebbero inoltre essere usati da Playground o altre chiavi della medesima organizzazione.
 
 ### Alternative senza spesa API oltre al piano
 

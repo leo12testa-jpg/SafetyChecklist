@@ -53,7 +53,7 @@ Il progetto deve essere incrementale: prima un prototipo isolato e verificabile,
 - Verificare lato server token Firebase, profilo attivo, ruolo e autorizzazione sul sopralluogo; i controlli UI da soli non bastano.
 - Persistenza dei job e stato con un meccanismo durevole (tabella/coda cloud); non affidarsi a una promessa JavaScript o a un processo lasciato in background dopo la risposta HTTP.
 - Worker separato dalla richiesta dell'utente, con timeout, retry limitati, deduplicazione e gestione degli errori.
-- Provider AI configurabile server-side; chiavi conservate esclusivamente nei secret del backend.
+- Provider AI: esclusivamente Claude API (`claude-haiku-5-5` per l'estrazione, `claude-sonnet-5-5` per analisi, redazione e QA), configurato server-side; chiavi conservate esclusivamente nei secret del backend. Thinking/effort per agente ed esiti `stop_reason` sono descritti in `docs/AGENTI_CLOUD_DUVRI.md`.
 - Documenti conservati in storage privato; download con controllo autorizzazioni a ogni richiesta.
 - Registrare metadati utili (job ID, tipo e versione template/skill, timestamp, stato, autore, errori e revisione), evitando di scrivere dati sensibili superflui nei log.
 
@@ -120,7 +120,7 @@ Le skill devono essere versionate nel repository e includere esempi, criteri di 
 ## Decisioni ancora aperte
 
 1. Primo modello da automatizzare: informativa COIN, DUVRI o altro.
-2. Provider AI: API server-side da selezionare dopo aver confrontato qualità, privacy e costo; l'abbonamento ChatGPT/Claude non implica automaticamente credito API.
+2. Provider AI: Claude API server-side (scelta confermata; il supporto OpenAI è stato rimosso dal worker); l'abbonamento Claude non implica automaticamente credito API.
 3. Fonte dati iniziale: checklist di sopralluogo, raccolta dati DVR o entrambe.
 4. Regole di accesso: chi può avviare, leggere, revisionare e approvare ogni documento.
 

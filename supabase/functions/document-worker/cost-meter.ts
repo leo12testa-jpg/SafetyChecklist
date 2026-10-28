@@ -35,12 +35,18 @@ type Rates = {
   cacheReadOverThreshold?: number;
 };
 
-// Prices are USD per 1,000,000 tokens, based on published first-party Claude API pricing.
+// Prices are USD per 1,000,000 tokens, first-party Claude API standard (non-batch) rates.
+// Source: https://platform.claude.com/docs/en/about-claude/pricing (verified 2026-10-28).
 // Update this table whenever the provider changes its public rates.
+// - Thinking tokens are billed as output tokens and are already included in usage.output_tokens.
+// - Haiku 5.5 tier: the prompt length that selects the >100K rates includes cache reads and writes.
+// - Batch API (not used by the worker) would be -50% on every rate.
+// Models used by the worker: claude-haiku-5-5 (extraction) and claude-sonnet-5-5 (analysis, drafting, QA).
 const ANTHROPIC_RATES: Record<string, Rates> = {
   'claude-sonnet-5-5': {
     input: 2, output: 10, cacheWrite5m: 2.5, cacheWrite1h: 4, cacheRead: 0.1
   },
+  // Legacy: no longer selectable in the worker; kept to price historical ai_usage events.
   'claude-sonnet-5': {
     input: 2, output: 10, cacheWrite5m: 2.5, cacheWrite1h: 4, cacheRead: 0.2
   },

@@ -77,7 +77,7 @@ La roadmap è indicativa. Non si considerano abilitati i moduli finché non sono
 - Non inventare contenuti tecnici, riferimenti normativi o punteggi. Il metodo di valutazione appartiene al pacchetto specifico e deve essere approvato.
 - Proteggere i dati con autenticazione, accesso per proprietario/ruolo, storage privato, quote, limiti upload e retention.
 - Il trasferimento di documenti ad un provider AI richiede informativa e consenso esplicito per il flusso configurato.
-- Le chiavi API stanno esclusivamente nei secret server-side. L'abbonamento ChatGPT o Claude non è automaticamente una chiave API e il consumo API può costare separatamente.
+- Le chiavi API stanno esclusivamente nei secret server-side. Il motore usa solo Claude API (`claude-haiku-5-5`, `claude-sonnet-5-5`; configurazione per agente in `docs/AGENTI_CLOUD_DUVRI.md`). L'abbonamento Claude non è automaticamente una chiave API e il consumo API può costare separatamente.
 - Mantenere audit trail di versione skill, template, provider/modello, esecuzioni e revisioni senza inserire dati aziendali sensibili nei log tecnici.
 - Nessun documento viene spedito o pubblicato automaticamente al cliente.
 
