@@ -15,6 +15,8 @@ test('cloud document generation stays disabled in the browser', () => {
 test('DUVRI drafting is blocked until the approved method and controlled template are configured', () => {
   assert.match(worker, /DUVRI_RISK_RULE_APPROVED/);
   assert.match(worker, /DUVRI_RISK_RULE_DESCRIPTION/);
+  assert.match(worker, /DUVRI_RISK_RULE_APPROVAL_ID/);
+  assert.match(worker, /DUVRI_RISK_RULE_VERSION/);
   assert.match(worker, /DUVRI_TEMPLATE_OBJECT_PATH/);
   assert.match(worker, /DUVRI_TEMPLATE_VERSION/);
   assert.match(worker, /DUVRI_DOCX_ENGINE_ENABLED/);
