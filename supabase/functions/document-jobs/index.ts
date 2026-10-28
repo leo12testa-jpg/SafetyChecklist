@@ -340,6 +340,47 @@ async function listJobs(req: Request, actor: Actor) {
   const rows = await db(`document_jobs?select=id,created_by,document_type,title,status,phase,status_message,created_at,updated_at,completed_at,review_decision&order=created_at.desc&limit=50${filter}`) as Record<string,unknown>[];
   return json(req, { jobs: rows || [] });
 }
+async function usageSummary(req: Request, actor: Actor) {
+  if (actor.role !== 'admin') fail(403, 'Il riepilogo consumi è riservato agli amministratori.');
+  const now = new Date();
+  const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const rows = await db(
+    'document_job_events?select=job_id,agent,phase,details,created_at&created_at=gte.' +
+    encodeURIComponent(periodStart) + '&order=created_at.asc&limit=5000'
+  ) as Record<string,unknown>[];
+  const usageEvents = (rows || []).filter((row) =>
+    !!row.details && typeof row.details === 'object' &&
+    (row.details as Record<string,unknown>).usageKind === 'ai_usage'
+  );
+  const costs = usageEvents.map((row) => (row.details as Record<string,unknown>).estimatedCostUsd)
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  const estimatedSpendUsd = costs.reduce((sum, value) => sum + value, 0);
+  const budgetUsdRaw = Number(Deno.env.get('DOCUMENT_AI_CREDIT_BUDGET_USD') || '40');
+  const budgetUsd = Number.isFinite(budgetUsdRaw) && budgetUsdRaw > 0 ? budgetUsdRaw : 40;
+  const jobs = new Set(usageEvents.map((row) => String(row.job_id || '')).filter(Boolean));
+  const inputTokens = usageEvents.reduce((sum, row) => sum + (Number((row.details as Record<string,unknown>)?.inputTokens) || 0), 0);
+  const outputTokens = usageEvents.reduce((sum, row) => sum + (Number((row.details as Record<string,unknown>)?.outputTokens) || 0), 0);
+  const averageCostPerJobUsd = jobs.size && costs.length === usageEvents.length ? estimatedSpendUsd / jobs.size : null;
+  const estimatedRemainingWithinBudgetUsd = Math.max(0, budgetUsd - estimatedSpendUsd);
+  const estimatedJobsRemaining = averageCostPerJobUsd && averageCostPerJobUsd > 0
+    ? Math.floor(estimatedRemainingWithinBudgetUsd / averageCostPerJobUsd)
+    : null;
+  return json(req, {
+    scope: 'SafetyChecklist document jobs only',
+    periodStart,
+    budgetUsd,
+    callsMeasured: usageEvents.length,
+    jobsMeasured: jobs.size,
+    inputTokens,
+    outputTokens,
+    estimatedSpendUsd,
+    estimatedRemainingWithinBudgetUsd,
+    averageCostPerJobUsd,
+    estimatedJobsRemaining,
+    allCallCostsKnown: costs.length === usageEvents.length,
+    note: 'Stima basata sui soli job registrati da SafetyChecklist. Non include Playground, altre chiavi API o altri strumenti che condividono i crediti Claude Team; il saldo ufficiale è quello della Claude Console.'
+  });
+}
 async function statusJob(req: Request, actor: Actor, id: string) {
   const job = await findJob(id, actor);
   const files = await db(`document_job_files?job_id=eq.${encodeURIComponent(id)}&select=id,role,filename,mime_type,size_bytes,created_at&order=created_at.asc`) as Record<string,unknown>[];
@@ -439,6 +480,7 @@ Deno.serve(async (req: Request) => {
     if (req.method === 'GET') {
       if (action === 'list') return await listJobs(req, actor);
       if (action === 'status') return await statusJob(req, actor, url.searchParams.get('id') || '');
+      if (action === 'usage') return await usageSummary(req, actor);
       if (action === 'download') return await downloadFile(req, actor, url.searchParams.get('id') || '', url.searchParams.get('file_id') || '');
       return json(req, { error: 'Azione non riconosciuta.' }, 400);
     }
