@@ -22,6 +22,8 @@ function adminActions(source){
  return [...block[1].matchAll(/(\w+):\s*\[([^\]]+)\]/g)].filter(m=>!m[2].includes('"tecnico"')).map(m=>m[1]);
 }
 async function run(){
+ // Production smoke: never allowed in CI (see docs/TEST_E_CI.md).
+ if(process.env.CI==='true'||process.env.GITHUB_ACTIONS==='true')throw new Error('Smoke live di produzione: esecuzione in CI vietata.');
  localCredentials();
  assert.ok(process.env.ORE_SMOKE_PASSWORD,'ORE_SMOKE_PASSWORD required');
  assert.ok(process.env.ORE_SMOKE_FOREIGN_SESSION,'ORE_SMOKE_FOREIGN_SESSION required');
