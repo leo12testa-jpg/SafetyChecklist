@@ -249,3 +249,12 @@ La schermata include:
 È stato aggiunto `tests/document-generation-ui-contract.test.js` per verificare i collegamenti basilari tra menu, schermata, controller e app shell. Il test e l'intera suite devono essere eseguiti in CI/ambiente locale prima della revisione; questo commit non ha effettuato deploy e non modifica `main`.
 
 Prossimo passaggio: collaudo della schermata su desktop/mobile, quindi progettazione e implementazione dell'API autenticata, persistenza durevole dei job, upload privato degli allegati e worker cloud. Solo allora il sistema potrà eseguire la generazione in modo asincrono, indipendentemente dallo stato del dispositivo dell'utente.
+
+
+## Chiarimento prodotto: catena autonoma di agenti cloud
+
+La sezione "Generazione documenti" è pensata come console di un workflow cloud, non come una semplice maschera che richiede che l'utente resti collegato. La specifica tecnica della catena A1–A6 è in `docs/AGENTI_CLOUD_DUVRI.md`.
+
+La schermata pilota è stata ulteriormente orientata al caricamento di una checklist compilata come file sorgente, con allegati di supporto e schede opzionali per committente/impresa. Sono visibili i ruoli degli agenti previsti (coordinatore, analista documentale, analista interferenze, redattore Word e verificatore) ma i relativi stati sono esplicitamente "da attivare" fino alla realizzazione del backend. L'interfaccia non deve mai simulare un'elaborazione cloud inesistente.
+
+Requisito operativo non negoziabile: i job sono persistenti nel cloud e riprendibili per fase; il dispositivo può essere spento dopo la conferma di accodamento. La prima versione UI resta locale finché gateway, storage privato, database/coda durevole, worker e provider AI non sono stati configurati e collaudati. La sequenza e i vincoli sono documentati in `docs/AGENTI_CLOUD_DUVRI.md`.
