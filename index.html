@@ -481,6 +481,19 @@
 
         <form id="dg-form" class="dg-form">
           <section class="dg-panel">
+            <div class="dg-panel-heading"><span class="dg-section-number">00</span><div><h3>Checklist e documenti di partenza</h3><p>Carica prima la checklist compilata. Gli agenti dovranno usarla come fonte primaria e leggere gli allegati utili, poi chiederti soltanto ciò che manca.</p></div></div>
+            <label class="dg-upload-zone dg-checklist-upload" for="dg-checklist-file"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Carica la checklist compilata *</strong><small>Il file principale che gli agenti dovranno analizzare: Word, PDF, Excel, JSON o CSV.</small><input id="dg-checklist-file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.json,.csv,.txt" required></label>
+            <p id="dg-checklist-file-status" class="dg-checklist-file-status" aria-live="polite">Checklist non selezionata: scegli il file compilato per continuare.</p>
+            <label class="dg-upload-zone" for="dg-files"><span class="dg-upload-icon" aria-hidden="true">＋</span><strong>Aggiungi documenti di supporto</strong><small>PDF, Word, Excel, immagini e ZIP. Puoi selezionare più file.</small><input id="dg-files" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip,.txt"></label>
+            <ul id="dg-files-list" class="dg-files-list"><li>Nessun documento selezionato.</li></ul>
+            <p class="dg-small-note">Esempi: DVR specifico, cronoprogramma, planimetria, procedure operative, piano di emergenza, schede di sicurezza e permessi pertinenti.</p>
+            <label class="campo-form">Altre informazioni / osservazioni
+              <textarea name="notes" rows="3" maxlength="5000" placeholder="Dati da confermare, vincoli operativi, riferimenti ad altri documenti…"></textarea>
+            </label>
+          </section>
+
+
+          <section class="dg-panel">
             <div class="dg-panel-heading"><span class="dg-section-number">01</span><div><h3>Incarico e committente</h3><p>Dati identificativi del documento e del luogo di lavoro.</p></div></div>
             <div class="dg-fields-grid">
               <label class="campo-form">Titolo esatto del DUVRI (se già noto)
@@ -569,18 +582,6 @@
               <label class="dg-module-option"><input type="checkbox" name="modules" value="excavation"><span><strong>Scavi / sottoservizi</strong><small>Planimetrie, autorizzazioni e viabilità</small></span></label>
               <label class="dg-module-option"><input type="checkbox" name="modules" value="occupied-public-areas"><span><strong>Aree occupate / pubblico</strong><small>Clienti, lavoratori e percorsi condivisi</small></span></label>
             </div>
-          </section>
-
-          <section class="dg-panel">
-            <div class="dg-panel-heading"><span class="dg-section-number">04</span><div><h3>Documenti di partenza</h3><p>Seleziona i file che vorresti associare al lavoro. In questa versione ne registriamo solo i metadati: i contenuti non vengono caricati.</p></div></div>
-            <label class="dg-upload-zone dg-checklist-upload" for="dg-checklist-file"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Carica la checklist compilata *</strong><small>Il file principale che gli agenti dovranno analizzare: Word, PDF, Excel, JSON o CSV.</small><input id="dg-checklist-file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.json,.csv,.txt" required></label>
-            <p id="dg-checklist-file-status" class="dg-checklist-file-status" aria-live="polite">Checklist non selezionata: scegli il file compilato per continuare.</p>
-            <label class="dg-upload-zone" for="dg-files"><span class="dg-upload-icon" aria-hidden="true">＋</span><strong>Aggiungi documenti di supporto</strong><small>PDF, Word, Excel, immagini e ZIP. Puoi selezionare più file.</small><input id="dg-files" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip,.txt"></label>
-            <ul id="dg-files-list" class="dg-files-list"><li>Nessun documento selezionato.</li></ul>
-            <p class="dg-small-note">Esempi: DVR specifico, cronoprogramma, planimetria, procedure operative, piano di emergenza, schede di sicurezza e permessi pertinenti.</p>
-            <label class="campo-form">Altre informazioni / osservazioni
-              <textarea name="notes" rows="3" maxlength="5000" placeholder="Dati da confermare, vincoli operativi, riferimenti ad altri documenti…"></textarea>
-            </label>
           </section>
 
           <div class="dg-form-actions">
