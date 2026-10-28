@@ -109,13 +109,13 @@ async function releaseForNextPhase(job: Job, nextPhase: string, nextMessage: str
 async function awaitConfiguration(job: Job, message: string) {
   await updateClaimedJob(job, {
     status: 'awaiting_configuration',
-    phase: 'configuration',
+    phase: job.phase,
     status_message: message,
     lease_until: null,
     claim_token: null,
     next_attempt_at: null
   });
-  await recordEvent(job.id, 'configuration', 'warning', message, 'coordinator');
+  await recordEvent(job.id, job.phase, 'warning', message, agentFor(job.phase));
 }
 async function retryOrFail(job: Job, error: unknown) {
   const nextAttempt = Number(job.attempt_count || 0) + 1;
@@ -157,7 +157,7 @@ function safeOutputText(response: any): string {
   return text;
 }
 function parseJsonOutput(raw: string): any {
-  const cleaned = raw.replace(/^\s*\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`\s*$/, '').trim();
+  const cleaned = raw.replace(/^\\s*```(?:json)?\\s*/i, '').replace(/\\s*```\\s*$/, '').trim();
   try { return JSON.parse(cleaned); } catch { fail(502, 'L’output dell’agente non è JSON valido.'); }
 }
 async function openAIResponse(input: unknown[], systemPrompt: string, tokenLimit = 8000) {
