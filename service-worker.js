@@ -18,6 +18,7 @@ const APP_SHELL = [
   './js/vendor/pdf.min.js',
   './js/vendor/pdf.worker.min.js',
   './js/app.js?v=20261012-140126',
+  './js/document-generation.js',
   './js/identity.js',
   './js/account-screens.js?v=20261012-140126',
   './js/db.js?v=20261012-140126',
