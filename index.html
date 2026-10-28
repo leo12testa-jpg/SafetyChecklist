@@ -614,8 +614,14 @@
         </section>
 
         <section class="dg-panel dg-queue-panel">
-          <div class="dg-panel-heading"><span class="dg-section-number">↗</span><div><h3>Elaborazioni documentali</h3><p>Spazio previsto per seguire i lavori in corso e i documenti da revisionare da PC o telefono.</p></div></div>
-          <div class="dg-queue-empty"><span aria-hidden="true">☷</span><strong>La coda cloud non è ancora collegata</strong><p>Quando sarà implementato il backend, qui compariranno stato, bozze, errori, allegati e azioni di revisione. Nessuna generazione automatica è attiva in questa versione.</p></div>
+          <div class="dg-panel-heading"><span class="dg-section-number">↗</span><div><h3>Elaborazioni documentali</h3><p>Riapri questa schermata da PC o telefono per consultare lo stato dei lavori salvati nel cloud.</p></div></div>
+          <div id="dg-cloud-status" class="dg-cloud-status" role="status" aria-live="polite">Backend cloud non attivo: le schede vengono preparate soltanto in locale.</div>
+          <div class="dg-queue-toolbar">
+            <button type="button" class="btn" id="dg-refresh-jobs">Aggiorna elaborazioni</button>
+          </div>
+          <div id="dg-queue-list" class="dg-queue-list">
+            <div class="dg-queue-empty"><span aria-hidden="true">☷</span><strong>Nessun collegamento cloud attivo</strong><p>Quando backend e worker saranno configurati, qui compariranno i lavori, gli agenti, le bozze e le azioni di revisione.</p></div>
+          </div>
         </section>
 
         <template id="dg-contractor-template">
