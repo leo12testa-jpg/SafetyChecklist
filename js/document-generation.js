@@ -103,6 +103,7 @@
     if (!data.job.documentDate) missing.push('Data da riportare sul DUVRI da confermare esplicitamente.');
     if (!data.client.legalName) missing.push('Ragione sociale del committente da estrarre e/o confermare.');
     if (!data.site.address) missing.push('Sede e indirizzo dell’intervento da estrarre e/o confermare.');
+    if (!data.site.context || data.site.context === 'unknown' || data.site.context === 'other') missing.push('Tipo di area (interno, cantiere/esterno o misto) da confermare dopo l’analisi della checklist.');
     if (!data.work.description) missing.push('Descrizione dell’appalto da ricostruire dalla checklist e confermare.');
     data.contractors.forEach((company, index) => {
       if (!company.company) missing.push('Impresa ' + (index + 1) + ': ragione sociale da estrarre dalla checklist e confermare.');
