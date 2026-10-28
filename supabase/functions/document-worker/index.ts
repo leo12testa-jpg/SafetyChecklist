@@ -327,7 +327,7 @@ async function logModelUsage(
       'Consumo API misurato: ' + cost.inputTokens.toLocaleString('it-IT') + ' token input, ' +
         cost.outputTokens.toLocaleString('it-IT') + ' token output' +
         (cost.estimatedCostUsd === null ? '; costo non stimabile per questo modello.' :
-          '; costo stimato ' + cost.estimatedCostUsd.toFixed(5) + ' USD.',
+          '; costo stimato ' + cost.estimatedCostUsd.toFixed(5) + ' USD.'),
       context.agent,
       {
         usageKind: 'ai_usage',
