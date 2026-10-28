@@ -436,6 +436,56 @@ async function claimOne() {
   const rows = await db('rpc/claim_document_job', { method: 'POST', body: '{}' }) as Job[];
   return Array.isArray(rows) ? rows[0] || null : null;
 }
+
+async function sha256(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', stableArrayBuffer(bytes));
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2,'0')).join('');
+}
+async function uploadGeneratedDocx(path: string, bytes: Uint8Array) {
+  const encoded = path.split('/').map(encodeURIComponent).join('/');
+  const response = await remote(SUPABASE_URL + '/storage/v1/object/' + BUCKET + '/' + encoded, {
+    method: 'POST',
+    headers: headers({
+      'content-type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'x-upsert': 'true',
+      'cache-control': 'private, max-age=0'
+    }),
+    body: stableArrayBuffer(bytes)
+  }, 60000);
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    console.error('[document-worker] generated file upload failed', response.status, detail.slice(0, 240));
+    fail(503, 'Non è stato possibile salvare la bozza Word in archivio privato.');
+  }
+}
+async function persistGeneratedFile(job: Job, path: string, bytes: Uint8Array, filename: string) {
+  await db('document_job_files?on_conflict=object_path', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify([{
+      job_id: job.id,
+      uploaded_by: job.created_by,
+      role: 'draft_docx',
+      object_path: path,
+      filename,
+      mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      size_bytes: bytes.byteLength,
+      sha256: await sha256(bytes)
+    }])
+  });
+}
+async function awaitInput(job: Job, message: string) {
+  await updateClaimedJob(job, {
+    status: 'awaiting_input',
+    phase: job.phase,
+    status_message: message,
+    lease_until: null,
+    claim_token: null,
+    next_attempt_at: null
+  });
+  await recordEvent(job.id, job.phase, 'warning', message, agentFor(job.phase));
+}
+
 async function processOne(job: Job) {
   // The platform is multi-document, but an adapter must be reviewed before a new
   // document type can enter the drafting pipeline. Never route an unknown type through DUVRI prompts.
@@ -484,23 +534,112 @@ async function processOne(job: Job) {
     return { id: job.id, state: 'queued', nextPhase: 'draft' };
   }
   if (job.phase === 'draft') {
-    const templatePath = Deno.env.get('DUVRI_TEMPLATE_OBJECT_PATH') || '';
+    const payload = isJsonRecord(job.input_payload) ? job.input_payload : {};
+    const templatePath = String(payload.templateObjectPath || Deno.env.get('DUVRI_TEMPLATE_OBJECT_PATH') || '').trim();
+    const templateVersion = payload.templateVersion || Deno.env.get('DUVRI_TEMPLATE_VERSION') || null;
     const riskRuleApproved = Deno.env.get('DUVRI_RISK_RULE_APPROVED') === 'true';
+    const approvedRiskRule = (Deno.env.get('DUVRI_RISK_RULE_DESCRIPTION') || '').trim();
     const docxEngineEnabled = Deno.env.get('DUVRI_DOCX_ENGINE_ENABLED') === 'true';
     if (!templatePath) {
       await awaitConfiguration(job, 'Analisi completata. Caricare e versionare il modello Word ufficiale in Storage privato prima di generare la bozza.');
       return { id: job.id, state: 'awaiting_configuration' };
     }
-    if (!riskRuleApproved) {
-      await awaitConfiguration(job, 'Analisi completata. Il criterio ufficiale degli indici di rischio deve essere approvato prima di compilare le tabelle finali.');
+    if (!riskRuleApproved || !approvedRiskRule) {
+      await awaitConfiguration(job, 'Analisi completata. La regola ufficiale degli indici di rischio deve essere approvata e descritta nei segreti del backend prima di compilare la matrice.');
       return { id: job.id, state: 'awaiting_configuration' };
     }
     if (!docxEngineEnabled) {
       await awaitConfiguration(job, 'Analisi completata. Il compilatore OOXML Word deve superare i test di conservazione del modello prima di essere attivato.');
       return { id: job.id, state: 'awaiting_configuration' };
     }
-    await awaitConfiguration(job, 'Analisi completata. Il compilatore configurato non ha ancora superato il gate di QA; il documento non viene generato automaticamente.');
-    return { id: job.id, state: 'awaiting_configuration' };
+    const templateBytes = await downloadPrivateObject(templatePath);
+    const templateInspection = await inspectDuvriTemplate(templateBytes);
+    if (!Array.isArray(templateInspection.riskRows) || templateInspection.riskRows.length < 1) {
+      await awaitConfiguration(job, 'Il modello Word non contiene righe di rischio riconosciute dal controllo automatico. Nessun DOCX è stato generato.');
+      return { id: job.id, state: 'awaiting_configuration' };
+    }
+    await recordEvent(job.id, 'draft', 'started', 'Il redattore prepara una bozza a partire dalle fonti e dal modello controllato.', 'docx-writer', {
+      template_version: templateVersion,
+      model: AI_MODEL
+    });
+    const metadata = isJsonRecord(job.input_payload.fields) ? job.input_payload.fields : {};
+    const writerPrompt = buildDuvriWriterPrompt({
+      jobTitle: String(job.title || ''),
+      today: new Date().toISOString().slice(0,10),
+      metadata,
+      extraction: job.agent_outputs?.extraction || {},
+      analysis: job.agent_outputs?.analysis || {},
+      templateRows: templateInspection.riskRows,
+      approvedRiskRule
+    });
+    const rawDraft = await runAIResponse([{
+      role: 'user',
+      content: [{ type: 'input_text', text: writerPrompt.userText }]
+    }], writerPrompt.systemPrompt, 10000);
+    let draft;
+    try {
+      draft = validateDuvriDraft(rawDraft, templateInspection.riskRows);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'I dati della bozza richiedono integrazione.';
+      await awaitInput(job, message + ' Nessun DOCX è stato generato.');
+      return { id: job.id, state: 'awaiting_input' };
+    }
+    const generated = await populateDuvriTemplate(templateBytes, draft);
+    const qaPrompt = buildDuvriQaPrompt({
+      extraction: job.agent_outputs?.extraction || {},
+      analysis: job.agent_outputs?.analysis || {},
+      draft,
+      compilerReport: generated.report
+    });
+    const rawQa = await runAIResponse([{
+      role: 'user',
+      content: [{ type: 'input_text', text: qaPrompt.userText }]
+    }], qaPrompt.systemPrompt, 5000);
+    const qaReport = validateDuvriQa(rawQa);
+    const finalReport = {
+      ...generated.report,
+      contentQA: qaReport,
+      templatePath,
+      templateVersion,
+      humanReviewRequired: true,
+      generatedAt: new Date().toISOString()
+    };
+    const filename = 'DUVRI_' + job.id.slice(0,8) + '_' + draft.documentDate.replace(/-/g,'') + '.docx';
+    const outputPath = job.created_by + '/' + job.id + '/' + filename;
+    await uploadGeneratedDocx(outputPath, generated.bytes);
+    await persistGeneratedFile(job, outputPath, generated.bytes, filename);
+    await recordEvent(job.id, 'draft', 'completed', 'Bozza Word salvata in archivio privato; resta obbligatoria la revisione tecnica.', 'docx-writer', {
+      byte_size: generated.bytes.byteLength,
+      file_sha256: await sha256(generated.bytes),
+      human_review_required: true
+    });
+    await recordEvent(job.id, 'validate', 'completed', 'Controllo strutturale e revisione del contenuto completati; il report richiede verifica umana.', 'quality-check', {
+      unsupported_claims: qaReport.unsupportedClaims.length,
+      conflicts: qaReport.conflicts.length,
+      missing_information: qaReport.missingInformation.length,
+      content_review_passed: qaReport.contentReviewPassed
+    });
+    await updateClaimedJob(job, {
+      status: 'needs_review',
+      phase: 'review',
+      status_message: 'Bozza Word disponibile. Controllare contenuti, matrice dei rischi e impaginazione prima dell’approvazione.',
+      output_path: outputPath,
+      validation_report: finalReport,
+      agent_outputs: { ...(job.agent_outputs || {}), draftSummary: {
+        title: draft.title,
+        documentDate: draft.documentDate,
+        missingInformation: draft.missingInformation,
+        conflicts: draft.conflicts,
+        normativeReferencesToCheck: draft.normativeReferencesToCheck,
+        humanReviewItems: draft.humanReviewItems,
+        qaReport
+      }},
+      completed_at: new Date().toISOString(),
+      lease_until: null,
+      claim_token: null,
+      next_attempt_at: null
+    });
+    return { id: job.id, state: 'needs_review', filename, templateReport: generated.report, contentQA: qaReport };
   }
   if (job.phase === 'validate') {
     await awaitConfiguration(job, 'La fase di validazione attende l’implementazione del compilatore DOCX e dei test di impaginazione.');
