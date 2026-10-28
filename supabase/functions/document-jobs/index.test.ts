@@ -283,7 +283,7 @@ Deno.test('create: incomplete or invalid input is rejected before any job row or
 Deno.test('create: job held until files are stored, payload/template version and file rows match the worker contract', async () => {
   env.set('DOCUMENT_PIPELINE_ENABLED', 'true');
   const csv = new File([new TextEncoder().encode('a;b\n1;2')], 'dati.csv', { type: 'application/vnd.ms-excel' });
-  const r = await call('create', 'owner', { body: form({ documentType: 'duvri', title: ' Cantiere A ' }, { checklist: pdf('../../etc/passwd.pdf'), extra: [csv] }) });
+  const r = await call('create', 'owner', { body: form({ documentType: 'duvri', title: ' Cantiere A ', aiDataProcessingConsent: true }, { checklist: pdf('../../etc/passwd.pdf'), extra: [csv] }) });
   assertEquals(r.status, 201);
   assertEquals(r.body.job.status, 'queued');
   assertEquals(r.body.job.title, 'Cantiere A');
