@@ -382,7 +382,7 @@ async function retryJob(req: Request, actor: Actor, id: string) {
     fail(409, 'Questo lavoro non è in uno stato ripristinabile.');
   }
   const outputs = job.agent_outputs && typeof job.agent_outputs === 'object' ? job.agent_outputs as Record<string,unknown> : {};
-  const phase = outputs.analysis ? 'draft' : outputs.extraction ? 'analyze' : 'extract';
+  const phase = outputs.draft ? 'validate' : outputs.analysis ? 'draft' : outputs.extraction ? 'analyze' : 'extract';
   await db(`document_jobs?id=eq.${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: { Prefer: 'return=minimal' },
