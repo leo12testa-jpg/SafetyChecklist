@@ -268,20 +268,22 @@ function fillSignatureTable(doc: any, clientName: string, contractors: DuvriDraf
   const allApp = contractors.filter((c) => !/subappalt/i.test(String(c.role || '')));
   const allSub = contractors.filter((c) => /subappalt/i.test(String(c.role || '')));
   if (!allApp.length) throw new Error('È necessaria almeno una impresa appaltatrice confermata.');
-  setCellText(cellsOf(clientCopy)[0], clientName);
+  // Keep the signature table's name/signature fields blank. Companies sign the
+  // document after delivery; intake data must never be written into signature rows.
+  setCellText(cellsOf(clientCopy)[0], '');
   const rowToKeep = directElements(table, W, 'tr');
   for (const row of rowToKeep) table.removeChild(row);
   table.appendChild(clientCopy);
   let seedNumber = 0;
-  for (const company of allApp) {
+  for (const _company of allApp) {
     const row = appTemplate.cloneNode(true);
-    setCellText(cellsOf(row)[0], company.legalName);
+    setCellText(cellsOf(row)[0], '');
     uniqueCloneIds(row, (++seedNumber).toString(16).padStart(2, '0'));
     table.appendChild(row);
   }
-  for (const company of allSub) {
+  for (const _company of allSub) {
     const row = subTemplate.cloneNode(true);
-    setCellText(cellsOf(row)[0], company.legalName);
+    setCellText(cellsOf(row)[0], '');
     const labelP = descendants(row, W, 'p').find((p) => textOf(p).includes('(Subappaltatore)'));
     if (labelP) clearYellowHighlight(labelP);
     uniqueCloneIds(row, (++seedNumber).toString(16).padStart(2, '0'));
