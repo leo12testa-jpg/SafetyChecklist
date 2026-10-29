@@ -9,6 +9,7 @@ on:
       - 'supabase/document-generation/**'
       - 'tests/document-generation-backend-safety.test.js'
       - 'tests/document-generation-integration-contract.test.js'
+      - 'tests/document-generation-integration-contract.test.js'
       - '.github/workflows/document-backend-isolated.yml'
   push:
     branches: [feat/duvri-backend-isolated]
@@ -17,6 +18,7 @@ on:
       - 'supabase/functions/document-worker/**'
       - 'supabase/document-generation/**'
       - 'tests/document-generation-backend-safety.test.js'
+      - 'tests/document-generation-integration-contract.test.js'
       - '.github/workflows/document-backend-isolated.yml'
 
 permissions:
