@@ -4,7 +4,7 @@ PWA di Colligo Ingegneria per sopralluoghi HSE e Raccolte dati DVR. L'app salva 
 
 App: https://leo12testa-jpg.github.io/SafetyChecklist/
 
-**V1.0 — build 20261012-140126.** Collaudo, backend distribuiti e limiti delle verifiche hardware: [rapporto di rilascio](reports/RILASCIO_V1_20261012.md). La pubblicazione avviene tramite merge della PR verificata; tutti i gate di rilascio devono essere verdi.
+**V1.0 — build 20261029-154824.** La build aggiunge la raccolta DUVRI locale (PR #22) alla V1.0 della build 20261012-140126. Collaudo, backend distribuiti e limiti delle verifiche hardware della V1.0: [rapporto di rilascio](reports/RILASCIO_V1_20261012.md). La pubblicazione avviene tramite merge della PR verificata; tutti i gate di rilascio devono essere verdi.
 
 ## Utilizzo
 
@@ -12,8 +12,9 @@ App: https://leo12testa-jpg.github.io/SafetyChecklist/
 2. Scegli **Nuovo sopralluogo** per Coin, Interparking, Restage, Melluso o Carrefour. Compila i dati iniziali e le risposte C/PC/NC/NA, note e fotografie. Puoi riprendere un lavoro incompleto dallo storico.
 3. Scegli **Raccolta dati DVR** per asili, ristoranti/alberghi, uffici, attività varie o edilizia. Il riepilogo mostra le sezioni compilate e i dati mancanti. Esporta un PDF oppure lo ZIP con `risposte.json` e `foto/` per la redazione del DVR.
 4. I due modelli specifici chimico e MMC rimangono disponibili per aprire ed esportare documenti esistenti; sono esclusi soltanto dal menu di avvio.
-5. Nello **Storico**, usa schede audit/DVR, filtri e ricerca per aprire, modificare o scaricare documenti. Il cestino consente il ripristino. Le versioni concorrenti della stessa risposta restano consultabili e ripristinabili.
-6. Importa i PDF audit dal nuovo sopralluogo. Controlla l'anteprima e conferma le associazioni incerte; un numero uguale non garantisce che la domanda sia la stessa. L'annullamento non salva una nuova raccolta.
+5. Scegli **Generazione documenti** per la raccolta dati DUVRI: committente, sito, una o più imprese, stato dei documenti e allegati per categoria. La scheda viene preparata solo nel browser, con l'elenco dei dati mancanti; il pacchetto ZIP contiene `ISTRUZIONI.txt`, `scheda-duvri.json` e gli allegati originali in `allegati/`. Nessun dato viene inviato in rete, caricato nel cloud o elaborato da AI, e il DUVRI non viene generato automaticamente.
+6. Nello **Storico**, usa schede audit/DVR, filtri e ricerca per aprire, modificare o scaricare documenti. Il cestino consente il ripristino. Le versioni concorrenti della stessa risposta restano consultabili e ripristinabili.
+7. Importa i PDF audit dal nuovo sopralluogo. Controlla l'anteprima e conferma le associazioni incerte; un numero uguale non garantisce che la domanda sia la stessa. L'annullamento non salva una nuova raccolta.
 
 L'indicatore di sincronizzazione segnala dati/foto ancora da inviare e consente il retry. Mantieni lo stesso browser/profilo per recuperare lavori locali: cancellare i dati del sito può rimuovere modifiche e foto non ancora sincronizzate. Gli aggiornamenti PWA preservano IndexedDB e vengono rimandati durante compilazione, importazioni e finestre aperte. Non occorre distribuire ZIP dell'app agli utenti. La firma grafica è esclusa dalla V1.0.
 
