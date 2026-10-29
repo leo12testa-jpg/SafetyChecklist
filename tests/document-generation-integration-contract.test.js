@@ -51,3 +51,14 @@ test('DUVRI generation stays fail-closed until the risk method and controlled te
   assert.match(worker, /Nessun punteggio è stato calcolato/);
   assert.match(schema, /DRAFT ONLY/);
 });
+
+test('DUVRI signature rows keep company/name fields blank for signing after delivery', () => {
+  const generator = read('supabase', 'functions', 'document-worker', 'docx-generator.ts');
+  const start = generator.indexOf('function fillSignatureTable(');
+  const end = generator.indexOf('\nfunction fillRiskTables(', start);
+  assert.ok(start >= 0 && end > start, 'signature table function is present');
+  const signatureFunction = generator.slice(start, end);
+  assert.match(signatureFunction, /setCellText\(cellsOf\(clientCopy\)\[0\], ''\)/);
+  assert.match(signatureFunction, /setCellText\(cellsOf\(row\)\[0\], ''\)/);
+  assert.doesNotMatch(signatureFunction, /setCellText\(cellsOf\((?:clientCopy|row)\)\[0\],\s*(?:clientName|company\.legalName)/);
+});
