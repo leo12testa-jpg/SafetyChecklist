@@ -8,6 +8,7 @@ on:
       - 'supabase/functions/document-worker/**'
       - 'supabase/document-generation/**'
       - 'tests/document-generation-backend-safety.test.js'
+      - 'tests/document-generation-integration-contract.test.js'
       - '.github/workflows/document-backend-isolated.yml'
   push:
     branches: [feat/duvri-backend-isolated]
@@ -46,4 +47,4 @@ jobs:
       - name: Run mocked backend unit tests without runtime permissions
         run: deno test supabase/functions/document-jobs/ supabase/functions/document-worker/
       - name: Assert cloud and risk-method safety gates
-        run: node --test tests/document-generation-backend-safety.test.js
+        run: node --test tests/document-generation-backend-safety.test.js tests/document-generation-integration-contract.test.js
