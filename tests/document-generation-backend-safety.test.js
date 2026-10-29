@@ -1,0 +1,54 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const root = path.join(__dirname, '..');
+const config = fs.readFileSync(path.join(root, 'js', 'supabase-config.js'), 'utf8');
+const worker = fs.readFileSync(path.join(root, 'supabase', 'functions', 'document-worker', 'index.ts'), 'utf8');
+const schema = fs.readFileSync(path.join(root, 'supabase', 'document-generation', 'schema.draft.sql'), 'utf8');
+
+test('cloud document generation stays disabled in the browser', () => {
+  assert.match(config, /const DOCUMENT_GENERATION_CLOUD_ENABLED = false;/);
+});
+
+test('DUVRI drafting is blocked until the approved method and controlled template are configured', () => {
+  assert.match(worker, /DUVRI_RISK_RULE_APPROVED/);
+  assert.match(worker, /DUVRI_RISK_RULE_DESCRIPTION/);
+  assert.match(worker, /DUVRI_RISK_RULE_APPROVAL_ID/);
+  assert.match(worker, /DUVRI_RISK_RULE_VERSION/);
+  assert.match(worker, /DUVRI_TEMPLATE_OBJECT_PATH/);
+  assert.match(worker, /DUVRI_TEMPLATE_VERSION/);
+  assert.match(worker, /DUVRI_DOCX_ENGINE_ENABLED/);
+  assert.match(worker, /Nessun punteggio è stato calcolato/);
+});
+
+test('draft schema is marked draft-only and client roles cannot directly access job tables', () => {
+  assert.match(schema, /DRAFT ONLY/);
+  for (const table of ['document_type_configs','document_jobs','document_job_files','document_job_events']) {
+    assert.match(schema, new RegExp('revoke all on public\\.' + table + ' from anon, authenticated', 'i'));
+  }
+});
+
+
+test('controlled rollout checklist documents the unresolved approvals and safe defaults', () => {
+  const rollout = fs.readFileSync(path.join(root, 'docs', 'DUVRI_CONTROLLED_ROLLOUT_CHECKLIST.md'), 'utf8');
+  assert.match(rollout, /Resolve the source-template discrepancy between probability × severity \(1–9\) and the separate I\.R\. values \(1–3\)/);
+  assert.match(rollout, /Signature fields stay blank/);
+  assert.match(rollout, /leave the cloud pipeline and DOCX engine disabled/);
+  assert.match(rollout, /Human technical review required/);
+});
+
+test('draft and QA checkpoints are invalidated when the server-approved template or risk rule changes', () => {
+  assert.match(worker, /const templatePath = configuredTemplatePath;/);
+  assert.match(worker, /const templateVersion = configuredTemplateVersion;/);
+  assert.match(worker, /savedMeta\\.templatePath !== templatePath/);
+  assert.match(worker, /savedMeta\\.templateVersion !== templateVersion/);
+  assert.match(worker, /savedMeta\\.riskRuleApprovalId !== configuredRiskRuleApprovalId/);
+  assert.match(worker, /savedMeta\\.riskRuleVersion !== configuredRiskRuleVersion/);
+  assert.match(worker, /delete resumableOutputs\\.draft;/);
+  assert.match(worker, /delete resumableOutputs\\.draft_metadata;/);
+  assert.match(worker, /delete resumableOutputs\\.qaReport;/);
+  assert.match(worker, /delete resumableOutputs\\.draftSummary;/);
+  assert.match(worker, /phase: 'draft', agentOutputs: resumableOutputs/);
+});

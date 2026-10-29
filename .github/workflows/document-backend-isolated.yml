@@ -1,0 +1,52 @@
+name: Isolated document backend QA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/functions/document-jobs/**'
+      - 'supabase/functions/document-worker/**'
+      - 'supabase/document-generation/**'
+      - 'tests/document-generation-backend-safety.test.js'
+      - 'tests/document-generation-integration-contract.test.js'
+      - 'tests/document-generation-integration-contract.test.js'
+      - '.github/workflows/document-backend-isolated.yml'
+  push:
+    branches: [feat/duvri-backend-isolated]
+    paths:
+      - 'supabase/functions/document-jobs/**'
+      - 'supabase/functions/document-worker/**'
+      - 'supabase/document-generation/**'
+      - 'tests/document-generation-backend-safety.test.js'
+      - 'tests/document-generation-integration-contract.test.js'
+      - '.github/workflows/document-backend-isolated.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  backend-unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Type-check isolated document functions
+        run: >-
+          deno check
+          supabase/functions/document-jobs/index.ts
+          supabase/functions/document-jobs/validation.ts
+          supabase/functions/document-worker/index.ts
+          supabase/functions/document-worker/docx-generator.ts
+          supabase/functions/document-worker/duvri-agent.ts
+          supabase/functions/document-worker/cost-meter.ts
+          supabase/functions/document-worker/anthropic-client.ts
+      - name: Run mocked backend unit tests without runtime permissions
+        run: deno test supabase/functions/document-jobs/ supabase/functions/document-worker/
+      - name: Assert cloud and risk-method safety gates
+        run: node --test tests/document-generation-backend-safety.test.js tests/document-generation-integration-contract.test.js
