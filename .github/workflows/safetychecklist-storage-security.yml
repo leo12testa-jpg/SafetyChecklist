@@ -27,6 +27,9 @@ jobs:
       - name: Type check actual Deno backends
         run: deno check supabase/functions/manage-users/index.ts supabase/functions/photo-access/index.ts
       - name: Start dedicated local Storage and real RLS
+        # Same images/digests as the ghcr.io mirror set by setup-cli, which rate-limits anonymous pulls.
+        env:
+          SUPABASE_INTERNAL_IMAGE_REGISTRY: docker.io
         run: supabase start --workdir tests/storage-local --exclude realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
       - name: Configure only local test credentials
         run: |

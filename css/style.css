@@ -2745,6 +2745,15 @@ textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:
 .dg-result-heading p { margin: 0; color: var(--color-text-muted); line-height: 1.45; }
 .dg-next-step-notice { margin: 18px 0; padding: 12px 14px; border-radius: 8px; background: #f4f6f8; }
 .dg-next-step-notice p { margin: 5px 0 0; line-height: 1.5; font-size: .88rem; }
+.dg-auto-list { display: grid; gap: 8px; margin: 8px 0 16px; padding: 0; list-style: none; font-size: .88rem; overflow-wrap: anywhere; }
+.dg-auto-list > li { padding: 9px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: #f8fafc; line-height: 1.45; }
+.dg-auto-list small { display: block; margin-top: 3px; color: var(--color-text-muted); font-size: .8rem; }
+.dg-auto-issue.is-conflict, .dg-auto-field.is-conflict { border-color: #d9a441; background: #fff8e8; }
+.dg-auto-issue.is-missing { border-color: #c9a0a0; background: #fdf3f3; }
+.dg-auto-issue.is-ok { border-color: #96bca5; background: #f0f8f2; }
+.dg-auto-value { margin-top: 4px; }
+.dg-auto-template { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--color-border); }
+.dg-auto-gate { margin: 12px 0 4px; }
 .dg-missing-list { padding-left: 23px; line-height: 1.55; }
 .dg-missing-list li { margin: 6px 0; }
 .dg-queue-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 26px 16px; color: var(--color-text-muted); background: #f8fafc; border: 1px dashed #d0d8e2; border-radius: 10px; }

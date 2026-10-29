@@ -81,6 +81,18 @@ La roadmap è indicativa. Non si considerano abilitati i moduli finché non sono
 - Mantenere audit trail di versione skill, template, provider/modello, esecuzioni e revisioni senza inserire dati aziendali sensibili nei log tecnici.
 - Nessun documento viene spedito o pubblicato automaticamente al cliente.
 
+## Acquisizione automatica locale
+
+`js/document-intake.js` (motore) e `js/document-intake-ui.js` (pannello in Generazione documenti) leggono nel browser i file ricevuti dal committente, senza rete né AI:
+
+- formati letti: PDF con testo (pdf.js, `isEvalSupported:false`), DOCX, XLSX, testo/CSV/EML/JSON/XML. Immagini, PDF scansionati, `.doc`/`.xls` e altri formati sono classificati ma non letti e vengono segnalati per verifica manuale (nessun OCR locale);
+- classificazione automatica nelle categorie di allegato esistenti, con evidenze (parole chiave del nome o del testo) e grado di confidenza;
+- estrazione dei soli campi etichettati (committente, imprese, preposti, luogo, oggetto, date, P.IVA): ogni valore riporta file e posizione (pagina, paragrafo, foglio/riga) e resta `extracted_unconfirmed`;
+- segnalazioni limitate a conflitti tra fonti, anomalie (P.IVA non valida, date incoerenti, formato non corrispondente, duplicati, file non leggibili) e campi indispensabili mancanti del tipo selezionato;
+- pacchetto ZIP con `estrazione.json` (stato `BOZZA — DA REVISIONARE`, revisione umana obbligatoria), istruzioni e file originali per categoria.
+
+Il registro `DOCUMENT_TYPES` dichiara per ogni tipo campi indispensabili, modello controllato (impronta SHA-256 e struttura di riferimento) e blocchi aperti. Il modello Word non è versionato nel repository pubblico: l'utente carica la copia controllata e l'app ne verifica impronta, paragrafi, tabelle, sezioni e immagini senza modificarla. La generazione resta bloccata finché esiste un blocco aperto (`DUVRI-SCALA` per il DUVRI, `INFO-MODELLO` per le informative COIN) o mancano dati indispensabili.
+
 ## Limiti del primo rilascio
 
 In questa fase il modulo DUVRI è il solo tipo previsto dal registro di test. Il frontend raccoglie la checklist e mostra il workflow ma non è ancora collegato al gateway cloud. La bozza di schema SQL non è stata applicata al progetto live, le funzioni non sono deployate e il provider AI è disabilitato. Il generatore Word deve superare i test sulla reale copia di `DUVRI_BASE_GENERALE_2026.docx` prima di essere attivato.
