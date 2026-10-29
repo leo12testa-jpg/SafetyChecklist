@@ -3,6 +3,10 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+concurrency:
+  # Un solo run per PR: i push ravvicinati annullano il run precedente e riducono i pull di immagini.
+  group: storage-security-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -25,9 +29,28 @@ jobs:
         with:
           version: 2.53.6
       - name: Type check actual Deno backends
-        run: deno check supabase/functions/manage-users/index.ts supabase/functions/photo-access/index.ts
+        run: deno check supabase/functions/manage-users/index.ts supabase/functions/photo-access/index.ts supabase/functions/document-jobs/index.ts supabase/functions/document-worker/index.ts supabase/functions/document-worker/docx-generator.ts supabase/functions/document-worker/duvri-agent.ts supabase/functions/document-worker/cost-meter.ts supabase/functions/document-worker/anthropic-client.ts supabase/functions/document-jobs/validation.ts
+      # Test Deno senza permessi: fetch, Deno.env e Deno.serve sono simulati, nessuna rete.
+      - name: Test document worker and gateway behaviour (Claude client, costs, DUVRI agent, document-jobs)
+        run: deno test supabase/functions/document-worker/ supabase/functions/document-jobs/
+      # Le immagini Docker vengono scaricate a ogni run: con molti push ravvicinati il registry
+      # risponde "toomanyrequests" e supabase start fallisce prima di eseguire qualunque test.
+      # Si ritenta solo l'avvio (gli strati gia' scaricati restano in cache); i test non cambiano.
       - name: Start dedicated local Storage and real RLS
-        run: supabase start --workdir tests/storage-local --exclude realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+        timeout-minutes: 15
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if supabase start --workdir tests/storage-local --exclude realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor; then
+              exit 0
+            fi
+            echo "::warning::supabase start non riuscito (tentativo ${attempt}/3), probabile limite del registry immagini"
+            supabase stop --workdir tests/storage-local --no-backup || echo "Nessun container da fermare"
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 45)); fi
+          done
+          echo "::error::Supabase locale non avviato dopo 3 tentativi"
+          exit 1
       - name: Configure only local test credentials
         run: |
           supabase status --workdir tests/storage-local -o env > "$RUNNER_TEMP/storage-env.txt"

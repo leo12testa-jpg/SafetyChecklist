@@ -1,0 +1,11 @@
+# Supabase project configuration for SafetyChecklist.
+# This file is applied only when deploying from an approved repository branch.
+# Firebase ID tokens are validated by our backend against Firebase Authentication and
+# active Firestore profile, so Supabase's own JWT verifier must not reject those tokens.
+[functions.document-jobs]
+verify_jwt = false
+
+# This endpoint has no public user API: it accepts only the server-side scheduler's
+# DOCUMENT_WORKER_SECRET and must never be callable from the frontend.
+[functions.document-worker]
+verify_jwt = false

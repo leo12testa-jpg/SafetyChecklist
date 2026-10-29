@@ -47,7 +47,7 @@ function edgeHandler(telemetry) {
     else throw new Error('QA guard: unexpected outbound request');
     return fetch(url,opts);
   };
-  const env={SUPABASE_URL:'https://qa-supabase.invalid',SUPABASE_SERVICE_ROLE_KEY:'qa-service-only'};
+  const env={SUPABASE_URL:'https://qa-supabase.invalid',SUPABASE_SERVICE_ROLE_KEY:'qa-service-only',SAFETYCHECKLIST_FIREBASE_API_KEY:'qa-only'};
   vm.runInNewContext(translated,{Deno:{env:{get:k=>env[k]},serve:(opts,h)=>{handler=h||opts;}},Request,Response,fetch:guardedFetch,console,URL,URLSearchParams},{filename:'manage-users.test.js'});
   return handler;
 }

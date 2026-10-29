@@ -8,9 +8,9 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/icon-512.png">
-  <link rel="stylesheet" href="css/style.css?v=20261012-140126">
+  <link rel="stylesheet" href="css/style.css?v=20261029-115020">
 </head>
-<body data-auth-ready="false" data-authenticated="false" data-build="20261012-140126">
+<body data-auth-ready="false" data-authenticated="false" data-build="20261029-115020">
   <div id="app">
     <header class="app-header">
       <div class="header-brand">
@@ -82,6 +82,7 @@
           <button type="button" class="side-nav-item" data-nav="home"><span class="nav-icon" aria-hidden="true">⌂</span><span>Dashboard</span></button>
           <button type="button" class="side-nav-item" data-nav="new-inspection" data-modalita="audit"><span class="nav-icon" aria-hidden="true">＋</span><span>Nuovo sopralluogo</span></button>
           <button type="button" class="side-nav-item" data-nav="new-inspection" data-modalita="dvr"><span class="nav-icon" aria-hidden="true">📋</span><span>Raccolta dati DVR</span></button>
+          <button type="button" class="side-nav-item" data-nav="document-generation"><span class="nav-icon" aria-hidden="true">✦</span><span>Generazione documenti</span></button>
           <button type="button" class="side-nav-item" data-nav="history"><span class="nav-icon" aria-hidden="true">▤</span><span>Storico</span></button>
           <div class="side-nav-separator" data-admin-only hidden></div>
           <span class="side-nav-label" data-admin-only hidden>AMMINISTRAZIONE</span>
@@ -447,7 +448,225 @@
         <p class="errore-validazione" id="riepilogo-errore" hidden></p>
       </section>
 
-      <section id="screen-history" class="screen" data-screen="history" hidden>
+            <section id="screen-document-generation" class="screen dg-screen" data-screen="document-generation" hidden>
+        <button type="button" class="btn-back" data-nav="home">← Indietro</button>
+        <div class="dg-page-heading">
+          <span class="eyebrow">PRODUZIONE DOCUMENTALE</span>
+          <h2>Generazione documenti</h2>
+          <p>Un unico motore per i documenti Colligo: iniziamo dai DUVRI, poi aggiungeremo DVR, informative COIN, procedure e altri modelli con le rispettive checklist e skill.</p>
+        </div>
+
+        <div class="dg-prototype-alert" role="status">
+          <strong>Versione pilota dell'interfaccia</strong>
+          <p>Questa schermata permette di provare l’avvio di un lavoro a partire da una checklist compilata e di esportare i metadati in JSON. Il caricamento effettivo dei file, l’elaborazione cloud con gli agenti e la generazione Word non sono ancora attivi: i file restano sul tuo dispositivo, non vengono inviati a un servizio AI e non viene creato un DUVRI.</p>
+        </div>
+
+        <div class="dg-workflow-strip" aria-label="Fasi del processo">
+          <div class="dg-workflow-step is-current"><span>1</span><div><strong>Raccolta dati</strong><small>In questa versione</small></div></div>
+          <div class="dg-workflow-step"><span>2</span><div><strong>Analisi documenti</strong><small>Backend da collegare</small></div></div>
+          <div class="dg-workflow-step"><span>3</span><div><strong>Bozza Word</strong><small>Revisione obbligatoria</small></div></div>
+        </div>
+
+        <section class="dg-panel dg-queue-panel" aria-labelledby="dg-practices-title">
+          <div class="dg-panel-heading"><span class="dg-section-number">DUVRI</span><div><h3 id="dg-practices-title">Pratiche ed elaborazioni</h3><p>Le pratiche persistenti compariranno qui quando il backend sarà attivo. L'esempio sotto è statico e non rappresenta un lavoro elaborato.</p></div></div>
+          <div id="dg-org-usage-summary" class="dg-usage-summary dg-org-usage-summary" hidden aria-live="polite"></div>
+          <div id="dg-cloud-status" class="dg-cloud-status" role="status" aria-live="polite">Backend cloud non attivo: le schede vengono preparate soltanto in locale.</div>
+          <div class="dg-queue-toolbar">
+            <button type="button" class="btn" id="dg-refresh-jobs">Aggiorna elaborazioni</button>
+            <a class="btn btn-primary" href="#dg-form">Avvia nuova pratica</a>
+          </div>
+          <div id="dg-queue-list" class="dg-queue-list">
+            <div class="dg-queue-empty"><span aria-hidden="true">☷</span><strong>Nessuna pratica persistente disponibile</strong><p>Il backend non è attivo. I dati inseriti restano locali e non generano un DUVRI.</p></div>
+          </div>
+          <article class="dg-demo-case" aria-labelledby="dg-demo-title">
+            <div class="dg-demo-case-heading"><div><span class="dg-demo-badge">ESEMPIO SINTETICO · NON ELABORATO</span><h4 id="dg-demo-title">Anteprima del percorso di una pratica DUVRI</h4></div></div>
+            <p class="dg-demo-disclaimer">I valori seguenti sono segnaposto dimostrativi, non sono stati estratti da file e non descrivono un lavoro reale.</p>
+            <details class="dg-demo-details">
+              <summary>Mostra informazioni, lacune e fasi di revisione dimostrative</summary>
+              <div class="dg-demo-grid">
+                <section><h5>Stato e informazioni</h5><p><strong>Intake:</strong> esempio non avviato</p><ul><li>Committente: [dato dimostrativo]</li><li>Impresa: [dato dimostrativo]</li><li>Attività: [dato dimostrativo]</li><li>Fonte: checklist_demo.pdf (nome fittizio)</li></ul></section>
+                <section><h5>Dati da integrare</h5><ul><li>Cronoprogramma: non fornito nell'esempio</li><li>Planimetria: non fornita nell'esempio</li><li>Preposto: da verificare</li></ul></section>
+                <section><h5>Incongruenze di esempio</h5><p>Date di fine diverse tra checklist e allegato: conflitto dimostrativo, nessun valore selezionato.</p></section>
+                <section><h5>Word, controlli e revisione tecnica</h5><ul><li>Generazione Word: non eseguita</li><li>Controllo qualità: non eseguito</li><li>Revisione tecnica: non avviata</li></ul><div class="dg-demo-actions"><button type="button" class="btn" disabled>Generazione Word non disponibile</button><button type="button" class="btn" disabled>Revisione non disponibile</button></div></section>
+              </div>
+            </details>
+          </article>
+        </section>
+
+        <section class="dg-panel dg-agents-panel" aria-labelledby="dg-agents-title">
+          <div class="dg-panel-heading"><span class="dg-section-number">AI</span><div><h3 id="dg-agents-title">Agenti documentali</h3><p>Questa è la catena di lavoro prevista. Gli agenti non sono ancora collegati a un worker cloud in questo prototipo.</p></div></div>
+          <div class="dg-agent-grid">
+            <article class="dg-agent-card" data-agent="coordinator"><div class="dg-agent-top"><span class="dg-agent-avatar">01</span><span class="dg-agent-status">Da attivare</span></div><h4>Coordinatore</h4><p>Legge la richiesta, organizza il lavoro e assegna le fasi agli agenti.</p></article>
+            <article class="dg-agent-card" data-agent="document-reader"><div class="dg-agent-top"><span class="dg-agent-avatar">02</span><span class="dg-agent-status">Da attivare</span></div><h4>Analista documentale</h4><p>Esamina checklist e allegati, estrae dati e mantiene le fonti.</p></article>
+            <article class="dg-agent-card" data-agent="duvri-analyst"><div class="dg-agent-top"><span class="dg-agent-avatar">03</span><span class="dg-agent-status">Da attivare</span></div><h4>Analista interferenze</h4><p>Rileva fasi, soggetti, sovrapposizioni e informazioni da confermare.</p></article>
+            <article class="dg-agent-card" data-agent="docx-writer"><div class="dg-agent-top"><span class="dg-agent-avatar">04</span><span class="dg-agent-status">Da attivare</span></div><h4>Redattore Word</h4><p>Compila il modello Colligo originale mantenendo la struttura.</p></article>
+            <article class="dg-agent-card" data-agent="quality-check"><div class="dg-agent-top"><span class="dg-agent-avatar">05</span><span class="dg-agent-status">Da attivare</span></div><h4>Verificatore</h4><p>Controlla campi mancanti, layout, riferimenti e anomalie da revisionare.</p></article>
+          </div>
+          <p class="dg-small-note">Il lavoro sarà eseguito da un servizio cloud con coda persistente: dopo l'avvio, chiudere il browser o spegnere il PC non dovrà interromperlo. Questo comportamento diventerà disponibile solo dopo il rilascio del backend.</p>
+        </section>
+
+        <form id="dg-form" class="dg-form">
+          <section class="dg-panel">
+            <div class="dg-panel-heading"><span class="dg-section-number">00</span><div><h3>Tipo di documento e fonti</h3><p>Il motore è condiviso; ogni tipo usa la propria checklist, skill, modello e controlli specifici.</p></div></div>
+            <label class="campo-form">Tipo di documento da preparare *
+              <select name="documentType" required>
+                <option value="duvri" selected>DUVRI — primo modulo</option>
+                <option value="dvr" disabled>DVR — modulo futuro</option>
+                <option value="informativa-coin" disabled>Informativa COIN — modulo futuro</option>
+                <option value="procedura-operativa" disabled>Procedura operativa — modulo futuro</option>
+                <option value="relazione-tecnica" disabled>Relazione tecnica — modulo futuro</option>
+                <option value="altro" disabled>Altro documento — da configurare</option>
+              </select>
+            </label>
+            <p class="dg-small-note">I tipi indicati come futuri non sono ancora generabili. Per attivarne uno serviranno checklist, istruzioni di redazione, template approvato e test dedicati.</p>
+            <label class="dg-upload-zone dg-checklist-upload" for="dg-checklist-file"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Carica la checklist compilata *</strong><small>Il file principale che gli agenti dovranno analizzare: Word, PDF, Excel, JSON o CSV.</small><input id="dg-checklist-file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.json,.csv,.txt" required></label>
+            <p id="dg-checklist-file-status" class="dg-checklist-file-status" aria-live="polite">Checklist non selezionata: scegli il file compilato per continuare.</p>
+            <label class="dg-upload-zone" for="dg-files"><span class="dg-upload-icon" aria-hidden="true">＋</span><strong>Aggiungi documenti di supporto</strong><small>PDF, Word, Excel, immagini e file di testo. Puoi selezionare più file.</small><input id="dg-files" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt,.csv,.json"></label>
+            <ul id="dg-files-list" class="dg-files-list"><li>Nessun documento selezionato.</li></ul>
+            <p class="dg-small-note">Esempi: DVR specifico, cronoprogramma, planimetria, procedure operative, piano di emergenza, schede di sicurezza e permessi pertinenti.</p>
+            <label class="campo-form">Altre informazioni / osservazioni
+              <textarea name="notes" rows="3" maxlength="5000" placeholder="Dati da confermare, vincoli operativi, riferimenti ad altri documenti…"></textarea>
+            </label>
+            <label class="dg-ai-consent">
+              <input type="checkbox" name="aiDataProcessingConsent" value="yes">
+              <span><strong>Consenso al trattamento tramite provider AI (per l'attivazione futura)</strong><small>Quando la generazione cloud verrà attivata, i file potranno essere trasmessi al provider AI configurato per analisi e redazione. L'uso dell'API può comportare costi separati dall'abbonamento ChatGPT o Claude. Questa versione pilota non invia file né dati a servizi esterni.</small></span>
+            </label>
+          </section>
+
+
+          <section class="dg-panel">
+            <div class="dg-panel-heading"><span class="dg-section-number">01</span><div><h3>Incarico e committente</h3><p>Dati identificativi del documento e del luogo di lavoro.</p></div></div>
+            <div class="dg-fields-grid">
+              <label class="campo-form">Titolo esatto del DUVRI (se già noto)
+                <input name="title" type="text" maxlength="180" placeholder="Se non lo conosci ancora, l'agente lo segnalerà tra i dati da confermare">
+              </label>
+              <label class="campo-form">Data da riportare sul documento (se già confermata)
+                <input name="documentDate" type="date">
+              </label>
+              <label class="campo-form">Ragione sociale del committente (se nota)
+                <input name="clientName" type="text" maxlength="180" placeholder="Può essere ricavata dalla checklist e verificata">
+              </label>
+              <label class="campo-form">Luogo / indirizzo dell'intervento (se noto)
+                <input name="site" type="text" maxlength="240" placeholder="Sede e indirizzo, se già disponibili">
+              </label>
+              <label class="campo-form">Tipo di area *
+                <select name="siteType">
+                  <option value="unknown" selected>Da determinare dai documenti</option>
+                  <option value="internal_area">Area interna</option>
+                  <option value="construction_site_or_outdoor_area">Cantiere o area esterna</option>
+                  <option value="mixed">Area interna ed esterna</option>
+                  <option value="other">Altro / da classificare</option>
+                </select>
+              </label>
+              <label class="campo-form">Complessità preliminare
+                <select name="complexity">
+                  <option value="to_be_assessed">Da valutare sui documenti</option>
+                  <option value="simple">Semplice</option>
+                  <option value="medium">Media</option>
+                  <option value="high">Elevata</option>
+                </select>
+              </label>
+              <label class="campo-form">Data/periodo di inizio lavori
+                <input name="startDate" type="date">
+              </label>
+              <label class="campo-form">Data/periodo di fine lavori
+                <input name="endDate" type="date">
+              </label>
+            </div>
+            <label class="campo-form">Descrizione generale dell'appalto (facoltativa, se già disponibile)
+              <textarea name="workDescription" rows="4" maxlength="5000" placeholder="Può essere estratta dalla checklist; usa questo campo per integrare informazioni già note."></textarea>
+            </label>
+            <label class="campo-form">Modalità di accesso, aree, viabilità e note sul sito
+              <textarea name="accessNotes" rows="3" maxlength="4000" placeholder="Accessi, percorsi, depositi, presenza di pubblico o altre attività, aree da delimitare…"></textarea>
+            </label>
+          </section>
+
+          <section class="dg-panel">
+            <div class="dg-panel-heading"><span class="dg-section-number">02</span><div><h3>Imprese appaltatrici e preposti</h3><p>Una scheda per ogni impresa; puoi aggiungere ulteriori appaltatori o subappaltatori.</p></div></div>
+            <div id="dg-contractors" class="dg-contractors">
+              <div class="dg-contractor-card">
+                <div class="dg-contractor-card-heading"><strong class="dg-contractor-number">Impresa 1</strong><button type="button" class="dg-remove-contractor" data-dg-remove-contractor hidden>Rimuovi impresa</button></div>
+                <div class="dg-fields-grid">
+                  <label class="campo-form">Ragione sociale *
+                    <input data-field="company" type="text" maxlength="180" placeholder="Nome completo dell'impresa">
+                  </label>
+                  <label class="campo-form">Nominativo del preposto
+                    <input data-field="preposto" type="text" maxlength="180" placeholder="Da confermare se non disponibile">
+                  </label>
+                  <label class="campo-form">Mansione / area di competenza del preposto
+                    <input data-field="prepostoRole" type="text" maxlength="240" placeholder="Ruolo e ambito di sorveglianza">
+                  </label>
+                  <label class="campo-form">Attrezzature, mezzi e proprietà
+                    <textarea data-field="equipment" rows="2" maxlength="3000" placeholder="Mezzo/attrezzatura — utilizzatore — proprietario"></textarea>
+                  </label>
+                </div>
+                <label class="campo-form">Attività e fasi eseguite da questa impresa *
+                  <textarea data-field="scope" rows="3" maxlength="4000" placeholder="Descrivere attività, sequenza delle fasi e tempi; dettagli ulteriori nel cronoprogramma."></textarea>
+                </label>
+                <label class="campo-form">DPI previsti e fonte dell'informazione
+                  <textarea data-field="ppe" rows="2" maxlength="3000" placeholder="Riportare quanto dichiarato o indicato nei documenti; non inventare DPI mancanti."></textarea>
+                </label>
+              </div>
+            </div>
+            <button type="button" class="btn dg-add-contractor" id="dg-add-contractor">＋ Aggiungi impresa / subappaltatore</button>
+          </section>
+
+          <section class="dg-panel">
+            <div class="dg-panel-heading"><span class="dg-section-number">03</span><div><h3>Moduli di approfondimento</h3><p>Seleziona gli aspetti che potrebbero essere pertinenti: serviranno ad attivare domande dedicate nella versione completa.</p></div></div>
+            <div class="dg-module-grid">
+              <label class="dg-module-option"><input type="checkbox" name="modules" value="work-at-height"><span><strong>Lavori in quota</strong><small>Accessi, protezioni e aree sottostanti</small></span></label>
+              <label class="dg-module-option"><input type="checkbox" name="modules" value="confined-space"><span><strong>Spazi confinati</strong><small>Procedure, permessi, monitoraggio e recupero</small></span></label>
+              <label class="dg-module-option"><input type="checkbox" name="modules" value="electrical"><span><strong>Impianti / energia elettrica</strong><small>Isolamenti, autorizzazioni e ripristino</small></span></label>
+              <label class="dg-module-option"><input type="checkbox" name="modules" value="chemicals"><span><strong>Prodotti chimici</strong><small>Prodotti, SDS e possibile esposizione</small></span></label>
+              <label class="dg-module-option"><input type="checkbox" name="modules" value="lifting-machinery"><span><strong>Mezzi e sollevamenti</strong><small>Manovre, percorsi e zone d'esclusione</small></span></label>
+              <label class="dg-module-option"><input type="checkbox" name="modules" value="hot-work-noise-dust"><span><strong>Lavori a caldo, rumore, polveri</strong><small>Emissioni, separazioni e permessi</small></span></label>
+              <label class="dg-module-option"><input type="checkbox" name="modules" value="excavation"><span><strong>Scavi / sottoservizi</strong><small>Planimetrie, autorizzazioni e viabilità</small></span></label>
+              <label class="dg-module-option"><input type="checkbox" name="modules" value="occupied-public-areas"><span><strong>Aree occupate / pubblico</strong><small>Clienti, lavoratori e percorsi condivisi</small></span></label>
+            </div>
+          </section>
+
+          <div class="dg-form-actions">
+            <button type="button" class="btn" id="dg-reset">Azzera scheda</button>
+            <button type="submit" class="btn btn-primary">Prepara scheda dati →</button>
+          </div>
+        </form>
+
+        <section class="dg-panel dg-result-panel" id="dg-result" hidden aria-live="polite">
+          <div class="dg-result-heading"><span class="dg-result-icon" aria-hidden="true">✓</span><div><h3 id="dg-result-title">Scheda dati pronta</h3><p id="dg-result-summary"></p></div></div>
+          <div class="dg-next-step-notice"><strong>Da ricordare</strong><p>Questa esportazione contiene i dati inseriti e i nomi dei file selezionati, non i file stessi. Non è un DUVRI e non è stata inviata al cloud.</p></div>
+          <h4>Verifiche preliminari da completare</h4>
+          <ul id="dg-missing-list" class="dg-missing-list"></ul>
+          <button type="button" class="btn btn-primary" id="dg-download-json">Esporta scheda JSON</button>
+        </section>
+
+        <template id="dg-contractor-template">
+          <div class="dg-contractor-card">
+            <div class="dg-contractor-card-heading"><strong class="dg-contractor-number">Impresa</strong><button type="button" class="dg-remove-contractor" data-dg-remove-contractor>Rimuovi impresa</button></div>
+            <div class="dg-fields-grid">
+              <label class="campo-form">Ragione sociale *
+                <input data-field="company" type="text" maxlength="180" placeholder="Nome completo dell'impresa">
+              </label>
+              <label class="campo-form">Nominativo del preposto
+                <input data-field="preposto" type="text" maxlength="180" placeholder="Da confermare se non disponibile">
+              </label>
+              <label class="campo-form">Mansione / area di competenza del preposto
+                <input data-field="prepostoRole" type="text" maxlength="240" placeholder="Ruolo e ambito di sorveglianza">
+              </label>
+              <label class="campo-form">Attrezzature, mezzi e proprietà
+                <textarea data-field="equipment" rows="2" maxlength="3000" placeholder="Mezzo/attrezzatura — utilizzatore — proprietario"></textarea>
+              </label>
+            </div>
+            <label class="campo-form">Attività e fasi eseguite da questa impresa *
+              <textarea data-field="scope" rows="3" maxlength="4000" placeholder="Descrivere attività, sequenza delle fasi e tempi; dettagli ulteriori nel cronoprogramma."></textarea>
+            </label>
+            <label class="campo-form">DPI previsti e fonte dell'informazione
+              <textarea data-field="ppe" rows="2" maxlength="3000" placeholder="Riportare quanto dichiarato o indicato nei documenti; non inventare DPI mancanti."></textarea>
+            </label>
+          </div>
+        </template>
+      </section>
+
+<section id="screen-history" class="screen" data-screen="history" hidden>
         <button type="button" class="btn-back" data-nav="home">← Indietro</button>
         <h2>Storico</h2>
 
@@ -837,22 +1056,23 @@
   <script src="js/vendor/firebase-firestore-compat.js"></script>
   <script src="js/vendor/firebase-auth-compat.js"></script>
   <script src="js/firebase-config.js"></script>
-  <script src="js/auth.js?v=20261012-140126"></script>
+  <script src="js/auth.js?v=20261029-115020"></script>
   <script src="js/supabase-config.js"></script>
   <script src="js/vendor/pdf.min.js"></script>
-  <script src="js/db.js?v=20261012-140126"></script>
+  <script src="js/db.js?v=20261029-115020"></script>
   <script src="js/identity.js"></script>
-  <script src="js/checklist.js?v=20261012-140126"></script>
+  <script src="js/checklist.js?v=20261029-115020"></script>
   <script src="js/question-navigator.js"></script>
-  <script src="js/storico-filtri.js?v=20261012-140126"></script>
-  <script src="js/foto-sync.js?v=20261012-140126"></script>
+  <script src="js/storico-filtri.js?v=20261029-115020"></script>
+  <script src="js/foto-sync.js?v=20261029-115020"></script>
   <script src="js/camera.js"></script>
-  <script src="js/pdf.js?v=20261012-140126"></script>
-  <script src="js/pdf-import.js?v=20261012-140126"></script>
-  <script src="js/import-matching.js?v=20261012-140126"></script>
-  <script src="js/sync.js?v=20261012-140126"></script>
-  <script src="js/app.js?v=20261012-140126"></script>
-  <script src="js/account-screens.js?v=20261012-140126"></script>
-  <script src="js/aggiornamento.js?v=20261012-140126"></script>
+  <script src="js/pdf.js?v=20261029-115020"></script>
+  <script src="js/pdf-import.js?v=20261029-115020"></script>
+  <script src="js/import-matching.js?v=20261029-115020"></script>
+  <script src="js/sync.js?v=20261029-115020"></script>
+  <script src="js/app.js?v=20261029-115020"></script>
+  <script src="js/account-screens.js?v=20261029-115020"></script>
+  <script src="js/document-generation.js"></script>
+  <script src="js/aggiornamento.js?v=20261029-115020"></script>
 </body>
 </html>

@@ -16,6 +16,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Production live smokes are never wired into CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Lo smoke live dei permessi Ore accede a Firebase e Supabase di PRODUZIONE: vedi docs/TEST_E_CI.md.
+          # Le classi [..] impediscono che il pattern trovi questo stesso step.
+          if grep -rnE 'ore-live-permission[s]|ore-create-test-accoun[t]|ORE_SMOKE_[A-Z]+|ORE_ADMIN_TOKE[N]|tests/\*\.cj[s]' .github/workflows; then
+            echo "::error::Un workflow richiama uno smoke live di produzione o le sue credenziali"
+            exit 1
+          fi
       - name: Check core JavaScript syntax
         run: |
           for file in js/*.js service-worker.js; do
