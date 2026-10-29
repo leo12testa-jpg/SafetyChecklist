@@ -521,17 +521,28 @@ async function processOne(job: Job) {
   }
   if (job.phase === 'draft') {
     const payload = isJsonRecord(job.input_payload) ? job.input_payload : {};
-    const templatePath = String(payload.templateObjectPath || Deno.env.get('DUVRI_TEMPLATE_OBJECT_PATH') || '').trim();
-    const templateVersion = payload.templateVersion || Deno.env.get('DUVRI_TEMPLATE_VERSION') || null;
+    const configuredTemplatePath = String(Deno.env.get('DUVRI_TEMPLATE_OBJECT_PATH') || '').trim();
+    const configuredTemplateVersion = String(Deno.env.get('DUVRI_TEMPLATE_VERSION') || '').trim();
+    const payloadTemplatePath = String(payload.templateObjectPath || '').trim();
+    const payloadTemplateVersion = String(payload.templateVersion || '').trim();
+    const templatePath = configuredTemplatePath;
+    const templateVersion = configuredTemplateVersion;
     const riskRuleApproved = Deno.env.get('DUVRI_RISK_RULE_APPROVED') === 'true';
     const approvedRiskRule = (Deno.env.get('DUVRI_RISK_RULE_DESCRIPTION') || '').trim();
+    const riskRuleApprovalId = String(Deno.env.get('DUVRI_RISK_RULE_APPROVAL_ID') || '').trim();
+    const riskRuleVersion = String(Deno.env.get('DUVRI_RISK_RULE_VERSION') || '').trim();
     const docxEngineEnabled = Deno.env.get('DUVRI_DOCX_ENGINE_ENABLED') === 'true';
-    if (!templatePath) {
-      await awaitConfiguration(job, 'Analisi completata. Caricare e versionare il modello Word ufficiale in Storage privato prima di generare la bozza.');
+    if (!templatePath || !templateVersion) {
+      await awaitConfiguration(job, 'Analisi completata. Configurare il percorso e la versione esatta del modello Word controllato prima di generare la bozza.');
       return { id: job.id, state: 'awaiting_configuration' };
     }
-    if (!riskRuleApproved || !approvedRiskRule) {
-      await awaitConfiguration(job, 'Analisi completata. La regola ufficiale degli indici di rischio deve essere approvata e descritta nei segreti del backend prima di compilare la matrice.');
+    if ((payloadTemplatePath && payloadTemplatePath !== templatePath) ||
+        (payloadTemplateVersion && payloadTemplateVersion !== templateVersion)) {
+      await awaitConfiguration(job, 'La configurazione del tipo documento non coincide con il template Word approvato. Allineare percorso e versione prima di generare la bozza.');
+      return { id: job.id, state: 'awaiting_configuration' };
+    }
+    if (!riskRuleApproved || !approvedRiskRule || !riskRuleApprovalId || !riskRuleVersion) {
+      await awaitConfiguration(job, 'La regola ufficiale degli indici di rischio richiede approvazione, descrizione, riferimento identificativo e versione nei segreti del backend.');
       return { id: job.id, state: 'awaiting_configuration' };
     }
     if (!docxEngineEnabled) {
@@ -551,6 +562,8 @@ async function processOne(job: Job) {
     }
     await recordEvent(job.id, 'draft', 'started', 'Il redattore prepara una bozza strutturata a partire dalle fonti e dal modello controllato.', 'docx-writer', {
       template_version: templateVersion,
+      risk_rule_approval_id: riskRuleApprovalId,
+      risk_rule_version: riskRuleVersion,
       model: agentConfig('draft').model
     });
     const metadata = isJsonRecord(job.input_payload.fields) ? job.input_payload.fields : {};
@@ -582,6 +595,8 @@ async function processOne(job: Job) {
       draft_metadata: {
         templatePath,
         templateVersion,
+        riskRuleApprovalId,
+        riskRuleVersion,
         createdAt: new Date().toISOString(),
         model: agentConfig('draft').model
       }
@@ -600,12 +615,28 @@ async function processOne(job: Job) {
     const payload = isJsonRecord(job.input_payload) ? job.input_payload : {};
     const savedOutputs = isJsonRecord(job.agent_outputs) ? job.agent_outputs : {};
     const savedMeta = isJsonRecord(savedOutputs.draft_metadata) ? savedOutputs.draft_metadata : {};
-    const templatePath = String(savedMeta.templatePath || payload.templateObjectPath || Deno.env.get('DUVRI_TEMPLATE_OBJECT_PATH') || '').trim();
-    const templateVersion = savedMeta.templateVersion || payload.templateVersion || Deno.env.get('DUVRI_TEMPLATE_VERSION') || null;
+    const configuredTemplatePath = String(Deno.env.get('DUVRI_TEMPLATE_OBJECT_PATH') || '').trim();
+    const configuredTemplateVersion = String(Deno.env.get('DUVRI_TEMPLATE_VERSION') || '').trim();
+    const configuredRiskRuleApprovalId = String(Deno.env.get('DUVRI_RISK_RULE_APPROVAL_ID') || '').trim();
+    const configuredRiskRuleVersion = String(Deno.env.get('DUVRI_RISK_RULE_VERSION') || '').trim();
+    const templatePath = configuredTemplatePath;
+    const templateVersion = configuredTemplateVersion;
     const riskRuleApproved = Deno.env.get('DUVRI_RISK_RULE_APPROVED') === 'true';
     const approvedRiskRule = (Deno.env.get('DUVRI_RISK_RULE_DESCRIPTION') || '').trim();
-    if (!templatePath || !riskRuleApproved || !approvedRiskRule || Deno.env.get('DUVRI_DOCX_ENGINE_ENABLED') !== 'true') {
-      await awaitConfiguration(job, 'Il checkpoint di redazione è salvato. La generazione Word resta in attesa del template, della regola di rischio approvata e dell’abilitazione del compilatore.');
+    if (!templatePath || !templateVersion || !configuredRiskRuleApprovalId || !configuredRiskRuleVersion ||
+        !riskRuleApproved || !approvedRiskRule || Deno.env.get('DUVRI_DOCX_ENGINE_ENABLED') !== 'true') {
+      await awaitConfiguration(job, 'Il checkpoint è salvato. Per generare il DOCX servono template/versione, regola di rischio approvata con riferimento/versione e compilatore abilitato.');
+      return { id: job.id, state: 'awaiting_configuration' };
+    }
+    const payloadTemplatePath = String(payload.templateObjectPath || '').trim();
+    const payloadTemplateVersion = String(payload.templateVersion || '').trim();
+    if ((payloadTemplatePath && payloadTemplatePath !== templatePath) ||
+        (payloadTemplateVersion && payloadTemplateVersion !== templateVersion) ||
+        savedMeta.templatePath !== templatePath ||
+        savedMeta.templateVersion !== templateVersion ||
+        savedMeta.riskRuleApprovalId !== configuredRiskRuleApprovalId ||
+        savedMeta.riskRuleVersion !== configuredRiskRuleVersion) {
+      await awaitConfiguration(job, 'La configurazione di template o regola di rischio è cambiata rispetto alla bozza. Ripetere la redazione con le versioni approvate correnti.');
       return { id: job.id, state: 'awaiting_configuration' };
     }
     if (!isJsonRecord(savedOutputs.draft)) {
@@ -657,6 +688,8 @@ async function processOne(job: Job) {
       contentQA: qaReport,
       templatePath,
       templateVersion,
+      riskRuleApprovalId: configuredRiskRuleApprovalId,
+      riskRuleVersion: configuredRiskRuleVersion,
       humanReviewRequired: true,
       generatedAt: new Date().toISOString()
     };

@@ -108,6 +108,12 @@ test('fasi persistenti, gate DOCX/regola di rischio e revisione umana obbligator
   assert.match(worker, /DUVRI_DOCX_ENGINE_ENABLED/);
   assert.match(worker, /DUVRI_RISK_RULE_APPROVED/);
   assert.match(worker, /DUVRI_RISK_RULE_DESCRIPTION/);
+  assert.match(worker, /DUVRI_RISK_RULE_APPROVAL_ID/);
+  assert.match(worker, /DUVRI_RISK_RULE_VERSION/);
+  assert.match(worker, /configuredTemplateVersion = String\(Deno\.env\.get\('DUVRI_TEMPLATE_VERSION'\)/);
+  assert.match(worker, /savedMeta\.riskRuleApprovalId !== configuredRiskRuleApprovalId/);
+  assert.match(worker, /savedMeta\.riskRuleVersion !== configuredRiskRuleVersion/);
+  assert.match(worker, /payloadTemplateVersion && payloadTemplateVersion !== templateVersion/);
   assert.match(worker, /populateDuvriTemplate\(templateBytes, draft\)/);
   assert.match(worker, /status: 'needs_review'/);
   assert.match(gateway, /awaiting_configuration/);
