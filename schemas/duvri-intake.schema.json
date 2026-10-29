@@ -1,0 +1,574 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://colligo.example/schemas/duvri-intake.schema.json",
+  "title": "Colligo DUVRI Intake",
+  "description": "Prototype intake schema for one DUVRI job. This is a specification; not yet wired into the SafetyChecklist application.",
+  "type": "object",
+  "required": [
+    "job",
+    "client",
+    "site",
+    "contractors",
+    "activity",
+    "documents",
+    "review"
+  ],
+  "properties": {
+    "job": {
+      "type": "object",
+      "required": [
+        "title",
+        "document_date_status"
+      ],
+      "properties": {
+        "job_id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string"
+        },
+        "document_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "document_date_status": {
+          "enum": [
+            "confirmed",
+            "missing",
+            "requires_confirmation"
+          ]
+        },
+        "complexity": {
+          "enum": [
+            "simple",
+            "medium",
+            "high",
+            "to_be_assessed"
+          ]
+        },
+        "status": {
+          "enum": [
+            "intake",
+            "awaiting_documents",
+            "ready_for_draft",
+            "drafting",
+            "needs_review",
+            "approved",
+            "error"
+          ]
+        }
+      }
+    },
+    "client": {
+      "$ref": "#/$defs/company"
+    },
+    "site": {
+      "type": "object",
+      "required": [
+        "context",
+        "address_status"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "address": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "address_status": {
+          "enum": [
+            "confirmed",
+            "missing",
+            "requires_confirmation"
+          ]
+        },
+        "context": {
+          "enum": [
+            "internal_area",
+            "construction_site_or_outdoor_area",
+            "mixed",
+            "other",
+            "unknown"
+          ]
+        },
+        "area_description": {
+          "type": "string"
+        },
+        "access_methods": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "public_or_other_workers_present": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "emergency_plan_status": {
+          "enum": [
+            "received",
+            "to_acquire",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "site_plan_status": {
+          "enum": [
+            "received",
+            "to_acquire",
+            "not_applicable",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "contractors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "company",
+          "role",
+          "activities"
+        ],
+        "properties": {
+          "company": {
+            "$ref": "#/$defs/company"
+          },
+          "role": {
+            "enum": [
+              "contractor",
+              "subcontractor",
+              "other_employer"
+            ]
+          },
+          "parent_contractor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scope": {
+            "type": "string"
+          },
+          "preposto": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "role_or_area": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "confirmed",
+                  "missing",
+                  "requires_confirmation"
+                ]
+              }
+            }
+          },
+          "personnel": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "activities": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "description"
+              ],
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "phase_order": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1
+                },
+                "start_datetime": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "end_datetime": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "duration": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "work_area": {
+                  "type": "string"
+                },
+                "concurrent_with": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "overlap_or_interface": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "equipment": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "description"
+              ],
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "owner_company": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "user_company": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "intended_use": {
+                  "type": "string"
+                },
+                "work_area": {
+                  "type": "string"
+                },
+                "documents_status": {
+                  "enum": [
+                    "received",
+                    "to_acquire",
+                    "not_applicable",
+                    "unknown"
+                  ]
+                }
+              }
+            }
+          },
+          "ppe": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "item": {
+                  "type": "string"
+                },
+                "source_or_reason": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "confirmed",
+                    "extracted_unconfirmed",
+                    "missing",
+                    "requires_professional_review"
+                  ]
+                }
+              }
+            }
+          },
+          "conditional_modules": {
+            "type": "object",
+            "properties": {
+              "work_at_height": {
+                "type": "boolean"
+              },
+              "confined_or_potentially_polluted_space": {
+                "type": "boolean"
+              },
+              "electrical_or_energy_sources": {
+                "type": "boolean"
+              },
+              "chemicals": {
+                "type": "boolean"
+              },
+              "vehicles_lifting_or_machinery": {
+                "type": "boolean"
+              },
+              "hot_work_dust_fumes_noise_vibration": {
+                "type": "boolean"
+              },
+              "public_or_occupied_premises": {
+                "type": "boolean"
+              },
+              "excavation_or_underground_services": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "title",
+          "status"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "filename": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issuing_party": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "document_date_or_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "received",
+              "to_acquire",
+              "not_applicable",
+              "unknown"
+            ]
+          },
+          "relevant_sections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "extracted_facts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "claim": {
+                  "type": "string"
+                },
+                "source_page_or_section": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "confidence": {
+                  "enum": [
+                    "high",
+                    "medium",
+                    "low"
+                  ]
+                },
+                "confirmation_status": {
+                  "enum": [
+                    "confirmed",
+                    "extracted_unconfirmed",
+                    "conflicting",
+                    "requires_professional_review"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "interferences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "parties_or_activities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "location": {
+            "type": "string"
+          },
+          "time_or_phase": {
+            "type": "string"
+          },
+          "scenario": {
+            "type": "string"
+          },
+          "proposed_measure": {
+            "type": "string"
+          },
+          "evidence_source": {
+            "type": "string"
+          },
+          "review_status": {
+            "enum": [
+              "proposed",
+              "requires_professional_review",
+              "approved",
+              "rejected"
+            ]
+          }
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "required": [
+        "human_review_required"
+      ],
+      "properties": {
+        "human_review_required": {
+          "const": true
+        },
+        "missing_information": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "normative_references_to_check": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "risk_method_approved": {
+          "type": "boolean"
+        },
+        "reviewer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "review_status": {
+          "enum": [
+            "not_started",
+            "in_review",
+            "changes_requested",
+            "approved",
+            "rejected"
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "company": {
+      "type": "object",
+      "required": [
+        "legal_name"
+      ],
+      "properties": {
+        "legal_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vat_or_tax_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "registered_address": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "operational_address": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "contact_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "contact_email": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "contact_phone": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "activity_description": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

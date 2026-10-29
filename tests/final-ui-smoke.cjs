@@ -118,7 +118,8 @@ async function bodyFits(page) {
     assert.equal(await page.locator('.dashboard-mini-card:visible').count(), 4);
     assert.equal(await page.locator('.dashboard-recent-panel').isVisible(), true);
     assert.equal(await page.locator('#dashboard-resume-panel').count(), 1);
-    assert.equal(await page.locator('.dashboard-action-card:visible').count(), 3);
+    assert.equal(await page.locator('.dashboard-action-card:visible').count(), 4);
+    assert.equal(await page.locator('.dashboard-action-card[data-nav="document-generation"]:visible').count(), 1);
     assert.equal(await page.locator('.dashboard-action-card[data-modalita="dvr"]:visible').count(), 1);
     assert.equal(await page.locator('#dashboard-install-card').isVisible(), false);
     await page.evaluate(() => {
@@ -162,7 +163,7 @@ async function bodyFits(page) {
     assert.equal(await page.locator('[data-nav="admin-users"].side-nav-item').isVisible(), true);
     assert.equal(await page.locator('[data-nav="settings"].side-nav-item').isVisible(), true);
     assert.equal(await page.locator('[data-nav="my-work"].side-nav-item').isVisible(), true);
-    assert.equal(await page.locator('.dashboard-action-card:visible').count(), 6);
+    assert.equal(await page.locator('.dashboard-action-card:visible').count(), 7);
     assert.equal(await page.locator('.dashboard-action-card[data-modalita="dvr"]:visible').count(), 1);
     assert.equal(await page.locator('#admin-user-search').count(), 1);
     assert.equal(await page.locator('#storico-ordinamento').count(), 1);
@@ -199,7 +200,7 @@ async function bodyFits(page) {
     assert.equal(await mobile.locator('.dashboard-mini-card:visible').count(), 4);
     assert.equal(await mobile.locator('.dashboard-recent-panel').isVisible(), true);
     assert.equal(await mobile.locator('#dashboard-resume-panel').count(), 1);
-    assert.equal(await mobile.locator('.dashboard-action-card:visible').count(), 3);
+    assert.equal(await mobile.locator('.dashboard-action-card:visible').count(), 4);
     assert.equal(await mobile.locator('.dashboard-action-card[data-modalita="dvr"]:visible').count(), 1);
     assert.equal(await mobile.locator('#dashboard-install-card').count(), 1);
     const gridCols = await mobile.locator('.dashboard-mini-grid').evaluate(el => getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
