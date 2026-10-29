@@ -456,8 +456,40 @@
         <div class="dg-page-heading">
           <span class="eyebrow">PRODUZIONE DOCUMENTALE</span>
           <h2>Generazione documenti</h2>
-          <p>Questionario da compilare prima dei lavori da parte del committente e delle imprese appaltatrici. Raccoglie informazioni operative, preposti, possibili interferenze e documenti utili alla preparazione del DUVRI.</p>
+          <p>Carica tutti i file ricevuti dal committente: l’app li classifica, ne estrae i dati con la fonte e segnala soltanto anomalie, conflitti e dati indispensabili mancanti. Il questionario più sotto resta disponibile per integrare ciò che manca.</p>
         </div>
+
+        <section class="dg-panel dg-auto-panel" aria-labelledby="dg-auto-title">
+          <div class="dg-panel-heading"><span class="dg-section-number">↥</span><div><h3 id="dg-auto-title">Caricamento automatico dei file del committente</h3><p>Seleziona insieme tutti i file: PDF, Word (.docx), Excel (.xlsx), testo e immagini. Ogni dato estratto riporta file e posizione di origine. L’elaborazione avviene solo nel browser: nessun file viene inviato in rete o a servizi AI.</p></div></div>
+          <label class="campo-form">Tipo di documento
+            <select id="dg-auto-type">
+              <option value="duvri" selected>DUVRI</option>
+              <option value="informativa-coin">Informativa COIN — solo raccolta, modello da verificare</option>
+            </select>
+          </label>
+          <label class="dg-upload-zone" for="dg-auto-files"><span class="dg-upload-icon" aria-hidden="true">↥</span><strong>Carica tutti i file ricevuti</strong><small>Selezione multipla, senza scegliere categorie. Puoi aggiungere altri file in seguito.</small><input id="dg-auto-files" type="file" multiple></label>
+          <p id="dg-auto-status" class="dg-small-note" aria-live="polite">Nessun file caricato.</p>
+          <div id="dg-auto-results" class="dg-auto-results" hidden>
+            <h4>Segnalazioni</h4>
+            <ul id="dg-auto-issues" class="dg-auto-list"></ul>
+            <h4>Dati estratti — da confermare sulle fonti</h4>
+            <ul id="dg-auto-fields" class="dg-auto-list"></ul>
+            <h4>File e classificazione automatica</h4>
+            <ul id="dg-auto-files-list" class="dg-auto-list"></ul>
+            <div class="dg-form-actions">
+              <button type="button" class="btn btn-primary" id="dg-auto-download">Scarica pacchetto di acquisizione (ZIP)</button>
+              <button type="button" class="btn" id="dg-auto-clear">Svuota elenco</button>
+            </div>
+          </div>
+          <div class="dg-auto-template">
+            <h4>Bozza Word dal modello ufficiale Colligo</h4>
+            <p class="dg-small-note">Carica la copia controllata del modello (per il DUVRI: DUVRI_BASE_GENERALE_2026.docx). L’app ne verifica impronta e struttura senza modificarlo. Ogni bozza resta da revisionare da parte di un tecnico Colligo prima dell’uso ufficiale.</p>
+            <label class="dg-upload-zone" for="dg-template-file"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Modello ufficiale (.docx)</strong><small>Il file resta sul dispositivo.</small><input id="dg-template-file" type="file" accept=".docx"></label>
+            <p id="dg-template-status" class="dg-small-note" aria-live="polite">Modello non caricato.</p>
+            <p class="dg-auto-gate"><strong>Generazione bozza: <span id="dg-generate-state">bloccata</span></strong></p>
+            <ul id="dg-generate-reasons" class="dg-auto-list"></ul>
+          </div>
+        </section>
 
         <div class="dg-prototype-alert" role="status">
           <strong>Questionario cliente — versione locale</strong>
@@ -1268,6 +1300,8 @@
   <script src="js/app.js?v=20261029-141251"></script>
   <script src="js/account-screens.js?v=20261029-141251"></script>
   <script src="js/document-generation.js"></script>
+  <script src="js/document-intake.js"></script>
+  <script src="js/document-intake-ui.js"></script>
   <script src="js/aggiornamento.js?v=20261029-141251"></script>
 </body>
 </html>
