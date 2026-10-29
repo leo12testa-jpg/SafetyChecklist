@@ -8,9 +8,9 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/icon-512.png">
-  <link rel="stylesheet" href="css/style.css?v=20261012-140126">
+  <link rel="stylesheet" href="css/style.css?v=20261029-115020">
 </head>
-<body data-auth-ready="false" data-authenticated="false" data-build="20261012-140126">
+<body data-auth-ready="false" data-authenticated="false" data-build="20261029-115020">
   <div id="app">
     <header class="app-header">
       <div class="header-brand">
@@ -467,6 +467,32 @@
           <div class="dg-workflow-step"><span>3</span><div><strong>Bozza Word</strong><small>Revisione obbligatoria</small></div></div>
         </div>
 
+        <section class="dg-panel dg-queue-panel" aria-labelledby="dg-practices-title">
+          <div class="dg-panel-heading"><span class="dg-section-number">DUVRI</span><div><h3 id="dg-practices-title">Pratiche ed elaborazioni</h3><p>Le pratiche persistenti compariranno qui quando il backend sarà attivo. L'esempio sotto è statico e non rappresenta un lavoro elaborato.</p></div></div>
+          <div id="dg-org-usage-summary" class="dg-usage-summary dg-org-usage-summary" hidden aria-live="polite"></div>
+          <div id="dg-cloud-status" class="dg-cloud-status" role="status" aria-live="polite">Backend cloud non attivo: le schede vengono preparate soltanto in locale.</div>
+          <div class="dg-queue-toolbar">
+            <button type="button" class="btn" id="dg-refresh-jobs">Aggiorna elaborazioni</button>
+            <a class="btn btn-primary" href="#dg-form">Avvia nuova pratica</a>
+          </div>
+          <div id="dg-queue-list" class="dg-queue-list">
+            <div class="dg-queue-empty"><span aria-hidden="true">☷</span><strong>Nessuna pratica persistente disponibile</strong><p>Il backend non è attivo. I dati inseriti restano locali e non generano un DUVRI.</p></div>
+          </div>
+          <article class="dg-demo-case" aria-labelledby="dg-demo-title">
+            <div class="dg-demo-case-heading"><div><span class="dg-demo-badge">ESEMPIO SINTETICO · NON ELABORATO</span><h4 id="dg-demo-title">Anteprima del percorso di una pratica DUVRI</h4></div></div>
+            <p class="dg-demo-disclaimer">I valori seguenti sono segnaposto dimostrativi, non sono stati estratti da file e non descrivono un lavoro reale.</p>
+            <details class="dg-demo-details">
+              <summary>Mostra informazioni, lacune e fasi di revisione dimostrative</summary>
+              <div class="dg-demo-grid">
+                <section><h5>Stato e informazioni</h5><p><strong>Intake:</strong> esempio non avviato</p><ul><li>Committente: [dato dimostrativo]</li><li>Impresa: [dato dimostrativo]</li><li>Attività: [dato dimostrativo]</li><li>Fonte: checklist_demo.pdf (nome fittizio)</li></ul></section>
+                <section><h5>Dati da integrare</h5><ul><li>Cronoprogramma: non fornito nell'esempio</li><li>Planimetria: non fornita nell'esempio</li><li>Preposto: da verificare</li></ul></section>
+                <section><h5>Incongruenze di esempio</h5><p>Date di fine diverse tra checklist e allegato: conflitto dimostrativo, nessun valore selezionato.</p></section>
+                <section><h5>Word, controlli e revisione tecnica</h5><ul><li>Generazione Word: non eseguita</li><li>Controllo qualità: non eseguito</li><li>Revisione tecnica: non avviata</li></ul><div class="dg-demo-actions"><button type="button" class="btn" disabled>Generazione Word non disponibile</button><button type="button" class="btn" disabled>Revisione non disponibile</button></div></section>
+              </div>
+            </details>
+          </article>
+        </section>
+
         <section class="dg-panel dg-agents-panel" aria-labelledby="dg-agents-title">
           <div class="dg-panel-heading"><span class="dg-section-number">AI</span><div><h3 id="dg-agents-title">Agenti documentali</h3><p>Questa è la catena di lavoro prevista. Gli agenti non sono ancora collegati a un worker cloud in questo prototipo.</p></div></div>
           <div class="dg-agent-grid">
@@ -611,18 +637,6 @@
           <h4>Verifiche preliminari da completare</h4>
           <ul id="dg-missing-list" class="dg-missing-list"></ul>
           <button type="button" class="btn btn-primary" id="dg-download-json">Esporta scheda JSON</button>
-        </section>
-
-        <section class="dg-panel dg-queue-panel">
-          <div class="dg-panel-heading"><span class="dg-section-number">↗</span><div><h3>Elaborazioni documentali</h3><p>Riapri questa schermata da PC o telefono per consultare lo stato dei lavori salvati nel cloud.</p></div></div>
-          <div id="dg-org-usage-summary" class="dg-usage-summary dg-org-usage-summary" hidden aria-live="polite"></div>
-          <div id="dg-cloud-status" class="dg-cloud-status" role="status" aria-live="polite">Backend cloud non attivo: le schede vengono preparate soltanto in locale.</div>
-          <div class="dg-queue-toolbar">
-            <button type="button" class="btn" id="dg-refresh-jobs">Aggiorna elaborazioni</button>
-          </div>
-          <div id="dg-queue-list" class="dg-queue-list">
-            <div class="dg-queue-empty"><span aria-hidden="true">☷</span><strong>Nessun collegamento cloud attivo</strong><p>Quando backend e worker saranno configurati, qui compariranno i lavori, gli agenti, le bozze e le azioni di revisione.</p></div>
-          </div>
         </section>
 
         <template id="dg-contractor-template">
@@ -1042,23 +1056,23 @@
   <script src="js/vendor/firebase-firestore-compat.js"></script>
   <script src="js/vendor/firebase-auth-compat.js"></script>
   <script src="js/firebase-config.js"></script>
-  <script src="js/auth.js?v=20261012-140126"></script>
+  <script src="js/auth.js?v=20261029-115020"></script>
   <script src="js/supabase-config.js"></script>
   <script src="js/vendor/pdf.min.js"></script>
-  <script src="js/db.js?v=20261012-140126"></script>
+  <script src="js/db.js?v=20261029-115020"></script>
   <script src="js/identity.js"></script>
-  <script src="js/checklist.js?v=20261012-140126"></script>
+  <script src="js/checklist.js?v=20261029-115020"></script>
   <script src="js/question-navigator.js"></script>
-  <script src="js/storico-filtri.js?v=20261012-140126"></script>
-  <script src="js/foto-sync.js?v=20261012-140126"></script>
+  <script src="js/storico-filtri.js?v=20261029-115020"></script>
+  <script src="js/foto-sync.js?v=20261029-115020"></script>
   <script src="js/camera.js"></script>
-  <script src="js/pdf.js?v=20261012-140126"></script>
-  <script src="js/pdf-import.js?v=20261012-140126"></script>
-  <script src="js/import-matching.js?v=20261012-140126"></script>
-  <script src="js/sync.js?v=20261012-140126"></script>
-  <script src="js/app.js?v=20261012-140126"></script>
-  <script src="js/account-screens.js?v=20261012-140126"></script>
+  <script src="js/pdf.js?v=20261029-115020"></script>
+  <script src="js/pdf-import.js?v=20261029-115020"></script>
+  <script src="js/import-matching.js?v=20261029-115020"></script>
+  <script src="js/sync.js?v=20261029-115020"></script>
+  <script src="js/app.js?v=20261029-115020"></script>
+  <script src="js/account-screens.js?v=20261029-115020"></script>
   <script src="js/document-generation.js"></script>
-  <script src="js/aggiornamento.js?v=20261012-140126"></script>
+  <script src="js/aggiornamento.js?v=20261029-115020"></script>
 </body>
 </html>

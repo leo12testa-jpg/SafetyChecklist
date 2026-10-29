@@ -2788,6 +2788,19 @@ textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:
 /* Coda documentale persistente e revisione lavori cloud */
 .dg-cloud-status { margin:8px 0 14px; padding:11px 13px; border-radius:8px; background:#f2f4f7; border:1px solid #dbe1e8; color:#495566; font-size:.87rem; line-height:1.5; overflow-wrap:anywhere; }
 .dg-queue-toolbar { display:flex; justify-content:flex-end; margin-bottom:12px; }
+.dg-demo-case { margin-top:16px; padding:16px; border:1px dashed #9aabc0; border-radius:10px; background:#f8fafc; }
+.dg-demo-case-heading h4 { margin:8px 0 0; color:var(--color-primary); }
+.dg-demo-badge { display:inline-flex; border-radius:999px; padding:5px 9px; background:#fff0c2; color:#684900; font-size:.68rem; font-weight:850; letter-spacing:.04em; }
+.dg-demo-disclaimer { color:var(--color-text-muted); font-size:.84rem; line-height:1.5; }
+.dg-demo-details summary { cursor:pointer; color:var(--color-primary); font-weight:750; padding:8px 0; }
+.dg-demo-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:10px; }
+.dg-demo-grid section { min-width:0; padding:13px; border:1px solid #dbe3ec; border-radius:9px; background:#fff; }
+.dg-demo-grid h5 { margin:0 0 8px; color:var(--color-primary); font-size:.88rem; }
+.dg-demo-grid p,.dg-demo-grid ul { margin:6px 0 0; color:var(--color-text-muted); font-size:.82rem; line-height:1.5; overflow-wrap:anywhere; }
+.dg-demo-grid ul { padding-left:19px; }
+.dg-demo-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.dg-demo-actions .btn { width:auto; }
+.dg-demo-actions .btn:disabled { opacity:.62; cursor:not-allowed; }
 .dg-queue-list { display:grid; gap:12px; }
 .dg-job-card { padding:15px; border:1px solid #d7e0ea; border-radius:10px; background:#fbfcfe; min-width:0; }
 .dg-job-card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
@@ -2811,6 +2824,9 @@ textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:
 .dg-review-buttons { display:flex; flex-wrap:wrap; gap:8px; }
 .dg-review-buttons .btn { width:auto; }
 @media (max-width: 520px) {
+  .dg-demo-grid { grid-template-columns:1fr; }
+  .dg-queue-toolbar { flex-wrap:wrap; justify-content:stretch; }
+  .dg-queue-toolbar .btn, .dg-queue-toolbar a.btn { flex:1 1 100%; text-align:center; }
   .dg-job-card-top { flex-direction:column; align-items:flex-start; }
   .dg-queue-toolbar .btn { width:100%; }
   .dg-review-buttons .btn { flex:1 1 100%; }

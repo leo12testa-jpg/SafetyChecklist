@@ -392,6 +392,20 @@ test('la schermata è raggiungibile dal menu e contiene gli elementi usati dal c
   assert.equal(checklist.required, true, 'la checklist compilata deve essere obbligatoria');
   assert.equal(checklist.type, 'file');
   assert.equal(env.$('dg-files').hasAttribute('multiple'), true);
+  assert.match(checklist.getAttribute('accept'), /\.pdf/);
+  assert.match(env.$('dg-files').getAttribute('accept'), /\.pdf/);
+  assert.match(env.$('dg-files').getAttribute('accept'), /\.png/);
+  assert.match(env.$('dg-files').getAttribute('accept'), /\.jpe?g/);
+  assert.equal(env.$('dg-queue-list').parentNode.classList.contains('dg-queue-panel'), true);
+  assert.equal(env.$('dg-practices-title').textContent, 'Pratiche ed elaborazioni');
+  assert.equal(env.screen.querySelector('a[href="#dg-form"]').textContent, 'Avvia nuova pratica');
+  const demo = env.screen.querySelector('.dg-demo-case');
+  assert.match(demo.textContent, /ESEMPIO SINTETICO/);
+  assert.match(demo.textContent, /non sono stati estratti da file/);
+  for (const stage of ['Dati da integrare', 'Incongruenze di esempio', 'Generazione Word: non eseguita', 'Controllo qualità: non eseguito', 'Revisione tecnica: non avviata']) {
+    assert.ok(demo.textContent.includes(stage), 'stato dimostrativo assente: ' + stage);
+  }
+  assert.ok(demo.querySelectorAll('button[disabled]').length >= 2, 'azioni dimostrative non devono avviare generazione/revisione');
   const agents = env.screen.querySelectorAll('[data-agent]').map((el) => el.dataset.agent);
   assert.deepEqual(agents, ['coordinator', 'document-reader', 'duvri-analyst', 'docx-writer', 'quality-check']);
   const consent = env.form.querySelector('[name="aiDataProcessingConsent"]');
