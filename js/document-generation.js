@@ -11,12 +11,14 @@
   const checklistInput = document.getElementById('dg-checklist-file');
   const checklistFileStatus = document.getElementById('dg-checklist-file-status');
   const filesInput = document.getElementById('dg-files');
+  const attachmentInputs = Array.from(screen.querySelectorAll('[data-dg-attachment-category]'));
   const filesList = document.getElementById('dg-files-list');
   const resultPanel = document.getElementById('dg-result');
   const resultTitle = document.getElementById('dg-result-title');
   const resultSummary = document.getElementById('dg-result-summary');
   const missingList = document.getElementById('dg-missing-list');
   const downloadButton = document.getElementById('dg-download-json');
+  const downloadPackageButton = document.getElementById('dg-download-package');
   const resetButton = document.getElementById('dg-reset');
   const submitButton = form.querySelector('button[type="submit"]');
   const cloudStatus = document.getElementById('dg-cloud-status');
@@ -361,7 +363,7 @@
   function renderPreparedRecord(record, missing, mode = 'local') {
     resultTitle.textContent = mode === 'cloud' ? 'Lavoro documentale accodato' : 'Scheda dati pronta per il test';
     const selectedType = form.elements.documentType.selectedOptions[0]?.textContent || 'Documento';
-    resultSummary.textContent = selectedType + ' · ' + (record.sourceChecklist ? record.sourceChecklist.name : 'Checklist non selezionata') + ' · ' +
+    resultSummary.textContent = selectedType + ' · ' + (record.sourceChecklist ? record.sourceChecklist.name : 'Questionario compilato in questa pagina') + ' · ' +
       record.contractors.length + (record.contractors.length === 1 ? ' scheda impresa' : ' schede impresa') + ' · ' +
       record.documents.length + (record.documents.length === 1 ? ' allegato di supporto' : ' allegati di supporto') +
       ' · ' + missing.length + (missing.length === 1 ? ' verifica da completare' : ' verifiche da completare');
@@ -414,38 +416,73 @@
   checklistInput.addEventListener('change', () => {
     const file = checklistInput.files && checklistInput.files[0];
     checklistFileStatus.textContent = file
-      ? 'Checklist selezionata: ' + file.name + ' · ' + (file.size < 1024 * 1024 ? Math.max(1, Math.round(file.size / 1024)) + ' KB' : (file.size / (1024 * 1024)).toFixed(1) + ' MB') + '. In questa versione resta sul dispositivo.'
-      : 'Checklist non selezionata: scegli il file compilato per continuare.';
+      ? 'File aggiunto come fonte: ' + file.name + ' · ' + (file.size < 1024 * 1024 ? Math.max(1, Math.round(file.size / 1024)) + ' KB' : (file.size / (1024 * 1024)).toFixed(1) + ' MB') + '. Sarà incluso nel pacchetto ZIP.'
+      : 'Nessun file preesistente selezionato: puoi compilare tutto da zero.';
     checklistFileStatus.classList.toggle('is-selected', !!file);
+    invalidatePreparedRecord();
   });
 
-  filesInput.addEventListener('change', () => {
+  const ATTACHMENT_CATEGORY_LABELS = {
+    'documenti-tecnici': 'Documenti dell’incarico e della sicurezza',
+    'cronoprogrammi': 'Cronoprogramma e programma lavori',
+    'planimetrie-layout': 'Planimetrie, layout e disegni',
+    'mezzi-attrezzature': 'Documenti mezzi e attrezzature',
+    'foto-sito': 'Foto del luogo di lavoro',
+    'altri-allegati': 'Altri allegati'
+  };
+
+  function readSelectedAttachments() {
+    return attachmentInputs.flatMap((input) =>
+      Array.from(input.files || []).map((file) => ({
+        file,
+        category: input.dataset.dgAttachmentCategory || 'altri-allegati'
+      }))
+    );
+  }
+
+  function renderSelectedAttachments() {
     filesList.replaceChildren();
-    const files = Array.from(filesInput.files || []);
-    if (!files.length) {
+    const selected = readSelectedAttachments();
+    if (!selected.length) {
       const empty = document.createElement('li');
-      empty.textContent = 'Nessun documento selezionato.';
+      empty.textContent = 'Nessun allegato selezionato.';
       filesList.appendChild(empty);
+      invalidatePreparedRecord();
       return;
     }
-    files.forEach((file) => {
+    selected.forEach(({ file, category }) => {
       const item = document.createElement('li');
       const size = file.size < 1024 * 1024
         ? Math.max(1, Math.round(file.size / 1024)) + ' KB'
         : (file.size / (1024 * 1024)).toFixed(1) + ' MB';
-      item.textContent = file.name + ' · ' + size;
+      item.textContent = (ATTACHMENT_CATEGORY_LABELS[category] || category) + ': ' + file.name + ' · ' + size;
       filesList.appendChild(item);
     });
-  });
+    invalidatePreparedRecord();
+  }
+
+  attachmentInputs.forEach((input) => input.addEventListener('change', renderSelectedAttachments));
 
   function readContractors() {
     return Array.from(contractors.querySelectorAll('.dg-contractor-card')).map((card, index) => {
       const get = (field) => card.querySelector('[data-field="' + field + '"]')?.value.trim() || '';
+      const workerCount = get('workerCount');
       return {
         index: index + 1,
         company: get('company'),
+        role: get('role') || 'contractor',
+        parentCompany: get('parentCompany'),
+        vatOrTaxId: get('vatOrTaxId'),
+        contactName: get('contactName'),
+        contactPhone: get('contactPhone'),
+        contactEmail: get('contactEmail'),
+        workerCount: workerCount === '' ? null : Number(workerCount),
         scope: get('scope'),
-        preposto: { name: get('preposto'), roleOrArea: get('prepostoRole') },
+        preposto: {
+          name: get('preposto'),
+          roleOrArea: get('prepostoRole'),
+          status: get('prepostoStatus') || 'to_be_confirmed'
+        },
         equipment: get('equipment'),
         ppe: get('ppe')
       };
@@ -460,32 +497,59 @@
     const missing = [];
     if (!data.job.title) missing.push('Titolo esatto del DUVRI da confermare: non inventare il titolo del frontespizio.');
     if (!data.job.documentDate) missing.push('Data da riportare sul DUVRI da confermare esplicitamente.');
-    if (!data.client.legalName) missing.push('Ragione sociale del committente da estrarre e/o confermare.');
-    if (!data.site.address) missing.push('Sede e indirizzo dell’intervento da estrarre e/o confermare.');
-    if (!data.site.context || data.site.context === 'unknown' || data.site.context === 'other') missing.push('Tipo di area (interno, cantiere/esterno o misto) da confermare dopo l’analisi della checklist.');
-    if (!data.work.description) missing.push('Descrizione dell’appalto da ricostruire dalla checklist e confermare.');
-    if (!data.aiDataProcessingConsent) missing.push('Consenso al trasferimento di checklist e allegati al provider AI da raccogliere prima di attivare l’elaborazione cloud.');
+    if (!data.client.legalName) missing.push('Ragione sociale del committente da acquisire o confermare.');
+    if (!data.site.address) missing.push('Sede e indirizzo dell’intervento da acquisire o confermare.');
+    if (!data.site.context || data.site.context === 'unknown' || data.site.context === 'other') missing.push('Tipo di area (interno, cantiere/esterno o misto) da confermare.');
+    if (!data.work.description) missing.push('Descrizione dell’appalto da completare con attività, fasi e risultati previsti.');
+    if (!data.work.workSchedule) missing.push('Cronoprogramma/fasi, date, orari e durata: completare qui o allegare un documento.');
+    if (!data.work.overlappingActivities) missing.push('Descrivere le attività simultanee del committente o di altre imprese, oppure confermare che non sono previste.');
+    if (data.site.otherWorkersPresence === 'unknown') missing.push('Confermare la presenza di lavoratori del committente o di altre imprese.');
+    if (data.site.publicPresence === 'unknown') missing.push('Confermare la presenza di clienti, utenti o pubblico.');
+    if (data.coordination.emergencyRoutesAffected === 'unknown') missing.push('Verificare se i lavori interferiscono con vie di esodo, allarmi o impianti antincendio.');
+
     data.contractors.forEach((company, index) => {
-      if (!company.company) missing.push('Impresa ' + (index + 1) + ': ragione sociale da estrarre dalla checklist e confermare.');
       const label = company.company || ('Impresa ' + (index + 1));
-      if (!company.preposto.name) missing.push(label + ': nominativo del preposto da acquisire o confermare.');
-      if (!company.preposto.roleOrArea) missing.push(label + ': mansione/area di competenza del preposto da specificare.');
-      if (!company.equipment) missing.push(label + ': elenco mezzi/macchinari/attrezzature e proprietà da completare.');
-      if (!company.ppe) missing.push(label + ': DPI previsti da documentare o confermare.');
-      if (!company.scope) missing.push(label + ': descrizione delle attività da dettagliare.');
+      if (!company.company) missing.push('Impresa ' + (index + 1) + ': ragione sociale da inserire.');
+      if (!company.scope) missing.push(label + ': descrivere le attività e le fasi eseguite.');
+      if (!company.preposto.name || company.preposto.status !== 'confirmed') missing.push(label + ': acquisire/confermare espressamente nominativo e ruolo del preposto.');
+      if (!company.equipment) missing.push(label + ': indicare mezzi/macchinari/attrezzature, azienda utilizzatrice e proprietario.');
+      if (!company.ppe) missing.push(label + ': indicare i DPI previsti sulla base dei documenti dell’impresa.');
     });
-    const fileNames = [
+
+    const allNames = [
       ...(data.sourceChecklist ? [data.sourceChecklist.name] : []),
       ...data.documents.map((file) => file.name)
     ].map((name) => name.toLowerCase());
-    if (!fileNames.some((name) => name.includes('dvr'))) missing.push('DVR specifico: verificare se disponibile o pertinente e acquisirlo se necessario.');
-    if (!fileNames.some((name) => name.includes('cronoprogramma') || name.includes('programma lavori') || name.includes('planning'))) {
-      missing.push('Cronoprogramma lavori: verificare disponibilità e acquisirlo se necessario.');
+    const hasName = (...needles) => allNames.some((name) => needles.some((needle) => name.includes(needle)));
+    const hasCategory = (category) => data.documents.some((file) => file.category === category);
+    const docChecks = [
+      { key: 'contract', label: 'Contratto/capitolato', available: hasName('contratto', 'capitolato') },
+      { key: 'dvr', label: 'DVR specifico dell’intervento', available: hasName('dvr') },
+      { key: 'schedule', label: 'Cronoprogramma', available: hasName('cronoprogramma', 'programma-lavori', 'programma lavori', 'planning') || hasCategory('cronoprogrammi') },
+      { key: 'plan', label: 'Planimetria/layout', available: hasName('planimetr', 'layout', 'planimetry') || hasCategory('planimetrie-layout') },
+      { key: 'emergency', label: 'Piano/istruzioni di emergenza', available: hasName('emergenza', 'emergency') },
+      { key: 'sds', label: 'SDS/documenti di prodotti chimici', available: hasName('sds', 'scheda-sicurezza', 'scheda sicurezza') },
+      { key: 'equipment', label: 'Documenti di mezzi e attrezzature', available: hasName('manuale', 'libretto', 'attrezzatura', 'macchinario', 'verifica') || hasCategory('mezzi-attrezzature') }
+    ];
+    const availability = data.documentAvailability || {};
+    docChecks.forEach(({ key, label, available }) => {
+      const status = availability[key] || 'unknown';
+      if (status === 'to_acquire') missing.push(label + ': segnato come “da acquisire”.');
+      else if (status === 'received' && !available) missing.push(label + ': segnato come disponibile ma non è stato individuato un allegato dal nome compatibile; verificare prima dell’invio.');
+      else if (status === 'unknown' && !available) missing.push(label + ': verificare se pertinente e disponibile; allegarlo quando necessario.');
+    });
+
+    if (data.roofAccess.roofWork === 'yes') {
+      if (!data.roofAccess.accessMethod) missing.push('Lavori in quota: descrivere la modalità di accesso alla copertura.');
+      if (!data.roofAccess.landingPoint) missing.push('Lavori in quota: indicare il punto/modalità di sbarco sulla copertura.');
+      if (!data.roofAccess.protections) missing.push('Lavori in quota: indicare le protezioni collettive/ancoraggi effettivamente presenti o da verificare.');
+      if (!data.roofAccess.rescuePlan) missing.push('Lavori in quota: verificare e descrivere l’organizzazione di emergenza/recupero.');
+    } else if (data.roofAccess.roofWork === 'unknown') {
+      missing.push('Confermare se sono previsti lavori in quota o accessi alla copertura.');
     }
-    if (!fileNames.some((name) => name.includes('planimetr') || name.includes('planimetry') || name.includes('layout'))) {
-      missing.push('Planimetria/layout dell’area: verificare se necessario e acquisirlo.');
-    }
-    if (data.modules.includes('confined-space') && !fileNames.some((name) => name.includes('procedura') || name.includes('permesso'))) {
+    if (!data.coordination.assemblyPoint) missing.push('Punto di raccolta e istruzioni di emergenza del sito: indicare o acquisire.');
+    if (!data.coordination.emergencyContacts) missing.push('Contatti e modalità di attivazione dell’emergenza: acquisire o confermare.');
+    if (data.modules.includes('confined-space') && !hasName('procedura', 'permesso')) {
       missing.push('Modulo spazi confinati: verificare procedure e permessi pertinenti prima della valutazione tecnica.');
     }
     return missing;
@@ -493,23 +557,36 @@
 
   function createRecord() {
     const data = new FormData(form);
+    const value = (name) => String(data.get(name) || '').trim();
     const checklist = checklistInput.files && checklistInput.files[0];
     const checklistFile = checklist ? {
       name: checklist.name,
       size: checklist.size,
       mimeType: checklist.type || 'application/octet-stream',
       lastModified: checklist.lastModified,
-      contentIncluded: false
+      contentIncluded: false,
+      includedInLocalPackage: true
     } : null;
-    const documents = Array.from(filesInput.files || []).map((file) => ({
+    const documents = readSelectedAttachments().map(({ file, category }) => ({
       name: file.name,
+      category,
       size: file.size,
       mimeType: file.type || 'application/octet-stream',
       lastModified: file.lastModified,
-      contentIncluded: false
+      contentIncluded: false,
+      includedInLocalPackage: true
     }));
+    const documentAvailability = {
+      contract: value('documentStatusContract') || 'unknown',
+      dvr: value('documentStatusDvr') || 'unknown',
+      schedule: value('documentStatusSchedule') || 'unknown',
+      plan: value('documentStatusPlan') || 'unknown',
+      emergency: value('documentStatusEmergency') || 'unknown',
+      sds: value('documentStatusSds') || 'unknown',
+      equipment: value('documentStatusEquipment') || 'unknown'
+    };
     return {
-      schema: 'colligo-document-intake/0.3',
+      schema: 'colligo-duvri-client-intake/0.1',
       documentType: escapeText(data.get('documentType') || 'duvri'),
       recordId: (globalThis.crypto && typeof crypto.randomUUID === 'function')
         ? crypto.randomUUID()
@@ -527,29 +604,71 @@
         { agent: 'quality-check', label: 'Verificatore', status: 'not_connected' }
       ],
       job: {
-        title: escapeText(data.get('title')).trim(),
+        title: value('title'),
         documentType: escapeText(data.get('documentType') || 'duvri'),
-        documentDate: escapeText(data.get('documentDate')),
-        complexity: escapeText(data.get('complexity')),
-        startDate: escapeText(data.get('startDate')),
-        endDate: escapeText(data.get('endDate'))
+        documentDate: value('documentDate'),
+        complexity: value('complexity'),
+        startDate: value('startDate'),
+        endDate: value('endDate')
       },
-      client: { legalName: escapeText(data.get('clientName')).trim() },
+      client: {
+        legalName: value('clientName'),
+        vatOrTaxId: value('clientVat'),
+        registeredAddress: value('clientAddress'),
+        contactName: value('clientContactName'),
+        contactPhone: value('clientContactPhone'),
+        contactEmail: value('clientContactEmail'),
+        siteContactName: value('siteContactName'),
+        siteContactPhone: value('siteContactPhone')
+      },
       site: {
-        address: escapeText(data.get('site')).trim(),
-        context: escapeText(data.get('siteType')),
-        accessNotes: escapeText(data.get('accessNotes')).trim()
+        address: value('site'),
+        context: value('siteType'),
+        accessNotes: value('accessNotes'),
+        areaDescription: value('areaDescription'),
+        vehicleRoutes: value('vehicleRoutes'),
+        materialStorageAreas: value('materialStorageAreas'),
+        workDaysHours: value('workDaysHours'),
+        otherWorkersPresence: value('otherWorkersPresence') || 'unknown',
+        publicPresence: value('publicPresence') || 'unknown',
+        systems: value('siteSystems'),
+        restrictions: value('siteRestrictions')
       },
-      work: { description: escapeText(data.get('workDescription')).trim() },
+      work: {
+        description: value('workDescription'),
+        workSchedule: value('workSchedule'),
+        overlappingActivities: value('overlappingActivities'),
+        areaSegregation: value('workAreaSegregation'),
+        systemInterruptions: value('systemInterruptions'),
+        deliveriesAndTraffic: value('deliveriesAndTraffic'),
+        coordinationNotes: value('coordinationNotes')
+      },
       contractors: readContractors(),
       modules: checkedModules(),
+      roofAccess: {
+        roofWork: value('roofWork') || 'unknown',
+        accessMethod: value('roofAccessMethod'),
+        landingPoint: value('roofLandingPoint'),
+        protections: value('roofProtections'),
+        lowerArea: value('roofLowerArea'),
+        rescuePlan: value('roofRescuePlan')
+      },
+      coordination: {
+        assemblyPoint: value('assemblyPoint'),
+        emergencyContacts: value('emergencyContacts'),
+        emergencyPlanStatus: value('emergencyPlanStatus') || 'unknown',
+        emergencyRoutesAffected: value('emergencyRoutesAffected') || 'unknown',
+        requiredPermits: value('requiredPermits')
+      },
       sourceChecklist: checklistFile,
       documents,
-      aiDataProcessingConsent: data.get('aiDataProcessingConsent') === 'yes',
-      notes: escapeText(data.get('notes')).trim(),
+      documentAvailability,
+      aiDataProcessingConsent: false,
+      notes: value('notes'),
       notices: [
-        'Scheda di raccolta dati del prototipo: i documenti selezionati non sono stati caricati e il loro contenuto non è incluso.',
-        'Nessun dato è stato inviato a un backend o a un provider AI. Non è stato generato alcun documento.',
+        'Il JSON contiene i dati e i metadati dei file, non il contenuto binario degli allegati.',
+        'Il pacchetto ZIP include in cartelle distinte la scheda JSON e i file selezionati sul dispositivo.',
+        'Nessun dato o file viene inviato a un backend o a un provider AI in questa versione. Non viene generato alcun documento.',
         'Le lacune riportate sono promemoria di raccolta, non una valutazione esaustiva di completezza o sicurezza.'
       ]
     };
@@ -606,12 +725,12 @@
       return;
     }
 
-    const checklist = checklistInput.files && checklistInput.files[0];
-    if (!checklist) {
-      cloudStatus.textContent = 'Seleziona la checklist compilata prima di avviare il lavoro.';
-      checklistInput.focus();
-      return;
-    }
+    const suppliedChecklist = checklistInput.files && checklistInput.files[0];
+    const checklist = suppliedChecklist || new File(
+      [JSON.stringify(preparedRecord, null, 2)],
+      'scheda-duvri-compilata.json',
+      { type: 'application/json' }
+    );
 
     const upload = new FormData();
     upload.append('metadata', JSON.stringify({
@@ -623,7 +742,7 @@
       aiDataProcessingConsent: preparedRecord.aiDataProcessingConsent
     }));
     upload.append('checklist', checklist, checklist.name);
-    Array.from(filesInput.files || []).forEach((file) => upload.append('files', file, file.name));
+    readSelectedAttachments().forEach(({ file }) => upload.append('files', file, file.name));
 
     submitting = true;
     submitButton.disabled = true;
@@ -652,7 +771,7 @@
     } finally {
       submitting = false;
       submitButton.disabled = false;
-      submitButton.textContent = 'Carica checklist e avvia agenti';
+      submitButton.textContent = 'Prepara checklist compilata →';
     }
   });
 
@@ -671,17 +790,68 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 
+  function safeArchiveName(name) {
+    const leaf = String(name || 'allegato').split(/[\\/]/).pop();
+    return leaf.replace(/[^a-zA-Z0-9._() -]+/g, '_').replace(/^\.+/, '').slice(0, 140) || 'allegato';
+  }
+
+  downloadPackageButton.addEventListener('click', async () => {
+    if (!preparedRecord) return;
+    if (typeof JSZip === 'undefined') {
+      cloudStatus.textContent = 'Non è disponibile la libreria ZIP. Esporta il JSON e riprova dopo aver ricaricato l’app.';
+      return;
+    }
+    downloadPackageButton.disabled = true;
+    const oldLabel = downloadPackageButton.textContent;
+    downloadPackageButton.textContent = 'Preparazione ZIP…';
+    cloudStatus.textContent = 'Preparazione locale del pacchetto: scheda, documenti e foto selezionati.';
+    try {
+      const zip = new JSZip();
+      zip.file('scheda-duvri.json', JSON.stringify(preparedRecord, null, 2));
+      zip.file('ISTRUZIONI.txt',
+        'Pacchetto di raccolta dati DUVRI per Colligo.\\n' +
+        'Contiene le risposte del questionario in scheda-duvri.json e gli allegati nelle cartelle sotto allegati/.\\n' +
+        'Questo pacchetto non è un DUVRI e non equivale a una validazione tecnica.\\n' +
+        'Verificare dati, file, preposti, cronoprogramma e planimetrie prima dell’invio.\\n' +
+        'I file sono stati raggruppati localmente dal browser; non sono stati inviati automaticamente al cloud o a un provider AI.'
+      );
+      const suppliedChecklist = checklistInput.files && checklistInput.files[0];
+      if (suppliedChecklist) {
+        zip.file('allegati/checklist-preesistente/' + safeArchiveName(suppliedChecklist.name), suppliedChecklist);
+      }
+      readSelectedAttachments().forEach(({ file, category }, index) => {
+        const safeCategory = String(category || 'altri-allegati').replace(/[^a-zA-Z0-9_-]+/g, '-');
+        const serial = String(index + 1).padStart(3, '0');
+        zip.file('allegati/' + safeCategory + '/' + serial + '-' + safeArchiveName(file.name), file);
+      });
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const safeTitle = (preparedRecord.job.title || 'nuovo-duvri')
+        .normalize('NFKD').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'nuovo-duvri';
+      link.download = 'pacchetto-duvri-' + safeTitle + '.zip';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      cloudStatus.textContent = 'Pacchetto ZIP preparato e scaricato sul dispositivo. Non è stato inviato online.';
+    } catch (error) {
+      cloudStatus.textContent = 'Impossibile preparare il pacchetto ZIP: ' + (error.message || 'errore inatteso.');
+    } finally {
+      downloadPackageButton.disabled = false;
+      downloadPackageButton.textContent = oldLabel;
+    }
+  });
+
   resetButton.addEventListener('click', () => {
     if (!confirm('Vuoi azzerare i dati inseriti in questa scheda? Le informazioni non saranno recuperabili.')) return;
     form.reset();
-    checklistFileStatus.textContent = 'Checklist non selezionata: scegli il file compilato per continuare.';
+    checklistFileStatus.textContent = 'Nessun file preesistente selezionato: puoi compilare tutto da zero.';
     checklistFileStatus.classList.remove('is-selected');
     const cards = Array.from(contractors.querySelectorAll('.dg-contractor-card'));
     cards.slice(1).forEach((card) => card.remove());
-    filesList.replaceChildren();
-    const empty = document.createElement('li');
-    empty.textContent = 'Nessun documento selezionato.';
-    filesList.appendChild(empty);
+    renderSelectedAttachments();
     resultPanel.hidden = true;
     preparedRecord = null;
     updateContractorCards();
