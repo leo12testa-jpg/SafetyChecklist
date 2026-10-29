@@ -38,3 +38,17 @@ test('controlled rollout checklist documents the unresolved approvals and safe d
   assert.match(rollout, /leave the cloud pipeline and DOCX engine disabled/);
   assert.match(rollout, /Human technical review required/);
 });
+
+test('draft and QA checkpoints are invalidated when the server-approved template or risk rule changes', () => {
+  assert.match(worker, /const templatePath = configuredTemplatePath;/);
+  assert.match(worker, /const templateVersion = configuredTemplateVersion;/);
+  assert.match(worker, /savedMeta\\.templatePath !== templatePath/);
+  assert.match(worker, /savedMeta\\.templateVersion !== templateVersion/);
+  assert.match(worker, /savedMeta\\.riskRuleApprovalId !== configuredRiskRuleApprovalId/);
+  assert.match(worker, /savedMeta\\.riskRuleVersion !== configuredRiskRuleVersion/);
+  assert.match(worker, /delete resumableOutputs\\.draft;/);
+  assert.match(worker, /delete resumableOutputs\\.draft_metadata;/);
+  assert.match(worker, /delete resumableOutputs\\.qaReport;/);
+  assert.match(worker, /delete resumableOutputs\\.draftSummary;/);
+  assert.match(worker, /phase: 'draft', agentOutputs: resumableOutputs/);
+});
