@@ -118,7 +118,8 @@ async function bodyFits(page) {
     assert.equal(await page.locator('.dashboard-mini-card:visible').count(), 4);
     assert.equal(await page.locator('.dashboard-recent-panel').isVisible(), true);
     assert.equal(await page.locator('#dashboard-resume-panel').count(), 1);
-    assert.equal(await page.locator('.dashboard-action-card:visible').count(), 3);
+    assert.equal(await page.locator('.dashboard-action-card:visible').count(), 4);
+    assert.equal(await page.locator('.dashboard-action-card[data-nav="document-generation"]:visible').count(), 1);
     assert.equal(await page.locator('.dashboard-action-card[data-modalita="dvr"]:visible').count(), 1);
     assert.equal(await page.locator('#dashboard-install-card').isVisible(), false);
     await page.evaluate(() => {
