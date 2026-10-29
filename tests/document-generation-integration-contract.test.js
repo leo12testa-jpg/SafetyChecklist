@@ -31,7 +31,7 @@ test('cloud upload requires explicit consent and remains disabled by default', (
   assert.match(config, /const DOCUMENT_GENERATION_CLOUD_ENABLED = false;/);
   assert.match(ui, /preparedRecord\.aiDataProcessingConsent/);
   assert.match(gateway, /metadata\.aiDataProcessingConsent !== true/);
-  assert.match(gateway, /fail\(.*consenso/i);
+  assert.match(gateway, /confermare il trasferimento dei file al provider AI configurato/);
 });
 
 test('the UI consumes the gateway response shape for a queued job', () => {
