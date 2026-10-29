@@ -1,138 +1,252 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://colligo.example/schemas/duvri-intake.schema.json",
-  "title": "Colligo DUVRI Intake",
-  "description": "Prototype intake schema for one DUVRI job. This is a specification; not yet wired into the SafetyChecklist application.",
+  "title": "Colligo DUVRI client intake (local prototype)",
+  "description": "Schema for the local questionnaire JSON export. It records declarations and attachment metadata only; it is not a DUVRI or a technical approval.",
   "type": "object",
   "required": [
+    "schema",
+    "documentType",
+    "recordId",
+    "createdAt",
+    "prototypeStatus",
+    "cloudSubmission",
+    "aiGenerationStarted",
+    "humanReviewRequired",
+    "workflow",
     "job",
     "client",
     "site",
+    "work",
     "contractors",
-    "activity",
+    "modules",
+    "roofAccess",
+    "coordination",
+    "sourceChecklist",
     "documents",
-    "review"
+    "documentAvailability",
+    "aiDataProcessingConsent",
+    "notes",
+    "notices",
+    "missingInformation"
   ],
   "properties": {
+    "schema": {
+      "const": "colligo-duvri-client-intake/0.1"
+    },
+    "documentType": {
+      "const": "duvri"
+    },
+    "recordId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "prototypeStatus": {
+      "const": "local-intake-only"
+    },
+    "cloudSubmission": {
+      "const": false
+    },
+    "aiGenerationStarted": {
+      "const": false
+    },
+    "humanReviewRequired": {
+      "const": true
+    },
+    "workflow": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "agent",
+          "label",
+          "status"
+        ],
+        "properties": {
+          "agent": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "status": {
+            "const": "not_connected"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "job": {
       "type": "object",
       "required": [
         "title",
-        "document_date_status"
+        "documentType",
+        "documentDate",
+        "complexity",
+        "startDate",
+        "endDate"
       ],
       "properties": {
-        "job_id": {
-          "type": "string"
-        },
         "title": {
-          "type": "string",
-          "minLength": 1
-        },
-        "scope": {
           "type": "string"
         },
-        "document_date": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "date"
+        "documentType": {
+          "const": "duvri"
         },
-        "document_date_status": {
-          "enum": [
-            "confirmed",
-            "missing",
-            "requires_confirmation"
-          ]
+        "documentDate": {
+          "type": "string"
         },
         "complexity": {
-          "enum": [
-            "simple",
-            "medium",
-            "high",
-            "to_be_assessed"
-          ]
+          "type": "string"
         },
-        "status": {
-          "enum": [
-            "intake",
-            "awaiting_documents",
-            "ready_for_draft",
-            "drafting",
-            "needs_review",
-            "approved",
-            "error"
-          ]
+        "startDate": {
+          "type": "string"
+        },
+        "endDate": {
+          "type": "string"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "client": {
-      "$ref": "#/$defs/company"
+      "type": "object",
+      "required": [
+        "legalName",
+        "vatOrTaxId",
+        "registeredAddress",
+        "contactName",
+        "contactPhone",
+        "contactEmail",
+        "siteContactName",
+        "siteContactPhone"
+      ],
+      "properties": {
+        "legalName": {
+          "type": "string"
+        },
+        "vatOrTaxId": {
+          "type": "string"
+        },
+        "registeredAddress": {
+          "type": "string"
+        },
+        "contactName": {
+          "type": "string"
+        },
+        "contactPhone": {
+          "type": "string"
+        },
+        "contactEmail": {
+          "type": "string"
+        },
+        "siteContactName": {
+          "type": "string"
+        },
+        "siteContactPhone": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     },
     "site": {
       "type": "object",
       "required": [
+        "address",
         "context",
-        "address_status"
+        "accessNotes",
+        "areaDescription",
+        "vehicleRoutes",
+        "materialStorageAreas",
+        "workDaysHours",
+        "otherWorkersPresence",
+        "publicPresence",
+        "systems",
+        "restrictions"
       ],
       "properties": {
-        "name": {
-          "type": "string"
-        },
         "address": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "address_status": {
-          "enum": [
-            "confirmed",
-            "missing",
-            "requires_confirmation"
-          ]
+          "type": "string"
         },
         "context": {
-          "enum": [
-            "internal_area",
-            "construction_site_or_outdoor_area",
-            "mixed",
-            "other",
-            "unknown"
-          ]
-        },
-        "area_description": {
           "type": "string"
         },
-        "access_methods": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "accessNotes": {
+          "type": "string"
         },
-        "public_or_other_workers_present": {
-          "type": [
-            "boolean",
-            "null"
+        "areaDescription": {
+          "type": "string"
+        },
+        "vehicleRoutes": {
+          "type": "string"
+        },
+        "materialStorageAreas": {
+          "type": "string"
+        },
+        "workDaysHours": {
+          "type": "string"
+        },
+        "systems": {
+          "type": "string"
+        },
+        "restrictions": {
+          "type": "string"
+        },
+        "otherWorkersPresence": {
+          "enum": [
+            "unknown",
+            "yes",
+            "no"
           ]
         },
-        "emergency_plan_status": {
+        "publicPresence": {
           "enum": [
-            "received",
-            "to_acquire",
-            "not_applicable",
-            "unknown"
-          ]
-        },
-        "site_plan_status": {
-          "enum": [
-            "received",
-            "to_acquire",
-            "not_applicable",
-            "unknown"
+            "unknown",
+            "yes",
+            "no"
           ]
         }
-      }
+      },
+      "additionalProperties": false
+    },
+    "work": {
+      "type": "object",
+      "required": [
+        "description",
+        "workSchedule",
+        "overlappingActivities",
+        "areaSegregation",
+        "systemInterruptions",
+        "deliveriesAndTraffic",
+        "coordinationNotes"
+      ],
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "workSchedule": {
+          "type": "string"
+        },
+        "overlappingActivities": {
+          "type": "string"
+        },
+        "areaSegregation": {
+          "type": "string"
+        },
+        "systemInterruptions": {
+          "type": "string"
+        },
+        "deliveriesAndTraffic": {
+          "type": "string"
+        },
+        "coordinationNotes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     },
     "contractors": {
       "type": "array",
@@ -140,435 +254,343 @@
       "items": {
         "type": "object",
         "required": [
+          "index",
           "company",
           "role",
-          "activities"
+          "parentCompany",
+          "vatOrTaxId",
+          "contactName",
+          "contactPhone",
+          "contactEmail",
+          "workerCount",
+          "scope",
+          "preposto",
+          "equipment",
+          "ppe"
         ],
         "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 1
+          },
           "company": {
-            "$ref": "#/$defs/company"
+            "type": "string"
           },
           "role": {
             "enum": [
               "contractor",
               "subcontractor",
-              "other_employer"
+              "other"
             ]
           },
-          "parent_contractor": {
+          "parentCompany": {
+            "type": "string"
+          },
+          "vatOrTaxId": {
+            "type": "string"
+          },
+          "contactName": {
+            "type": "string"
+          },
+          "contactPhone": {
+            "type": "string"
+          },
+          "contactEmail": {
+            "type": "string"
+          },
+          "workerCount": {
             "type": [
-              "string",
+              "integer",
               "null"
-            ]
+            ],
+            "minimum": 0
           },
           "scope": {
             "type": "string"
           },
           "preposto": {
             "type": "object",
+            "required": [
+              "name",
+              "roleOrArea",
+              "status"
+            ],
             "properties": {
               "name": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": "string"
               },
-              "role_or_area": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+              "roleOrArea": {
+                "type": "string"
               },
               "status": {
                 "enum": [
                   "confirmed",
-                  "missing",
-                  "requires_confirmation"
+                  "to_be_confirmed"
                 ]
               }
-            }
-          },
-          "personnel": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "description": {
-                  "type": "string"
-                },
-                "count": {
-                  "type": [
-                    "integer",
-                    "null"
-                  ],
-                  "minimum": 0
-                }
-              }
-            }
-          },
-          "activities": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "type": "object",
-              "required": [
-                "description"
-              ],
-              "properties": {
-                "description": {
-                  "type": "string"
-                },
-                "phase_order": {
-                  "type": [
-                    "integer",
-                    "null"
-                  ],
-                  "minimum": 1
-                },
-                "start_datetime": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
-                  "format": "date-time"
-                },
-                "end_datetime": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
-                  "format": "date-time"
-                },
-                "duration": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "work_area": {
-                  "type": "string"
-                },
-                "concurrent_with": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "overlap_or_interface": {
-                  "type": "string"
-                }
-              }
-            }
+            },
+            "additionalProperties": false
           },
           "equipment": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": [
-                "description"
-              ],
-              "properties": {
-                "description": {
-                  "type": "string"
-                },
-                "owner_company": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "user_company": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "intended_use": {
-                  "type": "string"
-                },
-                "work_area": {
-                  "type": "string"
-                },
-                "documents_status": {
-                  "enum": [
-                    "received",
-                    "to_acquire",
-                    "not_applicable",
-                    "unknown"
-                  ]
-                }
-              }
-            }
+            "type": "string"
           },
           "ppe": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "item": {
-                  "type": "string"
-                },
-                "source_or_reason": {
-                  "type": "string"
-                },
-                "status": {
-                  "enum": [
-                    "confirmed",
-                    "extracted_unconfirmed",
-                    "missing",
-                    "requires_professional_review"
-                  ]
-                }
-              }
-            }
-          },
-          "conditional_modules": {
-            "type": "object",
-            "properties": {
-              "work_at_height": {
-                "type": "boolean"
-              },
-              "confined_or_potentially_polluted_space": {
-                "type": "boolean"
-              },
-              "electrical_or_energy_sources": {
-                "type": "boolean"
-              },
-              "chemicals": {
-                "type": "boolean"
-              },
-              "vehicles_lifting_or_machinery": {
-                "type": "boolean"
-              },
-              "hot_work_dust_fumes_noise_vibration": {
-                "type": "boolean"
-              },
-              "public_or_occupied_premises": {
-                "type": "boolean"
-              },
-              "excavation_or_underground_services": {
-                "type": "boolean"
-              }
-            }
+            "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       }
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "roofAccess": {
+      "type": "object",
+      "required": [
+        "roofWork",
+        "accessMethod",
+        "landingPoint",
+        "protections",
+        "lowerArea",
+        "rescuePlan"
+      ],
+      "properties": {
+        "roofWork": {
+          "enum": [
+            "unknown",
+            "yes",
+            "no"
+          ]
+        },
+        "accessMethod": {
+          "type": "string"
+        },
+        "landingPoint": {
+          "type": "string"
+        },
+        "protections": {
+          "type": "string"
+        },
+        "lowerArea": {
+          "type": "string"
+        },
+        "rescuePlan": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "coordination": {
+      "type": "object",
+      "required": [
+        "assemblyPoint",
+        "emergencyContacts",
+        "emergencyPlanStatus",
+        "emergencyRoutesAffected",
+        "requiredPermits"
+      ],
+      "properties": {
+        "assemblyPoint": {
+          "type": "string"
+        },
+        "emergencyContacts": {
+          "type": "string"
+        },
+        "emergencyPlanStatus": {
+          "enum": [
+            "unknown",
+            "available",
+            "to_acquire",
+            "not_applicable"
+          ]
+        },
+        "emergencyRoutesAffected": {
+          "enum": [
+            "unknown",
+            "yes",
+            "no"
+          ]
+        },
+        "requiredPermits": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "sourceChecklist": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/attachment"
+        }
+      ]
     },
     "documents": {
       "type": "array",
       "items": {
-        "type": "object",
-        "required": [
-          "title",
-          "status"
-        ],
-        "properties": {
-          "title": {
-            "type": "string"
-          },
-          "filename": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "issuing_party": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "document_date_or_version": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "status": {
-            "enum": [
-              "received",
-              "to_acquire",
-              "not_applicable",
-              "unknown"
-            ]
-          },
-          "relevant_sections": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "extracted_facts": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "claim": {
-                  "type": "string"
-                },
-                "source_page_or_section": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "confidence": {
-                  "enum": [
-                    "high",
-                    "medium",
-                    "low"
-                  ]
-                },
-                "confirmation_status": {
-                  "enum": [
-                    "confirmed",
-                    "extracted_unconfirmed",
-                    "conflicting",
-                    "requires_professional_review"
-                  ]
-                }
-              }
-            }
-          }
-        }
+        "$ref": "#/$defs/attachment"
       }
     },
-    "interferences": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "parties_or_activities": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "location": {
-            "type": "string"
-          },
-          "time_or_phase": {
-            "type": "string"
-          },
-          "scenario": {
-            "type": "string"
-          },
-          "proposed_measure": {
-            "type": "string"
-          },
-          "evidence_source": {
-            "type": "string"
-          },
-          "review_status": {
-            "enum": [
-              "proposed",
-              "requires_professional_review",
-              "approved",
-              "rejected"
-            ]
-          }
-        }
-      }
-    },
-    "review": {
+    "documentAvailability": {
       "type": "object",
       "required": [
-        "human_review_required"
+        "contratto-capitolato",
+        "dvr-specifico",
+        "cronoprogrammi",
+        "planimetrie-layout",
+        "mezzi-attrezzature",
+        "procedure-operative",
+        "emergenze",
+        "sds",
+        "permessi",
+        "foto-sito"
       ],
       "properties": {
-        "human_review_required": {
-          "const": true
-        },
-        "missing_information": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "conflicts": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "normative_references_to_check": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "risk_method_approved": {
-          "type": "boolean"
-        },
-        "reviewer": {
-          "type": [
-            "string",
-            "null"
+        "contratto-capitolato": {
+          "enum": [
+            "available",
+            "to_acquire",
+            "to_verify",
+            "not_applicable"
           ]
         },
-        "review_status": {
+        "dvr-specifico": {
           "enum": [
-            "not_started",
-            "in_review",
-            "changes_requested",
-            "approved",
-            "rejected"
+            "available",
+            "to_acquire",
+            "to_verify",
+            "not_applicable"
+          ]
+        },
+        "cronoprogrammi": {
+          "enum": [
+            "available",
+            "to_acquire",
+            "to_verify",
+            "not_applicable"
+          ]
+        },
+        "planimetrie-layout": {
+          "enum": [
+            "available",
+            "to_acquire",
+            "to_verify",
+            "not_applicable"
+          ]
+        },
+        "mezzi-attrezzature": {
+          "enum": [
+            "available",
+            "to_acquire",
+            "to_verify",
+            "not_applicable"
+          ]
+        },
+        "procedure-operative": {
+          "enum": [
+            "available",
+            "to_acquire",
+            "to_verify",
+            "not_applicable"
+          ]
+        },
+        "emergenze": {
+          "enum": [
+            "available",
+            "to_acquire",
+            "to_verify",
+            "not_applicable"
+          ]
+        },
+        "sds": {
+          "enum": [
+            "available",
+            "to_acquire",
+            "to_verify",
+            "not_applicable"
+          ]
+        },
+        "permessi": {
+          "enum": [
+            "available",
+            "to_acquire",
+            "to_verify",
+            "not_applicable"
+          ]
+        },
+        "foto-sito": {
+          "enum": [
+            "available",
+            "to_acquire",
+            "to_verify",
+            "not_applicable"
           ]
         }
+      },
+      "additionalProperties": false
+    },
+    "aiDataProcessingConsent": {
+      "const": false
+    },
+    "notes": {
+      "type": "string"
+    },
+    "notices": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "missingInformation": {
+      "type": "array",
+      "items": {
+        "type": "string"
       }
     }
   },
+  "additionalProperties": false,
   "$defs": {
-    "company": {
+    "attachment": {
       "type": "object",
       "required": [
-        "legal_name"
+        "name",
+        "size",
+        "mimeType",
+        "lastModified",
+        "contentIncluded",
+        "includedInLocalPackage"
       ],
       "properties": {
-        "legal_name": {
-          "type": "string",
-          "minLength": 1
-        },
-        "vat_or_tax_id": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "registered_address": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "operational_address": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "contact_name": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "contact_email": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "contact_phone": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "activity_description": {
+        "name": {
           "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mimeType": {
+          "type": "string"
+        },
+        "lastModified": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "contentIncluded": {
+          "const": false
+        },
+        "includedInLocalPackage": {
+          "const": true
         }
-      }
+      },
+      "additionalProperties": false
     }
   }
 }
