@@ -8,9 +8,9 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/icon-512.png">
-  <link rel="stylesheet" href="css/style.css?v=20261012-140126">
+  <link rel="stylesheet" href="css/style.css?v=20261029-141251">
 </head>
-<body data-auth-ready="false" data-authenticated="false" data-build="20261012-140126">
+<body data-auth-ready="false" data-authenticated="false" data-build="20261029-141251">
   <div id="app">
     <header class="app-header">
       <div class="header-brand">
@@ -496,15 +496,20 @@
             <p class="dg-small-note">Non è obbligatorio allegare una checklist già esistente: puoi compilare il questionario direttamente in questa pagina. Gli allegati selezionati vengono inseriti nel pacchetto ZIP scaricato dal browser e non sono caricati sul server.</p>
             <label class="dg-upload-zone dg-checklist-upload" for="dg-checklist-file"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Checklist o relazione già compilata (facoltativa)</strong><small>Se hai già un modulo, puoi aggiungerlo come fonte: PDF, Word, Excel, JSON o CSV.</small><input id="dg-checklist-file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.json,.csv,.txt"></label>
             <p id="dg-checklist-file-status" class="dg-checklist-file-status" aria-live="polite">Nessun file preesistente selezionato: puoi compilare tutto da zero.</p>
-            <div class="dg-attachment-section">
+            <div class="dg-attachment-section dg-upload-grid">
               <h4>Documenti dell'incarico e della sicurezza</h4>
               <p class="dg-small-note">Seleziona i file disponibili. Più file possono essere scelti nello stesso gruppo.</p>
-              <label class="dg-upload-zone" for="dg-files-documents"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Contratto, capitolato, DVR specifico, procedure, piano emergenza, SDS</strong><small>PDF, Word, Excel o testo: contratto d'appalto, DVR relativo all'intervento, procedure operative, istruzioni del sito e schede di sicurezza.</small><input id="dg-files-documents" type="file" multiple data-dg-attachment-category="documenti-tecnici" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.json"></label>
+              <label class="dg-upload-zone" for="dg-files-contract"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Contratto / capitolato</strong><small>Contratto d’appalto, ordine o capitolato relativo all’incarico.</small><input id="dg-files-contract" type="file" multiple data-dg-attachment-category="contratto-capitolato" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"></label>
+              <label class="dg-upload-zone" for="dg-files-dvr"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>DVR specifico dell’intervento</strong><small>Documento dell’impresa riferito alle attività oggetto dell’incarico.</small><input id="dg-files-dvr" type="file" multiple data-dg-attachment-category="dvr-specifico" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"></label>
               <label class="dg-upload-zone" for="dg-files-schedule"><span class="dg-upload-icon" aria-hidden="true">◷</span><strong>Cronoprogramma e programma lavori</strong><small>Fasi, date, orari, durata, compresenze e sequenza delle lavorazioni.</small><input id="dg-files-schedule" type="file" multiple data-dg-attachment-category="cronoprogrammi" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg"></label>
-              <label class="dg-upload-zone" for="dg-files-plans"><span class="dg-upload-icon" aria-hidden="true">⌖</span><strong>Planimetrie, layout e disegni</strong><small>Evidenzia area di lavoro, accessi/transiti, depositi, vie di esodo e, se pertinente, accesso e sbarco in copertura.</small><input id="dg-files-plans" type="file" multiple data-dg-attachment-category="planimetrie-layout" accept=".pdf,.png,.jpg,.jpeg,.webp,.dwg,.dxf"></label>
-              <label class="dg-upload-zone" for="dg-files-equipment"><span class="dg-upload-icon" aria-hidden="true">⚙</span><strong>Documenti di mezzi, macchinari e attrezzature</strong><small>Libretti, manuali, dichiarazioni, verifiche, autorizzazioni o altra documentazione pertinente.</small><input id="dg-files-equipment" type="file" multiple data-dg-attachment-category="mezzi-attrezzature" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt"></label>
-              <label class="dg-upload-zone" for="dg-files-photos"><span class="dg-upload-icon" aria-hidden="true">▧</span><strong>Foto del luogo di lavoro e degli accessi</strong><small>Foto di aree interessate, percorsi, depositi, barriere, impianti, coperture e punti di accesso/sbarco. Evita persone riconoscibili se non necessario.</small><input id="dg-files-photos" type="file" multiple data-dg-attachment-category="foto-sito" accept="image/*"></label>
-              <label class="dg-upload-zone" for="dg-files"><span class="dg-upload-icon" aria-hidden="true">＋</span><strong>Altri allegati</strong><small>Qualsiasi altra fonte pertinente non ricompresa nei gruppi precedenti.</small><input id="dg-files" type="file" multiple data-dg-attachment-category="altri-allegati" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.txt,.csv,.json,.dwg,.dxf"></label>
+              <label class="dg-upload-zone" for="dg-files-plans"><span class="dg-upload-icon" aria-hidden="true">⌖</span><strong>Planimetrie, layout e disegni</strong><small>Area di lavoro, accessi, transiti, depositi, impianti, vie di esodo e accesso in copertura, se pertinente.</small><input id="dg-files-plans" type="file" multiple data-dg-attachment-category="planimetrie-layout" accept=".pdf,.png,.jpg,.jpeg,.webp,.dwg,.dxf"></label>
+              <label class="dg-upload-zone" for="dg-files-equipment"><span class="dg-upload-icon" aria-hidden="true">⚙</span><strong>Documenti di macchinari e attrezzature</strong><small>Libretti, manuali, dichiarazioni, verifiche e autorizzazioni pertinenti.</small><input id="dg-files-equipment" type="file" multiple data-dg-attachment-category="mezzi-attrezzature" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt"></label>
+              <label class="dg-upload-zone" for="dg-files-procedures"><span class="dg-upload-icon" aria-hidden="true">≡</span><strong>Procedure operative</strong><small>Procedure dell’impresa o istruzioni specifiche per le attività.</small><input id="dg-files-procedures" type="file" multiple data-dg-attachment-category="procedure-operative" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"></label>
+              <label class="dg-upload-zone" for="dg-files-emergency"><span class="dg-upload-icon" aria-hidden="true">!</span><strong>Emergenze e vie di esodo</strong><small>Piano, istruzioni, contatti e planimetrie di emergenza.</small><input id="dg-files-emergency" type="file" multiple data-dg-attachment-category="emergenze" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt"></label>
+              <label class="dg-upload-zone" for="dg-files-sds"><span class="dg-upload-icon" aria-hidden="true">⚗</span><strong>SDS e prodotti chimici</strong><small>Schede di dati di sicurezza dei prodotti previsti, se pertinenti.</small><input id="dg-files-sds" type="file" multiple data-dg-attachment-category="sds" accept=".pdf,.doc,.docx,.xls,.xlsx"></label>
+              <label class="dg-upload-zone" for="dg-files-permits"><span class="dg-upload-icon" aria-hidden="true">✓</span><strong>Permessi e autorizzazioni</strong><small>Permessi di lavoro, accesso, lavori a caldo o isolamento impianti, se pertinenti.</small><input id="dg-files-permits" type="file" multiple data-dg-attachment-category="permessi" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"></label>
+              <label class="dg-upload-zone" for="dg-files-photos"><span class="dg-upload-icon" aria-hidden="true">▧</span><strong>Foto del luogo di lavoro e degli accessi</strong><small>Foto di aree, percorsi, depositi, barriere, impianti e coperture. Evita persone riconoscibili se non necessario.</small><input id="dg-files-photos" type="file" multiple data-dg-attachment-category="foto-sito" accept="image/*"></label>
+              <label class="dg-upload-zone" for="dg-files"><span class="dg-upload-icon" aria-hidden="true">＋</span><strong>Altri allegati</strong><small>Fonti pertinenti non ricomprese nei gruppi precedenti.</small><input id="dg-files" type="file" multiple data-dg-attachment-category="altri-allegati" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.txt,.csv,.json,.dwg,.dxf"></label>
               <ul id="dg-files-list" class="dg-files-list"><li>Nessun allegato selezionato.</li></ul>
             </div>
             <div class="dg-document-status-panel">
@@ -512,25 +517,34 @@
               <p class="dg-small-note">Per ogni riga seleziona lo stato corretto. “Da acquisire” e “Non applicabile” non sostituiscono una verifica tecnica.</p>
               <div class="dg-status-grid">
                 <label class="campo-form">Contratto / capitolato
-                  <select name="documentStatusContract"><option value="unknown" selected>Da verificare</option><option value="received">Disponibile / allegato</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                  <select name="documentStatusContract" data-dg-status-category="contratto-capitolato"><option value="to_verify" selected>Da verificare</option><option value="available">Disponibile</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
                 </label>
-                <label class="campo-form">DVR specifico dell'intervento
-                  <select name="documentStatusDvr"><option value="unknown" selected>Da verificare</option><option value="received">Disponibile / allegato</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                <label class="campo-form">DVR specifico dell’intervento
+                  <select name="documentStatusDvr" data-dg-status-category="dvr-specifico"><option value="to_verify" selected>Da verificare</option><option value="available">Disponibile</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
                 </label>
                 <label class="campo-form">Cronoprogramma
-                  <select name="documentStatusSchedule"><option value="unknown" selected>Da verificare</option><option value="received">Disponibile / allegato</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                  <select name="documentStatusSchedule" data-dg-status-category="cronoprogrammi"><option value="to_verify" selected>Da verificare</option><option value="available">Disponibile</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
                 </label>
                 <label class="campo-form">Planimetria / layout
-                  <select name="documentStatusPlan"><option value="unknown" selected>Da verificare</option><option value="received">Disponibile / allegato</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                  <select name="documentStatusPlan" data-dg-status-category="planimetrie-layout"><option value="to_verify" selected>Da verificare</option><option value="available">Disponibile</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
                 </label>
-                <label class="campo-form">Piano o istruzioni di emergenza
-                  <select name="documentStatusEmergency"><option value="unknown" selected>Da verificare</option><option value="received">Disponibile / allegato</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                <label class="campo-form">Documenti macchinari e attrezzature
+                  <select name="documentStatusEquipment" data-dg-status-category="mezzi-attrezzature"><option value="to_verify" selected>Da verificare</option><option value="available">Disponibile</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
                 </label>
-                <label class="campo-form">SDS / documenti di prodotti chimici
-                  <select name="documentStatusSds"><option value="unknown" selected>Da verificare</option><option value="received">Disponibile / allegato</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                <label class="campo-form">Procedure operative
+                  <select name="documentStatusProcedures" data-dg-status-category="procedure-operative"><option value="to_verify" selected>Da verificare</option><option value="available">Disponibile</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
                 </label>
-                <label class="campo-form">Documentazione attrezzature
-                  <select name="documentStatusEquipment"><option value="unknown" selected>Da verificare</option><option value="received">Disponibile / allegato</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                <label class="campo-form">Emergenze e vie di esodo
+                  <select name="documentStatusEmergency" data-dg-status-category="emergenze"><option value="to_verify" selected>Da verificare</option><option value="available">Disponibile</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                </label>
+                <label class="campo-form">SDS / prodotti chimici
+                  <select name="documentStatusSds" data-dg-status-category="sds"><option value="to_verify" selected>Da verificare</option><option value="available">Disponibile</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                </label>
+                <label class="campo-form">Permessi e autorizzazioni
+                  <select name="documentStatusPermits" data-dg-status-category="permessi"><option value="to_verify" selected>Da verificare</option><option value="available">Disponibile</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                </label>
+                <label class="campo-form">Foto del sito
+                  <select name="documentStatusPhotos" data-dg-status-category="foto-sito"><option value="to_verify" selected>Da verificare</option><option value="available">Disponibile</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
                 </label>
               </div>
             </div>
@@ -1237,23 +1251,23 @@
   <script src="js/vendor/firebase-firestore-compat.js"></script>
   <script src="js/vendor/firebase-auth-compat.js"></script>
   <script src="js/firebase-config.js"></script>
-  <script src="js/auth.js?v=20261012-140126"></script>
+  <script src="js/auth.js?v=20261029-141251"></script>
   <script src="js/supabase-config.js"></script>
   <script src="js/vendor/pdf.min.js"></script>
-  <script src="js/db.js?v=20261012-140126"></script>
+  <script src="js/db.js?v=20261029-141251"></script>
   <script src="js/identity.js"></script>
-  <script src="js/checklist.js?v=20261012-140126"></script>
+  <script src="js/checklist.js?v=20261029-141251"></script>
   <script src="js/question-navigator.js"></script>
-  <script src="js/storico-filtri.js?v=20261012-140126"></script>
-  <script src="js/foto-sync.js?v=20261012-140126"></script>
+  <script src="js/storico-filtri.js?v=20261029-141251"></script>
+  <script src="js/foto-sync.js?v=20261029-141251"></script>
   <script src="js/camera.js"></script>
-  <script src="js/pdf.js?v=20261012-140126"></script>
-  <script src="js/pdf-import.js?v=20261012-140126"></script>
-  <script src="js/import-matching.js?v=20261012-140126"></script>
-  <script src="js/sync.js?v=20261012-140126"></script>
-  <script src="js/app.js?v=20261012-140126"></script>
-  <script src="js/account-screens.js?v=20261012-140126"></script>
+  <script src="js/pdf.js?v=20261029-141251"></script>
+  <script src="js/pdf-import.js?v=20261029-141251"></script>
+  <script src="js/import-matching.js?v=20261029-141251"></script>
+  <script src="js/sync.js?v=20261029-141251"></script>
+  <script src="js/app.js?v=20261029-141251"></script>
+  <script src="js/account-screens.js?v=20261029-141251"></script>
   <script src="js/document-generation.js"></script>
-  <script src="js/aggiornamento.js?v=20261012-140126"></script>
+  <script src="js/aggiornamento.js?v=20261029-141251"></script>
 </body>
 </html>

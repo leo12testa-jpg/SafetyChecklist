@@ -423,11 +423,16 @@
   });
 
   const ATTACHMENT_CATEGORY_LABELS = {
-    'documenti-tecnici': 'Documenti dell’incarico e della sicurezza',
-    'cronoprogrammi': 'Cronoprogramma e programma lavori',
-    'planimetrie-layout': 'Planimetrie, layout e disegni',
-    'mezzi-attrezzature': 'Documenti mezzi e attrezzature',
-    'foto-sito': 'Foto del luogo di lavoro',
+    'contratto-capitolato': 'Contratto / capitolato',
+    'dvr-specifico': 'DVR specifico',
+    'cronoprogrammi': 'Cronoprogramma',
+    'planimetrie-layout': 'Planimetrie e layout',
+    'mezzi-attrezzature': 'Macchinari e attrezzature',
+    'procedure-operative': 'Procedure operative',
+    'emergenze': 'Emergenze',
+    'sds': 'SDS e prodotti chimici',
+    'permessi': 'Permessi',
+    'foto-sito': 'Foto del sito',
     'altri-allegati': 'Altri allegati'
   };
 
@@ -498,11 +503,24 @@
     if (!data.job.title) missing.push('Titolo esatto del DUVRI da confermare: non inventare il titolo del frontespizio.');
     if (!data.job.documentDate) missing.push('Data da riportare sul DUVRI da confermare esplicitamente.');
     if (!data.client.legalName) missing.push('Ragione sociale del committente da acquisire o confermare.');
+    if (!data.client.vatOrTaxId) missing.push('Partita IVA / codice fiscale del committente da acquisire o verificare.');
+    if (!data.client.registeredAddress) missing.push('Sede legale del committente da acquisire o verificare.');
+    if (!data.client.contactName || (!data.client.contactPhone && !data.client.contactEmail)) missing.push('Referente del committente e almeno un recapito da acquisire.');
+    if (!data.client.siteContactName || !data.client.siteContactPhone) missing.push('Referente del sito e recapito da acquisire o confermare.');
     if (!data.site.address) missing.push('Sede e indirizzo dell’intervento da acquisire o confermare.');
     if (!data.site.context || data.site.context === 'unknown' || data.site.context === 'other') missing.push('Tipo di area (interno, cantiere/esterno o misto) da confermare.');
+    if (!data.site.areaDescription) missing.push('Area di intervento e perimetro operativo da descrivere.');
+    if (!data.site.accessNotes || !data.site.vehicleRoutes) missing.push('Accessi e percorsi pedonali/veicolari da descrivere o indicare come non applicabili.');
+    if (!data.site.materialStorageAreas) missing.push('Aree di deposito e carico/scarico da indicare o confermare come non previste.');
+    if (!data.site.workDaysHours) missing.push('Giorni, orari e durata delle attività da acquisire.');
+    if (!data.site.systems || !data.site.restrictions) missing.push('Impianti presenti e vincoli del sito da descrivere o dichiarare non applicabili.');
     if (!data.work.description) missing.push('Descrizione dell’appalto da completare con attività, fasi e risultati previsti.');
     if (!data.work.workSchedule) missing.push('Cronoprogramma/fasi, date, orari e durata: completare qui o allegare un documento.');
     if (!data.work.overlappingActivities) missing.push('Descrivere le attività simultanee del committente o di altre imprese, oppure confermare che non sono previste.');
+    if (!data.work.areaSegregation) missing.push('Delimitazioni e separazione delle aree da descrivere o indicare come non necessarie.');
+    if (!data.work.systemInterruptions) missing.push('Interruzioni/isolamenti degli impianti da descrivere o confermare come non previsti.');
+    if (!data.work.deliveriesAndTraffic) missing.push('Carico/scarico e gestione dei transiti da descrivere o confermare come non applicabili.');
+    if (!data.work.coordinationNotes) missing.push('Modalità di coordinamento tra committente, appaltatori e subappaltatori da indicare.');
     if (data.site.otherWorkersPresence === 'unknown') missing.push('Confermare la presenza di lavoratori del committente o di altre imprese.');
     if (data.site.publicPresence === 'unknown') missing.push('Confermare la presenza di clienti, utenti o pubblico.');
     if (data.coordination.emergencyRoutesAffected === 'unknown') missing.push('Verificare se i lavori interferiscono con vie di esodo, allarmi o impianti antincendio.');
@@ -510,33 +528,34 @@
     data.contractors.forEach((company, index) => {
       const label = company.company || ('Impresa ' + (index + 1));
       if (!company.company) missing.push('Impresa ' + (index + 1) + ': ragione sociale da inserire.');
+      if (company.role === 'subcontractor' && !company.parentCompany) missing.push(label + ': indicare l’impresa appaltatrice di riferimento.');
+      if (!company.contactName || (!company.contactPhone && !company.contactEmail)) missing.push(label + ': referente e recapito da acquisire.');
+      if (company.workerCount === null) missing.push(label + ': numero di addetti da indicare o confermare.');
       if (!company.scope) missing.push(label + ': descrivere le attività e le fasi eseguite.');
       if (!company.preposto.name || company.preposto.status !== 'confirmed') missing.push(label + ': acquisire/confermare espressamente nominativo e ruolo del preposto.');
       if (!company.equipment) missing.push(label + ': indicare mezzi/macchinari/attrezzature, azienda utilizzatrice e proprietario.');
       if (!company.ppe) missing.push(label + ': indicare i DPI previsti sulla base dei documenti dell’impresa.');
     });
 
-    const allNames = [
-      ...(data.sourceChecklist ? [data.sourceChecklist.name] : []),
-      ...data.documents.map((file) => file.name)
-    ].map((name) => name.toLowerCase());
-    const hasName = (...needles) => allNames.some((name) => needles.some((needle) => name.includes(needle)));
-    const hasCategory = (category) => data.documents.some((file) => file.category === category);
     const docChecks = [
-      { key: 'contract', label: 'Contratto/capitolato', available: hasName('contratto', 'capitolato') },
-      { key: 'dvr', label: 'DVR specifico dell’intervento', available: hasName('dvr') },
-      { key: 'schedule', label: 'Cronoprogramma', available: hasName('cronoprogramma', 'programma-lavori', 'programma lavori', 'planning') || hasCategory('cronoprogrammi') },
-      { key: 'plan', label: 'Planimetria/layout', available: hasName('planimetr', 'layout', 'planimetry') || hasCategory('planimetrie-layout') },
-      { key: 'emergency', label: 'Piano/istruzioni di emergenza', available: hasName('emergenza', 'emergency') },
-      { key: 'sds', label: 'SDS/documenti di prodotti chimici', available: hasName('sds', 'scheda-sicurezza', 'scheda sicurezza') },
-      { key: 'equipment', label: 'Documenti di mezzi e attrezzature', available: hasName('manuale', 'libretto', 'attrezzatura', 'macchinario', 'verifica') || hasCategory('mezzi-attrezzature') }
+      ['contratto-capitolato', 'Contratto / capitolato', 'contratto-capitolato'],
+      ['dvr-specifico', 'DVR specifico dell’intervento', 'dvr-specifico'],
+      ['cronoprogrammi', 'Cronoprogramma', 'cronoprogrammi'],
+      ['planimetrie-layout', 'Planimetria / layout', 'planimetrie-layout'],
+      ['mezzi-attrezzature', 'Documenti di macchinari e attrezzature', 'mezzi-attrezzature'],
+      ['procedure-operative', 'Procedure operative', 'procedure-operative'],
+      ['emergenze', 'Piano o istruzioni di emergenza', 'emergenze'],
+      ['sds', 'SDS / documenti dei prodotti chimici', 'sds'],
+      ['permessi', 'Permessi e autorizzazioni', 'permessi'],
+      ['foto-sito', 'Foto del sito', 'foto-sito']
     ];
     const availability = data.documentAvailability || {};
-    docChecks.forEach(({ key, label, available }) => {
-      const status = availability[key] || 'unknown';
+    docChecks.forEach(([key, label, category]) => {
+      const status = availability[key] || 'to_verify';
+      const supplied = data.documents.some((file) => file.category === category);
       if (status === 'to_acquire') missing.push(label + ': segnato come “da acquisire”.');
-      else if (status === 'received' && !available) missing.push(label + ': segnato come disponibile ma non è stato individuato un allegato dal nome compatibile; verificare prima dell’invio.');
-      else if (status === 'unknown' && !available) missing.push(label + ': verificare se pertinente e disponibile; allegarlo quando necessario.');
+      else if (status === 'to_verify') missing.push(label + ': stato da verificare.');
+      else if (status === 'available' && !supplied) missing.push(label + ': indicato come disponibile ma nessun file è stato selezionato nella relativa categoria.');
     });
 
     if (data.roofAccess.roofWork === 'yes') {
@@ -549,8 +568,10 @@
     }
     if (!data.coordination.assemblyPoint) missing.push('Punto di raccolta e istruzioni di emergenza del sito: indicare o acquisire.');
     if (!data.coordination.emergencyContacts) missing.push('Contatti e modalità di attivazione dell’emergenza: acquisire o confermare.');
-    if (data.modules.includes('confined-space') && !hasName('procedura', 'permesso')) {
-      missing.push('Modulo spazi confinati: verificare procedure e permessi pertinenti prima della valutazione tecnica.');
+    if (data.modules.includes('confined-space') &&
+        (!['procedure-operative', 'permessi'].some((category) => data.documents.some((file) => file.category === category)) ||
+         !['procedure-operative', 'permessi'].some((key) => ['available', 'not_applicable'].includes(data.documentAvailability[key])))) {
+      missing.push('Modulo spazi confinati: verificare disponibilità e contenuto di procedure e permessi pertinenti prima della valutazione tecnica.');
     }
     return missing;
   }
@@ -576,15 +597,12 @@
       contentIncluded: false,
       includedInLocalPackage: true
     }));
-    const documentAvailability = {
-      contract: value('documentStatusContract') || 'unknown',
-      dvr: value('documentStatusDvr') || 'unknown',
-      schedule: value('documentStatusSchedule') || 'unknown',
-      plan: value('documentStatusPlan') || 'unknown',
-      emergency: value('documentStatusEmergency') || 'unknown',
-      sds: value('documentStatusSds') || 'unknown',
-      equipment: value('documentStatusEquipment') || 'unknown'
-    };
+    const documentAvailability = Object.fromEntries(
+      Array.from(form.querySelectorAll('[data-dg-status-category]')).map((field) => [
+        field.dataset.dgStatusCategory,
+        value(field.name) || 'to_verify'
+      ])
+    );
     return {
       schema: 'colligo-duvri-client-intake/0.1',
       documentType: escapeText(data.get('documentType') || 'duvri'),
@@ -710,6 +728,7 @@
     }
     preparedRecord = createRecord();
     const missing = collectMissing(preparedRecord);
+    preparedRecord.missingInformation = missing;
 
     if (!cloudEnabled) {
       renderPreparedRecord(preparedRecord, missing, 'local');
@@ -791,8 +810,14 @@
   });
 
   function safeArchiveName(name) {
-    const leaf = String(name || 'allegato').split(/[\\/]/).pop();
-    return leaf.replace(/[^a-zA-Z0-9._() -]+/g, '_').replace(/^\.+/, '').slice(0, 140) || 'allegato';
+    let leaf = String(name || '').split(/[\\/]/).pop();
+    leaf = leaf.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+    leaf = leaf.replace(/[<>:"/\\|?*\x00-\x1f]+/g, '_').replace(/[^a-zA-Z0-9._() -]+/g, '_');
+    leaf = leaf.replace(/^\.+/, '').replace(/[. ]+$/g, '').trim().slice(0, 120);
+    if (!leaf || /^\.+$/.test(leaf)) leaf = 'allegato';
+    const stem = leaf.split('.')[0].toUpperCase();
+    if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/.test(stem)) leaf = '_' + leaf;
+    return leaf;
   }
 
   downloadPackageButton.addEventListener('click', async () => {
@@ -809,21 +834,28 @@
       const zip = new JSZip();
       zip.file('scheda-duvri.json', JSON.stringify(preparedRecord, null, 2));
       zip.file('ISTRUZIONI.txt',
-        'Pacchetto di raccolta dati DUVRI per Colligo.\\n' +
-        'Contiene le risposte del questionario in scheda-duvri.json e gli allegati nelle cartelle sotto allegati/.\\n' +
-        'Questo pacchetto non è un DUVRI e non equivale a una validazione tecnica.\\n' +
-        'Verificare dati, file, preposti, cronoprogramma e planimetrie prima dell’invio.\\n' +
+        'Pacchetto di raccolta dati DUVRI per Colligo.\n' +
+        'Contiene le risposte del questionario in scheda-duvri.json e gli allegati nelle cartelle sotto allegati/.\n' +
+        'Questo pacchetto non è un DUVRI e non equivale a una validazione tecnica.\n' +
+        'Verificare dati, file, preposti, cronoprogramma e planimetrie prima dell’invio.\n' +
         'I file sono stati raggruppati localmente dal browser; non sono stati inviati automaticamente al cloud o a un provider AI.'
       );
       const suppliedChecklist = checklistInput.files && checklistInput.files[0];
       if (suppliedChecklist) {
-        zip.file('allegati/checklist-preesistente/' + safeArchiveName(suppliedChecklist.name), suppliedChecklist);
+        zip.file(
+          'allegati/checklist-preesistente/' + safeArchiveName(suppliedChecklist.name),
+          await suppliedChecklist.arrayBuffer()
+        );
       }
-      readSelectedAttachments().forEach(({ file, category }, index) => {
+      const selectedAttachments = readSelectedAttachments();
+      for (const [index, { file, category }] of selectedAttachments.entries()) {
         const safeCategory = String(category || 'altri-allegati').replace(/[^a-zA-Z0-9_-]+/g, '-');
         const serial = String(index + 1).padStart(3, '0');
-        zip.file('allegati/' + safeCategory + '/' + serial + '-' + safeArchiveName(file.name), file);
-      });
+        zip.file(
+          'allegati/' + safeCategory + '/' + serial + '-' + safeArchiveName(file.name),
+          await file.arrayBuffer()
+        );
+      }
       const blob = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');

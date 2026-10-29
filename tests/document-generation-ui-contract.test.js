@@ -7,12 +7,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const JSZip = require('../js/vendor/jszip.min.js');
 
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const controllerSource = fs.readFileSync(path.join(root, 'js', 'document-generation.js'), 'utf8');
 const configSource = fs.readFileSync(path.join(root, 'js', 'supabase-config.js'), 'utf8');
 const serviceWorker = fs.readFileSync(path.join(root, 'service-worker.js'), 'utf8');
+const intakeSchema = JSON.parse(fs.readFileSync(path.join(root, 'schemas', 'duvri-intake.schema.json'), 'utf8'));
 
 const ENDPOINT = 'https://example.invalid/functions/v1/document-jobs';
 
@@ -241,10 +243,15 @@ function dispatch(target, type, extra = {}) {
     ...extra
   };
   const chain = [];
+  const pending = [];
   for (let node = target; node; node = node.parentNode) chain.push(node);
   const doc = chain.map((node) => node.ownerDocument).find(Boolean);
   if (doc) chain.push(doc);
-  chain.forEach((node) => (node.listeners[type] || []).forEach((cb) => cb(event)));
+  chain.forEach((node) => (node.listeners[type] || []).forEach((cb) => {
+    const result = cb(event);
+    if (result && typeof result.then === 'function') pending.push(result);
+  }));
+  event.done = Promise.all(pending);
   return event;
 }
 
@@ -264,8 +271,9 @@ class FakeFormData {
   getAll(name) { return this.entries.filter(([n]) => n === name).map(([, v]) => v); }
 }
 
-function fakeFile(name, size = 2048, type = 'application/pdf', content = 'CONTENUTO-RISERVATO-NON-ESPORTARE') {
-  return { name, size, type, lastModified: 1760000000000, content };
+function fakeFile(name, size = 2048, type = 'application/pdf', content) {
+  const payload = content === undefined ? 'SYNTHETIC-ATTACHMENT'.padEnd(size, 'x') : content;
+  return new File([payload], name, { type, lastModified: 1760000000000 });
 }
 
 function jsonResponse(body, status = 200) {
@@ -314,12 +322,16 @@ function setup({ cloud, admin = false, respond, useRealConfig = false } = {}) {
   const calls = [];
   const alerts = [];
   const blobs = [];
+  const downloads = [];
   const context = {
     console, setTimeout: () => 0, clearTimeout() {},
     URL: Object.assign(function (u) { return new URL(u); }, {
-      createObjectURL: () => 'blob:test', revokeObjectURL() {}
+      createObjectURL: (blob) => { downloads.push(blob); return 'blob:test-' + downloads.length; }, revokeObjectURL() {}
     }),
-    Blob: class { constructor(parts, opts) { this.parts = parts; this.type = opts && opts.type; blobs.push(this); } },
+    URLSearchParams,
+    Blob,
+    File,
+    JSZip,
     FormData: FakeFormData,
     crypto: { randomUUID: () => '00000000-0000-4000-8000-000000000001' },
     alert: (m) => alerts.push(m),
@@ -363,19 +375,27 @@ function setup({ cloud, admin = false, respond, useRealConfig = false } = {}) {
       input.files = file ? [file] : [];
       dispatch(input, 'change');
     },
-    selectAttachments(files) {
-      const input = $('dg-files');
+    selectAttachments(files, category = 'altri-allegati') {
+      const input = screen.querySelector('[data-dg-attachment-category="' + category + '"]');
+      assert.ok(input, 'categoria allegati assente: ' + category);
       input.files = files;
       dispatch(input, 'change');
     },
     submit() { return dispatch(form, 'submit'); },
     status: () => $('dg-cloud-status').textContent,
     queueText: () => $('dg-queue-list').textContent,
-    exportedRecord() {
+    async exportedRecord() {
       $('dg-download-json').click();
-      const blob = blobs[blobs.length - 1];
+      const blob = downloads[downloads.length - 1];
       assert.ok(blob, 'nessuna esportazione JSON prodotta');
-      return { text: blob.parts.join(''), record: JSON.parse(blob.parts.join('')) };
+      const text = await blob.text();
+      return { text, record: JSON.parse(text) };
+    },
+    async exportedPackage() {
+      await dispatch($('dg-download-package'), 'click').done;
+      const blob = downloads[downloads.length - 1];
+      assert.ok(blob, 'nessun pacchetto ZIP scaricato: ' + this.status());
+      return JSZip.loadAsync(await blob.arrayBuffer());
     }
   };
 }
@@ -389,15 +409,16 @@ test('la schermata è raggiungibile dal menu e contiene gli elementi usati dal c
   assert.ok(ids.length >= 15);
   for (const id of ids) assert.ok(env.$(id), 'elemento #' + id + ' richiesto dal controller ma assente in index.html');
   const checklist = env.$('dg-checklist-file');
-  assert.equal(checklist.required, true, 'la checklist compilata deve essere obbligatoria');
+  assert.equal(checklist.required, false, 'il cliente deve poter compilare il questionario da zero');
   assert.equal(checklist.type, 'file');
-  assert.equal(env.$('dg-files').hasAttribute('multiple'), true);
-  const agents = env.screen.querySelectorAll('[data-agent]').map((el) => el.dataset.agent);
-  assert.deepEqual(agents, ['coordinator', 'document-reader', 'duvri-analyst', 'docx-writer', 'quality-check']);
-  const consent = env.form.querySelector('[name="aiDataProcessingConsent"]');
-  assert.equal(consent.type, 'checkbox');
-  assert.equal(consent.checked, false, 'il consenso al provider AI non deve essere preselezionato');
-  assert.match(consent.parentNode.textContent, /costi separati dall'abbonamento ChatGPT o Claude/i);
+  const categories = env.screen.querySelectorAll('[data-dg-attachment-category]').map((el) => el.dataset.dgAttachmentCategory);
+  assert.deepEqual(categories, ['contratto-capitolato', 'dvr-specifico', 'cronoprogrammi', 'planimetrie-layout', 'mezzi-attrezzature', 'procedure-operative', 'emergenze', 'sds', 'permessi', 'foto-sito', 'altri-allegati']);
+  const statuses = env.screen.querySelectorAll('[data-dg-status-category]');
+  assert.equal(statuses.length, categories.length - 1);
+  statuses.forEach((select) => assert.deepEqual(select.querySelectorAll('option').map((option) => option.value), ['to_verify', 'available', 'to_acquire', 'not_applicable']));
+  assert.match(env.screen.textContent, /art\. 26, comma 8-bis, del D\.Lgs\. 81\/2008/);
+  assert.match(env.screen.textContent, /Legge 215\/2021/);
+  assert.equal(env.form.querySelector('[name="aiDataProcessingConsent"]'), null, 'nessun trasferimento AI viene proposto nel flusso locale');
   const enabledTypes = env.form.querySelector('[name="documentType"]').querySelectorAll('option').filter((o) => !o.disabled).map((o) => o.value);
   assert.deepEqual(enabledTypes, ['duvri'], 'solo il DUVRI è generabile in questa versione');
 });
@@ -408,16 +429,17 @@ test('la configurazione pubblicata mantiene il cloud disattivato e nessuna richi
   await flush();
   assert.equal(env.calls.length, 0);
   assert.match(env.status(), /Backend cloud non attivo/);
-  assert.match(env.screen.querySelector('.dg-prototype-alert p').textContent, /non sono ancora attivi/);
+  assert.match(env.screen.querySelector('.dg-prototype-alert p').textContent, /non viene caricato online/);
   assert.match(env.queueText(), /Coda cloud non attiva/);
 });
 
 test('con il cloud disattivato la scheda viene preparata solo in locale, senza rete né contenuto dei file', async () => {
   for (const cloud of [false, undefined]) {
     const env = setup({ cloud });
-    env.fill({ title: 'DUVRI Magazzino Nord', clientName: 'Cliente Srl', site: 'Via Roma 1', siteType: 'internal_area', aiDataProcessingConsent: true });
+    env.fill({ title: 'DUVRI Magazzino Nord', clientName: 'Cliente Srl', site: 'Via Roma 1', siteType: 'internal_area' });
     env.selectChecklist(fakeFile('checklist-duvri.xlsx', 4096, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'));
-    env.selectAttachments([fakeFile('DVR specifico.pdf'), fakeFile('cronoprogramma.pdf')]);
+    env.selectAttachments([fakeFile('documento.pdf')], 'dvr-specifico');
+    env.selectAttachments([fakeFile('programma.pdf')], 'cronoprogrammi');
     assert.match(env.$('dg-checklist-file-status').textContent, /checklist-duvri\.xlsx · 4 KB/);
     assert.equal(env.$('dg-files-list').children.length, 2);
 
@@ -429,14 +451,14 @@ test('con il cloud disattivato la scheda viene preparata solo in locale, senza r
     assert.equal(env.$('dg-result-title').textContent, 'Scheda dati pronta per il test');
     assert.match(env.status(), /nessun agente è stato avviato/);
 
-    const { text, record } = env.exportedRecord();
+    const { text, record } = await env.exportedRecord();
     assert.equal(record.cloudSubmission, false);
     assert.equal(record.aiGenerationStarted, false);
     assert.equal(record.humanReviewRequired, true);
     assert.equal(record.prototypeStatus, 'local-intake-only');
     assert.equal(record.sourceChecklist.name, 'checklist-duvri.xlsx');
     assert.equal(record.sourceChecklist.contentIncluded, false);
-    assert.deepEqual(record.documents.map((d) => [d.name, d.contentIncluded]), [['DVR specifico.pdf', false], ['cronoprogramma.pdf', false]]);
+    assert.deepEqual(record.documents.map((d) => [d.name, d.category, d.contentIncluded]), [['documento.pdf', 'dvr-specifico', false], ['programma.pdf', 'cronoprogrammi', false]]);
     assert.deepEqual(record.workflow.map((s) => s.agent), ['coordinator', 'document-reader', 'duvri-analyst', 'docx-writer', 'quality-check']);
     assert.ok(record.workflow.every((s) => s.status === 'not_connected'));
     assert.ok(!text.includes('CONTENUTO-RISERVATO'), 'il contenuto dei file non deve finire nell\'esportazione');
@@ -444,15 +466,28 @@ test('con il cloud disattivato la scheda viene preparata solo in locale, senza r
   }
 });
 
-test('senza checklist il modulo non viene inviato (né in locale né al cloud)', async () => {
-  for (const cloud of [false, true]) {
-    const env = setup({ cloud, respond: () => jsonResponse({ jobs: [] }) });
-    env.fill({ aiDataProcessingConsent: true });
-    env.submit();
-    await flush();
-    assert.equal(env.$('dg-result').hidden, true);
-    assert.equal(env.calls.filter((c) => c.action === 'create').length, 0);
-  }
+test('il questionario completo può essere preparato localmente senza checklist preesistente', async () => {
+  const env = setup({ cloud: false });
+  env.fill({
+    title: 'Lavoro sintetico', documentDate: '2026-10-29', clientName: 'Cliente Sintetico Srl',
+    site: 'Via di prova 1', siteType: 'internal_area', workDescription: 'Attività dimostrativa',
+    workSchedule: 'Fase 1, 29/10/2026, 08:00-12:00', overlappingActivities: 'Nessuna compresenza prevista',
+    otherWorkersPresence: 'no', publicPresence: 'no', emergencyRoutesAffected: 'no',
+    assemblyPoint: 'Punto sintetico', emergencyContacts: 'Contatto di prova', roofWork: 'no'
+  });
+  assert.equal(env.$('dg-checklist-file').files.length, 0);
+  env.submit();
+  await flush();
+  assert.equal(env.$('dg-result').hidden, false);
+  assert.equal(env.calls.length, 0, 'preparazione locale senza richieste di rete');
+  const { record } = await env.exportedRecord();
+  assert.equal(record.sourceChecklist, null);
+  assert.equal(record.client.legalName, 'Cliente Sintetico Srl');
+  assert.equal(record.work.workSchedule, 'Fase 1, 29/10/2026, 08:00-12:00');
+  assert.equal(record.aiGenerationStarted, false);
+  assert.equal(record.humanReviewRequired, true);
+  assert.ok(record.missingInformation.some((item) => /preposto/.test(item)));
+  assert.deepEqual(Object.keys(record).sort(), Object.keys(intakeSchema.properties).sort(), 'lo schema descrive esattamente le chiavi JSON esportate');
 });
 
 test('le date incoerenti bloccano la preparazione con un messaggio', async () => {
@@ -466,17 +501,109 @@ test('le date incoerenti bloccano la preparazione con un messaggio', async () =>
   assert.equal(env.$('dg-result').hidden, true);
 });
 
-test('le lacune segnalano consenso, dati mancanti e documenti di supporto non presenti', async () => {
+test('le lacune segnalano dati mancanti, preposto e allegati da verificare', async () => {
   const env = setup({ cloud: false });
   env.selectChecklist(fakeFile('checklist.pdf'));
   env.fill({ 'modules': true });
   env.submit();
   await flush();
   const missing = env.$('dg-missing-list').children.map((li) => li.textContent);
-  for (const expected of [/Titolo esatto del DUVRI/, /Consenso al trasferimento/, /Impresa 1: ragione sociale/, /DVR specifico/, /Cronoprogramma/, /Planimetria/]) {
+  for (const expected of [/Titolo esatto del DUVRI/, /Impresa 1: ragione sociale/, /preposto/, /DVR specifico/, /Cronoprogramma/, /Planimetria/]) {
     assert.ok(missing.some((t) => expected.test(t)), 'lacuna attesa: ' + expected);
   }
   assert.match(env.$('dg-result-summary').textContent, /1 scheda impresa · 0 allegati di supporto/);
+});
+
+test('nomi file non determinano il tipo del documento: valgono categoria e stato espliciti', async () => {
+  const env = setup({ cloud: false });
+  env.fill({ documentStatusDvr: 'available' });
+  env.selectAttachments([fakeFile('DVR-del-cliente.pdf')], 'altri-allegati');
+  env.submit();
+  await flush();
+  const missing = env.$('dg-missing-list').children.map((li) => li.textContent);
+  assert.ok(missing.some((line) => /DVR specifico.*nessun file.*relativa categoria/.test(line)));
+  const { record } = await env.exportedRecord();
+  assert.equal(record.documentAvailability['dvr-specifico'], 'available');
+  assert.equal(record.documents[0].category, 'altri-allegati');
+});
+
+test('campi di committente, sito, impresa, preposto, lavori e quota arrivano al JSON', async () => {
+  const env = setup({ cloud: false });
+  env.fill({
+    title: 'Lavoro sintetico', documentDate: '2026-10-29', clientName: 'Committente sintetico',
+    clientVat: 'IT00000000000', clientAddress: 'Via Azienda 1', clientContactName: 'Referente Demo',
+    clientContactPhone: '0000000000', clientContactEmail: 'demo@example.invalid',
+    siteContactName: 'Referente Sito', siteContactPhone: '0000000001',
+    site: 'Via Sito 2', siteType: 'mixed', accessNotes: 'Ingresso est',
+    areaDescription: 'Locale tecnico sintetico', vehicleRoutes: 'Percorso segregato',
+    materialStorageAreas: 'Deposito temporaneo delimitato', workDaysHours: '29/10/2026, 08:00-12:00',
+    otherWorkersPresence: 'yes', publicPresence: 'no', siteSystems: 'Impianto elettrico',
+    siteRestrictions: 'Accesso accompagnato', workDescription: 'Manutenzione dimostrativa',
+    workSchedule: 'Fase 1, 08:00-12:00', overlappingActivities: 'Interferenza con logistica',
+    workAreaSegregation: 'Barriere mobili', systemInterruptions: 'Nessuna interruzione prevista',
+    deliveriesAndTraffic: 'Carico alle 08:00', coordinationNotes: 'Briefing prima dell’avvio',
+    roofWork: 'yes', roofAccessMethod: 'PLE', roofLandingPoint: 'Accesso nord',
+    roofProtections: 'Da verificare dal tecnico', roofLowerArea: 'Interdetta',
+    roofRescuePlan: 'Piano sito da acquisire', assemblyPoint: 'Punto A',
+    emergencyContacts: 'Numero interno 000', emergencyRoutesAffected: 'no',
+    requiredPermits: 'Permesso accesso copertura'
+  });
+  const contractor = env.$('dg-contractors').querySelector('.dg-contractor-card');
+  const fields = {
+    role: 'subcontractor', parentCompany: 'Appaltatore Demo', company: 'Subappaltatore Demo',
+    vatOrTaxId: 'IT00000000001', contactName: 'Referente Impresa', contactPhone: '0000000002',
+    contactEmail: 'impresa@example.invalid', workerCount: '3', scope: 'Posa impianto dimostrativo',
+    preposto: 'Nome dichiarato dal cliente', prepostoRole: 'Caposquadra',
+    prepostoStatus: 'confirmed', equipment: 'Attrezzo sintetico', ppe: 'Casco e guanti'
+  };
+  for (const [name, value] of Object.entries(fields)) contractor.querySelector('[data-field="' + name + '"]').value = value;
+  env.fill({ documentStatusContract: 'available', documentStatusDvr: 'to_acquire', documentStatusPlan: 'not_applicable' });
+  env.submit();
+  await flush();
+  const { record } = await env.exportedRecord();
+  assert.equal(record.client.vatOrTaxId, 'IT00000000000');
+  assert.equal(record.client.siteContactName, 'Referente Sito');
+  assert.equal(record.site.vehicleRoutes, 'Percorso segregato');
+  assert.equal(record.site.publicPresence, 'no');
+  assert.equal(record.work.deliveriesAndTraffic, 'Carico alle 08:00');
+  assert.equal(record.work.systemInterruptions, 'Nessuna interruzione prevista');
+  assert.equal(record.contractors[0].role, 'subcontractor');
+  assert.equal(record.contractors[0].parentCompany, 'Appaltatore Demo');
+  assert.equal(record.contractors[0].workerCount, 3);
+  assert.deepEqual(record.contractors[0].preposto, { name: 'Nome dichiarato dal cliente', roleOrArea: 'Caposquadra', status: 'confirmed' });
+  assert.equal(record.roofAccess.rescuePlan, 'Piano sito da acquisire');
+  assert.equal(record.coordination.requiredPermits, 'Permesso accesso copertura');
+  assert.equal(record.documentAvailability['dvr-specifico'], 'to_acquire');
+  assert.equal(record.documentAvailability['planimetrie-layout'], 'not_applicable');
+});
+
+test('il pacchetto ZIP contiene istruzioni, JSON e i byte reali degli allegati per categoria', async () => {
+  const env = setup({ cloud: false });
+  env.fill({ title: 'Prova sintetica', clientName: 'Committente sintetico' });
+  env.selectChecklist(fakeFile('checklist.xlsx', 16, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'BYTES-CHECKLIST'));
+  env.selectAttachments([fakeFile('../foto prova?.jpg', 20, 'image/jpeg', 'BYTES-FOTO')], 'foto-sito');
+  env.selectAttachments([fakeFile('procedura.pdf', 30, 'application/pdf', 'BYTES-PROCEDURA')], 'procedure-operative');
+  env.selectAttachments([fakeFile('CON', 12, 'application/octet-stream', 'BYTES-RESERVED')], 'altri-allegati');
+  env.submit();
+  await flush();
+  const zip = await env.exportedPackage();
+  const paths = Object.keys(zip.files).filter((name) => !zip.files[name].dir).sort();
+  assert.deepEqual(paths, ['ISTRUZIONI.txt', 'allegati/altri-allegati/003-_CON', 'allegati/checklist-preesistente/checklist.xlsx', 'allegati/foto-sito/002-foto prova_.jpg', 'allegati/procedure-operative/001-procedura.pdf', 'scheda-duvri.json']);
+  const instructions = await zip.file('ISTRUZIONI.txt').async('string');
+  assert.match(instructions, /non è un DUVRI/);
+  assert.match(instructions, /validazione tecnica/);
+  assert.ok(instructions.includes('\n'), 'le istruzioni devono contenere righe separate, non slash+n letterali');
+  const json = JSON.parse(await zip.file('scheda-duvri.json').async('string'));
+  assert.equal(json.documents.length, 3);
+  assert.equal(json.sourceChecklist.contentIncluded, false);
+  assert.equal(json.sourceChecklist.includedInLocalPackage, true);
+  assert.ok(Array.isArray(json.missingInformation));
+  assert.ok(json.documents.every((item) => item.contentIncluded === false && item.includedInLocalPackage === true));
+  assert.equal(await zip.file('allegati/foto-sito/002-foto prova_.jpg').async('string'), 'BYTES-FOTO');
+  assert.equal(await zip.file('allegati/procedure-operative/001-procedura.pdf').async('string'), 'BYTES-PROCEDURA');
+  assert.equal(await zip.file('allegati/altri-allegati/003-_CON').async('string'), 'BYTES-RESERVED');
+  assert.equal(await zip.file('allegati/checklist-preesistente/checklist.xlsx').async('string'), 'BYTES-CHECKLIST');
+  assert.ok(!JSON.stringify(json).includes('BYTES-FOTO'));
 });
 
 test('aggiunta e rimozione delle imprese mantengono almeno una scheda numerata', async () => {
@@ -521,54 +648,20 @@ test('con il cloud attivo senza consenso esplicito non parte alcun caricamento',
   await flush();
   assert.equal(env.created.length, 0);
   assert.match(env.status(), /devi confermare il consenso/);
-  assert.equal(env.form.querySelector('[name="aiDataProcessingConsent"]').focused, true);
+  assert.equal(env.form.querySelector('[name="aiDataProcessingConsent"]'), null);
+  assert.equal(env.calls.filter((call) => call.action === 'create').length, 0);
 });
 
-test('con il cloud attivo e consenso la checklist viene caricata con token e metadati', async () => {
+test('la UI corrente non permette trasferimenti cloud o AI anche se un test forza il flag', async () => {
   const env = await cloudEnv();
-  env.fill({ title: 'DUVRI Test', aiDataProcessingConsent: true, siteType: 'mixed' });
-  env.selectChecklist(fakeFile('checklist.docx'));
-  env.selectAttachments([fakeFile('planimetria.pdf')]);
+  env.fill({ title: 'Dati sintetici', siteType: 'mixed' });
+  env.selectAttachments([fakeFile('documento.pdf')], 'dvr-specifico');
   env.submit();
   await flush();
-  assert.equal(env.created.length, 1);
-  const call = env.created[0];
-  assert.equal(call.url.origin + call.url.pathname, ENDPOINT);
-  assert.equal(call.init.method, 'POST');
-  assert.equal(call.init.headers.authorization, 'Bearer TEST-ID-TOKEN');
-  assert.equal(call.init.headers['content-type'], undefined, 'multipart: il browser imposta il boundary');
-  const body = call.init.body;
-  assert.ok(body instanceof env.context.FormData);
-  const metadata = JSON.parse(body.get('metadata'));
-  assert.equal(metadata.aiDataProcessingConsent, true);
-  assert.equal(metadata.documentType, 'duvri');
-  assert.equal(metadata.siteType, 'mixed');
-  assert.equal(metadata.title, 'DUVRI Test');
-  assert.equal(body.get('checklist').name, 'checklist.docx');
-  assert.deepEqual(body.getAll('files').map((f) => f.name), ['planimetria.pdf']);
-  assert.match(env.$('dg-result-summary').textContent, /ID job-123 · stato: In coda/);
-  assert.equal(env.status().length > 0, true);
-  assert.equal(env.form.querySelector('button[type="submit"]').disabled, false);
-});
-
-test('gli errori del gateway sono mostrati come messaggi leggibili', async () => {
-  const cases = [
-    [() => jsonResponse({ error: 'Ruolo non autorizzato alla generazione documentale.' }, 403), 'Ruolo non autorizzato alla generazione documentale.'],
-    [() => textResponse('<html>Bad gateway</html>', 502), 'Richiesta documentale non riuscita.'],
-    [() => textResponse('ok', 200), 'Risposta del backend non valida.'],
-    [() => { throw new Error('Rete non disponibile'); }, 'Rete non disponibile']
-  ];
-  for (const [respond, expected] of cases) {
-    const env = await cloudEnv({ respond });
-    env.fill({ aiDataProcessingConsent: true });
-    env.selectChecklist(fakeFile('checklist.pdf'));
-    env.submit();
-    await flush();
-    assert.equal(env.status(), expected);
-    assert.ok(!env.status().includes('<html>'));
-    const submit = env.form.querySelector('button[type="submit"]');
-    assert.equal(submit.disabled, false, 'il pulsante torna utilizzabile dopo un errore');
-  }
+  assert.equal(env.created.length, 0);
+  assert.equal(env.calls.filter((call) => call.action === 'create').length, 0);
+  assert.equal(env.$('dg-result').hidden, false, 'la raccolta resta locale');
+  assert.equal(env.calls.some((call) => call.init.body instanceof env.context.FormData), false);
 });
 
 const ALL_STATUSES = {

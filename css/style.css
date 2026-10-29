@@ -2837,3 +2837,12 @@ textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:
   font-size: 0.82rem;
   color: var(--muted, #5d6672);
 }
+
+/* DUVRI client intake: separate attachment categories and readable status choices. */
+.dg-upload-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.dg-upload-grid .dg-upload-zone { min-width: 0; height: 100%; overflow-wrap: anywhere; }
+.dg-status-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
+.dg-document-status-panel { margin-top: 18px; }
+.dg-document-status-panel h4 { color: var(--color-primary); margin: 0 0 6px; }
+@media (max-width: 700px) { .dg-upload-grid, .dg-status-grid { grid-template-columns: 1fr; } }
+@media (max-width: 420px) { .dg-upload-grid .dg-upload-zone { padding: 18px 10px; } }
