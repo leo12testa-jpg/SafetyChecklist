@@ -87,6 +87,7 @@ Activate a module when user answers or source material indicate it may apply. If
 The source template has 434 paragraphs, 13 tables and 19 Word sections, including portrait and landscape sections. These counts are baseline checks, not an assertion that every generated document must retain the same counts if an authorized change is required.
 
 - Edit a copy of the original DOCX, never overwrite the controlled source template.
+- Keep every signature field/row blank, including company-name fields inside the signature table. Client and contractor companies sign after the draft is delivered; do not collect or prefill signature names.
 - Preserve page/section breaks, orientation, margins, styles, fonts, header/footer content, logos, decorative artwork, tables, cell fills, images and table layout unless a specific authorized field or approved requirement changes them.
 - Replace placeholders at run-level where feasible to avoid destroying formatting. Avoid whole-document text replacement that collapses Word runs or strips highlights/styles.
 - Keep the "TABELLA INDICI DI RISCHIO" immediately after "Valutazione dell’indice di rischio" as specified by the approved template.
