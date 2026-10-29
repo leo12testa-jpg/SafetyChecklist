@@ -114,6 +114,8 @@ test('fasi persistenti, gate DOCX/regola di rischio e revisione umana obbligator
   assert.match(worker, /savedMeta\.riskRuleApprovalId !== configuredRiskRuleApprovalId/);
   assert.match(worker, /savedMeta\.riskRuleVersion !== configuredRiskRuleVersion/);
   assert.match(worker, /payloadTemplateVersion && payloadTemplateVersion !== templateVersion/);
+  assert.match(worker, /delete resumableOutputs\.draft/);
+  assert.match(worker, /phase: 'draft', agentOutputs: resumableOutputs/);
   assert.match(worker, /populateDuvriTemplate\(templateBytes, draft\)/);
   assert.match(worker, /status: 'needs_review'/);
   assert.match(gateway, /awaiting_configuration/);

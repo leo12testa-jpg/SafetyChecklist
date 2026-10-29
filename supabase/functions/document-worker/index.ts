@@ -135,16 +135,22 @@ async function releaseForNextPhase(job: Job, nextPhase: string, nextMessage: str
     next_attempt_at: null
   });
 }
-async function awaitConfiguration(job: Job, message: string) {
+async function awaitConfiguration(
+  job: Job,
+  message: string,
+  options: { phase?: string; agentOutputs?: Record<string,unknown> } = {}
+) {
+  const phase = options.phase || job.phase;
   await updateClaimedJob(job, {
     status: 'awaiting_configuration',
-    phase: job.phase,
+    phase,
     status_message: message,
+    ...(options.agentOutputs ? { agent_outputs: options.agentOutputs } : {}),
     lease_until: null,
     claim_token: null,
     next_attempt_at: null
   });
-  await recordEvent(job.id, job.phase, 'warning', message, agentFor(job.phase));
+  await recordEvent(job.id, phase, 'warning', message, agentFor(phase));
 }
 async function retryOrFail(job: Job, error: unknown) {
   if (error instanceof AnthropicCallError && !error.retryable) {
@@ -636,7 +642,18 @@ async function processOne(job: Job) {
         savedMeta.templateVersion !== templateVersion ||
         savedMeta.riskRuleApprovalId !== configuredRiskRuleApprovalId ||
         savedMeta.riskRuleVersion !== configuredRiskRuleVersion) {
-      await awaitConfiguration(job, 'La configurazione di template o regola di rischio è cambiata rispetto alla bozza. Ripetere la redazione con le versioni approvate correnti.');
+      // Stale drafts/QA cannot be reused after the approved template or rule changes.
+      // Keep the extraction and analysis checkpoints so retryPhase resumes at "draft".
+      const resumableOutputs = { ...savedOutputs };
+      delete resumableOutputs.draft;
+      delete resumableOutputs.draft_metadata;
+      delete resumableOutputs.qaReport;
+      delete resumableOutputs.draftSummary;
+      await awaitConfiguration(
+        job,
+        'La configurazione di template o regola di rischio è cambiata rispetto alla bozza. La bozza precedente è stata invalidata; allineare la configurazione e ripetere la redazione.',
+        { phase: 'draft', agentOutputs: resumableOutputs }
+      );
       return { id: job.id, state: 'awaiting_configuration' };
     }
     if (!isJsonRecord(savedOutputs.draft)) {
