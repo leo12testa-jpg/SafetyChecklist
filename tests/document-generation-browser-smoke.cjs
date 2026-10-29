@@ -6,7 +6,9 @@ const JSZip = require('../js/vendor/jszip.min.js');
 const { makeServer, guard, playwright } = require('./qa-support.cjs');
 
 const engine = process.env.DUVRI_BROWSER || 'chromium';
-const browserType = playwright(engine)[engine];
+// Use the same newest cached Playwright runtime for each engine. Passing
+// "firefox" here selects qa-support's legacy Firefox-only 1.48 fallback.
+const browserType = playwright('chromium')[engine];
 const server = makeServer({ raw: true });
 const executablePath = engine === 'chromium' ? process.env.CHROME_PATH : undefined;
 
