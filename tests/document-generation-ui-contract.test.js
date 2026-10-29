@@ -698,6 +698,16 @@ test('aprire la schermata dal menu aggiorna lo stato della coda', async () => {
 // ---------------------------------------------------------------- Asserzioni sul sorgente rimaste
 // Il precache del service worker e l'ordine dei <script> non sono osservabili senza un browser
 // reale (vedi tests/pwa-*.cjs): restano verifiche testuali.
+test('la dashboard espone una scorciatoia diretta a Generazione documenti', () => {
+  const start = html.indexOf('<section id="screen-home"');
+  const end = html.indexOf('<section id="screen-new-inspection"', start);
+  assert.ok(start >= 0 && end > start, 'sezione dashboard presente');
+  const dashboard = html.slice(start, end);
+  assert.match(dashboard, /class="dashboard-action-card primary-action document-generation-action" data-nav="document-generation"/);
+  assert.match(dashboard, /<strong>Generazione documenti<\\/strong>/);
+  assert.match(dashboard, /Avvia il modulo DUVRI e raccogli checklist, documenti e dati dell'incarico/);
+});
+
 test('il controller è incluso nella shell precaricata della PWA dopo la configurazione', () => {
   const configAt = html.indexOf('src="js/supabase-config.js"');
   const controllerAt = html.indexOf('src="js/document-generation.js"');
