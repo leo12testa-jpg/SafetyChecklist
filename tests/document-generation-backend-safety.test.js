@@ -29,3 +29,12 @@ test('draft schema is marked draft-only and client roles cannot directly access 
     assert.match(schema, new RegExp('revoke all on public\\.' + table + ' from anon, authenticated', 'i'));
   }
 });
+
+
+test('controlled rollout checklist documents the unresolved approvals and safe defaults', () => {
+  const rollout = fs.readFileSync(path.join(root, 'docs', 'DUVRI_CONTROLLED_ROLLOUT_CHECKLIST.md'), 'utf8');
+  assert.match(rollout, /Resolve the source-template discrepancy between probability × severity \(1–9\) and the separate I\.R\. values \(1–3\)/);
+  assert.match(rollout, /Signature fields stay blank/);
+  assert.match(rollout, /leave the cloud pipeline and DOCX engine disabled/);
+  assert.match(rollout, /Human technical review required/);
+});
