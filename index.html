@@ -456,30 +456,27 @@
         <div class="dg-page-heading">
           <span class="eyebrow">PRODUZIONE DOCUMENTALE</span>
           <h2>Generazione documenti</h2>
-          <p>Un unico motore per i documenti Colligo: iniziamo dai DUVRI, poi aggiungeremo DVR, informative COIN, procedure e altri modelli con le rispettive checklist e skill.</p>
+          <p>Questionario da compilare prima dei lavori da parte del committente e delle imprese appaltatrici. Raccoglie informazioni operative, preposti, possibili interferenze e documenti utili alla preparazione del DUVRI.</p>
         </div>
 
         <div class="dg-prototype-alert" role="status">
-          <strong>Versione pilota dell'interfaccia</strong>
-          <p>Questa schermata permette di provare l’avvio di un lavoro a partire da una checklist compilata e di esportare i metadati in JSON. Il caricamento effettivo dei file, l’elaborazione cloud con gli agenti e la generazione Word non sono ancora attivi: i file restano sul tuo dispositivo, non vengono inviati a un servizio AI e non viene creato un DUVRI.</p>
+          <strong>Questionario cliente — versione locale</strong>
+          <p>Compila direttamente i campi qui sotto e seleziona i documenti e le foto da allegare. Al termine scarica il pacchetto ZIP: contiene le risposte in JSON e i file selezionati. In questa versione tutto viene preparato sul dispositivo: non viene caricato online, non viene inviato a un provider AI e non viene generato automaticamente un DUVRI. Invia il pacchetto al referente Colligo tramite il canale concordato.</p>
         </div>
 
-        <div class="dg-workflow-strip" aria-label="Fasi del processo">
-          <div class="dg-workflow-step is-current"><span>1</span><div><strong>Raccolta dati</strong><small>In questa versione</small></div></div>
-          <div class="dg-workflow-step"><span>2</span><div><strong>Analisi documenti</strong><small>Backend da collegare</small></div></div>
-          <div class="dg-workflow-step"><span>3</span><div><strong>Bozza Word</strong><small>Revisione obbligatoria</small></div></div>
+        <div class="dg-workflow-strip" aria-label="Fasi della raccolta">
+          <div class="dg-workflow-step is-current"><span>1</span><div><strong>Compila</strong><small>Dati di incarico e imprese</small></div></div>
+          <div class="dg-workflow-step"><span>2</span><div><strong>Allega</strong><small>Documenti, planimetrie e foto</small></div></div>
+          <div class="dg-workflow-step"><span>3</span><div><strong>Scarica</strong><small>Pacchetto da inviare a Colligo</small></div></div>
         </div>
 
-        <section class="dg-panel dg-agents-panel" aria-labelledby="dg-agents-title">
-          <div class="dg-panel-heading"><span class="dg-section-number">AI</span><div><h3 id="dg-agents-title">Agenti documentali</h3><p>Questa è la catena di lavoro prevista. Gli agenti non sono ancora collegati a un worker cloud in questo prototipo.</p></div></div>
-          <div class="dg-agent-grid">
-            <article class="dg-agent-card" data-agent="coordinator"><div class="dg-agent-top"><span class="dg-agent-avatar">01</span><span class="dg-agent-status">Da attivare</span></div><h4>Coordinatore</h4><p>Legge la richiesta, organizza il lavoro e assegna le fasi agli agenti.</p></article>
-            <article class="dg-agent-card" data-agent="document-reader"><div class="dg-agent-top"><span class="dg-agent-avatar">02</span><span class="dg-agent-status">Da attivare</span></div><h4>Analista documentale</h4><p>Esamina checklist e allegati, estrae dati e mantiene le fonti.</p></article>
-            <article class="dg-agent-card" data-agent="duvri-analyst"><div class="dg-agent-top"><span class="dg-agent-avatar">03</span><span class="dg-agent-status">Da attivare</span></div><h4>Analista interferenze</h4><p>Rileva fasi, soggetti, sovrapposizioni e informazioni da confermare.</p></article>
-            <article class="dg-agent-card" data-agent="docx-writer"><div class="dg-agent-top"><span class="dg-agent-avatar">04</span><span class="dg-agent-status">Da attivare</span></div><h4>Redattore Word</h4><p>Compila il modello Colligo originale mantenendo la struttura.</p></article>
-            <article class="dg-agent-card" data-agent="quality-check"><div class="dg-agent-top"><span class="dg-agent-avatar">05</span><span class="dg-agent-status">Da attivare</span></div><h4>Verificatore</h4><p>Controlla campi mancanti, layout, riferimenti e anomalie da revisionare.</p></article>
+        <section class="dg-panel dg-customer-instructions" aria-labelledby="dg-customer-instructions-title">
+          <div class="dg-panel-heading"><span class="dg-section-number">!</span><div><h3 id="dg-customer-instructions-title">Prima di iniziare</h3><p>Non serve avere tutte le risposte subito. Indica ciò che conosci, seleziona “Da confermare” dove previsto e allega le fonti disponibili.</p></div></div>
+          <div class="dg-customer-instructions-grid">
+            <div><strong>1. Dati corretti</strong><p>Indica ogni impresa e il relativo preposto. Non associare un nominativo all'impresa sbagliata.</p></div>
+            <div><strong>2. Evidenze utili</strong><p>Allega, se disponibili, contratto/capitolato, DVR specifico, cronoprogramma, planimetrie, procedure e foto del sito.</p></div>
+            <div><strong>3. Controllo finale</strong><p>Scarica il pacchetto ZIP e verifica che includa risposte e allegati prima di inviarlo al referente Colligo.</p></div>
           </div>
-          <p class="dg-small-note">Il lavoro sarà eseguito da un servizio cloud con coda persistente: dopo l'avvio, chiudere il browser o spegnere il PC non dovrà interromperlo. Questo comportamento diventerà disponibile solo dopo il rilascio del backend.</p>
         </section>
 
         <form id="dg-form" class="dg-form">
@@ -496,18 +493,51 @@
               </select>
             </label>
             <p class="dg-small-note">I tipi indicati come futuri non sono ancora generabili. Per attivarne uno serviranno checklist, istruzioni di redazione, template approvato e test dedicati.</p>
-            <label class="dg-upload-zone dg-checklist-upload" for="dg-checklist-file"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Carica la checklist compilata *</strong><small>Il file principale che gli agenti dovranno analizzare: Word, PDF, Excel, JSON o CSV.</small><input id="dg-checklist-file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.json,.csv,.txt" required></label>
-            <p id="dg-checklist-file-status" class="dg-checklist-file-status" aria-live="polite">Checklist non selezionata: scegli il file compilato per continuare.</p>
-            <label class="dg-upload-zone" for="dg-files"><span class="dg-upload-icon" aria-hidden="true">＋</span><strong>Aggiungi documenti di supporto</strong><small>PDF, Word, Excel, immagini e file di testo. Puoi selezionare più file.</small><input id="dg-files" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt,.csv,.json"></label>
-            <ul id="dg-files-list" class="dg-files-list"><li>Nessun documento selezionato.</li></ul>
-            <p class="dg-small-note">Esempi: DVR specifico, cronoprogramma, planimetria, procedure operative, piano di emergenza, schede di sicurezza e permessi pertinenti.</p>
+            <p class="dg-small-note">Non è obbligatorio allegare una checklist già esistente: puoi compilare il questionario direttamente in questa pagina. Gli allegati selezionati vengono inseriti nel pacchetto ZIP scaricato dal browser e non sono caricati sul server.</p>
+            <label class="dg-upload-zone dg-checklist-upload" for="dg-checklist-file"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Checklist o relazione già compilata (facoltativa)</strong><small>Se hai già un modulo, puoi aggiungerlo come fonte: PDF, Word, Excel, JSON o CSV.</small><input id="dg-checklist-file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.json,.csv,.txt"></label>
+            <p id="dg-checklist-file-status" class="dg-checklist-file-status" aria-live="polite">Nessun file preesistente selezionato: puoi compilare tutto da zero.</p>
+            <div class="dg-attachment-section">
+              <h4>Documenti dell'incarico e della sicurezza</h4>
+              <p class="dg-small-note">Seleziona i file disponibili. Più file possono essere scelti nello stesso gruppo.</p>
+              <label class="dg-upload-zone" for="dg-files-documents"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Contratto, capitolato, DVR specifico, procedure, piano emergenza, SDS</strong><small>PDF, Word, Excel o testo: contratto d'appalto, DVR relativo all'intervento, procedure operative, istruzioni del sito e schede di sicurezza.</small><input id="dg-files-documents" type="file" multiple data-dg-attachment-category="documenti-tecnici" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.json"></label>
+              <label class="dg-upload-zone" for="dg-files-schedule"><span class="dg-upload-icon" aria-hidden="true">◷</span><strong>Cronoprogramma e programma lavori</strong><small>Fasi, date, orari, durata, compresenze e sequenza delle lavorazioni.</small><input id="dg-files-schedule" type="file" multiple data-dg-attachment-category="cronoprogrammi" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg"></label>
+              <label class="dg-upload-zone" for="dg-files-plans"><span class="dg-upload-icon" aria-hidden="true">⌖</span><strong>Planimetrie, layout e disegni</strong><small>Evidenzia area di lavoro, accessi/transiti, depositi, vie di esodo e, se pertinente, accesso e sbarco in copertura.</small><input id="dg-files-plans" type="file" multiple data-dg-attachment-category="planimetrie-layout" accept=".pdf,.png,.jpg,.jpeg,.webp,.dwg,.dxf"></label>
+              <label class="dg-upload-zone" for="dg-files-equipment"><span class="dg-upload-icon" aria-hidden="true">⚙</span><strong>Documenti di mezzi, macchinari e attrezzature</strong><small>Libretti, manuali, dichiarazioni, verifiche, autorizzazioni o altra documentazione pertinente.</small><input id="dg-files-equipment" type="file" multiple data-dg-attachment-category="mezzi-attrezzature" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt"></label>
+              <label class="dg-upload-zone" for="dg-files-photos"><span class="dg-upload-icon" aria-hidden="true">▧</span><strong>Foto del luogo di lavoro e degli accessi</strong><small>Foto di aree interessate, percorsi, depositi, barriere, impianti, coperture e punti di accesso/sbarco. Evita persone riconoscibili se non necessario.</small><input id="dg-files-photos" type="file" multiple data-dg-attachment-category="foto-sito" accept="image/*"></label>
+              <label class="dg-upload-zone" for="dg-files"><span class="dg-upload-icon" aria-hidden="true">＋</span><strong>Altri allegati</strong><small>Qualsiasi altra fonte pertinente non ricompresa nei gruppi precedenti.</small><input id="dg-files" type="file" multiple data-dg-attachment-category="altri-allegati" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.txt,.csv,.json,.dwg,.dxf"></label>
+              <ul id="dg-files-list" class="dg-files-list"><li>Nessun allegato selezionato.</li></ul>
+            </div>
+            <div class="dg-document-status-panel">
+              <h4>Stato dei documenti da verificare</h4>
+              <p class="dg-small-note">Per ogni riga seleziona lo stato corretto. “Da acquisire” e “Non applicabile” non sostituiscono una verifica tecnica.</p>
+              <div class="dg-status-grid">
+                <label class="campo-form">Contratto / capitolato
+                  <select name="documentStatusContract"><option value="unknown" selected>Da verificare</option><option value="received">Disponibile / allegato</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                </label>
+                <label class="campo-form">DVR specifico dell'intervento
+                  <select name="documentStatusDvr"><option value="unknown" selected>Da verificare</option><option value="received">Disponibile / allegato</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                </label>
+                <label class="campo-form">Cronoprogramma
+                  <select name="documentStatusSchedule"><option value="unknown" selected>Da verificare</option><option value="received">Disponibile / allegato</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                </label>
+                <label class="campo-form">Planimetria / layout
+                  <select name="documentStatusPlan"><option value="unknown" selected>Da verificare</option><option value="received">Disponibile / allegato</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                </label>
+                <label class="campo-form">Piano o istruzioni di emergenza
+                  <select name="documentStatusEmergency"><option value="unknown" selected>Da verificare</option><option value="received">Disponibile / allegato</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                </label>
+                <label class="campo-form">SDS / documenti di prodotti chimici
+                  <select name="documentStatusSds"><option value="unknown" selected>Da verificare</option><option value="received">Disponibile / allegato</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                </label>
+                <label class="campo-form">Documentazione attrezzature
+                  <select name="documentStatusEquipment"><option value="unknown" selected>Da verificare</option><option value="received">Disponibile / allegato</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>
+                </label>
+              </div>
+            </div>
             <label class="campo-form">Altre informazioni / osservazioni
               <textarea name="notes" rows="3" maxlength="5000" placeholder="Dati da confermare, vincoli operativi, riferimenti ad altri documenti…"></textarea>
             </label>
-            <label class="dg-ai-consent">
-              <input type="checkbox" name="aiDataProcessingConsent" value="yes">
-              <span><strong>Consenso al trattamento tramite provider AI (per l'attivazione futura)</strong><small>Quando la generazione cloud verrà attivata, i file potranno essere trasmessi al provider AI configurato per analisi e redazione. L'uso dell'API può comportare costi separati dall'abbonamento ChatGPT o Claude. Questa versione pilota non invia file né dati a servizi esterni.</small></span>
-            </label>
+            <div class="dg-local-privacy-notice" role="note"><strong>Riservatezza</strong><p>Prima di inviare il pacchetto verifica che i file siano pertinenti all'incarico e che la loro condivisione sia autorizzata. I file selezionati restano sul dispositivo fino al download del pacchetto; non vengono trasferiti al cloud da questa versione.</p></div>
           </section>
 
 
@@ -522,6 +552,27 @@
               </label>
               <label class="campo-form">Ragione sociale del committente (se nota)
                 <input name="clientName" type="text" maxlength="180" placeholder="Può essere ricavata dalla checklist e verificata">
+              </label>
+              <label class="campo-form">Partita IVA / codice fiscale
+                <input name="clientVat" type="text" maxlength="50" placeholder="Se disponibile">
+              </label>
+              <label class="campo-form">Sede legale del committente
+                <input name="clientAddress" type="text" maxlength="240" placeholder="Indirizzo della sede legale">
+              </label>
+              <label class="campo-form">Referente del committente
+                <input name="clientContactName" type="text" maxlength="180" placeholder="Nome e cognome">
+              </label>
+              <label class="campo-form">Telefono del referente
+                <input name="clientContactPhone" type="tel" maxlength="60" placeholder="Numero di contatto">
+              </label>
+              <label class="campo-form">Email del referente
+                <input name="clientContactEmail" type="email" maxlength="180" placeholder="nome@azienda.it">
+              </label>
+              <label class="campo-form">Referente operativo presente sul sito
+                <input name="siteContactName" type="text" maxlength="180" placeholder="Se diverso dal referente del committente">
+              </label>
+              <label class="campo-form">Telefono del referente operativo
+                <input name="siteContactPhone" type="tel" maxlength="60">
               </label>
               <label class="campo-form">Luogo / indirizzo dell'intervento (se noto)
                 <input name="site" type="text" maxlength="240" placeholder="Sede e indirizzo, se già disponibili">
@@ -556,16 +607,64 @@
             <label class="campo-form">Modalità di accesso, aree, viabilità e note sul sito
               <textarea name="accessNotes" rows="3" maxlength="4000" placeholder="Accessi, percorsi, depositi, presenza di pubblico o altre attività, aree da delimitare…"></textarea>
             </label>
+            <div class="dg-fields-grid">
+              <label class="campo-form">Descrizione delle aree interessate
+                <textarea name="areaDescription" rows="3" maxlength="4000" placeholder="Edificio, reparto, piano, area esterna, copertura, locali tecnici, zone limitrofe…"></textarea>
+              </label>
+              <label class="campo-form">Percorsi pedonali e transito dei mezzi
+                <textarea name="vehicleRoutes" rows="3" maxlength="4000" placeholder="Accessi, ingresso dei mezzi, carico/scarico, vie di passaggio e punti di incrocio."></textarea>
+              </label>
+              <label class="campo-form">Zone di deposito dei materiali
+                <textarea name="materialStorageAreas" rows="2" maxlength="2500" placeholder="Indicare dove saranno depositati materiali, attrezzature e rifiuti."></textarea>
+              </label>
+              <label class="campo-form">Giorni e orari previsti
+                <textarea name="workDaysHours" rows="2" maxlength="2500" placeholder="Giorni, fascia oraria, turni, apertura al pubblico e possibili variazioni."></textarea>
+              </label>
+              <label class="campo-form">Presenza di lavoratori del committente o di altre imprese
+                <select name="otherWorkersPresence"><option value="unknown" selected>Da confermare</option><option value="yes">Sì</option><option value="no">No</option></select>
+              </label>
+              <label class="campo-form">Presenza di clienti, utenti o pubblico
+                <select name="publicPresence"><option value="unknown" selected>Da confermare</option><option value="yes">Sì</option><option value="no">No</option></select>
+              </label>
+              <label class="campo-form">Impianti e servizi presenti nell'area
+                <textarea name="siteSystems" rows="3" maxlength="3500" placeholder="Elettricità, gas, acqua, ventilazione, impianti antincendio, allarmi, linee di produzione o altri servizi."></textarea>
+              </label>
+              <label class="campo-form">Limitazioni o vincoli del sito
+                <textarea name="siteRestrictions" rows="3" maxlength="3500" placeholder="Aree da non occupare, fasce vietate, limiti di rumore/polveri, accessi riservati, attività da non interrompere."></textarea>
+              </label>
+            </div>
           </section>
 
           <section class="dg-panel">
-            <div class="dg-panel-heading"><span class="dg-section-number">02</span><div><h3>Imprese appaltatrici e preposti</h3><p>Una scheda per ogni impresa; puoi aggiungere ulteriori appaltatori o subappaltatori.</p></div></div>
+            <div class="dg-panel-heading"><span class="dg-section-number">02</span><div><h3>Imprese appaltatrici, subappaltatrici e preposti</h3><p>Una scheda per ogni impresa coinvolta, inclusi i subappaltatori e gli eventuali lavoratori autonomi.</p></div></div>
+            <p class="dg-legal-note">Ai sensi dell'art. 26, comma 8-bis, del D.Lgs. 81/2008, introdotto dalla Legge 215/2021, il datore di lavoro appaltatore o subappaltatore deve indicare espressamente al committente il personale che svolge la funzione di preposto. Se il nominativo non è ancora disponibile, segnalalo come da comunicare: non indicare nomi presunti.</p>
             <div id="dg-contractors" class="dg-contractors">
               <div class="dg-contractor-card">
                 <div class="dg-contractor-card-heading"><strong class="dg-contractor-number">Impresa 1</strong><button type="button" class="dg-remove-contractor" data-dg-remove-contractor hidden>Rimuovi impresa</button></div>
                 <div class="dg-fields-grid">
+                  <label class="campo-form">Ruolo dell'impresa *
+                    <select data-field="role"><option value="contractor" selected>Impresa appaltatrice</option><option value="subcontractor">Impresa subappaltatrice</option><option value="self-employed">Lavoratore autonomo</option><option value="other">Altro soggetto</option></select>
+                  </label>
+                  <label class="campo-form">Impresa che affida il subappalto (se applicabile)
+                    <input data-field="parentCompany" type="text" maxlength="180" placeholder="Ragione sociale dell'appaltatore di riferimento">
+                  </label>
                   <label class="campo-form">Ragione sociale *
                     <input data-field="company" type="text" maxlength="180" placeholder="Nome completo dell'impresa">
+                  </label>
+                  <label class="campo-form">Partita IVA / codice fiscale
+                    <input data-field="vatOrTaxId" type="text" maxlength="50">
+                  </label>
+                  <label class="campo-form">Referente dell'impresa
+                    <input data-field="contactName" type="text" maxlength="180" placeholder="Nome e cognome">
+                  </label>
+                  <label class="campo-form">Telefono del referente
+                    <input data-field="contactPhone" type="tel" maxlength="60">
+                  </label>
+                  <label class="campo-form">Email del referente
+                    <input data-field="contactEmail" type="email" maxlength="180">
+                  </label>
+                  <label class="campo-form">Numero indicativo di addetti presenti
+                    <input data-field="workerCount" type="number" min="0" max="10000" step="1" inputmode="numeric">
                   </label>
                   <label class="campo-form">Nominativo del preposto
                     <input data-field="preposto" type="text" maxlength="180" placeholder="Da confermare se non disponibile">
@@ -573,8 +672,11 @@
                   <label class="campo-form">Mansione / area di competenza del preposto
                     <input data-field="prepostoRole" type="text" maxlength="240" placeholder="Ruolo e ambito di sorveglianza">
                   </label>
+                  <label class="campo-form">Stato del nominativo del preposto
+                    <select data-field="prepostoStatus"><option value="to_be_confirmed" selected>Da confermare / comunicare</option><option value="confirmed">Nominativo confermato</option></select>
+                  </label>
                   <label class="campo-form">Attrezzature, mezzi e proprietà
-                    <textarea data-field="equipment" rows="2" maxlength="3000" placeholder="Mezzo/attrezzatura — utilizzatore — proprietario"></textarea>
+                    <textarea data-field="equipment" rows="2" maxlength="3000" placeholder="Descrizione — azienda utilizzatrice — proprietario — uso previsto — area/locale"></textarea>
                   </label>
                 </div>
                 <label class="campo-form">Attività e fasi eseguite da questa impresa *
@@ -602,18 +704,84 @@
             </div>
           </section>
 
+          <section class="dg-panel">
+            <div class="dg-panel-heading"><span class="dg-section-number">04</span><div><h3>Fasi di lavoro e interferenze</h3><p>Descrivi cosa farà ogni impresa, quando lo farà e cosa potrebbe avvenire nello stesso momento nelle aree condivise.</p></div></div>
+            <label class="campo-form">Fasi e cronoprogramma delle lavorazioni
+              <textarea name="workSchedule" rows="4" maxlength="6000" placeholder="Per ogni fase: attività, impresa, area, data/periodo, orario, durata, sequenza e dipendenze. Se esiste un cronoprogramma allegalo tra i documenti."></textarea>
+            </label>
+            <label class="campo-form">Attività simultanee o interferenti con quelle del committente e di altre imprese
+              <textarea name="overlappingActivities" rows="4" maxlength="5000" placeholder="Lavori contemporanei nello stesso locale/area, transito di persone e mezzi, carico/scarico, manutenzioni o attività ordinarie che proseguono."></textarea>
+            </label>
+            <div class="dg-fields-grid">
+              <label class="campo-form">Delimitazione e segnalazione dell'area di lavoro
+                <textarea name="workAreaSegregation" rows="3" maxlength="3500" placeholder="Barriere, cartelli, percorsi alternativi, controllo accessi e protezione delle aree sottostanti."></textarea>
+              </label>
+              <label class="campo-form">Impianti o servizi da interrompere / isolare
+                <textarea name="systemInterruptions" rows="3" maxlength="3500" placeholder="Indicare cosa potrebbe essere disattivato, chi autorizza l'intervento e chi dispone la riattivazione. Non presumere che un impianto sia fuori tensione."></textarea>
+              </label>
+              <label class="campo-form">Consegne, carico/scarico e movimentazione
+                <textarea name="deliveriesAndTraffic" rows="3" maxlength="3500" placeholder="Orari, mezzi, aree di manovra, separazione da pedoni e pubblico, responsabili delle operazioni."></textarea>
+              </label>
+              <label class="campo-form">Vincoli operativi e coordinamento richiesto
+                <textarea name="coordinationNotes" rows="3" maxlength="3500" placeholder="Attività da mantenere operative, riunioni di coordinamento, autorizzazioni e modalità per segnalare cambi di programma."></textarea>
+              </label>
+            </div>
+          </section>
+
+          <section class="dg-panel">
+            <div class="dg-panel-heading"><span class="dg-section-number">05</span><div><h3>Accesso in quota, coperture ed emergenze</h3><p>Compila i campi pertinenti. Se un dato non è noto, scrivi “da confermare” o lascia lo stato su “Da confermare”.</p></div></div>
+            <label class="campo-form">Sono previsti lavori in quota o accessi alla copertura?
+              <select name="roofWork"><option value="unknown" selected>Da confermare</option><option value="yes">Sì</option><option value="no">No</option></select>
+            </label>
+            <div class="dg-fields-grid">
+              <label class="campo-form">Modalità di accesso alla copertura
+                <input name="roofAccessMethod" type="text" maxlength="1200" placeholder="Scala fissa/retrattile, scala a pioli, piattaforma, accesso interno o altro, se confermato">
+              </label>
+              <label class="campo-form">Punto e modalità di sbarco sulla copertura
+                <input name="roofLandingPoint" type="text" maxlength="1500" placeholder="Punto preciso, dislivelli, botola, lucernario e percorso dalla zona di sbarco">
+              </label>
+              <label class="campo-form">DPC, linee vita e altre protezioni presenti
+                <textarea name="roofProtections" rows="3" maxlength="3000" placeholder="Parapetti, reti, linee vita, ancoraggi e relativa documentazione. Indicare solo elementi effettivamente verificati o documentati."></textarea>
+              </label>
+              <label class="campo-form">Area sottostante e rischio caduta materiali
+                <textarea name="roofLowerArea" rows="3" maxlength="2500" placeholder="Locali o percorsi sottostanti, passaggio di persone, interdizione e protezioni da predisporre."></textarea>
+              </label>
+              <label class="campo-form">Recupero ed emergenza per lavori in quota
+                <textarea name="roofRescuePlan" rows="3" maxlength="3000" placeholder="Procedura e organizzazione di recupero, referenti e attrezzature previste, se pertinenti e documentate."></textarea>
+              </label>
+              <label class="campo-form">Punto di raccolta / istruzioni di emergenza del sito
+                <input name="assemblyPoint" type="text" maxlength="1000" placeholder="Indicare il punto di raccolta noto o da confermare">
+              </label>
+              <label class="campo-form">Contatti per emergenza e primo soccorso
+                <textarea name="emergencyContacts" rows="2" maxlength="2000" placeholder="Referenti del sito, numeri interni e modalità di attivazione, se noti"></textarea>
+              </label>
+              <label class="campo-form">Stato del piano / delle istruzioni di emergenza
+                <select name="emergencyPlanStatus"><option value="unknown" selected>Da confermare</option><option value="received">Ricevuto / consultabile</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile (da motivare)</option></select>
+              </label>
+              <label class="campo-form">Le attività possono interessare vie di esodo, allarmi o impianti antincendio?
+                <select name="emergencyRoutesAffected"><option value="unknown" selected>Da confermare</option><option value="yes">Sì</option><option value="no">No</option></select>
+              </label>
+              <label class="campo-form">Permessi, autorizzazioni o procedure da concordare
+                <textarea name="requiredPermits" rows="3" maxlength="3000" placeholder="Permesso di lavoro, lavori a caldo, ingresso in area tecnica, isolamento impianti, accesso in copertura o altro, se pertinente."></textarea>
+              </label>
+            </div>
+          </section>
+
           <div class="dg-form-actions">
             <button type="button" class="btn" id="dg-reset">Azzera scheda</button>
-            <button type="submit" class="btn btn-primary">Prepara scheda dati →</button>
+            <button type="submit" class="btn btn-primary">Prepara checklist compilata →</button>
           </div>
         </form>
 
         <section class="dg-panel dg-result-panel" id="dg-result" hidden aria-live="polite">
           <div class="dg-result-heading"><span class="dg-result-icon" aria-hidden="true">✓</span><div><h3 id="dg-result-title">Scheda dati pronta</h3><p id="dg-result-summary"></p></div></div>
-          <div class="dg-next-step-notice"><strong>Da ricordare</strong><p>Questa esportazione contiene i dati inseriti e i nomi dei file selezionati, non i file stessi. Non è un DUVRI e non è stata inviata al cloud.</p></div>
+          <div class="dg-next-step-notice"><strong>Da ricordare</strong><p>Il JSON contiene i dati inseriti e i metadati degli allegati; il pacchetto ZIP comprende anche i file selezionati. Il pacchetto è preparato localmente e non equivale a un DUVRI, né a una verifica tecnica di completezza.</p></div>
           <h4>Verifiche preliminari da completare</h4>
           <ul id="dg-missing-list" class="dg-missing-list"></ul>
-          <button type="button" class="btn btn-primary" id="dg-download-json">Esporta scheda JSON</button>
+          <div class="dg-form-actions dg-result-actions">
+            <button type="button" class="btn" id="dg-download-json">Esporta solo JSON</button>
+            <button type="button" class="btn btn-primary" id="dg-download-package">Scarica pacchetto ZIP (scheda + allegati)</button>
+          </div>
         </section>
 
         <section class="dg-panel dg-queue-panel">
@@ -632,17 +800,41 @@
           <div class="dg-contractor-card">
             <div class="dg-contractor-card-heading"><strong class="dg-contractor-number">Impresa</strong><button type="button" class="dg-remove-contractor" data-dg-remove-contractor>Rimuovi impresa</button></div>
             <div class="dg-fields-grid">
-              <label class="campo-form">Ragione sociale *
-                <input data-field="company" type="text" maxlength="180" placeholder="Nome completo dell'impresa">
-              </label>
+              <label class="campo-form">Ruolo dell'impresa *
+                    <select data-field="role"><option value="contractor" selected>Impresa appaltatrice</option><option value="subcontractor">Impresa subappaltatrice</option><option value="self-employed">Lavoratore autonomo</option><option value="other">Altro soggetto</option></select>
+                  </label>
+                  <label class="campo-form">Impresa che affida il subappalto (se applicabile)
+                    <input data-field="parentCompany" type="text" maxlength="180" placeholder="Ragione sociale dell'appaltatore di riferimento">
+                  </label>
+                  <label class="campo-form">Ragione sociale *
+                    <input data-field="company" type="text" maxlength="180" placeholder="Nome completo dell'impresa">
+                  </label>
+                  <label class="campo-form">Partita IVA / codice fiscale
+                    <input data-field="vatOrTaxId" type="text" maxlength="50">
+                  </label>
+                  <label class="campo-form">Referente dell'impresa
+                    <input data-field="contactName" type="text" maxlength="180" placeholder="Nome e cognome">
+                  </label>
+                  <label class="campo-form">Telefono del referente
+                    <input data-field="contactPhone" type="tel" maxlength="60">
+                  </label>
+                  <label class="campo-form">Email del referente
+                    <input data-field="contactEmail" type="email" maxlength="180">
+                  </label>
+                  <label class="campo-form">Numero indicativo di addetti presenti
+                    <input data-field="workerCount" type="number" min="0" max="10000" step="1" inputmode="numeric">
+                  </label>
               <label class="campo-form">Nominativo del preposto
                 <input data-field="preposto" type="text" maxlength="180" placeholder="Da confermare se non disponibile">
               </label>
               <label class="campo-form">Mansione / area di competenza del preposto
-                <input data-field="prepostoRole" type="text" maxlength="240" placeholder="Ruolo e ambito di sorveglianza">
-              </label>
+                    <input data-field="prepostoRole" type="text" maxlength="240" placeholder="Ruolo e ambito di sorveglianza">
+                  </label>
+                  <label class="campo-form">Stato del nominativo del preposto
+                    <select data-field="prepostoStatus"><option value="to_be_confirmed" selected>Da confermare / comunicare</option><option value="confirmed">Nominativo confermato</option></select>
+                  </label>
               <label class="campo-form">Attrezzature, mezzi e proprietà
-                <textarea data-field="equipment" rows="2" maxlength="3000" placeholder="Mezzo/attrezzatura — utilizzatore — proprietario"></textarea>
+                <textarea data-field="equipment" rows="2" maxlength="3000" placeholder="Descrizione — azienda utilizzatrice — proprietario — uso previsto — area/locale"></textarea>
               </label>
             </div>
             <label class="campo-form">Attività e fasi eseguite da questa impresa *
