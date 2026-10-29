@@ -704,7 +704,7 @@ test('la dashboard espone una scorciatoia diretta a Generazione documenti', () =
   assert.ok(start >= 0 && end > start, 'sezione dashboard presente');
   const dashboard = html.slice(start, end);
   assert.match(dashboard, /class="dashboard-action-card primary-action document-generation-action" data-nav="document-generation"/);
-  assert.match(dashboard, /<strong>Generazione documenti<\\/strong>/);
+  assert.match(dashboard, /<strong>Generazione documenti<\/strong>/);
   assert.match(dashboard, /Avvia il modulo DUVRI e raccogli checklist, documenti e dati dell'incarico/);
 });
 
