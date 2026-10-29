@@ -83,6 +83,7 @@ Supabase Edge Functions possono ricevere richieste e fare piccoli passaggi, ma u
 - Bucket privato e policy/backend autorizzato.
 - Tabella dei job e coda persistente; procedure di retry/lease.
 - Template DOCX controllato e versionato, immagine segnaletica e skill versionata.
+- **Firme:** mantenere le righe/caselle di firma vuote. Non inserire nomi o dati delle imprese nei campi destinati alla firma: le aziende firmano dopo la consegna del documento.
 - Regola Colligo ufficiale per gli indici di rischio: il modello corrente mostra una scala 1–9 mentre le istruzioni di progetto citano celle I.R. 1–3 con colori. Nessuna conversione va implementata prima della decisione.
 - Test end-to-end con documenti sintetici, inclusi chiusura browser, spegnimento dispositivo, retry e download da altro dispositivo.
 
