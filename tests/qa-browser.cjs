@@ -17,7 +17,8 @@ async function open(user,viewport={width:1440,height:1000},{sw=false}={}) {
     const entry={user:user.username,message:e.message};
     // Firestore SDK may surface an expected permission-denied response as pageerror when a test deliberately downgrades or disables the signed-in user. Keep it visible in transport diagnostics, but do not classify it as an uncaught application exception.
     // Expected permission-denied responses from the Firestore emulator are transport diagnostics, not uncaught application exceptions.
-    if (/127\.0\.0\.1:18085\/.*Firestore/i.test(e.message) && /due to access control checks/.test(e.message)) (report.transportErrors ||= []).push(entry);
+    const expectedFirestoreDenial = e.message.includes('127.0.0.1:18085') && (e.message.includes('Firestore') || e.message.includes('/documents:batchGet')) && e.message.includes('due to access control checks');
+    if (expectedFirestoreDenial) (report.transportErrors ||= []).push(entry);
     else report.pageErrors.push(entry);
   });
   page.on('console',m=>{if(m.type()==='error'||(m.type()==='warning'&&m.text().includes('FotoSync')))report.consoleErrors.push({user:user.username,message:m.text()});});
