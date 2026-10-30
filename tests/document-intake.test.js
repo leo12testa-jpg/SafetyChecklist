@@ -182,7 +182,7 @@ test('la schermata, lo script e la shell offline includono il nuovo modulo', () 
     assert.ok(sw.includes("'./" + file + "'"), file);
   }
   assert.ok(html.indexOf('js/document-intake.js') < html.indexOf('js/document-intake-ui.js'));
-  for (const id of ['dg-auto-type', 'dg-auto-files', 'dg-auto-results', 'dg-auto-issues', 'dg-auto-fields', 'dg-auto-files-list', 'dg-template-file', 'dg-template-status', 'dg-generate-state', 'dg-generate-reasons', 'dg-auto-download', 'dg-auto-clear']) {
+  for (const id of ['dg-auto-type', 'dg-auto-files', 'dg-auto-results', 'dg-auto-issues', 'dg-auto-fields', 'dg-auto-files-list', 'dg-template-file', 'dg-template-status', 'dg-generate-state', 'dg-generate-reasons', 'dg-auto-download', 'dg-auto-clear', 'dg-auto-drop', 'dg-checklist-file', 'dg-checklist-file-status', 'dg-checklist-remove', 'dg-template-details']) {
     assert.match(html, new RegExp('id="' + id + '"'), id);
   }
   assert.match(html, /<input id="dg-auto-files" type="file" multiple>/, 'nessuna categoria da scegliere a mano');

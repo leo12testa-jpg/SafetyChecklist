@@ -8,11 +8,6 @@
   const form = document.getElementById('dg-form');
   const contractors = document.getElementById('dg-contractors');
   const addContractorButton = document.getElementById('dg-add-contractor');
-  const checklistInput = document.getElementById('dg-checklist-file');
-  const checklistFileStatus = document.getElementById('dg-checklist-file-status');
-  const filesInput = document.getElementById('dg-files');
-  const attachmentInputs = Array.from(screen.querySelectorAll('[data-dg-attachment-category]'));
-  const filesList = document.getElementById('dg-files-list');
   const resultPanel = document.getElementById('dg-result');
   const resultTitle = document.getElementById('dg-result-title');
   const resultSummary = document.getElementById('dg-result-summary');
@@ -413,60 +408,27 @@
     updateContractorCards();
   });
 
-  checklistInput.addEventListener('change', () => {
-    const file = checklistInput.files && checklistInput.files[0];
-    checklistFileStatus.textContent = file
-      ? 'File aggiunto come fonte: ' + file.name + ' · ' + (file.size < 1024 * 1024 ? Math.max(1, Math.round(file.size / 1024)) + ' KB' : (file.size / (1024 * 1024)).toFixed(1) + ' MB') + '. Sarà incluso nel pacchetto ZIP.'
-      : 'Nessun file preesistente selezionato: puoi compilare tutto da zero.';
-    checklistFileStatus.classList.toggle('is-selected', !!file);
-    invalidatePreparedRecord();
-  });
-
-  const ATTACHMENT_CATEGORY_LABELS = {
-    'contratto-capitolato': 'Contratto / capitolato',
-    'dvr-specifico': 'DVR specifico',
-    'cronoprogrammi': 'Cronoprogramma',
-    'planimetrie-layout': 'Planimetrie e layout',
-    'mezzi-attrezzature': 'Macchinari e attrezzature',
-    'procedure-operative': 'Procedure operative',
-    'emergenze': 'Emergenze',
-    'sds': 'SDS e prodotti chimici',
-    'permessi': 'Permessi',
-    'foto-sito': 'Foto del sito',
-    'altri-allegati': 'Altri allegati'
-  };
-
+  // Checklist e documentazione arrivano dalle due aree gestite da js/document-intake-ui.js
+  // (categoria riconosciuta automaticamente o corretta dall'utente).
+  const intakeSelection = () => (typeof documentIntakeSelection !== 'undefined' ? documentIntakeSelection : null);
+  function selectedChecklist() {
+    const selection = intakeSelection();
+    return selection ? selection.checklist() : null;
+  }
   function readSelectedAttachments() {
-    return attachmentInputs.flatMap((input) =>
-      Array.from(input.files || []).map((file) => ({
-        file,
-        category: input.dataset.dgAttachmentCategory || 'altri-allegati'
-      }))
-    );
+    const selection = intakeSelection();
+    return selection ? selection.documents() : [];
   }
-
-  function renderSelectedAttachments() {
-    filesList.replaceChildren();
-    const selected = readSelectedAttachments();
-    if (!selected.length) {
-      const empty = document.createElement('li');
-      empty.textContent = 'Nessun allegato selezionato.';
-      filesList.appendChild(empty);
-      invalidatePreparedRecord();
-      return;
-    }
-    selected.forEach(({ file, category }) => {
-      const item = document.createElement('li');
-      const size = file.size < 1024 * 1024
-        ? Math.max(1, Math.round(file.size / 1024)) + ' KB'
-        : (file.size / (1024 * 1024)).toFixed(1) + ' MB';
-      item.textContent = (ATTACHMENT_CATEGORY_LABELS[category] || category) + ': ' + file.name + ' · ' + size;
-      filesList.appendChild(item);
-    });
+  const intakeBusy = () => Boolean(intakeSelection()?.busy());
+  const BUSY_MESSAGE = 'Attendi la fine della lettura dei file prima di preparare o scaricare la scheda.';
+  // Ogni modifica delle due aree invalida la scheda preparata; durante le letture nulla può partire.
+  screen.addEventListener('dg-intake-change', (event) => {
     invalidatePreparedRecord();
-  }
-
-  attachmentInputs.forEach((input) => input.addEventListener('change', renderSelectedAttachments));
+    const locked = Boolean(event.detail && event.detail.busy);
+    if (!submitting) submitButton.disabled = locked;
+    downloadButton.disabled = locked;
+    downloadPackageButton.disabled = locked;
+  });
 
   function readContractors() {
     return Array.from(contractors.querySelectorAll('.dg-contractor-card')).map((card, index) => {
@@ -579,7 +541,7 @@
   function createRecord() {
     const data = new FormData(form);
     const value = (name) => String(data.get(name) || '').trim();
-    const checklist = checklistInput.files && checklistInput.files[0];
+    const checklist = selectedChecklist();
     const checklistFile = checklist ? {
       name: checklist.name,
       size: checklist.size,
@@ -719,6 +681,7 @@
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (submitting || !form.reportValidity()) return;
+    if (intakeBusy()) { cloudStatus.textContent = BUSY_MESSAGE; return; }
     const start = form.elements.startDate.value;
     const end = form.elements.endDate.value;
     if (start && end && end < start) {
@@ -729,36 +692,38 @@
     preparedRecord = createRecord();
     const missing = collectMissing(preparedRecord);
     preparedRecord.missingInformation = missing;
+    // Riferimento stabile: le aree possono cambiare (e invalidare la scheda) durante l'invio.
+    const record = preparedRecord;
 
     if (!cloudEnabled) {
-      renderPreparedRecord(preparedRecord, missing, 'local');
+      renderPreparedRecord(record, missing, 'local');
       cloudStatus.textContent = 'Backend cloud non attivo: la checklist non viene caricata e nessun agente è stato avviato.';
       return;
     }
 
-    if (!preparedRecord.aiDataProcessingConsent) {
+    if (!record.aiDataProcessingConsent) {
       cloudStatus.textContent = 'Prima di inviare i file al provider AI devi confermare il consenso al trattamento cloud.';
       const consent = form.querySelector('[name="aiDataProcessingConsent"]');
       consent?.focus();
-      renderPreparedRecord(preparedRecord, missing, 'local');
+      renderPreparedRecord(record, missing, 'local');
       return;
     }
 
-    const suppliedChecklist = checklistInput.files && checklistInput.files[0];
+    const suppliedChecklist = selectedChecklist();
     const checklist = suppliedChecklist || new File(
-      [JSON.stringify(preparedRecord, null, 2)],
+      [JSON.stringify(record, null, 2)],
       'scheda-duvri-compilata.json',
       { type: 'application/json' }
     );
 
     const upload = new FormData();
     upload.append('metadata', JSON.stringify({
-      ...preparedRecord,
-      title: preparedRecord.job.title,
-      documentType: preparedRecord.documentType,
-      siteType: preparedRecord.site.context,
-      complexity: preparedRecord.job.complexity,
-      aiDataProcessingConsent: preparedRecord.aiDataProcessingConsent
+      ...record,
+      title: record.job.title,
+      documentType: record.documentType,
+      siteType: record.site.context,
+      complexity: record.job.complexity,
+      aiDataProcessingConsent: record.aiDataProcessingConsent
     }));
     upload.append('checklist', checklist, checklist.name);
     readSelectedAttachments().forEach(({ file }) => upload.append('files', file, file.name));
@@ -771,14 +736,14 @@
       const created = await requestJobs('create', { method: 'POST', body: upload });
       currentJobId = created.job?.id || null;
       if (currentJobId) {
-        preparedRecord.cloudSubmission = true;
-        preparedRecord.aiGenerationStarted = false;
-        preparedRecord.recordId = currentJobId;
-        preparedRecord.serverJob = created.job;
+        record.cloudSubmission = true;
+        record.aiGenerationStarted = false;
+        record.recordId = currentJobId;
+        record.serverJob = created.job;
       }
       const message = created.message || 'Lavoro salvato nel cloud.';
       resultTitle.textContent = 'Lavoro documentale salvato';
-      resultSummary.textContent = (created.job?.documentTypeName || created.job?.documentType || preparedRecord.documentType) +
+      resultSummary.textContent = (created.job?.documentTypeName || created.job?.documentType || record.documentType) +
         ' · ID ' + (currentJobId || 'non disponibile') + ' · stato: ' + statusLabel(created.job?.status || 'queued');
       renderMissing(missing);
       resultPanel.hidden = false;
@@ -795,7 +760,7 @@
   });
 
   downloadButton.addEventListener('click', () => {
-    if (!preparedRecord) return;
+    if (!preparedRecord || intakeBusy()) return;
     const blob = new Blob([JSON.stringify(preparedRecord, null, 2)], { type: 'application/json;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -822,6 +787,7 @@
 
   downloadPackageButton.addEventListener('click', async () => {
     if (!preparedRecord) return;
+    if (intakeBusy()) { cloudStatus.textContent = BUSY_MESSAGE; return; }
     if (typeof JSZip === 'undefined') {
       cloudStatus.textContent = 'Non è disponibile la libreria ZIP. Esporta il JSON e riprova dopo aver ricaricato l’app.';
       return;
@@ -830,9 +796,13 @@
     const oldLabel = downloadPackageButton.textContent;
     downloadPackageButton.textContent = 'Preparazione ZIP…';
     cloudStatus.textContent = 'Preparazione locale del pacchetto: scheda, documenti e foto selezionati.';
+    // Fotografia al clic: una modifica delle aree durante la preparazione non altera né interrompe lo ZIP.
+    const record = preparedRecord;
+    const suppliedChecklist = selectedChecklist();
+    const selectedAttachments = readSelectedAttachments();
     try {
       const zip = new JSZip();
-      zip.file('scheda-duvri.json', JSON.stringify(preparedRecord, null, 2));
+      zip.file('scheda-duvri.json', JSON.stringify(record, null, 2));
       zip.file('ISTRUZIONI.txt',
         'Pacchetto di raccolta dati DUVRI per Colligo.\n' +
         'Contiene le risposte del questionario in scheda-duvri.json e gli allegati nelle cartelle sotto allegati/.\n' +
@@ -840,14 +810,12 @@
         'Verificare dati, file, preposti, cronoprogramma e planimetrie prima dell’invio.\n' +
         'I file sono stati raggruppati localmente dal browser; non sono stati inviati automaticamente al cloud o a un provider AI.'
       );
-      const suppliedChecklist = checklistInput.files && checklistInput.files[0];
       if (suppliedChecklist) {
         zip.file(
           'allegati/checklist-preesistente/' + safeArchiveName(suppliedChecklist.name),
           await suppliedChecklist.arrayBuffer()
         );
       }
-      const selectedAttachments = readSelectedAttachments();
       for (const [index, { file, category }] of selectedAttachments.entries()) {
         const safeCategory = String(category || 'altri-allegati').replace(/[^a-zA-Z0-9_-]+/g, '-');
         const serial = String(index + 1).padStart(3, '0');
@@ -860,7 +828,7 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      const safeTitle = (preparedRecord.job.title || 'nuovo-duvri')
+      const safeTitle = (record.job.title || 'nuovo-duvri')
         .normalize('NFKD').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'nuovo-duvri';
       link.download = 'pacchetto-duvri-' + safeTitle + '.zip';
       document.body.appendChild(link);
@@ -879,11 +847,9 @@
   resetButton.addEventListener('click', () => {
     if (!confirm('Vuoi azzerare i dati inseriti in questa scheda? Le informazioni non saranno recuperabili.')) return;
     form.reset();
-    checklistFileStatus.textContent = 'Nessun file preesistente selezionato: puoi compilare tutto da zero.';
-    checklistFileStatus.classList.remove('is-selected');
+    intakeSelection()?.clear();
     const cards = Array.from(contractors.querySelectorAll('.dg-contractor-card'));
     cards.slice(1).forEach((card) => card.remove());
-    renderSelectedAttachments();
     resultPanel.hidden = true;
     preparedRecord = null;
     updateContractorCards();

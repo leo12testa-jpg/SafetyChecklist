@@ -93,7 +93,7 @@ async function exposeScreen(page, viewport) {
       await page.waitForFunction(() => /5 file analizzati/.test(document.getElementById('dg-auto-status').textContent), null, { timeout: 30000 });
 
       const view = await page.evaluate(() => ({
-        files: [...document.querySelectorAll('#dg-auto-files-list li')].map((li) => li.textContent),
+        files: [...document.querySelectorAll('#dg-auto-files-list > li')].map((li) => li.querySelector('strong').textContent + ' ' + li.querySelector('.dg-doc-meta').textContent),
         fields: [...document.querySelectorAll('#dg-auto-fields li')].map((li) => li.textContent),
         conflicts: document.querySelectorAll('#dg-auto-fields li.is-conflict').length,
         issues: [...document.querySelectorAll('#dg-auto-issues li')].map((li) => li.textContent),
@@ -148,6 +148,59 @@ async function exposeScreen(page, viewport) {
       assert.equal(report.fields.sede.values[0].sources[0].location, 'pagina 1');
       assert.equal(report.generation.allowed, false);
       assert.equal(report.template.controlled, false);
+      if (viewport.width === 1440) {
+        // Area 1 separata, 60 documenti in una selezione, ZIP non estratto, rimozione, correzione e trascinamento.
+        await page.locator('#dg-checklist-file').setInputFiles({ name: 'Checklist committente.docx', mimeType: 'application/octet-stream', buffer: await docx(['Committente: Alfa S.r.l.']) });
+        await page.waitForFunction(() => /Identificata come checklist del committente/.test(document.getElementById('dg-checklist-file-status').textContent));
+        assert.equal(await page.locator('#dg-auto-files-list > li').count(), 5, 'la checklist non entra nella documentazione');
+        const many = Array.from({ length: 60 }, (_, i) => ({ name: 'verbale-' + String(i + 1).padStart(2, '0') + '.txt', mimeType: 'text/plain', buffer: Buffer.from('Verbale ' + (i + 1)) }));
+        const archive = { name: 'archivio.zip', mimeType: 'application/zip', buffer: Buffer.from('PK\u0003\u0004SYNTHETIC') };
+        await page.locator('#dg-auto-files').setInputFiles([archive, ...many]);
+        await page.waitForFunction(() => /^66 file analizzati/.test(document.getElementById('dg-auto-status').textContent), null, { timeout: 60000 });
+        assert.match(await page.locator('#dg-auto-files-list > li:nth-child(6) .dg-doc-meta').textContent(), /archivio ZIP non estratto: non letto – da revisionare/);
+        assert.match(await page.locator('#dg-auto-files-list > li:nth-child(6) .dg-doc-issues').textContent(), /formato non leggibile automaticamente \(\.zip\)/);
+        await page.locator('#dg-auto-files-list > li:nth-child(7) button').click();
+        assert.equal(await page.locator('#dg-auto-files-list > li').count(), 65);
+        assert.match(await page.locator('#dg-auto-status').textContent(), /verbale-01\.txt rimosso dall’elenco: il file originale non è stato cancellato/);
+        await page.locator('#dg-auto-files-list > li:nth-child(5) select').selectOption('permessi');
+        assert.equal(await page.locator('[name="documentStatusPermits"]').inputValue(), 'available');
+        await page.evaluate(() => {
+          const data = new DataTransfer();
+          data.items.add(new File(['Attestato di formazione'], 'attestato trascinato.txt', { type: 'text/plain' }));
+          document.getElementById('dg-auto-drop').dispatchEvent(new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true }));
+        });
+        await page.waitForFunction(() => /^66 file analizzati/.test(document.getElementById('dg-auto-status').textContent));
+        assert.equal(await page.locator('#dg-auto-files-list > li:last-child strong').textContent(), 'attestato trascinato.txt');
+        const outside = await page.evaluate(() => {
+          const data = new DataTransfer();
+          data.items.add(new File(['Fuori area'], 'fuori.txt', { type: 'text/plain' }));
+          const over = new DragEvent('dragover', { dataTransfer: data, bubbles: true, cancelable: true });
+          const drop = new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true });
+          document.querySelector('.dg-page-heading').dispatchEvent(over);
+          document.querySelector('.dg-page-heading').dispatchEvent(drop);
+          return { over: over.defaultPrevented, drop: drop.defaultPrevented, rows: document.querySelectorAll('#dg-auto-files-list > li').length, status: document.getElementById('dg-auto-status').textContent };
+        });
+        assert.deepEqual(outside, { over: true, drop: true, rows: 66, status: 'File non caricati: rilasciali nell’area «Documentazione del cliente».' }, 'rilascio fuori area bloccato');
+        const control = await page.locator('#dg-auto-files-list > li:first-child').evaluate((li) => {
+          const button = li.querySelector('[data-remove-file]');
+          const box = button.getBoundingClientRect();
+          return { select: li.querySelector('select').getAttribute('aria-label'), button: button.getAttribute('aria-label'), width: box.width, height: box.height, rowWidth: li.getBoundingClientRect().width };
+        });
+        assert.equal(control.select, 'Categoria di Contratto di appalto.pdf');
+        assert.equal(control.button, 'Rimuovi Contratto di appalto.pdf dall’elenco');
+        assert.ok(control.width < control.rowWidth / 3 && control.height >= 36, 'pulsante Rimuovi compatto ma cliccabile: ' + JSON.stringify(control));
+        const fullDownload = page.waitForEvent('download');
+        await page.locator('#dg-auto-download').click();
+        const full = await JSZip.loadAsync(await fs.readFile(await (await fullDownload).path()));
+        const fullNames = Object.keys(full.files).filter((n) => !full.files[n].dir);
+        assert.ok(fullNames.includes('checklist-committente/Checklist committente.docx'));
+        assert.equal(fullNames.filter((n) => n.startsWith('allegati/')).length, 66);
+        assert.ok(Buffer.from(await full.file('allegati/altri-allegati/006-archivio.zip').async('uint8array')).equals(archive.buffer), 'ZIP incluso senza estrazione');
+        const fullReport = JSON.parse(await full.file('estrazione.json').async('string'));
+        assert.equal(fullReport.checklist.name, 'Checklist committente.docx');
+        assert.equal(fullReport.files.length, 66);
+        assert.deepEqual([fullReport.files[4].autoCategory, fullReport.files[4].category, fullReport.files[4].categoryCorrected], ['altri-allegati', 'permessi', true]);
+      }
       assert.equal(blocked.length, before, 'il caricamento automatico ha tentato richieste non locali');
       assert.deepEqual(errors, []);
       await page.close();

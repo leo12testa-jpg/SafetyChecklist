@@ -26,6 +26,20 @@ L'indicatore di sincronizzazione segnala dati/foto ancora da inviare e consente 
 
 `PROJECT.md` e `TASKS.md` conservano materiale storico: per comportamento, collaudo e rilascio prevalgono i documenti V1 qui collegati.
 
+## Avvio in locale
+
+L'app è statica e non ha build: basta servire la cartella del repository via HTTP. Su `127.0.0.1` funzionano anche il service worker e il riavvio offline.
+
+Prerequisiti: Python 3 (verificato con 3.12) e un browser recente.
+
+```sh
+python -m http.server 8080 --bind 127.0.0.1
+```
+
+Il comando va eseguito dalla radice del repository. Poi apri http://127.0.0.1:8080/. Per arrestare il server chiudi il terminale in cui è in esecuzione oppure termina il processo `python` (in PowerShell: `Get-NetTCPConnection -LocalPort 8080 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess }`). Al termine la porta 8080 torna libera.
+
+**Attenzione:** in locale l'app usa la configurazione reale di Firebase e Supabase. Accedere e salvare significa leggere e scrivere i dati di produzione. Per i test usa il collaudo isolato descritto più sotto e in [Collaudo isolato e riproduzione](docs/COLLAUDO_ISOLATO.md).
+
 ## Sviluppo e test
 
 JavaScript vanilla e librerie browser vendorizzate, senza bundler. Strumenti QA: Node 22 aggiornato, Java 21, Playwright e Firebase CLI. Docker/Supabase CLI e Deno servono al gate Storage reale; non sono dipendenze dell'app.
