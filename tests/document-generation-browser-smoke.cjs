@@ -72,6 +72,22 @@ async function exposeIntake(page, viewport) {
     assert.equal(desktopLayout.statusCount, 10);
     assert.equal(desktopLayout.cloudEnabled, false);
 
+    const checklistRemove = desktop.locator('#dg-checklist-remove');
+    assert.equal(await checklistRemove.evaluate((el) => getComputedStyle(el).display), 'none',
+      'il pulsante rimuovi checklist deve essere realmente nascosto quando non c’è checklist');
+    await desktop.locator('#dg-checklist-file').setInputFiles({
+      name: 'checklist-committente.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('Checklist committente sintetica')
+    });
+    await desktop.waitForFunction(() => document.getElementById('dg-checklist-remove').hidden === false);
+    assert.notEqual(await checklistRemove.evaluate((el) => getComputedStyle(el).display), 'none',
+      'il pulsante rimuovi checklist deve essere visibile quando la checklist è caricata');
+    await checklistRemove.click();
+    await desktop.waitForFunction(() => document.getElementById('dg-checklist-remove').hidden === true);
+    assert.equal(await checklistRemove.evaluate((el) => getComputedStyle(el).display), 'none',
+      'il pulsante rimuovi checklist deve tornare nascosto dopo la rimozione');
+
     await desktop.locator('[name="title"]').fill('Prova browser sintetica');
     await desktop.locator('[name="documentDate"]').fill('2026-10-29');
     await desktop.locator('[name="clientName"]').fill('Committente sintetico');

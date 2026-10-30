@@ -185,6 +185,8 @@ body[data-authenticated="false"] #banner-aggiornamento { display: none !importan
   cursor: pointer;
 }
 
+#dg-checklist-remove[hidden] { display: none; }
+
 .btn:active {
   background: var(--color-bg);
 }
