@@ -460,35 +460,45 @@
         </div>
 
         <section class="dg-panel dg-auto-panel" aria-labelledby="dg-auto-title">
-          <div class="dg-panel-heading"><span class="dg-section-number">↥</span><div><h3 id="dg-auto-title">Caricamento automatico dei file del committente</h3><p>Seleziona insieme tutti i file: PDF, Word (.docx), Excel (.xlsx), testo e immagini. Ogni dato estratto riporta file e posizione di origine. L’elaborazione avviene solo nel browser: nessun file viene inviato in rete o a servizi AI.</p></div></div>
+          <div class="dg-panel-heading"><span class="dg-section-number">↥</span><div><h3 id="dg-auto-title">Caricamento dei file del committente</h3><p>Due sole aree: la checklist ricevuta dal committente e tutta la restante documentazione. L’app riconosce la categoria di ogni documento, ne estrae i dati con file e posizione di origine e segnala anomalie, conflitti e dati mancanti. L’elaborazione avviene solo nel browser: nessun file viene inviato in rete o a servizi AI.</p></div></div>
           <label class="campo-form">Tipo di documento
             <select id="dg-auto-type">
               <option value="duvri" selected>DUVRI</option>
               <option value="informativa-coin">Informativa COIN — solo raccolta, modello da verificare</option>
             </select>
           </label>
-          <label class="dg-upload-zone" for="dg-auto-files"><span class="dg-upload-icon" aria-hidden="true">↥</span><strong>Carica tutti i file ricevuti</strong><small>Selezione multipla, senza scegliere categorie. Puoi aggiungere altri file in seguito.</small><input id="dg-auto-files" type="file" multiple></label>
-          <p id="dg-auto-status" class="dg-small-note" aria-live="polite">Nessun file caricato.</p>
+          <div class="dg-intake-areas">
+            <div class="dg-intake-area" role="group" aria-labelledby="dg-area-checklist-title">
+              <h4 id="dg-area-checklist-title">1. Checklist del committente</h4>
+              <label class="dg-upload-zone dg-checklist-upload" for="dg-checklist-file"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Carica la checklist ricevuta</strong><small>Un solo file: PDF, Word, Excel, JSON, CSV o testo. Facoltativa: puoi compilare il questionario da zero.</small><input id="dg-checklist-file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.json,.csv,.txt"></label>
+              <p id="dg-checklist-file-status" class="dg-checklist-file-status" aria-live="polite">Nessuna checklist caricata: puoi compilare tutto da zero.</p>
+              <button type="button" class="btn" id="dg-checklist-remove" hidden>Rimuovi la checklist dall’elenco</button>
+            </div>
+            <div class="dg-intake-area" role="group" aria-labelledby="dg-area-docs-title">
+              <h4 id="dg-area-docs-title">2. Documentazione del cliente</h4>
+              <label class="dg-upload-zone dg-drop-zone" id="dg-auto-drop" for="dg-auto-files"><span class="dg-upload-icon" aria-hidden="true">↥</span><strong>Trascina qui i documenti o selezionali</strong><small>DVR, DUVRI, planimetrie, foto, attestati, autorizzazioni, verbali, Word, PDF, Excel, ZIP e altri allegati. Selezione multipla, anche decine di file insieme: la categoria viene riconosciuta automaticamente e puoi correggerla.</small><input id="dg-auto-files" type="file" multiple></label>
+              <p id="dg-auto-status" class="dg-small-note" aria-live="polite">Nessun file caricato.</p>
+              <ul id="dg-auto-files-list" class="dg-auto-list dg-doc-list"></ul>
+            </div>
+          </div>
           <div id="dg-auto-results" class="dg-auto-results" hidden>
             <h4>Segnalazioni</h4>
             <ul id="dg-auto-issues" class="dg-auto-list"></ul>
             <h4>Dati estratti — da confermare sulle fonti</h4>
             <ul id="dg-auto-fields" class="dg-auto-list"></ul>
-            <h4>File e classificazione automatica</h4>
-            <ul id="dg-auto-files-list" class="dg-auto-list"></ul>
             <div class="dg-form-actions">
               <button type="button" class="btn btn-primary" id="dg-auto-download">Scarica pacchetto di acquisizione (ZIP)</button>
-              <button type="button" class="btn" id="dg-auto-clear">Svuota elenco</button>
+              <button type="button" class="btn" id="dg-auto-clear">Svuota elenco documenti</button>
             </div>
           </div>
-          <div class="dg-auto-template">
-            <h4>Bozza Word dal modello ufficiale Colligo</h4>
+          <p class="dg-auto-gate"><strong>Generazione bozza: <span id="dg-generate-state">bloccata</span></strong></p>
+          <ul id="dg-generate-reasons" class="dg-auto-list"></ul>
+          <details class="dg-auto-template" id="dg-template-details">
+            <summary>Verifica modello (Colligo)</summary>
             <p class="dg-small-note">Carica la copia controllata del modello (per il DUVRI: DUVRI_BASE_GENERALE_2026.docx). L’app ne verifica impronta e struttura senza modificarlo. Ogni bozza resta da revisionare da parte di un tecnico Colligo prima dell’uso ufficiale.</p>
             <label class="dg-upload-zone" for="dg-template-file"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Modello ufficiale (.docx)</strong><small>Il file resta sul dispositivo.</small><input id="dg-template-file" type="file" accept=".docx"></label>
             <p id="dg-template-status" class="dg-small-note" aria-live="polite">Modello non caricato.</p>
-            <p class="dg-auto-gate"><strong>Generazione bozza: <span id="dg-generate-state">bloccata</span></strong></p>
-            <ul id="dg-generate-reasons" class="dg-auto-list"></ul>
-          </div>
+          </details>
         </section>
 
         <div class="dg-prototype-alert" role="status">
@@ -526,27 +536,10 @@
             </label>
             <p class="dg-small-note">I tipi indicati come futuri non sono ancora generabili. Per attivarne uno serviranno checklist, istruzioni di redazione, template approvato e test dedicati.</p>
             <p class="dg-small-note">Non è obbligatorio allegare una checklist già esistente: puoi compilare il questionario direttamente in questa pagina. Gli allegati selezionati vengono inseriti nel pacchetto ZIP scaricato dal browser e non sono caricati sul server.</p>
-            <label class="dg-upload-zone dg-checklist-upload" for="dg-checklist-file"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Checklist o relazione già compilata (facoltativa)</strong><small>Se hai già un modulo, puoi aggiungerlo come fonte: PDF, Word, Excel, JSON o CSV.</small><input id="dg-checklist-file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.json,.csv,.txt"></label>
-            <p id="dg-checklist-file-status" class="dg-checklist-file-status" aria-live="polite">Nessun file preesistente selezionato: puoi compilare tutto da zero.</p>
-            <div class="dg-attachment-section dg-upload-grid">
-              <h4>Documenti dell'incarico e della sicurezza</h4>
-              <p class="dg-small-note">Seleziona i file disponibili. Più file possono essere scelti nello stesso gruppo.</p>
-              <label class="dg-upload-zone" for="dg-files-contract"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Contratto / capitolato</strong><small>Contratto d’appalto, ordine o capitolato relativo all’incarico.</small><input id="dg-files-contract" type="file" multiple data-dg-attachment-category="contratto-capitolato" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"></label>
-              <label class="dg-upload-zone" for="dg-files-dvr"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>DVR specifico dell’intervento</strong><small>Documento dell’impresa riferito alle attività oggetto dell’incarico.</small><input id="dg-files-dvr" type="file" multiple data-dg-attachment-category="dvr-specifico" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"></label>
-              <label class="dg-upload-zone" for="dg-files-schedule"><span class="dg-upload-icon" aria-hidden="true">◷</span><strong>Cronoprogramma e programma lavori</strong><small>Fasi, date, orari, durata, compresenze e sequenza delle lavorazioni.</small><input id="dg-files-schedule" type="file" multiple data-dg-attachment-category="cronoprogrammi" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg"></label>
-              <label class="dg-upload-zone" for="dg-files-plans"><span class="dg-upload-icon" aria-hidden="true">⌖</span><strong>Planimetrie, layout e disegni</strong><small>Area di lavoro, accessi, transiti, depositi, impianti, vie di esodo e accesso in copertura, se pertinente.</small><input id="dg-files-plans" type="file" multiple data-dg-attachment-category="planimetrie-layout" accept=".pdf,.png,.jpg,.jpeg,.webp,.dwg,.dxf"></label>
-              <label class="dg-upload-zone" for="dg-files-equipment"><span class="dg-upload-icon" aria-hidden="true">⚙</span><strong>Documenti di macchinari e attrezzature</strong><small>Libretti, manuali, dichiarazioni, verifiche e autorizzazioni pertinenti.</small><input id="dg-files-equipment" type="file" multiple data-dg-attachment-category="mezzi-attrezzature" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt"></label>
-              <label class="dg-upload-zone" for="dg-files-procedures"><span class="dg-upload-icon" aria-hidden="true">≡</span><strong>Procedure operative</strong><small>Procedure dell’impresa o istruzioni specifiche per le attività.</small><input id="dg-files-procedures" type="file" multiple data-dg-attachment-category="procedure-operative" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"></label>
-              <label class="dg-upload-zone" for="dg-files-emergency"><span class="dg-upload-icon" aria-hidden="true">!</span><strong>Emergenze e vie di esodo</strong><small>Piano, istruzioni, contatti e planimetrie di emergenza.</small><input id="dg-files-emergency" type="file" multiple data-dg-attachment-category="emergenze" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt"></label>
-              <label class="dg-upload-zone" for="dg-files-sds"><span class="dg-upload-icon" aria-hidden="true">⚗</span><strong>SDS e prodotti chimici</strong><small>Schede di dati di sicurezza dei prodotti previsti, se pertinenti.</small><input id="dg-files-sds" type="file" multiple data-dg-attachment-category="sds" accept=".pdf,.doc,.docx,.xls,.xlsx"></label>
-              <label class="dg-upload-zone" for="dg-files-permits"><span class="dg-upload-icon" aria-hidden="true">✓</span><strong>Permessi e autorizzazioni</strong><small>Permessi di lavoro, accesso, lavori a caldo o isolamento impianti, se pertinenti.</small><input id="dg-files-permits" type="file" multiple data-dg-attachment-category="permessi" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"></label>
-              <label class="dg-upload-zone" for="dg-files-photos"><span class="dg-upload-icon" aria-hidden="true">▧</span><strong>Foto del luogo di lavoro e degli accessi</strong><small>Foto di aree, percorsi, depositi, barriere, impianti e coperture. Evita persone riconoscibili se non necessario.</small><input id="dg-files-photos" type="file" multiple data-dg-attachment-category="foto-sito" accept="image/*"></label>
-              <label class="dg-upload-zone" for="dg-files"><span class="dg-upload-icon" aria-hidden="true">＋</span><strong>Altri allegati</strong><small>Fonti pertinenti non ricomprese nei gruppi precedenti.</small><input id="dg-files" type="file" multiple data-dg-attachment-category="altri-allegati" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.txt,.csv,.json,.dwg,.dxf"></label>
-              <ul id="dg-files-list" class="dg-files-list"><li>Nessun allegato selezionato.</li></ul>
-            </div>
+            <p class="dg-small-note">Checklist del committente e documentazione si caricano nelle due aree in alto: la categoria di ogni documento viene riconosciuta automaticamente e si può correggere nell’elenco.</p>
             <div class="dg-document-status-panel">
               <h4>Stato dei documenti da verificare</h4>
-              <p class="dg-small-note">Per ogni riga seleziona lo stato corretto. “Da acquisire” e “Non applicabile” non sostituiscono una verifica tecnica.</p>
+              <p class="dg-small-note">Per ogni riga seleziona lo stato corretto. Quando un documento viene classificato in una categoria, la riga passa automaticamente a “Disponibile”: puoi sempre correggerla. “Da acquisire” e “Non applicabile” non sostituiscono una verifica tecnica.</p>
               <div class="dg-status-grid">
                 <label class="campo-form">Contratto / capitolato
                   <select name="documentStatusContract" data-dg-status-category="contratto-capitolato"><option value="to_verify" selected>Da verificare</option><option value="available">Disponibile</option><option value="to_acquire">Da acquisire</option><option value="not_applicable">Non applicabile</option></select>

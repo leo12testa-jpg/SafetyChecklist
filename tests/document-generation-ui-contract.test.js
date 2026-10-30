@@ -1,5 +1,6 @@
 // Test comportamentali della schermata "Generazione documenti".
-// js/document-generation.js viene eseguito in un contesto vm con un DOM minimo costruito
+// js/document-generation.js, il motore js/document-intake.js e le due aree di caricamento
+// (js/document-intake-ui.js) vengono eseguiti in un contesto vm con un DOM minimo costruito
 // dal markup reale di index.html (sezione data-screen="document-generation"), un fetch
 // spia e un appIdentity finto. Nessuna chiamata di rete reale viene effettuata.
 const test = require('node:test');
@@ -12,6 +13,8 @@ const JSZip = require('../js/vendor/jszip.min.js');
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const controllerSource = fs.readFileSync(path.join(root, 'js', 'document-generation.js'), 'utf8');
+const intakeEngineSource = fs.readFileSync(path.join(root, 'js', 'document-intake.js'), 'utf8');
+const intakeUiSource = fs.readFileSync(path.join(root, 'js', 'document-intake-ui.js'), 'utf8');
 const configSource = fs.readFileSync(path.join(root, 'js', 'supabase-config.js'), 'utf8');
 const serviceWorker = fs.readFileSync(path.join(root, 'service-worker.js'), 'utf8');
 const intakeSchema = JSON.parse(fs.readFileSync(path.join(root, 'schemas', 'duvri-intake.schema.json'), 'utf8'));
@@ -38,7 +41,11 @@ class Element {
     this.childNodes = [];
     this.parentNode = null;
     this.listeners = {};
-    this.dataset = {};
+    const dataAttr = (key) => 'data-' + String(key).replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
+    this.dataset = new Proxy({}, {
+      set: (target, key, value) => { target[key] = String(value); this.attributes[dataAttr(key)] = String(value); return true; },
+      deleteProperty: (target, key) => { delete target[key]; delete this.attributes[dataAttr(key)]; return true; }
+    });
     for (const [name, value] of Object.entries(attrs)) {
       if (name.startsWith('data-')) {
         this.dataset[name.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = value;
@@ -84,7 +91,7 @@ class Element {
       return chosen ? chosen.value : '';
     }
     if (this.tagName === 'TEXTAREA' && this._value === '' && !this._dirty) return this.textContent;
-    if (this.tagName === 'OPTION' && !('value' in this.attributes)) return this.textContent;
+    if (this.tagName === 'OPTION' && !('value' in this.attributes) && !this._dirty) return this.textContent;
     return this._value;
   }
   set value(v) {
@@ -142,6 +149,7 @@ class Element {
   }
 
   addEventListener(type, callback) { (this.listeners[type] ||= []).push(callback); }
+  dispatchEvent(event) { return dispatch(this, event.type, { detail: event.detail }); }
   focus() { this.focused = true; }
   scrollIntoView() {}
   click() { this.clicked += 1; dispatch(this, 'click'); }
@@ -333,7 +341,9 @@ function setup({ cloud, admin = false, respond, useRealConfig = false } = {}) {
     File,
     JSZip,
     FormData: FakeFormData,
-    crypto: { randomUUID: () => '00000000-0000-4000-8000-000000000001' },
+    crypto: { randomUUID: () => '00000000-0000-4000-8000-000000000001', subtle: require('node:crypto').webcrypto.subtle },
+    TextDecoder,
+    CustomEvent: class { constructor(type, init = {}) { this.type = type; this.detail = init.detail; } },
     alert: (m) => alerts.push(m),
     confirm: () => true,
     document,
@@ -358,6 +368,8 @@ function setup({ cloud, admin = false, respond, useRealConfig = false } = {}) {
     context.DOCUMENT_JOBS_ENDPOINT = ENDPOINT;
   }
   vm.runInContext(controllerSource, context, { filename: 'js/document-generation.js' });
+  vm.runInContext(intakeEngineSource, context, { filename: 'js/document-intake.js' });
+  vm.runInContext(intakeUiSource, context, { filename: 'js/document-intake-ui.js' });
 
   const $ = (id) => document.getElementById(id);
   const form = $('dg-form');
@@ -370,17 +382,27 @@ function setup({ cloud, admin = false, respond, useRealConfig = false } = {}) {
         if (field.type === 'checkbox') field.checked = !!value; else field.value = value;
       }
     },
-    selectChecklist(file) {
+    async selectChecklist(file) {
       const input = $('dg-checklist-file');
       input.files = file ? [file] : [];
-      dispatch(input, 'change');
+      await dispatch(input, 'change').done;
     },
-    selectAttachments(files, category = 'altri-allegati') {
-      const input = screen.querySelector('[data-dg-attachment-category="' + category + '"]');
-      assert.ok(input, 'categoria allegati assente: ' + category);
+    // Area 2: un'unica selezione multipla. Con category simula la correzione manuale nell'elenco.
+    async selectAttachments(files, category) {
+      const input = $('dg-auto-files');
       input.files = files;
-      dispatch(input, 'change');
+      await dispatch(input, 'change').done;
+      if (!category) return;
+      for (let i = 0; i < files.length; i += 1) {
+        const rows = $('dg-auto-files-list').children;
+        const select = rows[rows.length - files.length + i].querySelector('select');
+        select.value = category;
+        dispatch(select, 'change');
+      }
     },
+    rows: () => $('dg-auto-files-list').children,
+    downloadsCount: () => downloads.length,
+    lastDownload: () => downloads[downloads.length - 1],
     submit() { return dispatch(form, 'submit'); },
     status: () => $('dg-cloud-status').textContent,
     queueText: () => $('dg-queue-list').textContent,
@@ -390,6 +412,12 @@ function setup({ cloud, admin = false, respond, useRealConfig = false } = {}) {
       assert.ok(blob, 'nessuna esportazione JSON prodotta');
       const text = await blob.text();
       return { text, record: JSON.parse(text) };
+    },
+    async intakePackage() {
+      await dispatch($('dg-auto-download'), 'click').done;
+      const blob = downloads[downloads.length - 1];
+      assert.ok(blob, 'nessun pacchetto di acquisizione scaricato: ' + $('dg-auto-status').textContent);
+      return JSZip.loadAsync(await blob.arrayBuffer());
     },
     async exportedPackage() {
       await dispatch($('dg-download-package'), 'click').done;
@@ -405,16 +433,27 @@ test('la schermata è raggiungibile dal menu e contiene gli elementi usati dal c
   const env = setup({ cloud: false });
   assert.equal(env.screen.dataset.screen, 'document-generation');
   assert.equal(env.nav.dataset.nav, 'document-generation');
-  const ids = [...new Set([...controllerSource.matchAll(/getElementById\('([^']+)'\)/g)].map((m) => m[1]))];
+  const ids = [...new Set([...controllerSource.matchAll(/getElementById\('([^']+)'\)/g), ...intakeUiSource.matchAll(/\$\('([^']+)'\)/g)].map((m) => m[1]))];
   assert.ok(ids.length >= 15);
   for (const id of ids) assert.ok(env.$(id), 'elemento #' + id + ' richiesto dal controller ma assente in index.html');
   const checklist = env.$('dg-checklist-file');
   assert.equal(checklist.required, false, 'il cliente deve poter compilare il questionario da zero');
   assert.equal(checklist.type, 'file');
-  const categories = env.screen.querySelectorAll('[data-dg-attachment-category]').map((el) => el.dataset.dgAttachmentCategory);
-  assert.deepEqual(categories, ['contratto-capitolato', 'dvr-specifico', 'cronoprogrammi', 'planimetrie-layout', 'mezzi-attrezzature', 'procedure-operative', 'emergenze', 'sds', 'permessi', 'foto-sito', 'altri-allegati']);
+  assert.equal(env.screen.querySelectorAll('[data-dg-attachment-category]').length, 0, 'nessun riquadro per scegliere in anticipo la categoria');
+  const uploads = env.screen.querySelectorAll('input').filter((el) => el.type === 'file');
+  assert.deepEqual(uploads.map((el) => el.id), ['dg-checklist-file', 'dg-auto-files', 'dg-template-file'], 'due aree + verifica del modello');
+  assert.equal(uploads[0].hasAttribute('multiple'), false, 'una sola checklist del committente');
+  assert.equal(uploads[0].getAttribute('accept'), '.pdf,.doc,.docx,.xls,.xlsx,.json,.csv,.txt');
+  assert.equal(uploads[1].hasAttribute('multiple'), true);
+  assert.equal(uploads[1].hasAttribute('accept'), false, 'nessun formato escluso: i file non leggibili vengono segnalati, non scartati');
+  const templateDetails = env.$('dg-template-details');
+  assert.equal(templateDetails.tagName, 'DETAILS');
+  assert.equal(templateDetails.hasAttribute('open'), false, 'la verifica del modello è chiusa di default');
+  assert.ok(uploads[2].closest('#dg-template-details'));
+  assert.equal(templateDetails.querySelector('summary').textContent, 'Verifica modello (Colligo)');
+  assert.equal(env.$('dg-generate-state').closest('#dg-template-details'), null, 'lo stato della generazione resta visibile');
   const statuses = env.screen.querySelectorAll('[data-dg-status-category]');
-  assert.equal(statuses.length, categories.length - 1);
+  assert.equal(statuses.length, 10);
   statuses.forEach((select) => assert.deepEqual(select.querySelectorAll('option').map((option) => option.value), ['to_verify', 'available', 'to_acquire', 'not_applicable']));
   assert.match(env.screen.textContent, /art\. 26, comma 8-bis, del D\.Lgs\. 81\/2008/);
   assert.match(env.screen.textContent, /Legge 215\/2021/);
@@ -437,11 +476,11 @@ test('con il cloud disattivato la scheda viene preparata solo in locale, senza r
   for (const cloud of [false, undefined]) {
     const env = setup({ cloud });
     env.fill({ title: 'DUVRI Magazzino Nord', clientName: 'Cliente Srl', site: 'Via Roma 1', siteType: 'internal_area' });
-    env.selectChecklist(fakeFile('checklist-duvri.xlsx', 4096, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'));
-    env.selectAttachments([fakeFile('documento.pdf')], 'dvr-specifico');
-    env.selectAttachments([fakeFile('programma.pdf')], 'cronoprogrammi');
+    await env.selectChecklist(fakeFile('checklist-duvri.xlsx', 4096, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'));
+    await env.selectAttachments([fakeFile('documento.pdf')], 'dvr-specifico');
+    await env.selectAttachments([fakeFile('programma.pdf')], 'cronoprogrammi');
     assert.match(env.$('dg-checklist-file-status').textContent, /checklist-duvri\.xlsx · 4 KB/);
-    assert.equal(env.$('dg-files-list').children.length, 2);
+    assert.equal(env.rows().length, 2, 'la checklist resta fuori dall\'elenco della documentazione');
 
     const event = env.submit();
     await flush();
@@ -492,7 +531,7 @@ test('il questionario completo può essere preparato localmente senza checklist 
 
 test('le date incoerenti bloccano la preparazione con un messaggio', async () => {
   const env = setup({ cloud: false });
-  env.selectChecklist(fakeFile('checklist.pdf'));
+  await env.selectChecklist(fakeFile('checklist.pdf'));
   env.fill({ startDate: '2026-11-10', endDate: '2026-11-01' });
   env.submit();
   await flush();
@@ -503,7 +542,7 @@ test('le date incoerenti bloccano la preparazione con un messaggio', async () =>
 
 test('le lacune segnalano dati mancanti, preposto e allegati da verificare', async () => {
   const env = setup({ cloud: false });
-  env.selectChecklist(fakeFile('checklist.pdf'));
+  await env.selectChecklist(fakeFile('checklist.pdf'));
   env.fill({ 'modules': true });
   env.submit();
   await flush();
@@ -514,10 +553,15 @@ test('le lacune segnalano dati mancanti, preposto e allegati da verificare', asy
   assert.match(env.$('dg-result-summary').textContent, /1 scheda impresa · 0 allegati di supporto/);
 });
 
-test('nomi file non determinano il tipo del documento: valgono categoria e stato espliciti', async () => {
+test('la categoria corretta a mano prevale sul nome del file; lo stato scelto resta esplicito', async () => {
   const env = setup({ cloud: false });
   env.fill({ documentStatusDvr: 'available' });
-  env.selectAttachments([fakeFile('DVR-del-cliente.pdf')], 'altri-allegati');
+  await env.selectAttachments([fakeFile('DVR-del-cliente.pdf')]);
+  assert.match(env.rows()[0].querySelector('.dg-doc-meta').textContent, /^DVR specifico dell’intervento · /, 'classificazione automatica dal nome');
+  const select = env.rows()[0].querySelector('select');
+  select.value = 'altri-allegati';
+  dispatch(select, 'change');
+  assert.match(env.rows()[0].querySelector('.dg-doc-meta').textContent, /^Altri allegati · categoria corretta manualmente · /);
   env.submit();
   await flush();
   const missing = env.$('dg-missing-list').children.map((li) => li.textContent);
@@ -580,15 +624,15 @@ test('campi di committente, sito, impresa, preposto, lavori e quota arrivano al 
 test('il pacchetto ZIP contiene istruzioni, JSON e i byte reali degli allegati per categoria', async () => {
   const env = setup({ cloud: false });
   env.fill({ title: 'Prova sintetica', clientName: 'Committente sintetico' });
-  env.selectChecklist(fakeFile('checklist.xlsx', 16, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'BYTES-CHECKLIST'));
-  env.selectAttachments([fakeFile('../foto prova?.jpg', 20, 'image/jpeg', 'BYTES-FOTO')], 'foto-sito');
-  env.selectAttachments([fakeFile('procedura.pdf', 30, 'application/pdf', 'BYTES-PROCEDURA')], 'procedure-operative');
-  env.selectAttachments([fakeFile('CON', 12, 'application/octet-stream', 'BYTES-RESERVED')], 'altri-allegati');
+  await env.selectChecklist(fakeFile('checklist.xlsx', 16, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'BYTES-CHECKLIST'));
+  await env.selectAttachments([fakeFile('../foto prova?.jpg', 20, 'image/jpeg', 'BYTES-FOTO')], 'foto-sito');
+  await env.selectAttachments([fakeFile('procedura.pdf', 30, 'application/pdf', 'BYTES-PROCEDURA')], 'procedure-operative');
+  await env.selectAttachments([fakeFile('CON', 12, 'application/octet-stream', 'BYTES-RESERVED')], 'altri-allegati');
   env.submit();
   await flush();
   const zip = await env.exportedPackage();
   const paths = Object.keys(zip.files).filter((name) => !zip.files[name].dir).sort();
-  assert.deepEqual(paths, ['ISTRUZIONI.txt', 'allegati/altri-allegati/003-_CON', 'allegati/checklist-preesistente/checklist.xlsx', 'allegati/foto-sito/002-foto prova_.jpg', 'allegati/procedure-operative/001-procedura.pdf', 'scheda-duvri.json']);
+  assert.deepEqual(paths, ['ISTRUZIONI.txt', 'allegati/altri-allegati/003-_CON', 'allegati/checklist-preesistente/checklist.xlsx', 'allegati/foto-sito/001-foto prova_.jpg', 'allegati/procedure-operative/002-procedura.pdf', 'scheda-duvri.json']);
   const instructions = await zip.file('ISTRUZIONI.txt').async('string');
   assert.match(instructions, /non è un DUVRI/);
   assert.match(instructions, /validazione tecnica/);
@@ -599,8 +643,8 @@ test('il pacchetto ZIP contiene istruzioni, JSON e i byte reali degli allegati p
   assert.equal(json.sourceChecklist.includedInLocalPackage, true);
   assert.ok(Array.isArray(json.missingInformation));
   assert.ok(json.documents.every((item) => item.contentIncluded === false && item.includedInLocalPackage === true));
-  assert.equal(await zip.file('allegati/foto-sito/002-foto prova_.jpg').async('string'), 'BYTES-FOTO');
-  assert.equal(await zip.file('allegati/procedure-operative/001-procedura.pdf').async('string'), 'BYTES-PROCEDURA');
+  assert.equal(await zip.file('allegati/foto-sito/001-foto prova_.jpg').async('string'), 'BYTES-FOTO');
+  assert.equal(await zip.file('allegati/procedure-operative/002-procedura.pdf').async('string'), 'BYTES-PROCEDURA');
   assert.equal(await zip.file('allegati/altri-allegati/003-_CON').async('string'), 'BYTES-RESERVED');
   assert.equal(await zip.file('allegati/checklist-preesistente/checklist.xlsx').async('string'), 'BYTES-CHECKLIST');
   assert.ok(!JSON.stringify(json).includes('BYTES-FOTO'));
@@ -643,7 +687,7 @@ async function cloudEnv(options = {}) {
 
 test('con il cloud attivo senza consenso esplicito non parte alcun caricamento', async () => {
   const env = await cloudEnv();
-  env.selectChecklist(fakeFile('checklist.pdf'));
+  await env.selectChecklist(fakeFile('checklist.pdf'));
   env.submit();
   await flush();
   assert.equal(env.created.length, 0);
@@ -655,7 +699,7 @@ test('con il cloud attivo senza consenso esplicito non parte alcun caricamento',
 test('la UI corrente non permette trasferimenti cloud o AI anche se un test forza il flag', async () => {
   const env = await cloudEnv();
   env.fill({ title: 'Dati sintetici', siteType: 'mixed' });
-  env.selectAttachments([fakeFile('documento.pdf')], 'dvr-specifico');
+  await env.selectAttachments([fakeFile('documento.pdf')], 'dvr-specifico');
   env.submit();
   await flush();
   assert.equal(env.created.length, 0);
@@ -791,6 +835,365 @@ test('aprire la schermata dal menu aggiorna lo stato della coda', async () => {
 // ---------------------------------------------------------------- Asserzioni sul sorgente rimaste
 // Il precache del service worker e l'ordine dei <script> non sono osservabili senza un browser
 // reale (vedi tests/pwa-*.cjs): restano verifiche testuali.
+// ---------------------------------------------------------------- Due aree di caricamento
+const textFile = (name, text) => fakeFile(name, 0, 'text/plain', text);
+
+test('checklist del committente e documentazione restano distinte nell\'elaborazione e nei pacchetti', async () => {
+  const env = setup({ cloud: false });
+  await env.selectChecklist(textFile('checklist.txt', 'Committente: Alfa S.r.l.'));
+  await env.selectAttachments([textFile('contratto.txt', 'Contratto di appalto\nCommittente: Beta S.p.A.')]);
+  assert.equal(env.rows().length, 1, 'la checklist non compare tra i documenti');
+  assert.match(env.$('dg-checklist-file-status').textContent, /checklist\.txt · 1 KB · formato TXT · letto · 1 segnalazione \(vedi sotto\)\. Identificata come checklist del committente/);
+  assert.equal(env.$('dg-checklist-remove').hidden, false);
+  const conflict = env.$('dg-auto-fields').querySelector('.is-conflict');
+  assert.ok(conflict, 'il conflitto tra checklist e documentazione viene rilevato');
+  assert.match(conflict.textContent, /Alfa S\.r\.l\.Fonte: checklist\.txt — riga 1/);
+  assert.match(conflict.textContent, /Beta S\.p\.A\.Fonte: contratto\.txt — riga 2/);
+
+  const zip = await env.intakePackage();
+  const paths = Object.keys(zip.files).filter((name) => !zip.files[name].dir).sort();
+  assert.deepEqual(paths, ['ISTRUZIONI.txt', 'allegati/contratto-capitolato/001-contratto.txt', 'checklist-committente/checklist.txt', 'estrazione.json']);
+  const report = JSON.parse(await zip.file('estrazione.json').async('string'));
+  assert.equal(report.checklist.name, 'checklist.txt');
+  assert.equal(report.checklist.category, 'checklist-committente');
+  assert.deepEqual(report.files.map((f) => f.name), ['contratto.txt']);
+  assert.equal(report.fields.committente.status, 'conflicting');
+  assert.equal(report.generation.allowed, false);
+  assert.ok(report.generation.reasons.some((r) => r.startsWith('DUVRI-SCALA')), 'il blocco DUVRI-SCALA resta attivo');
+
+  env.fill({ title: 'Prova', clientName: 'Alfa S.r.l.' });
+  env.submit();
+  await flush();
+  const { record } = await env.exportedRecord();
+  assert.equal(record.sourceChecklist.name, 'checklist.txt');
+  assert.deepEqual(record.documents.map((d) => [d.name, d.category]), [['contratto.txt', 'contratto-capitolato']]);
+
+  dispatch(env.$('dg-checklist-remove'), 'click');
+  assert.match(env.$('dg-checklist-file-status').textContent, /checklist\.txt rimossa dall’elenco: il file originale non è stato cancellato/);
+  assert.equal(env.$('dg-result').hidden, true, 'una modifica delle selezioni invalida la scheda già preparata');
+});
+
+test('60 documenti in una sola selezione: nessuno scartato, rimozione del singolo file', async () => {
+  const env = setup({ cloud: false });
+  const files = Array.from({ length: 60 }, (_, i) => textFile('verbale-' + String(i + 1).padStart(2, '0') + '.txt', 'Verbale di riunione ' + (i + 1)));
+  await env.selectAttachments(files);
+  assert.equal(env.rows().length, 60);
+  assert.match(env.$('dg-auto-status').textContent, /^60 file analizzati sul dispositivo/);
+  const target = env.rows()[9];
+  assert.equal(target.querySelector('strong').textContent, 'verbale-10.txt');
+  dispatch(target.querySelector('button'), 'click');
+  assert.equal(env.rows().length, 59);
+  assert.ok(!env.rows().some((row) => row.querySelector('strong').textContent === 'verbale-10.txt'));
+  assert.match(env.$('dg-auto-status').textContent, /verbale-10\.txt rimosso dall’elenco: il file originale non è stato cancellato\. 59 file in elenco\./);
+  assert.equal(await files[9].text(), 'Verbale di riunione 10', 'il file rimosso resta intatto');
+  env.fill({ title: 'Prova' });
+  env.submit();
+  await flush();
+  const { record } = await env.exportedRecord();
+  assert.equal(record.documents.length, 59);
+});
+
+test('ogni file mostra categoria, stato di lettura e anomalie; gli ZIP sono inclusi senza essere estratti', async () => {
+  const env = setup({ cloud: false });
+  await env.selectAttachments([
+    fakeFile('archivio-cantiere.zip', 0, 'application/zip', 'PK\u0003\u0004SYNTHETIC-ZIP'),
+    fakeFile('planimetria.pdf', 0, 'application/pdf', 'NON-PDF'),
+    textFile('procedura operativa.txt', 'Procedura operativa di lavoro')
+  ]);
+  const [zipRow, pdfRow, procRow] = env.rows();
+  assert.match(zipRow.querySelector('.dg-doc-meta').textContent, /archivio ZIP non estratto: non letto – da revisionare/);
+  assert.match(zipRow.querySelector('.dg-doc-issues').textContent, /archivio-cantiere\.zip: formato non leggibile automaticamente \(\.zip\)/);
+  assert.match(pdfRow.querySelector('.dg-doc-meta').textContent, /^Planimetrie, layout e disegni · .* · non letto · /);
+  assert.match(pdfRow.querySelector('.dg-doc-issues').textContent, /l’estensione non corrisponde al contenuto/);
+  assert.match(procRow.querySelector('.dg-doc-meta').textContent, /^Procedure operative · .* · letto · /);
+  assert.equal(procRow.querySelector('.dg-doc-issues'), null);
+  const zip = await env.intakePackage();
+  assert.equal(await zip.file('allegati/altri-allegati/001-archivio-cantiere.zip').async('string'), 'PK\u0003\u0004SYNTHETIC-ZIP');
+  assert.match(await zip.file('ISTRUZIONI.txt').async('string'), /archivi ZIP sono inclusi senza essere estratti/);
+});
+
+test('correzione manuale della categoria e stato «Disponibile» automatico senza sovrascrivere le scelte', async () => {
+  const env = setup({ cloud: false });
+  const status = (name) => env.form.querySelector('[name="' + name + '"]').value;
+  env.fill({ documentStatusSds: 'not_applicable' });
+  await env.selectAttachments([textFile('cronoprogramma.txt', 'Cronoprogramma dei lavori'), textFile('SDS prodotto.txt', 'Scheda di sicurezza')]);
+  assert.equal(status('documentStatusSchedule'), 'available');
+  assert.equal(status('documentStatusSds'), 'not_applicable', 'la scelta dell\'utente non viene sovrascritta');
+  const select = env.rows()[0].querySelector('select');
+  select.value = 'planimetrie-layout';
+  dispatch(select, 'change');
+  assert.equal(status('documentStatusSchedule'), 'to_verify', 'lo stato impostato in automatico torna da verificare');
+  assert.equal(status('documentStatusPlan'), 'available');
+  const zip = await env.intakePackage();
+  const report = JSON.parse(await zip.file('estrazione.json').async('string'));
+  assert.deepEqual([report.files[0].autoCategory, report.files[0].category, report.files[0].categoryCorrected, report.files[0].confidence], ['cronoprogrammi', 'planimetrie-layout', true, 'manuale']);
+  assert.ok(zip.file('allegati/planimetrie-layout/001-cronoprogramma.txt'));
+  const userSelect = env.form.querySelector('[name="documentStatusPlan"]');
+  userSelect.value = 'to_acquire';
+  dispatch(userSelect, 'change');
+  dispatch(env.rows()[0].querySelector('button'), 'click');
+  assert.equal(status('documentStatusPlan'), 'to_acquire', 'dopo una scelta manuale la riga non cambia più da sola');
+});
+
+test('trascinamento dei file e azzeramento della scheda svuotano entrambe le aree', async () => {
+  const env = setup({ cloud: false });
+  const zone = env.$('dg-auto-drop');
+  assert.equal(dispatch(zone, 'dragover').defaultPrevented, true);
+  assert.equal(zone.classList.contains('is-dragover'), true);
+  const drop = dispatch(zone, 'drop', { dataTransfer: { files: [textFile('verbale.txt', 'Verbale'), textFile('attestato.txt', 'Attestato di formazione')] } });
+  await drop.done;
+  assert.equal(drop.defaultPrevented, true);
+  assert.equal(zone.classList.contains('is-dragover'), false);
+  assert.deepEqual(env.rows().map((row) => row.querySelector('strong').textContent), ['verbale.txt', 'attestato.txt']);
+  await env.selectChecklist(textFile('checklist.txt', 'Committente: Alfa'));
+  dispatch(env.$('dg-reset'), 'click');
+  assert.equal(env.rows().length, 0);
+  assert.equal(env.$('dg-checklist-file-status').textContent, 'Nessuna checklist caricata: puoi compilare tutto da zero.');
+  assert.equal(env.$('dg-auto-results').hidden, true);
+});
+
+// ---------------------------------------------------------------- Letture concorrenti e azzeramenti
+// File la cui lettura resta in sospeso finché il test non la rilascia.
+function slowFile(name, text) {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const file = textFile(name, text);
+  const read = file.arrayBuffer.bind(file);
+  file.arrayBuffer = async () => { await gate; return read(); };
+  return { file, release };
+}
+const names = (env) => env.rows().map((row) => row.querySelector('strong').textContent);
+
+test('svuota durante la lettura: nessun file già avviato o in coda viene reinserito', async () => {
+  const env = setup({ cloud: false });
+  const slow = slowFile('a.txt', 'Contratto di appalto');
+  const first = env.selectAttachments([slow.file, textFile('b.txt', 'Procedura operativa')]);
+  const queued = env.selectAttachments([textFile('c.txt', 'Verbale')]);
+  await flush();
+  assert.equal(env.$('dg-auto-download').disabled, true, 'download bloccato durante la lettura');
+  dispatch(env.$('dg-auto-clear'), 'click');
+  slow.release();
+  await first; await queued; await flush();
+  assert.deepEqual(names(env), []);
+  assert.equal(env.$('dg-auto-status').textContent, 'Nessun file caricato.');
+  assert.equal(env.$('dg-auto-download').disabled, false);
+  await env.selectAttachments([textFile('d.txt', 'Attestato')]);
+  assert.deepEqual(names(env), ['d.txt'], 'dopo lo svuotamento le nuove selezioni funzionano');
+});
+
+test('azzeramento durante la lettura: entrambe le aree restano vuote e la scheda non li contiene', async () => {
+  const env = setup({ cloud: false });
+  const doc = slowFile('documento.txt', 'Contratto di appalto');
+  const list = slowFile('checklist.txt', 'Committente: Alfa');
+  const docRead = env.selectAttachments([doc.file]);
+  const listRead = env.selectChecklist(list.file);
+  await flush();
+  dispatch(env.$('dg-reset'), 'click');
+  doc.release(); list.release();
+  await docRead; await listRead; await flush();
+  assert.deepEqual(names(env), []);
+  assert.equal(env.$('dg-checklist-file-status').textContent, 'Nessuna checklist caricata: puoi compilare tutto da zero.');
+  assert.equal(env.$('dg-auto-results').hidden, true);
+  env.fill({ title: 'Prova' });
+  env.submit();
+  await flush();
+  const { record } = await env.exportedRecord();
+  assert.equal(record.sourceChecklist, null);
+  assert.deepEqual(record.documents, []);
+});
+
+test('nuova checklist durante la lettura: vale l\'ultima scelta, la lettura precedente è scartata', async () => {
+  const env = setup({ cloud: false });
+  const old = slowFile('vecchia.txt', 'Committente: A');
+  const oldRead = env.selectChecklist(old.file);
+  await flush();
+  await env.selectChecklist(textFile('nuova.txt', 'Committente: B'));
+  old.release();
+  await oldRead; await flush();
+  assert.match(env.$('dg-checklist-file-status').textContent, /^nuova\.txt · /);
+  env.fill({ title: 'Prova' });
+  env.submit();
+  await flush();
+  const { record } = await env.exportedRecord();
+  assert.equal(record.sourceChecklist.name, 'nuova.txt');
+  const zip = await env.intakePackage();
+  assert.deepEqual(Object.keys(zip.files).filter((n) => !zip.files[n].dir && n.startsWith('checklist-committente/')), ['checklist-committente/nuova.txt']);
+});
+
+test('una scelta manuale «Da verificare» non viene mai sovrascritta; l\'azzeramento la libera', async () => {
+  const env = setup({ cloud: false });
+  const select = (name) => env.form.querySelector('[name="' + name + '"]');
+  await env.selectAttachments([textFile('cronoprogramma.txt', 'Cronoprogramma dei lavori')]);
+  assert.equal(select('documentStatusSchedule').value, 'available');
+  select('documentStatusSchedule').value = 'to_verify';
+  dispatch(select('documentStatusSchedule'), 'change');
+  await env.selectAttachments([textFile('procedura operativa.txt', 'Procedura operativa')]);
+  assert.equal(select('documentStatusSchedule').value, 'to_verify', 'scelta manuale rispettata');
+  assert.equal(select('documentStatusProcedures').value, 'available', 'le righe mai toccate seguono la classificazione');
+  dispatch(env.rows()[0].querySelector('[data-remove-file]'), 'click');
+  assert.equal(select('documentStatusSchedule').value, 'to_verify');
+  dispatch(env.$('dg-reset'), 'click');
+  await env.selectAttachments([textFile('cronoprogramma.txt', 'Cronoprogramma dei lavori')]);
+  assert.equal(select('documentStatusSchedule').value, 'available', 'dopo l\'azzeramento la riga torna automatica');
+});
+
+test('durante la lettura nessun download o preparazione può partire', async () => {
+  const env = setup({ cloud: false });
+  await env.selectAttachments([textFile('contratto.txt', 'Contratto di appalto')]);
+  env.fill({ title: 'Prova' });
+  env.submit();
+  await flush();
+  assert.equal(env.$('dg-result').hidden, false);
+  const before = env.downloadsCount();
+  const slow = slowFile('lento.txt', 'Verbale');
+  const pending = env.selectAttachments([slow.file]);
+  await flush();
+  assert.equal(env.$('dg-result').hidden, true, 'la scheda preparata viene invalidata');
+  for (const id of ['dg-auto-download', 'dg-download-json', 'dg-download-package']) assert.equal(env.$(id).disabled, true, id);
+  assert.equal(env.form.querySelector('button[type="submit"]').disabled, true);
+  await dispatch(env.$('dg-auto-download'), 'click').done;
+  await dispatch(env.$('dg-download-package'), 'click').done;
+  env.submit();
+  await flush();
+  assert.equal(env.downloadsCount(), before, 'nessun pacchetto parziale');
+  assert.equal(env.$('dg-result').hidden, true);
+  assert.match(env.status(), /Attendi la fine della lettura/);
+  slow.release();
+  await pending; await flush();
+  for (const id of ['dg-auto-download', 'dg-download-json', 'dg-download-package']) assert.equal(env.$(id).disabled, false, id);
+  assert.equal(env.form.querySelector('button[type="submit"]').disabled, false);
+});
+
+test('i pacchetti corrispondono esattamente all\'elenco visibile dopo aggiunte, rimozioni e correzioni', async () => {
+  const env = setup({ cloud: false });
+  await env.selectChecklist(textFile('checklist.txt', 'Committente: Alfa'));
+  await env.selectAttachments(['uno', 'due', 'tre', 'quattro', 'cinque'].map((n) => textFile(n + '.txt', 'Documento ' + n)));
+  dispatch(env.rows()[1].querySelector('[data-remove-file]'), 'click');
+  const select = env.rows()[1].querySelector('select');
+  select.value = 'sds';
+  dispatch(select, 'change');
+  const visible = env.rows().map((row) => [row.querySelector('strong').textContent, row.querySelector('select').value]);
+  assert.deepEqual(visible.map((v) => v[0]), ['uno.txt', 'tre.txt', 'quattro.txt', 'cinque.txt']);
+  const zip = await env.intakePackage();
+  const attached = Object.keys(zip.files).filter((n) => !zip.files[n].dir && n.startsWith('allegati/')).sort();
+  assert.deepEqual(attached, visible.map(([name, category], i) => 'allegati/' + category + '/' + String(i + 1).padStart(3, '0') + '-' + name).sort());
+  const report = JSON.parse(await zip.file('estrazione.json').async('string'));
+  assert.deepEqual(report.files.map((f) => [f.name, f.category]), visible);
+  assert.equal(report.checklist.name, 'checklist.txt');
+  assert.ok(!Object.keys(zip.files).some((n) => n.includes('due.txt')), 'il file rimosso non entra nel pacchetto');
+  env.fill({ title: 'Prova' });
+  env.submit();
+  await flush();
+  const { record } = await env.exportedRecord();
+  assert.deepEqual(record.documents.map((d) => [d.name, d.category]), visible);
+  const pkg = await env.exportedPackage();
+  const pkgAttached = Object.keys(pkg.files).filter((n) => !pkg.files[n].dir && n.startsWith('allegati/') && !n.startsWith('allegati/checklist-preesistente/')).sort();
+  assert.deepEqual(pkgAttached, visible.map(([name, category], i) => 'allegati/' + category + '/' + String(i + 1).padStart(3, '0') + '-' + name).sort());
+});
+
+test('controlli accessibili: etichette con il nome del file e focus coerente', async () => {
+  const env = setup({ cloud: false });
+  await env.selectAttachments([textFile('primo.txt', 'Verbale'), textFile('secondo.txt', 'Verbale'), textFile('terzo.txt', 'Verbale')]);
+  const [row] = env.rows();
+  assert.equal(row.querySelector('select').getAttribute('aria-label'), 'Categoria di primo.txt');
+  assert.equal(row.querySelector('[data-remove-file]').getAttribute('aria-label'), 'Rimuovi primo.txt dall’elenco');
+  assert.equal(row.querySelector('[data-remove-file]').textContent, 'Rimuovi');
+  const select = env.rows()[1].querySelector('select');
+  select.value = 'permessi';
+  dispatch(select, 'change');
+  assert.equal(env.rows()[1].querySelector('select').focused, true, 'focus sul menu ricreato dello stesso file');
+  dispatch(env.rows()[1].querySelector('[data-remove-file]'), 'click');
+  assert.equal(env.rows()[1].querySelector('[data-remove-file]').focused, true, 'focus sul file successivo');
+  assert.equal(env.rows()[1].querySelector('strong').textContent, 'terzo.txt');
+  dispatch(env.rows()[1].querySelector('[data-remove-file]'), 'click');
+  assert.equal(env.rows()[0].querySelector('[data-remove-file]').focused, true, 'ultimo della lista: focus sul precedente');
+  dispatch(env.rows()[0].querySelector('[data-remove-file]'), 'click');
+  assert.equal(env.$('dg-auto-files').focused, true, 'elenco vuoto: focus sul selettore dei file');
+  await env.selectChecklist(textFile('checklist.txt', 'x'));
+  dispatch(env.$('dg-checklist-remove'), 'click');
+  assert.equal(env.$('dg-checklist-file').focused, true);
+});
+
+test('un file rilasciato fuori dall\'area non viene aperto dal browser né caricato', async () => {
+  const env = setup({ cloud: false });
+  env.screen.hidden = false;
+  const files = [textFile('fuori.txt', 'Verbale')];
+  const over = dispatch(env.form, 'dragover', { dataTransfer: { types: ['Files'], files, dropEffect: 'copy' } });
+  assert.equal(over.defaultPrevented, true);
+  assert.equal(over.dataTransfer.dropEffect, 'none');
+  const drop = dispatch(env.form, 'drop', { dataTransfer: { types: ['Files'], files } });
+  await drop.done;
+  assert.equal(drop.defaultPrevented, true, 'il browser non apre il file');
+  assert.deepEqual(names(env), [], 'nessun caricamento involontario');
+  assert.equal(env.$('dg-auto-status').textContent, 'File non caricati: rilasciali nell’area «Documentazione del cliente».');
+  const text = dispatch(env.form, 'dragover', { dataTransfer: { types: ['text/plain'] } });
+  assert.equal(text.defaultPrevented, false, 'il trascinamento di testo nei campi resta possibile');
+  const inside = dispatch(env.$('dg-auto-drop'), 'drop', { dataTransfer: { types: ['Files'], files } });
+  await inside.done;
+  assert.deepEqual(names(env), ['fuori.txt'], 'nell\'area il rilascio funziona');
+});
+
+test('lo ZIP del questionario usa la fotografia al clic anche se l\'elenco cambia durante la preparazione', async () => {
+  const env = setup({ cloud: false });
+  await env.selectAttachments([textFile('uno.txt', 'Documento uno'), textFile('due.txt', 'Documento due')]);
+  env.fill({ title: 'Prova' });
+  env.submit();
+  await flush();
+  const file = env.context.documentIntakeSelection.documents()[0].file;
+  const read = file.arrayBuffer.bind(file);
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  file.arrayBuffer = async () => { await gate; return read(); };
+  const building = dispatch(env.$('dg-download-package'), 'click');
+  await flush();
+  dispatch(env.rows()[1].querySelector('[data-remove-file]'), 'click');
+  release();
+  await building.done;
+  assert.doesNotMatch(env.status(), /Impossibile/, env.status());
+  assert.match(env.status(), /Pacchetto ZIP preparato/);
+  const blob = await env.lastDownload();
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+  const files = Object.keys(zip.files).filter((n) => !zip.files[n].dir && n.startsWith('allegati/')).sort();
+  assert.deepEqual(files, ['allegati/altri-allegati/001-uno.txt', 'allegati/altri-allegati/002-due.txt'], 'pacchetto coerente con la scheda preparata');
+  const scheda = JSON.parse(await zip.file('scheda-duvri.json').async('string'));
+  assert.deepEqual(scheda.documents.map((d) => d.name), ['uno.txt', 'due.txt']);
+  assert.equal(env.$('dg-result').hidden, true, 'la modifica successiva invalida comunque la scheda');
+});
+
+test('un errore inatteso durante la lettura non blocca le selezioni successive né i download', async () => {
+  const env = setup({ cloud: false });
+  const broken = { size: 10, slice() { return this; }, arrayBuffer: async () => { throw new Error('disco'); } };
+  Object.defineProperty(broken, 'name', { get() { throw new Error('nome illeggibile'); } });
+  await env.selectAttachments([broken]);
+  assert.match(env.$('dg-auto-status').textContent, /^Analisi interrotta: nome illeggibile\. I file già letti restano nell’elenco\.$/);
+  assert.equal(env.$('dg-auto-download').disabled, false, 'nessun blocco permanente');
+  await env.selectAttachments([textFile('dopo.txt', 'Verbale')]);
+  assert.deepEqual(names(env), ['dopo.txt'], 'la selezione successiva viene elaborata');
+  assert.equal(env.context.documentIntakeSelection.busy(), false);
+});
+
+test('il rilascio diretto sui campi file nativi resta consentito', () => {
+  const env = setup({ cloud: false });
+  for (const id of ['dg-checklist-file', 'dg-template-file', 'dg-auto-files']) {
+    const over = dispatch(env.$(id), 'dragover', { dataTransfer: { types: ['Files'], dropEffect: 'copy' } });
+    assert.equal(over.dataTransfer.dropEffect, 'copy', id);
+    const drop = dispatch(env.$(id), 'drop', { dataTransfer: { types: ['Files'], files: [] } });
+    assert.equal(drop.defaultPrevented, id === 'dg-auto-files', id + ': solo l\'area 2 gestisce il rilascio da sé');
+  }
+});
+
+test('durante letture lunghe il controllo in uso nell\'elenco mantiene il focus', async () => {
+  const env = setup({ cloud: false });
+  await env.selectAttachments([textFile('primo.txt', 'Verbale')]);
+  env.document.activeElement = env.rows()[0].querySelector('select');
+  await env.selectAttachments([textFile('secondo.txt', 'Verbale')]);
+  const select = env.rows()[0].querySelector('select');
+  assert.equal(select.focused, true, 'il menu del primo file resta attivo dopo il nuovo render');
+  env.document.activeElement = env.rows()[0].querySelector('[data-remove-file]');
+  await env.selectAttachments([textFile('terzo.txt', 'Verbale')]);
+  assert.equal(env.rows()[0].querySelector('[data-remove-file]').focused, true);
+});
+
 test('la dashboard espone una scorciatoia diretta a Generazione documenti', () => {
   const start = html.indexOf('<section id="screen-home"');
   const end = html.indexOf('<section id="screen-new-inspection"', start);

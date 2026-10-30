@@ -5,3 +5,5 @@
 /tests/storage-local/supabase/.temp/
 /supabase/.temp/
 /reports/qa-v1/**/profile-*/
+__pycache__/
+*.py[cod]

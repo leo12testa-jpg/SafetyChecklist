@@ -48,7 +48,7 @@ async function exposeIntake(page, viewport) {
       width: innerWidth,
       scrollWidth: document.documentElement.scrollWidth,
       uploadColumns: (() => {
-        const cells = [...document.querySelector('.dg-upload-grid').children];
+        const cells = [...document.querySelector('.dg-intake-areas').children];
         return cells.length > 1 && Math.abs(cells[0].getBoundingClientRect().left - cells[1].getBoundingClientRect().left) > 1 ? 2 : 1;
       })(),
       statusColumns: (() => {
@@ -56,6 +56,8 @@ async function exposeIntake(page, viewport) {
         return cells.length > 1 && Math.abs(cells[0].getBoundingClientRect().left - cells[1].getBoundingClientRect().left) > 1 ? 2 : 1;
       })(),
       uploadCount: document.querySelectorAll('[data-dg-attachment-category]').length,
+      areaCount: document.querySelectorAll('.dg-intake-area').length,
+      templateOpen: document.getElementById('dg-template-details').open,
       statusCount: document.querySelectorAll('[data-dg-status-category]').length,
       cloudEnabled: typeof DOCUMENT_GENERATION_CLOUD_ENABLED === 'undefined'
         ? undefined
@@ -64,7 +66,9 @@ async function exposeIntake(page, viewport) {
     assert.ok(desktopLayout.scrollWidth <= desktopLayout.width + 2, 'desktop horizontal overflow');
     assert.equal(desktopLayout.uploadColumns, 2);
     assert.equal(desktopLayout.statusColumns, 2);
-    assert.equal(desktopLayout.uploadCount, 11);
+    assert.equal(desktopLayout.uploadCount, 0, 'nessun riquadro per categoria');
+    assert.equal(desktopLayout.areaCount, 2, 'solo checklist del committente e documentazione del cliente');
+    assert.equal(desktopLayout.templateOpen, false, 'verifica del modello chiusa di default');
     assert.equal(desktopLayout.statusCount, 10);
     assert.equal(desktopLayout.cloudEnabled, false);
 
@@ -73,7 +77,7 @@ async function exposeIntake(page, viewport) {
     await desktop.locator('[name="clientName"]').fill('Committente sintetico');
     await desktop.locator('[name="site"]').fill('Via di prova 1');
     await desktop.locator('[name="siteType"]').selectOption('internal_area');
-    await desktop.locator('#dg-files-dvr').setInputFiles([
+    await desktop.locator('#dg-auto-files').setInputFiles([
       {
         name: 'documento-generico.pdf',
         mimeType: 'application/pdf',
@@ -85,7 +89,9 @@ async function exposeIntake(page, viewport) {
         buffer: Buffer.from('DUVRI-SECOND-SYNTHETIC-BYTES')
       }
     ]);
-    await desktop.locator('[name="documentStatusDvr"]').selectOption('available');
+    await desktop.waitForFunction(() => /^2 file analizzati/.test(document.getElementById('dg-auto-status').textContent));
+    for (const nth of [1, 2]) await desktop.locator('#dg-auto-files-list > li:nth-child(' + nth + ') select').selectOption('dvr-specifico');
+    assert.equal(await desktop.locator('[name="documentStatusDvr"]').inputValue(), 'available', 'stato impostato in automatico dalla categoria');
     await desktop.locator('#dg-form button[type="submit"]').click();
     await desktop.waitForSelector('#dg-result:not([hidden])');
     assert.match(await desktop.locator('#dg-cloud-status').textContent(), /nessun agente è stato avviato/);
@@ -124,7 +130,7 @@ async function exposeIntake(page, viewport) {
       width: innerWidth,
       scrollWidth: document.documentElement.scrollWidth,
       uploadColumns: (() => {
-        const cells = [...document.querySelector('.dg-upload-grid').children];
+        const cells = [...document.querySelector('.dg-intake-areas').children];
         return cells.length > 1 && Math.abs(cells[0].getBoundingClientRect().left - cells[1].getBoundingClientRect().left) > 1 ? 2 : 1;
       })(),
       statusColumns: (() => {
@@ -139,12 +145,14 @@ async function exposeIntake(page, viewport) {
     await mobile.locator('[name="clientName"]').fill('Committente sintetico');
     await mobile.locator('[name="site"]').fill('Via di prova 1');
     await mobile.locator('[name="siteType"]').selectOption('internal_area');
-    await mobile.locator('#dg-files-dvr').setInputFiles({
+    await mobile.locator('#dg-auto-files').setInputFiles({
       name: 'allegato-mobile.pdf',
       mimeType: 'application/pdf',
       buffer: Buffer.from('DUVRI-SYNTHETIC-MOBILE-BYTES')
     });
-    await mobile.locator('[name="documentStatusDvr"]').selectOption('available');
+    await mobile.waitForFunction(() => /^1 file analizzati/.test(document.getElementById('dg-auto-status').textContent));
+    await mobile.locator('#dg-auto-files-list > li:nth-child(1) select').selectOption('dvr-specifico');
+    assert.equal(await mobile.locator('[name="documentStatusDvr"]').inputValue(), 'available');
     await mobile.locator('#dg-form button[type="submit"]').click();
     await mobile.waitForSelector('#dg-result:not([hidden])');
     assert.equal(blockedRequests.length, mobileBlockedAtStart, 'mobile local intake submitted a non-local request');

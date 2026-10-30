@@ -2734,7 +2734,6 @@ textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:
 .dg-upload-zone small { color: var(--color-text-muted); font-size: .82rem; }
 .dg-upload-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #e7eef7; color: var(--color-primary); font-size: 1.4rem; }
 .dg-upload-zone input { max-width: 100%; font-size: .85rem; margin-top: 10px; }
-.dg-files-list { display: grid; gap: 6px; margin: 12px 0; padding-left: 20px; color: var(--color-text-muted); font-size: .85rem; overflow-wrap: anywhere; }
 .dg-small-note { font-size: .82rem; color: var(--color-text-muted); line-height: 1.5; }
 .dg-form-actions { display: grid; grid-template-columns: minmax(150px,.7fr) minmax(220px,1.3fr); gap: 12px; }
 .dg-form-actions .btn { width: 100%; }
@@ -2754,6 +2753,18 @@ textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:
 .dg-auto-value { margin-top: 4px; }
 .dg-auto-template { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--color-border); }
 .dg-auto-gate { margin: 12px 0 4px; }
+.dg-intake-areas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 14px 0; }
+.dg-intake-area { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.dg-intake-area h4 { margin: 0; }
+.dg-intake-area .dg-checklist-file-status { margin: 0; }
+.dg-drop-zone.is-dragover { border-color: var(--color-primary); background: #e8f1fb; }
+.dg-doc-list > li { display: grid; gap: 6px; }
+.dg-doc-issues { margin: 0; padding-left: 18px; color: #7a4d00; font-size: .8rem; }
+.dg-doc-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.dg-doc-category { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .82rem; min-width: 0; }
+.dg-doc-category select { max-width: 100%; min-width: 0; }
+.dg-doc-actions .dg-doc-remove { width: auto; min-height: 36px; padding: 6px 14px; font-size: .85rem; }
+details.dg-auto-template > summary { cursor: pointer; font-weight: 700; color: var(--color-primary); }
 .dg-missing-list { padding-left: 23px; line-height: 1.55; }
 .dg-missing-list li { margin: 6px 0; }
 .dg-queue-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 26px 16px; color: var(--color-text-muted); background: #f8fafc; border: 1px dashed #d0d8e2; border-radius: 10px; }
@@ -2847,11 +2858,8 @@ textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:
   color: var(--muted, #5d6672);
 }
 
-/* DUVRI client intake: separate attachment categories and readable status choices. */
-.dg-upload-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.dg-upload-grid .dg-upload-zone { min-width: 0; height: 100%; overflow-wrap: anywhere; }
+/* DUVRI client intake: readable document status choices. */
 .dg-status-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
 .dg-document-status-panel { margin-top: 18px; }
 .dg-document-status-panel h4 { color: var(--color-primary); margin: 0 0 6px; }
-@media (max-width: 700px) { .dg-upload-grid, .dg-status-grid { grid-template-columns: 1fr; } }
-@media (max-width: 420px) { .dg-upload-grid .dg-upload-zone { padding: 18px 10px; } }
+@media (max-width: 700px) { .dg-status-grid, .dg-intake-areas { grid-template-columns: 1fr; } }
