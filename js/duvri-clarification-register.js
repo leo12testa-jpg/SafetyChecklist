@@ -93,6 +93,16 @@ const duvriClarificationRegister = (() => {
           !isList(packet.screening_confirmation_required,20))) {
       return blocked(jobId,'INVALID_OR_STALE_HSE_CONTEXT');
     }
+    // A completed screening packet cannot silently carry unresolved blockers.
+    // This consistency check is in addition to the coordinator's gate.
+    if(packet.state==='needs_review' &&
+      (packet.screening_required.length>0 ||
+       (packet.screening_confirmation_required || []).length>0 ||
+       packet.conflicts.length>0 ||
+       packet.missing_information.some(m=>object(m) && m.blocking===true) ||
+       packet.findings.some(f=>object(f) && f.validation_status==='requires_clarification'))) {
+      return blocked(jobId,'INCONSISTENT_HSE_REVIEW_STATE');
+    }
     const agents=new Set(contract.AGENTS);
     const required=new Set(packet.required_agents);
     if(packet.required_agents.some(a=>!agents.has(a)) ||
