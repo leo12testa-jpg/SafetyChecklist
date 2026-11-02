@@ -128,7 +128,7 @@ test('conflict requires two confirmed current facts',()=>{
  const x=input(),q=quote(pdf,'current_job_document','page:2:line:3','Altro fatto sintetico');
  x.packet.conflicts=[{agent_id:'documentale',evidence:[quote(),q]}];
  x.sourceFacts.push(fact(q));
- assert.equal(verify(x).state,'exact_citations_matched_for_review');
+ assert.equal(verify(x).state,'citations_matched_awaiting_hse_resolution');
  x.packet.conflicts[0].evidence[1].verification_status='extracted_unconfirmed';
  x.sourceFacts[1].verification_status='extracted_unconfirmed';
  const r=verify(x);assert.equal(r.state,'citations_need_confirmation');
