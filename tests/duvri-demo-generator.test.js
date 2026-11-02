@@ -14,6 +14,8 @@ test('generates a real DOCX ZIP package offline with Word content and two source
  assert.ok(Buffer.isBuffer(buf));
  const zip=await JSZip.loadAsync(buf);
  assert.ok(zip.file('[Content_Types].xml'));
+ const contentTypes=await zip.file('[Content_Types].xml').async('string');
+ assert.match(contentTypes,/wordprocessingml\.document\.main\+xml/);
  assert.ok(zip.file('_rels/.rels'));
  const xml=await zip.file('word/document.xml').async('string');
  assert.match(xml,/DOCUMENTO UNICO DI VALUTAZIONE/);
