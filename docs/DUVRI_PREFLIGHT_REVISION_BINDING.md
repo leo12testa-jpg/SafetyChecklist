@@ -54,3 +54,14 @@ node --test tests/duvri-readiness-bridge.test.js
 5. Solo allora si potrà sviluppare la procedura **separata** di approvazione ed emissione.
 
 Lo schema reale della PR #21 è ancora da integrare, il worker è disattivato e non è prevista alcuna pubblicazione di questo prototipo.
+
+
+## Rafforzamento: identificativi e hash vincolanti
+
+Il mapping validato contiene ora `mapping_revision_id`, un identificatore immutabile assegnato dal backend alla specifica revisione del foglio dei 22 campi. Il compilatore deve riportare **lo stesso ID** in `population.mapping_revision_id`; se la mappa cambia, una bozza generata con la mappa precedente non è più considerata pronta.
+
+Il report del compilatore e quello QA devono essere riferiti alla stessa `document_revision_id` e riportare un `output_sha256` e un `qa_output_sha256` **completi e uguali**, ricalcolati sui byte della medesima bozza DOCX dal backend autorizzato. Non è sufficiente un flag o il confronto del numero di pagine.
+
+Il controllo verifica inoltre la coerenza tra il registro di decisioni HSE e `has_rejected_findings`: se compare un rifiuto, la valutazione non può essere nascosta modificando un solo flag. Il rigetto richiede una risoluzione distinta prima del preflight finale.
+
+**Regola di integrazione:** gli ID, gli hash e le attestazioni devono derivare da risultati persistiti e controllati lato server. Nessun parametro inserito dal browser o generato dall'AI può sostituire queste prove.
