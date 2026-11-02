@@ -9,6 +9,8 @@ const extraction='EXTRACTION_SYNTH_REQ_001';
 const checklist='CHECKLIST_SYNTH_REQ_001';
 const pdf='ALLEGATO_SYNTH_REQ_001';
 const clone=x=>structuredClone(x);
+const historical=()=>({...ev('HISTORICAL_EXAMPLE','historical_2026_reference'),
+  verification_status:'historical_example_only'});
 const ev=(file_id=checklist,source_type='current_job_checklist')=>({
  source_type,file_id,locator:'sezione sintetica 1',
  excerpt_or_fact:'Informazione di prova da non copiare',
@@ -140,14 +142,14 @@ test('a historical example alone is never accepted as current finding evidence',
  const p=packet();p.state='awaiting_input';
  p.findings=[{agent_id:'documentale',finding_id:'FINDING_SYNTH_001',
   validation_status:'requires_clarification',
-  source_evidence:[ev('HISTORICAL_EXAMPLE','historical_2026_reference')]}];
+  source_evidence:[historical()]}];
  assert.equal(run(p).state,'blocked');
 });
 test('historical examples are not copied into current source references',()=>{
  const p=packet();p.state='awaiting_input';
  p.findings=[{agent_id:'documentale',finding_id:'FINDING_SYNTH_001',
    validation_status:'requires_clarification',
-   source_evidence:[ev(),ev('HISTORICAL_EXAMPLE','historical_2026_reference')]}];
+   source_evidence:[ev(),historical()]}];
  const r=run(p);
  assert.equal(r.state,'needs_technical_triage');
  assert.deepEqual(r.items[0].source_references.map(x=>x.file_id),[checklist]);
@@ -184,4 +186,26 @@ test('source arrays and input objects are never mutated',()=>{
  r.items[0].source_references[0].file_id='CHANGED';
  assert.deepEqual(p,beforeP);
  assert.deepEqual(s,beforeS);
+});
+
+test('historical evidence mislabeled as current is rejected before questions',()=>{
+ const p=packet();p.state='awaiting_input';
+ p.findings=[{agent_id:'documentale',finding_id:'FINDING_SYNTH_001',
+  validation_status:'requires_clarification',
+  source_evidence:[ev(),ev('HISTORICAL_EXAMPLE','historical_2026_reference')]}];
+ assert.equal(run(p).state,'blocked');
+});
+test('unknown evidence categories fail closed instead of being silently dropped',()=>{
+ const p=packet();p.state='awaiting_input';
+ p.findings=[{agent_id:'documentale',finding_id:'FINDING_SYNTH_001',
+  validation_status:'requires_clarification',
+  source_evidence:[ev(),ev('OTHER_SCOPE','fake_source')]}];
+ assert.equal(run(p).state,'blocked');
+});
+test('blocked packets explicitly prevent drafting',()=>{
+ const p=packet();p.state='blocked';
+ const r=run(p);
+ assert.equal(r.state,'blocked');
+ assert.equal(r.blocks_document_draft,true);
+ assert.equal(r.client_dispatch_allowed,false);
 });
