@@ -188,3 +188,38 @@ test('no input always fails closed without throwing',()=>{
  denied(plan(),'INVALID_OR_CROSS_JOB_SNAPSHOTS');
  denied(plan({previous:null,current:null}),'INVALID_OR_CROSS_JOB_SNAPSHOTS');
 });
+
+test('integration: changed PDF hash invalidates extraction attestation and all downstream stages',()=>{
+ const {buildHseEvidenceScope}=require('../js/duvri-hse-evidence-scope.js');
+ const files=[
+  {file_id:'CHECKLIST_SYNTH_REV_001',job_id:job,role:'client_checklist',
+   mime_type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+   size_bytes:1024,sha256:'a'.repeat(64),parse_status:'parsed'},
+  {file_id:'PDF_SYNTH_REV_001',job_id:job,role:'supporting_document',
+   mime_type:'application/pdf',size_bytes:2048,sha256:'b'.repeat(64),
+   parse_status:'parsed'}
+ ];
+ const attest=files.map(f=>({
+  schema_version:'colligo-duvri-extraction-attestation/1.0',
+  job_id:job,analysis_revision_id:'ANALYSIS_SYNTH_001',
+  extraction_revision_id:'EXTRACT_SYNTH_001',
+  file_id:f.file_id,source_sha256:f.sha256,
+  evidence_kind:'extracted_text',source_locator_verified:true,backend_verified:true
+ }));
+ const scope1=buildHseEvidenceScope({
+  jobId:job,analysisRevisionId:'ANALYSIS_SYNTH_001',
+  extractionRevisionId:'EXTRACT_SYNTH_001',files,extractions:attest
+ });
+ assert.equal(scope1.state,'ready_for_hse_screening');
+ const changedFiles=structuredClone(files);changedFiles[1].sha256='f'.repeat(64);
+ const scope2=buildHseEvidenceScope({
+  jobId:job,analysisRevisionId:'ANALYSIS_SYNTH_001',
+  extractionRevisionId:'EXTRACT_SYNTH_001',files:changedFiles,extractions:attest
+ });
+ assert.equal(scope2.state,'blocked');
+ const result=check({manifest_sha256:'f'.repeat(64)});
+ assert.ok(result.invalidate_artifacts.includes('source_scope'));
+ assert.ok(result.invalidate_artifacts.includes('hse_review'));
+ assert.ok(result.invalidate_artifacts.includes('word_qa'));
+ assert.equal(result.issuance_allowed,false);
+});
