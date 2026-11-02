@@ -99,6 +99,7 @@ const duvriHseCoordinator = (() => {
     if (pending.length) blockers.push('Agenti senza risposta: ' + pending.join(', '));
     const needsInput = route.needs_screening.length > 0 ||
       missing.some(x => x.blocking) || conflicts.length > 0 ||
+      findings.some(x => x.validation_status === 'requires_clarification') ||
       [...received.values()].some(x => x.status === 'needs_clarification');
     // An incomplete evaluation is never a completed DUVRI.
     const state = blockers.length ? 'blocked' : needsInput ? 'awaiting_input' : 'needs_review';
