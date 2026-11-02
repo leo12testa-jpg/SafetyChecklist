@@ -106,3 +106,10 @@ test('rejects malformed objects or an unsupported schema version without throwin
   data.schema_version = 'other';
   assert.equal(validate(data).valid, false);
 });
+
+test('fail closed when job ID or authorized file set are not supplied', () => {
+  assert.equal(validateAgentResult(fixture).valid, false);
+  assert.equal(validateAgentResult(fixture, { jobId: fixture.job_id }).valid, false);
+  assert.equal(validateAgentResult(fixture, { allowedFileIds: ['FILE_TEST_001'] }).valid, false);
+  assert.equal(validateAgentResult(fixture, { jobId: fixture.job_id, allowedFileIds: [] }).valid, false);
+});
