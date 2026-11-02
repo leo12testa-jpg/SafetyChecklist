@@ -15,6 +15,7 @@ const duvriHseReviewSession = (() => {
   const object = x => !!x && typeof x==='object' && !Array.isArray(x);
   const identifier = x => typeof x==='string' && /^[A-Za-z0-9_-]{6,128}$/.test(x);
   const sha256 = x => typeof x==='string' && /^[a-f0-9]{64}$/i.test(x);
+  const findingId = x => typeof x==='string' && /^[A-Za-z0-9_-]{1,128}$/.test(x);
   const sourcesCurrent = new Set(['current_job_document','current_job_checklist']);
   const sourcesHistory = 'historical_2026_reference';
   const sourcesRule = 'approved_internal_rule';
@@ -81,7 +82,7 @@ const duvriHseReviewSession = (() => {
       return denied(jobId,'MISSING_FINDINGS_OR_DECISIONS');
     const keys=new Map();
     for(const f of packet.findings){
-      if (!object(f) || !identifier(f.agent_id) || !identifier(f.finding_id) ||
+      if (!object(f) || !identifier(f.agent_id) || !findingId(f.finding_id) ||
           !Array.isArray(f.source_evidence)) {
         return denied(jobId,'INVALID_FINDING_PROVENANCE');
       }
