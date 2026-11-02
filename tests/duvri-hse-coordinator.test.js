@@ -30,6 +30,7 @@ test('complete, nonblocking analysis still requires human review', () => {
   const rs = results();
   rs[3].missing_information = [];
   rs[3].status = 'completed';
+  rs[3].findings[0].validation_status = 'to_be_reviewed';
   const r = build({agentResults: rs});
   assert.equal(r.state, 'needs_review');
   assert.equal(r.issuance_allowed, false);
