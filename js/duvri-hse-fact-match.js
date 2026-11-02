@@ -143,12 +143,21 @@ const duvriHseFactMatch = (() => {
         unanchoredConflicts>0?'CONFLICT_NOT_GROUNDED_IN_TWO_CURRENT_SOURCES':
         'CURRENT_EVIDENCE_UNCONFIRMED']
     };
+    const reviewReady=packet.state==='needs_review' &&
+      packet.conflicts.length===0 &&
+      Array.isArray(packet.missing_information) &&
+      !packet.missing_information.some(x=>record(x)&&x.blocking===true) &&
+      Array.isArray(packet.screening_required) &&
+      packet.screening_required.length===0;
     return {
-      schema_version:VERSION,job_id:job,state:'exact_citations_matched_for_review',
+      schema_version:VERSION,job_id:job,
+      state:reviewReady?'exact_citations_matched_for_review':
+        'citations_matched_awaiting_hse_resolution',
       citations_checked:refs.length,unconfirmed_current_citations:0,
       has_confirmed_current_citation:true,
-      usable_for_hse_review:true,duvri_approved:false,issuance_allowed:false,
-      blockers:[]
+      usable_for_hse_review:reviewReady,duvri_approved:false,
+      issuance_allowed:false,
+      blockers:reviewReady?[]:['OPEN_HSE_REVIEW_INPUT']
     };
   }
   return Object.freeze({VERSION,verify});
