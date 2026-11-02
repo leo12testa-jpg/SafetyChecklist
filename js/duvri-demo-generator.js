@@ -102,7 +102,7 @@ const duvriDemoGenerator=(()=>{
       '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
       '<Default Extension="xml" ContentType="application/xml"/>'+
       '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
-      '<Override PartName="/word/document.xml" ContentType="'+MIME+'"/>'+
+      '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'+
       '</Types>');
     zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8"?>'+
       '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
