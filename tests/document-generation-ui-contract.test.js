@@ -443,7 +443,7 @@ test('la schermata è raggiungibile dal menu e contiene gli elementi usati dal c
   const uploads = env.screen.querySelectorAll('input').filter((el) => el.type === 'file');
   assert.deepEqual(uploads.map((el) => el.id), ['dg-checklist-file', 'dg-auto-files', 'dg-template-file'], 'due aree + verifica del modello');
   assert.equal(uploads[0].hasAttribute('multiple'), false, 'una sola checklist del committente');
-  assert.equal(uploads[0].getAttribute('accept'), '.pdf,.doc,.docx,.xls,.xlsx,.json,.csv,.txt');
+  assert.equal(uploads[0].getAttribute('accept'), '.docx', 'la checklist è un Word DOCX ricevuto dal cliente');
   assert.equal(uploads[1].hasAttribute('multiple'), true);
   assert.equal(uploads[1].hasAttribute('accept'), false, 'nessun formato escluso: i file non leggibili vengono segnalati, non scartati');
   const templateDetails = env.$('dg-template-details');
