@@ -24,7 +24,16 @@ const duvriCaseManifest = (() => {
     'image/webp',
     'image/tiff'
   ]);
-  const ALLOWED = new Set(ATTACHMENT_MIME);
+  // Some real customer uploads cannot be parsed safely yet. Keep them on the
+  // private dossier as review-only files; do not silently discard or extract.
+  const REVIEW_ONLY_MIME = Object.freeze([
+    'application/zip',
+    'application/x-zip-compressed',
+    'image/heic',
+    'image/heif'
+  ]);
+  const REVIEW_ONLY = new Set(REVIEW_ONLY_MIME);
+  const ALLOWED = new Set([...ATTACHMENT_MIME,...REVIEW_ONLY_MIME]);
   const IMAGE = new Set(['image/jpeg','image/png','image/webp','image/tiff']);
   const ROLES = Object.freeze(['client_checklist','supporting_document','photograph','drawing']);
   const own = (x,k) => Object.prototype.hasOwnProperty.call(x,k);
@@ -36,7 +45,7 @@ const duvriCaseManifest = (() => {
       schema_version:'colligo-duvri-file-manifest/1.0',
       job_id:identifier(jobId)?jobId:null,
       state:'blocked',files_count:0,attachment_count:0,
-      files_for_authorization_review:[],requires_extraction:true,
+      files_for_authorization_review:[],manual_review_file_ids:[],requires_extraction:true,
       evidence_verified:false,issuance_allowed:false,errors:[reason]
     };
   }
@@ -45,7 +54,7 @@ const duvriCaseManifest = (() => {
        documents.length===0 || documents.length>200)
       return deny(jobId,'Manifest non valido: fascicolo e documenti obbligatori');
     let checklist=0,attention=0;
-    const fileIds=new Set(),checksums=new Set(),candidates=[];
+    const fileIds=new Set(),checksums=new Set(),candidates=[],manualReview=[];
     for(let i=0;i<documents.length;i++){
       const f=documents[i];
       if(!record(f) ||
@@ -66,12 +75,15 @@ const duvriCaseManifest = (() => {
         if(f.mime_type!==CHECKLIST_MIME)
           return deny(jobId,'La checklist del cliente deve essere un documento Word DOCX');
       }
-      if(f.role==='photograph' && !IMAGE.has(f.mime_type))
+      if(f.role==='photograph' && !IMAGE.has(f.mime_type) &&
+         !['image/heic','image/heif'].includes(f.mime_type))
         return deny(jobId,'Foto dichiarata con un formato non immagine');
       if(f.role==='drawing' && !IMAGE.has(f.mime_type) && f.mime_type!=='application/pdf')
         return deny(jobId,'Planimetria in formato non supportato');
-      if(f.parse_status==='unreadable') attention++;
-      candidates.push(f.file_id);
+      if(f.parse_status==='unreadable' || REVIEW_ONLY.has(f.mime_type)) {
+        attention++;
+        manualReview.push(f.file_id);
+      } else candidates.push(f.file_id);
     }
     if(checklist!==1)
       return deny(jobId,'Richiesta una sola checklist principale DOCX per fascicolo');
@@ -80,10 +92,11 @@ const duvriCaseManifest = (() => {
       job_id:jobId,state:attention?'needs_attention':'ready_for_extraction',
       files_count:documents.length,attachment_count:documents.length-1,
       files_for_authorization_review:candidates,
+      manual_review_file_ids:manualReview,
       requires_extraction:true,evidence_verified:false,
       issuance_allowed:false,errors:[]
     };
   }
-  return Object.freeze({CHECKLIST_MIME,ATTACHMENT_MIME,ROLES,assessManifest});
+  return Object.freeze({CHECKLIST_MIME,ATTACHMENT_MIME,REVIEW_ONLY_MIME,ROLES,assessManifest});
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=duvriCaseManifest;
