@@ -1,14 +1,14 @@
 # COLLIGO DUVRI AI — Contratto di consegna Word da Claude Code a SafetyChecklist (D2)
 
-**Stato:** schema tecnico di interfaccia e test **isolati**, nessun accesso automatico al PC aziendale o ai file del cliente. Il solo generatore Word ufficiale resta sotto la responsabilità del lavoro locale di Claude Code.
+**Stato:** schema tecnico di interfaccia e test **isolati**, nessun accesso automatico al PC aziendale o ai file del cliente. Il generatore Word ufficiale è sviluppato in locale: originariamente da Claude Code, ora proseguito da Codex. La PR #28 contiene solo l'adattatore dei metadati e non modifica il file master.
 
 ## Problema
 
-Claude sta controllando il vero `DUVRI_BASE_GENERALE_2026.docx`. La copia del modello, senza sostituzioni, conserva la struttura; il mapping dei 22 segmenti e le 27 decisioni editoriali sono ancora da confermare dal tecnico. SafetyChecklist non deve ricevere un semplice «OK» e supporre che il documento sia pronto.
+Claude Code ha iniziato il controllo del vero `DUVRI_BASE_GENERALE_2026.docx`; Codex ha proseguito il collaudo nel medesimo workspace. La copia del modello, senza sostituzioni, conserva la struttura; il mapping dei 22 segmenti e le 27 decisioni editoriali sono ancora da confermare dal tecnico. SafetyChecklist non deve ricevere un semplice «OK» e supporre che il documento sia pronto.
 
 L'adattatore `js/duvri-word-qa-handoff.js` definisce un report **solo di metadati**, che non contiene intestazioni dei clienti, testo delle clausole, percorsi locali, screenshot o documenti originali.
 
-## Formato proposto per Claude
+## Formato proposto per il motore Word locale (Claude Code / Codex)
 
 Ogni rapporto `colligo-word-qa-local/1.0` deve specificare:
 - `job_id`, `template_version`, `mapping_revision_id`, `document_revision_id` e `qa_document_revision_id`;
@@ -51,13 +51,17 @@ const report = normalize({
 
 ## Lavoro in parallelo
 
-- **Claude Code**: prepara mapping reale e report QA locale, revisionato sul Word originale, senza modificare PR #28.
+- **Codex (subentrato a Claude Code)**: prosegue mapping reale, decisioni D2, generatore del Word originale e report QA locale, senza modificare PR #28.
 - **ChatGPT / SafetyChecklist**: gestisce ingestione nel fascicolo, contratto di output specialisti, verifica provenienza, aggregazione HSE e interfaccia backend senza duplicare il compilatore OOXML.
 - **Tecnico Colligo**: approva i campi ambigui, commenti, firme, matrici rischio e l'emissione finale.
 - **D1**: resta bloccato finché non viene presa una decisione aziendale formale.
 
 ## Test
 
-`node --test tests/duvri-word-qa-handoff.test.js` — 16 test esclusivamente sintetici.
+`node --test tests/duvri-word-qa-handoff.test.js` — 16 test esclusivamente sintetici dell'adattatore nel repository.
+
+**Aggiornamento locale comunicato il 2 novembre 2026:** Codex ha riferito **121 test Word superati** e **27/27 mutazioni intercettate**, comprese due verifiche aggiuntive sul blocco D1. La prova a mutazione opera ora su copie temporanee, senza alterare il codice di lavoro. Il relativo `STATUS_PER_CHATGPT.md` rimane sul PC dell'utente e non è stato ancora esaminato direttamente da questa PR. Questi risultati certificano la tenuta dei test locali nei limiti dei loro casi, **non** la compilazione completa approvata, l'identità del modello, il mapping D2 o la metodologia D1.
+
+Lo stato di handoff finché D1/D2 restano aperti rimane `needs_claude_review` per compatibilità del protocollo, anche quando il test runner locale ha tutti i test verdi; **non** significa che Claude sia ancora il responsabile operativo.
 
 Nessun caricamento di modelli reali o documenti riservati in GitHub. Non unire questo componente alla produzione finché il report reale non è disponibile e verificato.
