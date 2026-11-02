@@ -145,13 +145,13 @@ test('duplicate findings in packet rejected before review',()=>{
 });
 test('historical DUVRI cannot impersonate the current checklist',()=>{
  const p=packet();p.findings[0].source_evidence[0]={source_type:'historical_2026_reference',
- file_id:sourceIds[0],verification_status:'historical_example_only'};
+ file_id:sourceIds[0],locator:'Locator storico fittizio',verification_status:'historical_example_only'};
  assert.equal(run(p).state,'blocked');
 });
 test('historical precedent remains an example and cannot alone justify acceptance',()=>{
  const p=packet();
  p.findings[0].source_evidence=[{source_type:'historical_2026_reference',
-  file_id:'HISTORY_SYNTH_001',verification_status:'historical_example_only'}];
+  file_id:'HISTORY_SYNTH_001',locator:'Riferimento storico sintetico',verification_status:'historical_example_only'}];
  const c=ctx();c.allowed_historical_reference_ids=['HISTORY_SYNTH_001'];
  const r=run(p,scope(),[accepted],c);
  assert.deepEqual(r.blockers,['ACCEPTED_FINDING_UNCONFIRMED']);
@@ -159,20 +159,20 @@ test('historical precedent remains an example and cannot alone justify acceptanc
 test('approved historical reference may supplement confirmed current evidence',()=>{
  const p=packet();
  p.findings[0].source_evidence.push({source_type:'historical_2026_reference',
-  file_id:'HISTORY_SYNTH_001',verification_status:'historical_example_only'});
+  file_id:'HISTORY_SYNTH_001',locator:'Riferimento storico sintetico',verification_status:'historical_example_only'});
  const c=ctx();c.allowed_historical_reference_ids=['HISTORY_SYNTH_001'];
  assert.equal(run(p,scope(),[accepted],c).state,'draft_findings_reviewed');
 });
 test('historical precedent with verified rather than example-only status is blocked',()=>{
  const p=packet();
  p.findings[0].source_evidence.push({source_type:'historical_2026_reference',
-  file_id:'HISTORY_SYNTH_001',verification_status:'confirmed'});
+  file_id:'HISTORY_SYNTH_001',locator:'Riferimento storico sintetico',verification_status:'confirmed'});
  const c=ctx();c.allowed_historical_reference_ids=['HISTORY_SYNTH_001'];
  assert.deepEqual(run(p,scope(),[accepted],c).blockers,['HISTORICAL_SOURCE_MISLABELED']);
 });
 test('an internal rule requires separate server allowlist',()=>{
  const p=packet();p.findings[0].source_evidence.push({
-  source_type:'approved_internal_rule',file_id:'RULE_SYNTH_001',
+  source_type:'approved_internal_rule',file_id:'RULE_SYNTH_001',locator:'Regola sintetica',
   verification_status:'confirmed'});
  assert.deepEqual(run(p).blockers,['UNAUTHORIZED_FINDING_SOURCE']);
  const c=ctx();c.allowed_internal_rule_ids=['RULE_SYNTH_001'];
@@ -216,4 +216,17 @@ test('missing or incomplete context cannot be interpreted as approved review',()
  assert.equal(assessReviewSession().state,'blocked');
  assert.equal(run(packet(),null).issuance_allowed,false);
  assert.equal(run(packet(),scope(),[accepted],{}).state,'blocked');
+});
+
+test('missing source locator cannot support any HSE review',()=>{
+ const p=packet();delete p.findings[0].source_evidence[0].locator;
+ assert.deepEqual(run(p).blockers,['INVALID_FINDING_PROVENANCE']);
+});
+test('unknown verification status is never accepted as verified source',()=>{
+ const p=packet();p.findings[0].source_evidence[0].verification_status='verified_by_ai';
+ assert.deepEqual(run(p).blockers,['INVALID_FINDING_PROVENANCE']);
+});
+test('oversized source locator is rejected to protect downstream review rendering',()=>{
+ const p=packet();p.findings[0].source_evidence[0].locator='x'.repeat(1001);
+ assert.equal(run(p).state,'blocked');
 });
