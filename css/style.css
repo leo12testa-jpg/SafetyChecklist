@@ -2865,3 +2865,47 @@ details.dg-auto-template > summary { cursor: pointer; font-weight: 700; color: v
 .dg-document-status-panel { margin-top: 18px; }
 .dg-document-status-panel h4 { color: var(--color-primary); margin: 0 0 6px; }
 @media (max-width: 700px) { .dg-status-grid, .dg-intake-areas { grid-template-columns: 1fr; } }
+
+
+/* Generatore DUVRI — vista operativa semplificata: esattamente due aree
+   di caricamento, checklist Word e tutti gli allegati del cliente.
+   I controlli del prototipo preesistente restano nel DOM per compatibilità
+   con il motore legacy, ma non vengono mostrati all'operatore. */
+#screen-document-generation > .dg-prototype-alert,
+#screen-document-generation > .dg-workflow-strip,
+#screen-document-generation > .dg-customer-instructions,
+#screen-document-generation > #dg-form,
+#screen-document-generation > #dg-result,
+#screen-document-generation > .dg-queue-panel,
+#screen-document-generation #dg-auto-type,
+#screen-document-generation #dg-auto-results,
+#screen-document-generation .dg-auto-gate,
+#screen-document-generation #dg-generate-reasons,
+#screen-document-generation #dg-template-details,
+#screen-document-generation #dg-auto-files-list select {
+  display: none !important;
+}
+
+#screen-document-generation .dg-intake-areas {
+  align-items: stretch;
+  gap: 18px;
+}
+#screen-document-generation .dg-intake-area {
+  min-width: 0;
+}
+#screen-document-generation .dg-intake-area .dg-upload-zone {
+  min-height: 170px;
+  justify-content: center;
+  height: auto;
+}
+#screen-document-generation #dg-auto-files-list {
+  max-width: 100%;
+}
+#screen-document-generation .dg-page-heading {
+  margin-bottom: 18px;
+}
+@media (max-width: 700px) {
+  #screen-document-generation .dg-intake-areas {
+    grid-template-columns: 1fr;
+  }
+}
