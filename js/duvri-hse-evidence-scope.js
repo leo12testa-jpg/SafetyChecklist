@@ -88,7 +88,9 @@ const duvriHseEvidenceScope = (() => {
       job_id:jobId,analysis_revision_id:analysisRevisionId,
       extraction_revision_id:extractionRevisionId,
       state:ready?'ready_for_hse_screening':'awaiting_extraction',
-      allowed_file_ids:allowed,
+      // Never expose a partial HSE allowlist to callers: a backend that fails
+      // to inspect state must still be unable to process an incomplete dossier.
+      allowed_file_ids:ready ? allowed : [],
       withheld_file_ids:withheld,
       manual_review_file_ids:report.manual_review_file_ids,
       checklist_ready:checklistReady,
