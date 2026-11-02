@@ -1,0 +1,44 @@
+{
+  "schema_version": "colligo-duvri-agent-analysis/1.0",
+  "job_id": "FASCICOLO_TEST_SYNTH_001",
+  "agent_id": "lavori_quota",
+  "status": "needs_clarification",
+  "findings": [
+    {
+      "finding_id": "F-001",
+      "category": "caduta_materiali",
+      "work_phase": "manutenzione sintetica in copertura",
+      "scenario": "Possibile caduta di materiali verso una zona di passaggio del committente.",
+      "interference_explanation": "Le lavorazioni sono previste sopra un percorso utilizzato da altri soggetti.",
+      "exposed_parties": [
+        "personale del committente"
+      ],
+      "source_evidence": [
+        {
+          "source_type": "current_job_checklist",
+          "file_id": "FILE_TEST_001",
+          "locator": "Sezione intervento, domanda 7",
+          "excerpt_or_fact": "Intervento in copertura sopra un passaggio pedonale (dato sintetico).",
+          "verification_status": "extracted_unconfirmed"
+        }
+      ],
+      "proposed_measures": [
+        {
+          "proposal": "Valutare interdizione e segregazione dell'area sottostante durante la fase interessata.",
+          "implementation_owner_status": "to_assign",
+          "needs_human_validation": true
+        }
+      ],
+      "validation_status": "requires_clarification"
+    }
+  ],
+  "missing_information": [
+    {
+      "question": "Il percorso sottostante sarà effettivamente utilizzato durante i lavori?",
+      "why_needed": "Serve a confermare la compresenza e definire l'organizzazione delle misure.",
+      "blocking": true
+    }
+  ],
+  "conflicts": [],
+  "requires_human_review": true
+}
