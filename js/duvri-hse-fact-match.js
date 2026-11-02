@@ -114,6 +114,10 @@ const duvriHseFactMatch = (() => {
     };
     if(refs.length>3000)return denied(job,'TOO_MANY_CITATIONS');
 
+    const unanchoredFindings=packet.findings.filter(f=>!f.source_evidence.some(e=>
+      record(e)&&current.has(e.source_type)&&e.verification_status==='confirmed')).length;
+    const unanchoredConflicts=packet.conflicts.filter(c=>
+      c.evidence.filter(e=>record(e)&&current.has(e.source_type)&&e.verification_status==='confirmed').length<2).length;
     let unconfirmed=0,confirmedCurrent=0;
     for(const e of refs){
       if(!record(e)||!types.has(e.source_type)||!id(e.file_id)||
@@ -129,12 +133,15 @@ const duvriHseFactMatch = (() => {
         else unconfirmed++;
       }
     }
-    if(confirmedCurrent===0||unconfirmed>0)return {
+    if(confirmedCurrent===0||unconfirmed>0||unanchoredFindings>0||unanchoredConflicts>0)return {
       schema_version:VERSION,job_id:job,state:'citations_need_confirmation',
       citations_checked:refs.length,unconfirmed_current_citations:unconfirmed,
       has_confirmed_current_citation:confirmedCurrent>0,
       usable_for_hse_review:false,duvri_approved:false,issuance_allowed:false,
-      blockers:[confirmedCurrent===0?'NO_CONFIRMED_CURRENT_EVIDENCE':'CURRENT_EVIDENCE_UNCONFIRMED']
+      blockers:[confirmedCurrent===0?'NO_CONFIRMED_CURRENT_EVIDENCE':
+        unanchoredFindings>0?'FINDING_NOT_GROUNDED_IN_CONFIRMED_CURRENT_SOURCE':
+        unanchoredConflicts>0?'CONFLICT_NOT_GROUNDED_IN_TWO_CURRENT_SOURCES':
+        'CURRENT_EVIDENCE_UNCONFIRMED']
     };
     return {
       schema_version:VERSION,job_id:job,state:'exact_citations_matched_for_review',
