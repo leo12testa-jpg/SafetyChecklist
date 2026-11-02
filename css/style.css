@@ -2909,3 +2909,16 @@ details.dg-auto-template > summary { cursor: pointer; font-weight: 700; color: v
     grid-template-columns: 1fr;
   }
 }
+
+/* Modalità demo DOCX del generatore DUVRI: un pulsante, nessun nuovo upload. */
+#screen-document-generation .dg-demo-actions{
+  margin-top:18px;
+  border-top:1px solid var(--border, #d4dce1);
+  padding-top:16px;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:7px;
+}
+#screen-document-generation .dg-demo-actions p{ margin:0;max-width:78ch; }
+#screen-document-generation #dg-demo-generate[disabled]{cursor:not-allowed;opacity:.55;}
