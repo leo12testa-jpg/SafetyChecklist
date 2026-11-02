@@ -19,13 +19,13 @@ const mk = (agent, findings=[]) => ({
 function packet() {
   const finding=clone(example.findings[0]);
   finding.validation_status = 'to_be_reviewed';
-  return buildReviewPacket({jobId:job, specialtySignals:signals, allowedFileIds:['FILE_TEST_001'],
+  return buildReviewPacket({jobId:job, analysisRevisionId:'ANALYSIS_SYNTH_001', specialtySignals:signals, allowedFileIds:['FILE_TEST_001'],
     agentResults:[
       mk('documentale'),mk('normativa'),mk('coordinamento'),mk('lavori_quota',[finding])
     ]});
 }
 const context = {job_id:job, reviewer_id:'TECNICO_SYNTH_01',
-  document_revision_id:'REV_SYNTH_001', role:'tecnico',
+  document_revision_id:'REV_SYNTH_001', analysis_revision_id:'ANALYSIS_SYNTH_001', role:'tecnico',
   authenticated:true, can_review:true};
 const accepted = {agent_id:'lavori_quota',finding_id:'F-001',action:'accept_for_draft'};
 const run = (p=packet(),d=[accepted],c=context) =>
