@@ -13,6 +13,7 @@ Il modulo `js/duvri-revision-invalidation.js` confronta due snapshot del **medes
 | Cosa cambia | Cosa va considerato obsoleto |
 |---|---|
 | Checklist o allegati (`manifest_sha256`) | Estrazione, conferme OCR, fonti, screening, analisi, chiarimenti, revisione HSE e Word |
+| Risposte e integrazioni fornite dal cliente | Scope delle fonti, screening, specialisti, chiarimenti, HSE e Word |
 | Estrazione / conferma OCR | Scope delle fonti, specialisti, verifiche citazioni, HSE e Word |
 | Screening / analisi specialistica | Analisi e decisioni successive, preflight AI, revisione e Word |
 | Pacchetto HSE | Matching citazioni, chiarimenti, triage, revisione e Word |
@@ -29,7 +30,7 @@ L'insieme di componenti viene unito senza duplicati e restituito in ordine deter
 **La funzione è `plan({previous,current,trustedContext})`: non scrive nel database.**
 
 1. Recuperare `previous` e `current` dallo storage autenticato, senza fidarsi di snapshot inviati dal browser, dall'AI o dal documento caricato. Ricalcolare impronte sui file veri e manifest canonici prima di dichiarare verificati gli snapshot.
-2. Garantire che ogni variazione materiale dei documenti, dell'OCR o dei risultati comporti una nuova revisione persistita. La lista dei 14 campi deve essere completata dallo schema privato reale; se qualche campo è sconosciuto, usare `null` solo quando non ancora prodotto, **non** per ignorare un cambiamento.
+2. Garantire che ogni variazione materiale dei documenti, dell'OCR o dei risultati comporti una nuova revisione persistita. La lista dei 15 campi deve essere completata dallo schema privato reale; se qualche campo è sconosciuto, usare `null` solo quando non ancora prodotto, **non** per ignorare un cambiamento.
 3. Validare il ruolo/tenant e le autorizzazioni sul fascicolo. Il flag `authenticated:true` o `current_snapshot_server_verified:true` **non è** una prova se arriva dal client; deve essere costruito dal backend.
 4. Eseguire il piano all'interno di una transazione Postgres **CAS** che verifica la revisione originale; rendere obsolete **tutte** le righe derivate indicate e creare audit append-only. I retry devono essere idempotenti. Se il commit non è riuscito, il fascicolo resta bloccato.
 5. Impedire che il nuovo fascicolo venga letto come pronto per agenti, revisione o Word finché le dipendenze richieste non sono state ricostruite e nuovamente verificate. Nessun invio automatico e nessuna generazione Word ufficiale sulla base del solo piano.
@@ -41,6 +42,6 @@ L'insieme di componenti viene unito senza duplicati e restituito in ordine deter
 
 `node --test tests/duvri-revision-invalidation.test.js`
 
-26 test sintetici su cambiamenti dei documenti e revisioni, OCR, screening, pacchetti HSE, chiarimenti, Word, D1/D2, budget/provider, CAS e non emissione. Il test integrato verifica che un PDF sostituito non possa riutilizzare l'attestazione di estrazione precedente, e che l'invalidazione proposta raggiunga HSE e Word.
+28 test sintetici su cambiamenti dei documenti e revisioni, OCR, screening, pacchetti HSE, chiarimenti, Word, D1/D2, budget/provider, CAS e non emissione. Il test integrato verifica che un PDF sostituito non possa riutilizzare l'attestazione di estrazione precedente, e che l'invalidazione proposta raggiunga HSE e Word.
 
 **Limiti espliciti:** nessun database, locking, SHA calcolato sui file, permessi reali o revisione del modello riservato in questo modulo. Confrontare la lista di dipendenze con l'effettivo schema backend locale prima di adottarla; evitare duplicazioni con i meccanismi di invalidazione di Claude/Codex.
