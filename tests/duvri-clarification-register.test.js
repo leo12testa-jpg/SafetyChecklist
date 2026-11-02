@@ -209,3 +209,20 @@ test('blocked packets explicitly prevent drafting',()=>{
  assert.equal(r.blocks_document_draft,true);
  assert.equal(r.client_dispatch_allowed,false);
 });
+
+test('inconsistent needs_review packet cannot hide an open conflict',()=>{
+ const p=packet();
+ p.conflicts=[{agent_id:'documentale',description:'Dati discordanti',
+  resolution_question:'Confermare il valore?',
+  evidence:[ev(),ev(pdf,'current_job_document')]}];
+ assert.equal(run(p).state,'blocked');
+});
+test('inconsistent needs_review packet cannot hide a blocking question',()=>{
+ const p=packet();p.missing_information=[{agent_id:'documentale',
+  question:'Quale dato?',why_needed:'Completare la valutazione',blocking:true}];
+ assert.equal(run(p).state,'blocked');
+});
+test('inconsistent needs_review packet cannot hide unconfirmed screening',()=>{
+ const p=packet();p.screening_required=['impianti_elettrici'];
+ assert.equal(run(p).state,'blocked');
+});
