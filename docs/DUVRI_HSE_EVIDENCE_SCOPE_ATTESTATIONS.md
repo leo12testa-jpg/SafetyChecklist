@@ -53,3 +53,15 @@ Non è consentito:
 `tests/duvri-hse-evidence-scope.test.js` include **26 test sintetici** su checklist, foto, PDF, ZIP, duplicati, SHA, revisioni, autorizzazioni, privacy e compatibilità con lo screening.
 
 Il modulo non modifica il frontend o il backend PR #21. L'uso nel worker sarà implementato da Codex, con controllo delle transazioni, ACL e provenienza delle attestazioni.
+
+## Separazione delle tipologie di fonte HSE
+
+Il contratto aggiornato `duvri-agent-contract.js`, il coordinatore e la pipeline richiedono **tre elenchi distinti**:
+
+- `allowedFileIds`: solo checklist e documenti dell'incarico corrente restituiti da `buildHseEvidenceScope`.
+- `allowedHistoricalReferenceIds`: solo ID opachi dei precedenti DUVRI 2026 restituiti dal catalogo privato verificato; `verification_status='historical_example_only'`.
+- `allowedInternalRuleIds`: solo regole aziendali già approvate e autorizzate dal backend.
+
+Gli ID non possono sovrapporsi fra elenchi; un precedente storico non può dichiararsi `current_job_document`, e una regola interna non costituisce un'evidenza di compresenza nel luogo dell'intervento. Un finding richiede **sempre almeno una fonte corrente**. Le liste storiche e le regole interne sono facoltative: se non vengono fornite, non esiste autorizzazione implicita.
+
+Codex deve derivare ciascuna allowlist dal relativo archivio privato e non fidarsi degli ID ricevuti in una richiesta client. La compatibilità della nuova interfaccia è ancora da verificare con i test del ramo.
