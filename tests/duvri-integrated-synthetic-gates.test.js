@@ -51,9 +51,9 @@ function scope(f=files(),e=extractAttests(f)){
  });
 }
 const screening=(mode='ready')=>Object.keys(SIGNAL_TO_AGENT).map(signal=>({
- signal,answer:mode==='unknown'&&signal==='lavori_in_quota'?'unknown':
+ signal,answer:mode==='unknown'&&signal==='impianti_elettrici'?'unknown':
   signal==='lavori_in_quota'?'yes':'no',
- evidence: mode==='unknown'&&signal==='lavori_in_quota'?[]:[{
+ evidence: mode==='unknown'&&signal==='impianti_elettrici'?[]:[{
   source_type:'current_job_checklist',file_id:checklist,
   locator:'page:1:line:2',verification_status:'confirmed'
  }]
