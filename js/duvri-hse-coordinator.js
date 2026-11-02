@@ -31,7 +31,7 @@ const duvriHseCoordinator = (() => {
       conflicts: [], possible_overlaps: [], blocking_reasons: [message]
     });
     if (!contract) return blocked('Contratto agenti non disponibile');
-    if (!isIdentifier(jobId) || !Array.isArray(agentResults) ||
+    if (!isIdentifier(jobId) || !isIdentifier(analysisRevisionId) || !Array.isArray(agentResults) ||
         !(Array.isArray(allowedFileIds) || allowedFileIds instanceof Set) ||
         !(Array.isArray(allowedHistoricalReferenceIds) || allowedHistoricalReferenceIds instanceof Set) ||
         !(Array.isArray(allowedInternalRuleIds) || allowedInternalRuleIds instanceof Set)) {
