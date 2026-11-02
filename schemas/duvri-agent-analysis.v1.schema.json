@@ -1,0 +1,267 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://colligo.example/schemas/duvri-agent-analysis.v1.schema.json",
+  "title": "Colligo DUVRI AI - HSE agent result (proposal v1)",
+  "description": "Proposed output contract, NOT a risk assessment or approval. Application MUST additionally enforce jobId, authorized file IDs, historical-example-only evidence and current-case provenance with the deterministic JS validator.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "job_id",
+    "agent_id",
+    "status",
+    "findings",
+    "missing_information",
+    "conflicts",
+    "requires_human_review"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "colligo-duvri-agent-analysis/1.0"
+    },
+    "job_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "agent_id": {
+      "enum": [
+        "documentale",
+        "normativa",
+        "antincendio",
+        "elettrico",
+        "lavori_quota",
+        "cantieri",
+        "chimico_atex",
+        "spazi_confinati",
+        "macchine_impianti",
+        "logistica",
+        "agenti_fisici",
+        "coordinamento"
+      ]
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "needs_clarification",
+        "not_applicable",
+        "blocked"
+      ]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "missing_information": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/missing"
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/conflict"
+      }
+    },
+    "requires_human_review": {
+      "const": true
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_type",
+        "file_id",
+        "locator",
+        "excerpt_or_fact",
+        "verification_status"
+      ],
+      "properties": {
+        "source_type": {
+          "enum": [
+            "current_job_document",
+            "current_job_checklist",
+            "historical_2026_reference",
+            "approved_internal_rule"
+          ]
+        },
+        "file_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "locator": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "excerpt_or_fact": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "verification_status": {
+          "enum": [
+            "confirmed",
+            "extracted_unconfirmed",
+            "historical_example_only",
+            "requires_verification"
+          ]
+        }
+      }
+    },
+    "measure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposal",
+        "implementation_owner_status",
+        "needs_human_validation"
+      ],
+      "properties": {
+        "proposal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "implementation_owner_status": {
+          "enum": [
+            "identified_in_sources",
+            "to_assign"
+          ]
+        },
+        "needs_human_validation": {
+          "const": true
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_id",
+        "category",
+        "work_phase",
+        "scenario",
+        "interference_explanation",
+        "exposed_parties",
+        "source_evidence",
+        "proposed_measures",
+        "validation_status"
+      ],
+      "properties": {
+        "finding_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "work_phase": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "scenario": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "interference_explanation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "exposed_parties": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "source_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "proposed_measures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/measure"
+          }
+        },
+        "validation_status": {
+          "enum": [
+            "to_be_reviewed",
+            "requires_clarification"
+          ]
+        }
+      }
+    },
+    "missing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question",
+        "why_needed",
+        "blocking"
+      ],
+      "properties": {
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "why_needed": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "blocking": {
+          "type": "boolean"
+        }
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "evidence",
+        "resolution_question"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "resolution_question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        }
+      }
+    }
+  }
+}
