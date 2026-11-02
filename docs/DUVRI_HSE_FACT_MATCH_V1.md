@@ -31,4 +31,4 @@ Lo storico può essere citato solo come `historical_example_only`: non può cost
 
 `node --test tests/duvri-hse-fact-match.test.js`
 
-26 test sintetici: frase o pagina inventata, altra commessa/file, revisione obsoleta, duplicati, dati estratti contraffatti, OCR non confermato, storico usato impropriamente, conflitti non risolti, mismatch di status, nessuna emissione e nessuna mutazione dei dati.
+28 test sintetici: frase o pagina inventata, altra commessa/file, revisione obsoleta, duplicati, dati estratti contraffatti, OCR non confermato, storico usato impropriamente, conflitti non risolti, mismatch di status, nessuna emissione e nessuna mutazione dei dati.
