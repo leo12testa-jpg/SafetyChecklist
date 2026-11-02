@@ -6,6 +6,7 @@ const {normalizeSpecialtyScreening}=require('../js/duvri-hse-screening.js');
 const {validateAgentResult}=require('../js/duvri-agent-contract.js');
 const jobId='FASCICOLO_SYNTH_001';
 const revision='ANALYSIS_SYNTH_001';
+const extractionRevision='EXTRACTION_SYNTH_001';
 const DOCX='application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const copy=x=>structuredClone(x);
 const files=()=>[
@@ -19,13 +20,13 @@ const files=()=>[
 const attest=(file)=>({
  schema_version:'colligo-duvri-extraction-attestation/1.0',
  job_id:jobId,analysis_revision_id:revision,
- extraction_revision_id:'EXTRACTION_SYNTH_001',
+ extraction_revision_id:extractionRevision,
  file_id:file.file_id,source_sha256:file.sha256,
  evidence_kind:file.mime_type.startsWith('image/')?'human_verified_image':'extracted_text',
  source_locator_verified:true,backend_verified:true
 });
 const run=(f=files(),e=f.map(attest),other={})=>
- buildHseEvidenceScope({jobId,analysisRevisionId:revision,files:f,extractions:e,...other});
+ buildHseEvidenceScope({jobId,analysisRevisionId:revision,extractionRevisionId:extractionRevision,files:f,extractions:e,...other});
 test('three verified sources ready only for screening, never approve evidence or DUVRI',()=>{
  const x=run();
  assert.equal(x.state,'ready_for_hse_screening');
@@ -127,6 +128,19 @@ test('client-produced extra keys and names are never propagated to output',()=>{
 test('a client flag can never replace backend_verified attestation',()=>{
  const f=files(),e=f.map(attest);e[2].backend_verified=false;
  assert.equal(run(f,e).state,'blocked');
+});
+test('different extraction batch revisions cannot silently share a HSE scope',()=>{
+ const f=files(),e=f.map(attest);
+ e[1].extraction_revision_id='EXTRACTION_OLD_001';
+ assert.equal(run(f,e).state,'blocked');
+});
+test('missing extraction revision makes HSE scope unavailable',()=>{
+ const f=files(),e=f.map(attest);
+ assert.equal(run(f,e,{extractionRevisionId:''}).state,'blocked');
+});
+test('valid scope explicitly exposes its extraction revision',()=>{
+ const result=run();
+ assert.equal(result.extraction_revision_id,extractionRevision);
 });
 test('missing locator integrity stops evidence scope even if file exists',()=>{
  const f=files(),e=f.map(attest);e[2].source_locator_verified=false;
