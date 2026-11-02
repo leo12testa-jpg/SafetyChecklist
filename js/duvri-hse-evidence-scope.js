@@ -31,13 +31,13 @@ const duvriHseEvidenceScope = (() => {
       job_id:id(jobId)?jobId:null,
       state:'blocked', allowed_file_ids:[], withheld_file_ids:[],
       manual_review_file_ids:[], checklist_ready:false,
-      analysis_revision_id:null, issuance_allowed:false,
+      analysis_revision_id:null,extraction_revision_id:null,issuance_allowed:false,
       evidence_verified:false, human_review_required:true,
       reasons:[reason]
     };
   }
-  function buildHseEvidenceScope({jobId,analysisRevisionId,files,extractions}={}) {
-    if(!dossier || !id(jobId) || !id(analysisRevisionId) ||
+  function buildHseEvidenceScope({jobId,analysisRevisionId,extractionRevisionId,files,extractions}={}) {
+    if(!dossier || !id(jobId) || !id(analysisRevisionId) || !id(extractionRevisionId) ||
       !Array.isArray(files) || !Array.isArray(extractions) ||
       extractions.length>200) {
       return blocked(jobId,'Contesto fascicolo o estrazioni backend mancanti');
@@ -52,7 +52,7 @@ const duvriHseEvidenceScope = (() => {
       if(!ownKeys(e,fields) || Object.keys(e).length!==fields.length ||
         e.schema_version!=='colligo-duvri-extraction-attestation/1.0' ||
         e.job_id!==jobId || e.analysis_revision_id!==analysisRevisionId ||
-        !id(e.extraction_revision_id) || !id(e.file_id) ||
+        e.extraction_revision_id!==extractionRevisionId || !id(e.file_id) ||
         !sha(e.source_sha256) ||
         !['extracted_text','human_verified_image'].includes(e.evidence_kind) ||
         e.source_locator_verified!==true || e.backend_verified!==true ||
@@ -86,6 +86,7 @@ const duvriHseEvidenceScope = (() => {
     return {
       schema_version:'colligo-duvri-hse-evidence-scope/1.0',
       job_id:jobId,analysis_revision_id:analysisRevisionId,
+      extraction_revision_id:extractionRevisionId,
       state:ready?'ready_for_hse_screening':'awaiting_extraction',
       allowed_file_ids:allowed,
       withheld_file_ids:withheld,
