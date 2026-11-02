@@ -35,9 +35,9 @@ const allResults=(oneFinding=finding())=>[
   agent('lavori_quota',oneFinding?[oneFinding]:[])
 ];
 const build=(agentResults=allResults(),allowedFileIds=[authorizedFile,archiveId])=>
-  buildReviewPacket({jobId,specialtySignals:categories,agentResults,allowedFileIds});
+  buildReviewPacket({jobId,analysisRevisionId:'ANALYSIS_SYNTH_E2E_001',specialtySignals:categories,agentResults,allowedFileIds});
 const reviewer={job_id:jobId,reviewer_id:'TECNICO_SYNTH_001',
-  document_revision_id:'REV_SYNTH_001',role:'tecnico',authenticated:true,can_review:true};
+  document_revision_id:'REV_SYNTH_001',analysis_revision_id:'ANALYSIS_SYNTH_E2E_001',role:'tecnico',authenticated:true,can_review:true};
 const decision={agent_id:'lavori_quota',finding_id:'F-SYNTH-001',action:'accept_for_draft'};
 
 test('synthetic 2026 precedent retrieval feeds no auto-approval to HSE review',()=>{
