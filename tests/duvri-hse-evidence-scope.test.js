@@ -49,6 +49,21 @@ test('pending PDF is withheld even when checklist is already verified',()=>{
  assert.deepEqual(x.withheld_file_ids,['PDF_SYNTH_001']);
  assert.equal(x.allowed_file_ids.includes('PDF_SYNTH_001'),false);
 });
+test('partial verified sources cannot escape while any attachment remains pending',()=>{
+ const f=files();
+ f[1].parse_status='pending';
+ const x=run(f,[attest(f[0]),attest(f[2])]);
+ assert.equal(x.state,'awaiting_extraction');
+ assert.deepEqual(x.allowed_file_ids,[]);
+ assert.equal(x.checklist_ready,true);
+ assert.deepEqual(x.withheld_file_ids,['PDF_SYNTH_001']);
+});
+test('a dossier without any extracted attachment never returns checklist-only HSE authority',()=>{
+ const f=files();
+ const x=run(f,[attest(f[0])]);
+ assert.equal(x.state,'awaiting_extraction');
+ assert.deepEqual(x.allowed_file_ids,[]);
+});
 test('unreadable PDF is withheld and appears in manual-review list',()=>{
  const f=files();f[1].parse_status='unreadable';
  const x=run(f,[attest(f[0]),attest(f[2])]);
