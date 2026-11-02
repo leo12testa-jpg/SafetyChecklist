@@ -54,7 +54,7 @@ const duvriAgentContract = (() => {
   function text(value, location, errors, max) {
     if (!isText(value, max)) errors.push(location + ': testo obbligatorio o troppo lungo');
   }
-  function evidence(item, location, errors, authorizedIds) {
+  function evidence(item, location, errors, authorizedSources) {
     const fields = ['source_type', 'file_id', 'locator', 'excerpt_or_fact', 'verification_status'];
     if (!keys(item, fields, fields, location, errors)) return;
     if (!SOURCE_TYPES.includes(item.source_type)) errors.push(location + ': fonte sconosciuta');
@@ -70,16 +70,23 @@ const duvriAgentContract = (() => {
         item.verification_status === 'historical_example_only') {
       errors.push(location + ': historical_example_only riservato ai precedenti');
     }
-    if (authorizedIds && !authorizedIds.has(item.file_id)) {
-      errors.push(location + '.file_id: file non autorizzato per questo fascicolo');
+    if (authorizedSources) {
+      const ids = item.source_type === 'historical_2026_reference'
+        ? authorizedSources.historical
+        : item.source_type === 'approved_internal_rule'
+          ? authorizedSources.internal_rules
+          : authorizedSources.current;
+      if (!ids.has(item.file_id)) {
+        errors.push(location + '.file_id: riferimento non autorizzato per questa categoria di fonte');
+      }
     }
   }
-  function evidenceList(items, location, errors, authorizedIds, minimum) {
+  function evidenceList(items, location, errors, authorizedSources, minimum) {
     if (!Array.isArray(items) || items.length < minimum) {
       errors.push(location + ': riferimenti documentali insufficienti');
       return [];
     }
-    items.forEach((item, i) => evidence(item, location + '[' + i + ']', errors, authorizedIds));
+    items.forEach((item, i) => evidence(item, location + '[' + i + ']', errors, authorizedSources));
     return items.filter(isObject);
   }
 
@@ -125,12 +132,23 @@ const duvriAgentContract = (() => {
       errors.push('$.status: stato non valido');
     }
     if (data.requires_human_review !== true) errors.push('$.requires_human_review: revisione obbligatoria');
-    let authorizedIds;
-    if (options.allowedFileIds !== undefined) {
-      if (!Array.isArray(options.allowedFileIds) && !(options.allowedFileIds instanceof Set)) {
-        throw new TypeError('allowedFileIds deve essere array o Set');
-      }
-      authorizedIds = new Set(options.allowedFileIds);
+    const allowedKinds = ['allowedFileIds','allowedHistoricalReferenceIds','allowedInternalRuleIds'];
+    if (allowedKinds.some(k => options[k] !== undefined &&
+        !Array.isArray(options[k]) && !(options[k] instanceof Set))) {
+      return {valid:false,errors:['Autorizzazioni fonti non valide']};
+    }
+    const authorizedSources = {
+      current: new Set(options.allowedFileIds),
+      historical: new Set(options.allowedHistoricalReferenceIds || []),
+      internal_rules: new Set(options.allowedInternalRuleIds || [])
+    };
+    if ([...authorizedSources.current,...authorizedSources.historical,
+         ...authorizedSources.internal_rules].some(v =>
+           typeof v !== 'string' || !/^[A-Za-z0-9_-]{6,128}$/.test(v)) ||
+        [...authorizedSources.current].some(v =>
+          authorizedSources.historical.has(v) || authorizedSources.internal_rules.has(v)) ||
+        [...authorizedSources.historical].some(v=>authorizedSources.internal_rules.has(v))) {
+      return {valid:false,errors:['Ambiti delle fonti non separati o riferimenti malformati']};
     }
     if (!Array.isArray(data.findings)) errors.push('$.findings: elenco obbligatorio');
     else {
@@ -152,7 +170,7 @@ const duvriAgentContract = (() => {
           errors.push(p + '.exposed_parties: elenco non valido');
         }
         const sources = evidenceList(finding.source_evidence, p + '.source_evidence',
-          errors, authorizedIds, 1);
+          errors, authorizedSources, 1);
         if (sources.length && !sources.some(s => CURRENT_SOURCES.has(s.source_type))) {
           errors.push(p + '.source_evidence: nessuna evidenza del lavoro corrente');
         }
@@ -189,7 +207,7 @@ const duvriAgentContract = (() => {
       if (!keys(item, cr, cr, p, errors)) return;
       text(item.description, p + '.description', errors);
       text(item.resolution_question, p + '.resolution_question', errors);
-      const sources = evidenceList(item.evidence, p + '.evidence', errors, authorizedIds, 2);
+      const sources = evidenceList(item.evidence, p + '.evidence', errors, authorizedSources, 2);
       if (sources.length && sources.filter(s => CURRENT_SOURCES.has(s.source_type)).length < 2) {
         errors.push(p + '.evidence: conflitto richiede almeno due evidenze del lavoro corrente');
       }
