@@ -171,3 +171,43 @@ test('missing and malformed context always denies',()=>{
  const reg=sampleRegister();reg.items=[null];reg.item_count=1;reg.blocking_count=0;
  denied(run({register:reg}));
 });
+
+test('integration: a real validated register routes human decisions without resolving sources',()=>{
+ const {buildClarificationRegister}=require('../js/duvri-clarification-register.js');
+ const reg=buildClarificationRegister({
+   packet:{
+     schema_version:'colligo-duvri-review-packet/1.0',
+     job_id:jobId,analysis_revision_id:analysis,
+     state:'awaiting_input',human_review_required:true,issuance_allowed:false,
+     required_agents:['documentale','normativa','coordinamento'],
+     pending_agents:[],blocking_reasons:[],screening_required:[],
+     screening_confirmation_required:[],findings:[],conflicts:[],
+     missing_information:[{
+       agent_id:'documentale',question:'Verificare dato sintetico?',
+       why_needed:'Informazione necessaria per prova',blocking:true
+     }]
+   },
+   sourceScope:{
+     schema_version:'colligo-duvri-hse-evidence-scope/1.0',
+     job_id:jobId,analysis_revision_id:analysis,extraction_revision_id:extraction,
+     state:'ready_for_hse_screening',checklist_ready:true,issuance_allowed:false,
+     allowed_file_ids:['CHECKLIST_SYNTH_001'],withheld_file_ids:[],
+     manual_review_file_ids:[]
+   },
+   expectedJobId:jobId,expectedAnalysisRevisionId:analysis,
+   expectedExtractionRevisionId:extraction
+ });
+ assert.equal(reg.state,'needs_technical_triage');
+ const routed=run({register:reg,decisions:[{request_id:'REQ_0001',
+   route:'ask_client'}]});
+ assert.equal(routed.state,'routing_reviewed');
+ assert.deepEqual(routed.open_blocking_request_ids,['REQ_0001']);
+ assert.equal(routed.client_dispatch_allowed,false);
+ assert.equal(routed.clarifications_resolved,false);
+ assert.equal(routed.issuance_allowed,false);
+});
+test('integration: a blocked upstream register cannot be routed by a technician',()=>{
+ const {buildClarificationRegister}=require('../js/duvri-clarification-register.js');
+ const reg=buildClarificationRegister();
+ denied(run({register:reg,decisions:[]}));
+});
