@@ -34,8 +34,9 @@ const allResults=(oneFinding=finding())=>[
   agent('documentale'),agent('normativa'),agent('coordinamento'),
   agent('lavori_quota',oneFinding?[oneFinding]:[])
 ];
-const build=(agentResults=allResults(),allowedFileIds=[authorizedFile,archiveId])=>
-  buildReviewPacket({jobId,analysisRevisionId:'ANALYSIS_SYNTH_E2E_001',specialtySignals:categories,agentResults,allowedFileIds});
+const build=(agentResults=allResults(),allowedFileIds=[authorizedFile])=>
+  buildReviewPacket({jobId,analysisRevisionId:'ANALYSIS_SYNTH_E2E_001',specialtySignals:categories,agentResults,
+    allowedFileIds,allowedHistoricalReferenceIds:[archiveId]});
 const reviewer={job_id:jobId,reviewer_id:'TECNICO_SYNTH_001',
   document_revision_id:'REV_SYNTH_001',analysis_revision_id:'ANALYSIS_SYNTH_E2E_001',role:'tecnico',authenticated:true,can_review:true};
 const decision={agent_id:'lavori_quota',finding_id:'F-SYNTH-001',action:'accept_for_draft'};
@@ -90,7 +91,7 @@ test('change request cannot be equated to reviewed draft',()=>{
 });
 test('a new case with same historical topic but no source must not import last case',()=>{
   const f=finding();f.source_evidence=[source('current_job_checklist',authorizedFile,'confirmed')];
-  const packet=build(allResults(f),['FILE_OTHER_JOB',archiveId]);
+  const packet=build(allResults(f),['FILE_OTHER_JOB']);
   assert.equal(packet.state,'blocked');
   assert.equal(packet.findings.length,0);
 });
