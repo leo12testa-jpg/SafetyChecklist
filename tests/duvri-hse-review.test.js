@@ -137,3 +137,11 @@ test('note can be empty for acceptance, but excessive data blocks review', () =>
   assert.equal(run(packet(),[{...accepted,note:''}]).state,'draft_findings_reviewed');
   assert.equal(run(packet(),[{...accepted,note:'x'.repeat(4001)}]).state,'blocked');
 });
+
+test('stale or missing analysis revision is rejected even for an authorized reviewer', () => {
+  const p = packet();
+  assert.equal(run(p, [accepted], {...context, analysis_revision_id:'ANALYSIS_OLD'}).state, 'blocked');
+  assert.equal(run(p, [accepted], {...context, analysis_revision_id:''}).state, 'blocked');
+  delete p.analysis_revision_id;
+  assert.equal(run(p).state, 'blocked');
+});
