@@ -1,19 +1,20 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {assess, OFFICIAL_SOURCE_SHA256, OFFICIAL_BASELINE} =
+const {assess, OFFICIAL_SHA256_PREFIX, OFFICIAL_BASELINE} =
   require('../js/duvri-document-readiness.js');
 const clone = obj => structuredClone(obj);
 const syntheticComplete = () => ({
   jobId:'FASCICOLO_SYNTH_001',
   template:{
-    approved:true,source_sha256:OFFICIAL_SOURCE_SHA256,
-    expected_sha256:OFFICIAL_SOURCE_SHA256,
+    approved:true,manifest_verified:true,approval_record_id:'APPROVAL_SYNTH_WORD_001',
+    source_sha256:OFFICIAL_SHA256_PREFIX+'0'.repeat(64-OFFICIAL_SHA256_PREFIX.length),
+    expected_sha256:OFFICIAL_SHA256_PREFIX+'0'.repeat(64-OFFICIAL_SHA256_PREFIX.length),
     template_version:'DUVRI_BASE_GENERALE_2026'
   },
   fields:{
-    expected:22,mapped:22,populated:22,human_verified:22,
-    mapping_approved:true,unresolved_yellow_segments:0
+    expected:22,mapped:22,populated:22,not_applicable:0,
+    human_verified:22,mapping_approved:true,unresolved_yellow_segments:0
   },
   editorial:{
     expected:27,reviewed:27,unresolved:0,content_rules_verified:true
@@ -174,4 +175,40 @@ test('does not mutate the trusted input attestations',()=>{
   const r=assess(d);
   r.blockers.push({code:'FAKE',description:'no'});
   assert.deepEqual(d,copy);
+});
+
+test('only the SHA prefix is published; a complete verified checksum must come from approved manifest',()=>{
+  assert.equal(OFFICIAL_SHA256_PREFIX,'69b2f63c');
+  const d=syntheticComplete();
+  d.template.expected_sha256=OFFICIAL_SHA256_PREFIX;
+  d.template.source_sha256=OFFICIAL_SHA256_PREFIX;
+  assert.ok(codes(assess(d)).includes('TEMPLATE'));
+  d.template=syntheticComplete().template;
+  d.template.manifest_verified=false;
+  assert.ok(codes(assess(d)).includes('TEMPLATE'));
+  d.template.manifest_verified=true;
+  d.template.approval_record_id='';
+  assert.ok(codes(assess(d)).includes('TEMPLATE'));
+});
+test('unapproved wrong full hash with same prefix is blocked',()=>{
+  const d=syntheticComplete();
+  d.template.source_sha256=OFFICIAL_SHA256_PREFIX+'1'.repeat(56);
+  assert.ok(codes(assess(d)).includes('TEMPLATE'));
+});
+test('approved conditional field can remain not applicable if all 22 segments resolved',()=>{
+  const d=syntheticComplete();
+  d.fields.populated=19;
+  d.fields.not_applicable=3;
+  d.fields.not_applicable_approved=true;
+  assert.equal(assess(d).state,'eligible_for_final_technical_review');
+  assert.equal(assess(d).issuance_allowed,false);
+  d.fields.not_applicable_approved=false;
+  assert.ok(codes(assess(d)).includes('YELLOW_FIELDS'));
+});
+test('incomplete or inconsistent conditional field counts cannot pass',()=>{
+  const d=syntheticComplete();
+  d.fields.not_applicable=4;
+  assert.ok(codes(assess(d)).includes('YELLOW_FIELDS'));
+  d.fields.populated=-4;
+  assert.ok(codes(assess(d)).includes('YELLOW_FIELDS'));
 });
