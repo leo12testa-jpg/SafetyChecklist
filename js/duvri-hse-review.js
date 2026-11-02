@@ -35,6 +35,8 @@ const duvriHseReview = (() => {
     }
     const ctx = reviewerContext;
     if (!opaque(ctx.job_id) || ctx.job_id !== jobId ||
+        !opaque(ctx.analysis_revision_id) ||
+        ctx.analysis_revision_id !== packet.analysis_revision_id ||
         !opaque(ctx.reviewer_id) || !opaque(ctx.document_revision_id) ||
         ctx.authenticated !== true || ctx.can_review !== true ||
         !PERMITTED_ROLES.includes(ctx.role)) {
