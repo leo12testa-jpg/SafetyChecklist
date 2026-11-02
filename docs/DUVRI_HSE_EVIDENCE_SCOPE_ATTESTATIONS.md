@@ -6,13 +6,13 @@
 
 Il semplice caricamento di un file nel fascicolo non ne dimostra la leggibilità o l'ammissibilità come evidenza. Per un DUVRI tecnico non si può trattare un documento `pending`, un PDF illeggibile, uno ZIP, una foto non controllata o il risultato di un'analisi precedente come prova corrente. L'elenco dei file dell'intervento deve essere distinto dall'elenco delle **fonti verificate per lo screening**.
 
-`js/duvri-hse-evidence-scope.js` aggiunge `buildHseEvidenceScope({jobId,analysisRevisionId,files,extractions})`.
+`js/duvri-hse-evidence-scope.js` aggiunge `buildHseEvidenceScope({jobId,analysisRevisionId,extractionRevisionId,files,extractions})`.
 
 Il modulo applica in sequenza:
 
 1. Controllo del fascicolo con `duvri-case-manifest.js` (una checklist DOCX, allegati, job ID identici, dimensioni, impronte e duplicati).
 2. Lettura delle **attestazioni dell'estrattore backend**: `schema_version`, job e revisione analisi, revisione estrazione, file ID, hash del file sorgente, genere di evidenza, flag di validazione locator e flag di verifica backend.
-3. Confronto del checksum esatto a 64 cifre, dello stato `parsed`, dei ruoli e del tipo di documento. Le immagini richiedono `human_verified_image`: un OCR generico non equivale a verifica visuale.
+3. Confronto del checksum esatto a 64 cifre, dello stato `parsed`, del medesimo `extractionRevisionId` del batch, dei ruoli e del tipo di documento. Le immagini richiedono `human_verified_image`: un OCR generico non equivale a verifica visuale.
 4. Identificazione degli ID che possono essere proposti per il controllo HSE. Tutte le fonti `pending`, `unreadable`, ZIP/HEIC ed estrazioni non attestate sono escluse e restano nel fascicolo.
 5. Stato `ready_for_hse_screening` soltanto quando **tutti** i file sono stati letti/verificati, la checklist e almeno un allegato hanno un'attestazione valida e nessun file resta in sospeso. In ogni altro caso `awaiting_extraction` oppure `blocked`.
 
@@ -50,6 +50,6 @@ Non è consentito:
 
 ## Collaudi
 
-`tests/duvri-hse-evidence-scope.test.js` include **23 test sintetici** su checklist, foto, PDF, ZIP, duplicati, SHA, revisioni, autorizzazioni, privacy e compatibilità con lo screening.
+`tests/duvri-hse-evidence-scope.test.js` include **26 test sintetici** su checklist, foto, PDF, ZIP, duplicati, SHA, revisioni, autorizzazioni, privacy e compatibilità con lo screening.
 
 Il modulo non modifica il frontend o il backend PR #21. L'uso nel worker sarà implementato da Codex, con controllo delle transazioni, ACL e provenienza delle attestazioni.
