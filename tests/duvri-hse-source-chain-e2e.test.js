@@ -36,7 +36,7 @@ const screening=()=>Object.keys(SIGNAL_TO_AGENT).map(signal=>({
 }));
 const agent=(agent_id,findings=[])=>({
  schema_version:'colligo-duvri-agent-analysis/1.0',
- job_id,agent_id,status:'completed',findings,
+ job_id:jobId,agent_id,status:'completed',findings,
  missing_information:[],conflicts:[],requires_human_review:true
 });
 const finding=()=>({
