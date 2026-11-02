@@ -20,7 +20,8 @@ const reviewPacket=()=>({
  job_id:job,analysis_revision_id:analysis,state:'needs_review',
  human_review_required:true,issuance_allowed:false,
  findings:[{agent_id:'documentale',finding_id:'FIND_SYNTH_FACT_001',
-  source_evidence:[quote()]}],conflicts:[],blocking_reasons:[],pending_agents:[]
+  source_evidence:[quote()]}],conflicts:[],missing_information:[],screening_required:[],
+ blocking_reasons:[],pending_agents:[]
 });
 const sourceScope=()=>({
  schema_version:'colligo-duvri-hse-evidence-scope/1.0',job_id:job,
@@ -159,4 +160,26 @@ test('cannot mutate inputs or return source text',()=>{
  const r=verify(x);r.blockers.push('OTHER');
  assert.deepEqual(x,original);
  assert.equal(JSON.stringify(r).includes('Testo sintetico esatto'),false);
+});
+
+test('unresolved conflict with matched citations does not become review-ready',()=>{
+ const x=input(),q=quote(pdf,'current_job_document','page:2:line:3','Altro fatto sintetico');
+ x.packet.state='awaiting_input';
+ x.packet.conflicts=[{agent_id:'documentale',evidence:[quote(),q]}];
+ x.sourceFacts.push(fact(q));
+ const r=verify(x);
+ assert.equal(r.state,'citations_matched_awaiting_hse_resolution');
+ assert.equal(r.usable_for_hse_review,false);
+ assert.equal(r.issuance_allowed,false);
+});
+test('screening still open blocks review even with exact quotes',()=>{
+ const x=input();x.packet.state='awaiting_input';x.packet.screening_required=['lavori_in_quota'];
+ const r=verify(x);
+ assert.equal(r.state,'citations_matched_awaiting_hse_resolution');
+ assert.equal(r.usable_for_hse_review,false);
+});
+test('blockers not silently ignored in needs_review packet',()=>{
+ const x=input();x.packet.missing_information=[{blocking:true}];
+ const r=verify(x);assert.equal(r.usable_for_hse_review,false);
+ assert.equal(r.state,'citations_matched_awaiting_hse_resolution');
 });
