@@ -8,7 +8,8 @@ const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'schemas',
 const clone = x => structuredClone(x);
 const validate = data => validateAgentResult(data, {
   jobId: 'FASCICOLO_TEST_SYNTH_001',
-  allowedFileIds: ['FILE_TEST_001', 'ARCHIVIO_TEST_001', 'FILE_TEST_002']
+  allowedFileIds: ['FILE_TEST_001', 'FILE_TEST_002'],
+  allowedHistoricalReferenceIds: ['ARCHIVIO_TEST_001']
 });
 
 // All examples synthetic: NEVER commit customer DUVRI or internal document contents.
@@ -112,4 +113,62 @@ test('fail closed when job ID or authorized file set are not supplied', () => {
   assert.equal(validateAgentResult(fixture, { jobId: fixture.job_id }).valid, false);
   assert.equal(validateAgentResult(fixture, { allowedFileIds: ['FILE_TEST_001'] }).valid, false);
   assert.equal(validateAgentResult(fixture, { jobId: fixture.job_id, allowedFileIds: [] }).valid, false);
+});
+
+test('archive reference cannot be impersonated as a current client document',()=>{
+  const x=clone(fixture);
+  x.findings[0].source_evidence[0].source_type='current_job_document';
+  x.findings[0].source_evidence[0].file_id='ARCHIVIO_TEST_001';
+  const result=validate(x);
+  assert.equal(result.valid,false);
+  assert.match(result.errors.join(' '),/non autorizzato/);
+});
+test('historical reference requires its own separately verified archive allowlist',()=>{
+  const x=clone(fixture);
+  x.findings[0].source_evidence.push({
+    source_type:'historical_2026_reference',file_id:'ARCHIVIO_TEST_001',
+    locator:'pag 1 sintetica',excerpt_or_fact:'Misura di esempio 2026',
+    verification_status:'historical_example_only'
+  });
+  assert.equal(validateAgentResult(x,{
+    jobId:'FASCICOLO_TEST_SYNTH_001',allowedFileIds:['FILE_TEST_001']
+  }).valid,false);
+  assert.equal(validate(x).valid,true);
+});
+test('historic and current file scopes must never share an identifier',()=>{
+  const result=validateAgentResult(fixture,{
+    jobId:'FASCICOLO_TEST_SYNTH_001',
+    allowedFileIds:['FILE_TEST_001','ARCHIVIO_TEST_001'],
+    allowedHistoricalReferenceIds:['ARCHIVIO_TEST_001']
+  });
+  assert.equal(result.valid,false);
+  assert.match(result.errors.join(' '),/non separati/);
+});
+test('approved internal rules require their own allowlist and cannot replace case evidence',()=>{
+  const x=clone(fixture);
+  x.findings[0].source_evidence.push({
+    source_type:'approved_internal_rule',file_id:'RULE_SYNTH_001',
+    locator:'Regola approvata, riferimento fittizio',
+    excerpt_or_fact:'Indicazione generale non sostituisce fonte del sito',
+    verification_status:'confirmed'
+  });
+  assert.equal(validate(x).valid,false);
+  assert.equal(validateAgentResult(x,{
+    jobId:'FASCICOLO_TEST_SYNTH_001',allowedFileIds:['FILE_TEST_001'],
+    allowedInternalRuleIds:['RULE_SYNTH_001']
+  }).valid,true);
+  x.findings[0].source_evidence=x.findings[0].source_evidence.slice(-1);
+  assert.equal(validateAgentResult(x,{
+    jobId:'FASCICOLO_TEST_SYNTH_001',allowedFileIds:['FILE_TEST_001'],
+    allowedInternalRuleIds:['RULE_SYNTH_001']
+  }).valid,false);
+});
+test('unknown or malformed source allowlists fail closed',()=>{
+  assert.equal(validateAgentResult(fixture,{
+    jobId:'FASCICOLO_TEST_SYNTH_001',allowedFileIds:['FILE_TEST_001'],
+    allowedHistoricalReferenceIds:'ARCHIVIO_TEST_001'
+  }).valid,false);
+  assert.equal(validateAgentResult(fixture,{
+    jobId:'FASCICOLO_TEST_SYNTH_001',allowedFileIds:['wrong id with spaces']
+  }).valid,false);
 });
