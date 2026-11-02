@@ -5,7 +5,7 @@
 ## Origine dei requisiti
 
 Il rapporto di Claude Code comunicato dall'utente (2 novembre 2026) identifica:
-- il modello originale `DUVRI_BASE_GENERALE_2026.docx`, con SHA-256 `69b2f63c5363ebd1af59a847b9d1ee8a29b04a4d588bd2e49a2b7bd9a3c4386f`;
+- il modello originale `DUVRI_BASE_GENERALE_2026.docx`, con SHA-256 comunicato **soltanto come prefisso** `69B2F63C…` (l'impronta completa non è disponibile in questa chat e non deve essere indovinata);
 - 19 sezioni, 13 tabelle, 16 caselle di testo, 62 run gialli raggruppati in **22 segmenti** e **27 commenti redazionali**;
 - sulla copia **non compilata** i controlli OOXML e il confronto visivo sono quasi identici;
 - 0/22 segmenti mappati, 27 commenti ancora da decidere, tabella firme da riconoscere e tabelle rischi non basate sui gialli;
@@ -17,7 +17,7 @@ Questi dati derivano dal **rapporto dell'utente**, non da accesso diretto ai doc
 
 - `js/duvri-document-readiness.js`: valuta attestazioni ricevute da componenti fidati.
 - `tests/duvri-document-readiness.test.js`: 20 test su casi sintetici, incluso lo stato non conforme comunicato da Claude.
-- `OFFICIAL_SOURCE_SHA256`: impronta dell'originale approvato da riconoscere, prima di lavorare su una copia.
+- `OFFICIAL_SHA256_PREFIX`: prefisso informativo realmente comunicato da Claude. L'hash SHA-256 **completo** va letto da un manifest locale controllato e approvato, verificato lato server; nessuna impronta inventata nel codice.
 - `OFFICIAL_BASELINE`: costanti del modello attualmente verificato.
 
 **La funzione non esamina realmente un DOCX.** Il futuro backend deve produrre le attestazioni da verifiche automatiche e revisioni HSE registrate, NON accettare flag true dal browser, dai documenti o dagli agenti.
@@ -25,7 +25,7 @@ Questi dati derivano dal **rapporto dell'utente**, non da accesso diretto ai doc
 ## Requisiti minimi valutati
 
 1. Modello originale ufficiale corrispondente alla versione controllata.
-2. Tutti i **22 segmenti gialli** mappati, compilati e verificati; nessuno irrisolto.
+2. Tutti i **22 segmenti gialli** mappati e verificati; ognuno deve essere compilato oppure marcato **non applicabile** soltanto con decisione umana esplicita e tracciabile, senza campi lasciati irrisolti.
 3. Tutti i **27 commenti** revisionati e le decisioni trasformate in condizioni documentali controllate.
 4. **D1**: metodologia del rischio realmente approvata, con identificativo/versione della decisione aziendale, e tabelle rischio con righe mappate e validate.
 5. Copia compilata e sottoposta a nuova verifica OOXML e **confronto visivo dopo l'inserimento dei dati**. Un confronto su documento vuoto non vale.
