@@ -93,7 +93,8 @@ test('real conflicts remain visible and require clarification', () => {
 test('historical-only findings and invented scores fail closed', () => {
   const rs = results();
   rs[3].findings[0].source_evidence = [{source_type:'historical_2026_reference',file_id:'ARCHIVIO_TEST_001',locator:'pag. 1',excerpt_or_fact:'dati fittizi', verification_status:'historical_example_only'}];
-  let r = build({agentResults: rs, allowedFileIds:['FILE_TEST_001','ARCHIVIO_TEST_001']});
+  let r = build({agentResults: rs, allowedFileIds:['FILE_TEST_001'],
+    allowedHistoricalReferenceIds:['ARCHIVIO_TEST_001']});
   assert.equal(r.state,'blocked');
   rs[3].findings[0].source_evidence = clone(example.findings[0].source_evidence);
   rs[3].findings[0].risk_score = 3;
