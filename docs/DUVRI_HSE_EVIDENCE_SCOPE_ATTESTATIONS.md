@@ -1,6 +1,6 @@
 # COLLIGO DUVRI AI — Fonti autorizzate per lo screening HSE
 
-**Stato:** modulo deterministico isolato nella PR #28. Non legge documenti, non effettua AI, non modifica SafetyChecklist online.
+**Stato:** modulo deterministico isolato, estratto dalla PR #28 per un rilascio indipendente. Non legge documenti, non effettua AI, non modifica SafetyChecklist online.
 
 ## Problema risolto
 
