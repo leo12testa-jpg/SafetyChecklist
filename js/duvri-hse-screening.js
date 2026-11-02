@@ -60,7 +60,8 @@ const duvriHseScreening = (() => {
       if (item.answer === 'yes') {
         // Safety-biased: a possible present risk still activates the specialist.
         routed='yes';
-      } else if (item.answer === 'no' && anyConfirmed) {
+      } else if (item.answer === 'no' && anyConfirmed && !anyUnconfirmed) {
+        // A mixed confirmed/unconfirmed negative cannot silently exclude a specialist.
         routed='no';
       } else {
         routed='unknown';
