@@ -8,9 +8,9 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/icon-512.png">
-  <link rel="stylesheet" href="css/style.css?v=20261102-123000">
+  <link rel="stylesheet" href="css/style.css?v=20261102-141500">
 </head>
-<body data-auth-ready="false" data-authenticated="false" data-build="20261102-123000">
+<body data-auth-ready="false" data-authenticated="false" data-build="20261102-141500">
   <div id="app">
     <header class="app-header">
       <div class="header-brand">
@@ -475,6 +475,11 @@
               <p id="dg-auto-status" class="dg-small-note" aria-live="polite">Nessun file caricato.</p>
               <ul id="dg-auto-files-list" class="dg-auto-list dg-doc-list"></ul>
             </div>
+          </div>
+          <div class="dg-demo-actions" id="dg-demo-actions">
+            <button type="button" class="btn btn-primary" id="dg-demo-generate" disabled>Genera DUVRI di esempio (.docx)</button>
+            <p id="dg-demo-status" class="dg-small-note" role="status" aria-live="polite">Per la dimostrazione carica una checklist Word e almeno un allegato.</p>
+            <p class="dg-small-note"><strong>Solo dimostrazione:</strong> crea localmente un Word con dati fittizi ed elenca i file selezionati. Non analizza il loro contenuto per valutare i rischi, non usa il modello Colligo ufficiale e non produce un DUVRI valido.</p>
           </div>
           <div id="dg-auto-results" class="dg-auto-results" hidden>
             <h4>Segnalazioni</h4>
@@ -1271,25 +1276,27 @@
   <script src="js/vendor/firebase-firestore-compat.js"></script>
   <script src="js/vendor/firebase-auth-compat.js"></script>
   <script src="js/firebase-config.js"></script>
-  <script src="js/auth.js?v=20261102-123000"></script>
+  <script src="js/auth.js?v=20261102-141500"></script>
   <script src="js/supabase-config.js"></script>
   <script src="js/vendor/pdf.min.js"></script>
-  <script src="js/db.js?v=20261102-123000"></script>
+  <script src="js/db.js?v=20261102-141500"></script>
   <script src="js/identity.js"></script>
-  <script src="js/checklist.js?v=20261102-123000"></script>
+  <script src="js/checklist.js?v=20261102-141500"></script>
   <script src="js/question-navigator.js"></script>
-  <script src="js/storico-filtri.js?v=20261102-123000"></script>
-  <script src="js/foto-sync.js?v=20261102-123000"></script>
+  <script src="js/storico-filtri.js?v=20261102-141500"></script>
+  <script src="js/foto-sync.js?v=20261102-141500"></script>
   <script src="js/camera.js"></script>
-  <script src="js/pdf.js?v=20261102-123000"></script>
-  <script src="js/pdf-import.js?v=20261102-123000"></script>
-  <script src="js/import-matching.js?v=20261102-123000"></script>
-  <script src="js/sync.js?v=20261102-123000"></script>
-  <script src="js/app.js?v=20261102-123000"></script>
-  <script src="js/account-screens.js?v=20261102-123000"></script>
+  <script src="js/pdf.js?v=20261102-141500"></script>
+  <script src="js/pdf-import.js?v=20261102-141500"></script>
+  <script src="js/import-matching.js?v=20261102-141500"></script>
+  <script src="js/sync.js?v=20261102-141500"></script>
+  <script src="js/app.js?v=20261102-141500"></script>
+  <script src="js/account-screens.js?v=20261102-141500"></script>
   <script src="js/document-generation.js"></script>
   <script src="js/document-intake.js"></script>
   <script src="js/document-intake-ui.js"></script>
-  <script src="js/aggiornamento.js?v=20261102-123000"></script>
+  <script src="js/duvri-demo-generator.js"></script>
+  <script src="js/duvri-demo-ui.js"></script>
+  <script src="js/aggiornamento.js?v=20261102-141500"></script>
 </body>
 </html>
