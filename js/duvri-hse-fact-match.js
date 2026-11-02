@@ -145,6 +145,10 @@ const duvriHseFactMatch = (() => {
     };
     const reviewReady=packet.state==='needs_review' &&
       packet.conflicts.length===0 &&
+      packet.findings.every(f=>f.validation_status==='to_be_reviewed') &&
+      (packet.screening_confirmation_required===undefined ||
+        (Array.isArray(packet.screening_confirmation_required) &&
+         packet.screening_confirmation_required.length===0)) &&
       Array.isArray(packet.missing_information) &&
       !packet.missing_information.some(x=>record(x)&&x.blocking===true) &&
       Array.isArray(packet.screening_required) &&
