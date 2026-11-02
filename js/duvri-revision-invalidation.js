@@ -15,6 +15,7 @@ const duvriRevisionInvalidation=(()=>{
   const record=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
   const FIELDS=Object.freeze([
     'manifest_sha256',
+    'client_response_revision_id',
     'extraction_revision_id',
     'ocr_confirmation_revision_id',
     'source_scope_revision_id',
@@ -35,6 +36,9 @@ const duvriRevisionInvalidation=(()=>{
   // A changed source/approval never silently carries an older analysis forward.
   const DEPS=Object.freeze({
     manifest_sha256:['extraction','ocr_confirmation','source_scope','screening',
+      'ai_preflight','specialist_analysis','fact_match','clarification_register',
+      'clarification_routing','hse_review','word_draft','word_qa','technical_preflight'],
+    client_response_revision_id:['source_scope','screening',
       'ai_preflight','specialist_analysis','fact_match','clarification_register',
       'clarification_routing','hse_review','word_draft','word_qa','technical_preflight'],
     extraction_revision_id:['ocr_confirmation','source_scope','screening',
