@@ -1,6 +1,6 @@
 # COLLIGO DUVRI AI — Fonti autorizzate per lo screening HSE
 
-**Stato:** modulo deterministico isolato nella PR #28. Non legge documenti, non effettua AI, non modifica SafetyChecklist online.
+**Stato:** modulo deterministico isolato, estratto dalla PR #28 per un rilascio indipendente. Non legge documenti, non effettua AI, non modifica SafetyChecklist online.
 
 ## Problema risolto
 
@@ -50,7 +50,7 @@ Non è consentito:
 
 ## Collaudi
 
-`tests/duvri-hse-evidence-scope.test.js` include **26 test sintetici** su checklist, foto, PDF, ZIP, duplicati, SHA, revisioni, autorizzazioni, privacy e compatibilità con lo screening.
+`tests/duvri-hse-evidence-scope.test.js` include **28 test sintetici** su checklist, foto, PDF, ZIP, duplicati, SHA, revisioni, autorizzazioni, privacy e compatibilità con lo screening.
 
 Il modulo non modifica il frontend o il backend PR #21. L'uso nel worker sarà implementato da Codex, con controllo delle transazioni, ACL e provenienza delle attestazioni.
 
@@ -65,3 +65,5 @@ Il contratto aggiornato `duvri-agent-contract.js`, il coordinatore e la pipeline
 Gli ID non possono sovrapporsi fra elenchi; un precedente storico non può dichiararsi `current_job_document`, e una regola interna non costituisce un'evidenza di compresenza nel luogo dell'intervento. Un finding richiede **sempre almeno una fonte corrente**. Le liste storiche e le regole interne sono facoltative: se non vengono fornite, non esiste autorizzazione implicita.
 
 Codex deve derivare ciascuna allowlist dal relativo archivio privato e non fidarsi degli ID ricevuti in una richiesta client. La compatibilità della nuova interfaccia è ancora da verificare con i test del ramo.
+
+**Fail closed aggiuntivo:** `allowed_file_ids` è sempre vuoto quando lo stato è `awaiting_extraction`; un fascicolo incompleto non rilascia neppure una lista parziale di permessi HSE.
