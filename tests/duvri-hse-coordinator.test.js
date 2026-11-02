@@ -14,7 +14,7 @@ const mk = (agent, state = 'completed') => ({
   findings: [], missing_information: [], conflicts: [], requires_human_review: true
 });
 const results = () => agents.map(agent => agent === 'lavori_quota' ? clone(example) : mk(agent));
-const build = (extra={}) => buildReviewPacket({jobId: 'FASCICOLO_TEST_SYNTH_001', specialtySignals: signals,
+const build = (extra={}) => buildReviewPacket({jobId: 'FASCICOLO_TEST_SYNTH_001', analysisRevisionId:'ANALYSIS_TEST_SYNTH_001', specialtySignals: signals,
  agentResults: results(), allowedFileIds: ['FILE_TEST_001', 'FILE_TEST_002'], ...extra});
 
 test('four agents produce a review packet with full provenance', () => {
@@ -124,4 +124,14 @@ test('finding-level requires_clarification prevents premature needs_review', () 
   assert.equal(build({ agentResults: rs }).state, 'awaiting_input');
   rs[3].findings[0].validation_status = 'to_be_reviewed';
   assert.equal(build({ agentResults: rs }).state, 'needs_review');
+});
+
+test('missing or malformed server analysis revision does not create a usable review packet',()=>{
+  assert.equal(build({analysisRevisionId:''}).state,'blocked');
+  assert.equal(build({analysisRevisionId:'bad revision with spaces'}).state,'blocked');
+});
+test('malformed job identifier is rejected before any HSE findings are emitted',()=>{
+  const r=build({jobId:'CLIENT NAME WITH SPACES'});
+  assert.equal(r.state,'blocked');
+  assert.deepEqual(r.findings,[]);
 });
