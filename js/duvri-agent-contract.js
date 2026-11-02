@@ -106,6 +106,10 @@ const duvriAgentContract = (() => {
   // Production callers MUST supply jobId and all authorized file IDs on each invocation.
   function validateAgentResult(data, options = {}) {
     const errors = [];
+    if (!isObject(options) || !isText(options.jobId, 128) ||
+        !(Array.isArray(options.allowedFileIds) || options.allowedFileIds instanceof Set)) {
+      return { valid: false, errors: ['Configurazione di sicurezza incompleta: jobId e allowedFileIds obbligatori'] };
+    }
     const main = ['schema_version', 'job_id', 'agent_id', 'status', 'findings',
       'missing_information', 'conflicts', 'requires_human_review'];
     if (!keys(data, main, main, '$', errors)) return { valid: false, errors };
