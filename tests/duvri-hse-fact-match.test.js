@@ -20,7 +20,7 @@ const reviewPacket=()=>({
  job_id:job,analysis_revision_id:analysis,state:'needs_review',
  human_review_required:true,issuance_allowed:false,
  findings:[{agent_id:'documentale',finding_id:'FIND_SYNTH_FACT_001',
-  source_evidence:[quote()]}],conflicts:[],missing_information:[],screening_required:[],
+  validation_status:'to_be_reviewed',source_evidence:[quote()]}],conflicts:[],missing_information:[],screening_required:[],
  blocking_reasons:[],pending_agents:[]
 });
 const sourceScope=()=>({
@@ -119,7 +119,7 @@ test('historical file not approved in this case is invalid',()=>{
 });
 test('every finding must have confirmed current evidence independently',()=>{
  const x=input();x.packet.findings.push({
-  agent_id:'normativa',finding_id:'SECOND_SYNTH_FACT_001',source_evidence:[history()]});
+  agent_id:'normativa',finding_id:'SECOND_SYNTH_FACT_001',validation_status:'to_be_reviewed',source_evidence:[history()]});
  x.sourceFacts.push(fact(history()));x.allowedHistoricalReferenceIds=[histId];
  const r=verify(x);assert.equal(r.state,'citations_need_confirmation');
  assert.deepEqual(r.blockers,['FINDING_NOT_GROUNDED_IN_CONFIRMED_CURRENT_SOURCE']);
@@ -182,4 +182,17 @@ test('blockers not silently ignored in needs_review packet',()=>{
  const x=input();x.packet.missing_information=[{blocking:true}];
  const r=verify(x);assert.equal(r.usable_for_hse_review,false);
  assert.equal(r.state,'citations_matched_awaiting_hse_resolution');
+});
+
+test('pending finding clarification is not bypassed by exact citation',()=>{
+ const x=input();x.packet.findings[0].validation_status='requires_clarification';
+ const r=verify(x);
+ assert.equal(r.state,'citations_matched_awaiting_hse_resolution');
+ assert.equal(r.usable_for_hse_review,false);
+});
+test('unanswered source screening cannot be bypassed by exact citation',()=>{
+ const x=input();x.packet.screening_confirmation_required=['lavori_in_quota'];
+ const r=verify(x);
+ assert.equal(r.state,'citations_matched_awaiting_hse_resolution');
+ assert.equal(r.usable_for_hse_review,false);
 });
