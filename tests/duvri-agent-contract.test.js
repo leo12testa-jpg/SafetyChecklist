@@ -8,7 +8,8 @@ const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'schemas',
 const clone = x => structuredClone(x);
 const validate = data => validateAgentResult(data, {
   jobId: 'FASCICOLO_TEST_SYNTH_001',
-  allowedFileIds: ['FILE_TEST_001', 'ARCHIVIO_TEST_001', 'FILE_TEST_002']
+  allowedFileIds: ['FILE_TEST_001', 'FILE_TEST_002'],
+  allowedHistoricalReferenceIds: ['ARCHIVIO_TEST_001']
 });
 
 // All examples synthetic: NEVER commit customer DUVRI or internal document contents.
