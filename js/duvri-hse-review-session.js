@@ -91,6 +91,10 @@ const duvriHseReviewSession = (() => {
       const records=f.source_evidence;
       if (records.length===0 || records.some(x=>!object(x) ||
         !identifier(x.file_id) ||
+        typeof x.locator !== 'string' || !x.locator.trim() ||
+        x.locator.length > 1000 ||
+        !['confirmed','extracted_unconfirmed','historical_example_only',
+          'requires_verification'].includes(x.verification_status) ||
         !(sourcesCurrent.has(x.source_type) || x.source_type===sourcesHistory ||
           x.source_type===sourcesRule))) {
         return denied(jobId,'INVALID_FINDING_PROVENANCE');
