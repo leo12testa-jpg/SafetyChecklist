@@ -114,3 +114,12 @@ test('result generation does not mutate original outputs', () => {
   r.findings[0].scenario = 'changed';
   assert.equal(rs[3].findings[0].scenario,before[3].findings[0].scenario);
 });
+
+test('finding-level requires_clarification prevents premature needs_review', () => {
+  const rs = results();
+  rs[3].missing_information = [];
+  rs[3].status = 'completed';
+  assert.equal(build({ agentResults: rs }).state, 'awaiting_input');
+  rs[3].findings[0].validation_status = 'to_be_reviewed';
+  assert.equal(build({ agentResults: rs }).state, 'needs_review');
+});
