@@ -23,6 +23,7 @@ const duvriHseCoordinator = (() => {
     const blocked = message => ({
       schema_version: 'colligo-duvri-review-packet/1.0',
       job_id: isIdentifier(jobId) ? jobId : null,
+      analysis_revision_id: isIdentifier(analysisRevisionId) ? analysisRevisionId : null,
       state: 'blocked', human_review_required: true,
       issuance_allowed: false, required_agents: [], pending_agents: [],
       screening_required: [], findings: [], missing_information: [],
