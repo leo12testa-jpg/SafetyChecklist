@@ -19,7 +19,7 @@ const duvriHseCoordinator = (() => {
    * No automatic risk scoring, deduplication or technical approval.
    * On any malformed input, return blocked with no findings.
    */
-  function buildReviewPacket({ jobId, specialtySignals, agentResults, allowedFileIds } = {}) {
+  function buildReviewPacket({ jobId, analysisRevisionId, specialtySignals, agentResults, allowedFileIds } = {}) {
     const blocked = message => ({
       schema_version: 'colligo-duvri-review-packet/1.0',
       job_id: isIdentifier(jobId) ? jobId : null,
