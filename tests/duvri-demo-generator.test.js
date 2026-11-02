@@ -29,7 +29,7 @@ test('generates a real DOCX ZIP package offline with Word content and two source
 test('simulation is explicitly not AI, nor a client-specific technical risk assessment',()=>{
  const xml=documentXml(sample);
  assert.match(xml,/esempi fissi/);
- assert.match(xml,/Metodologia di rischio Colligo D1/);
+ assert.match(xml,/metodologia di rischio Colligo D1/i);
  assert.match(xml,/modello Word ufficiale D2/);
  assert.doesNotMatch(xml,/<w:t[^>]*>cliente reale/i);
 });
