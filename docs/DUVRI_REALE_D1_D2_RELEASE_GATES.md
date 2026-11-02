@@ -13,6 +13,12 @@ Il rapporto di Claude Code comunicato dall'utente (2 novembre 2026) identifica:
 
 Questi dati derivano dal **rapporto dell'utente**, non da accesso diretto ai documenti sul suo computer.
 
+## Aggiornamento locale (2 novembre 2026)
+
+Codex è subentrato a Claude Code nel workspace del compilatore Word e ha comunicato **121 test superati** e **27/27 mutazioni rilevate**. Il test runner di mutazione lavora su copie temporanee e non lascia modifiche al codice. Il rapporto dettagliato `Documents/Colligo-DUVRI-Generatore/STATUS_PER_CHATGPT.md` non è ancora disponibile tramite GitHub o come allegato di questa conversazione: i risultati non sono quindi verificati qui sul file di lavoro.
+
+**Questa evidenza NON chiude D1 o D2.** Non dimostra che le 22 sostituzioni siano state approvate, che i 27 commenti siano stati autorizzati o che la prima bozza compilata sia stata verificata sul master aziendale approvato. Il report del test a mutazione deve restare distinto dall'attestazione di contenuto e dall'approvazione professionale.
+
 ## Modulo
 
 - `js/duvri-document-readiness.js`: valuta attestazioni ricevute da componenti fidati.
