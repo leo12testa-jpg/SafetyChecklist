@@ -24,7 +24,8 @@ const duvriHsePipeline = (() => {
     };
   }
   function aggregateEvidenceGated({
-    jobId,analysisRevisionId,screeningAnswers,allowedFileIds,agentResults
+    jobId,analysisRevisionId,screeningAnswers,allowedFileIds,agentResults,
+    allowedHistoricalReferenceIds=[],allowedInternalRuleIds=[]
   }={}) {
     if (!screening || !coordinator ||
         !validId(jobId) || !validId(analysisRevisionId) ||
@@ -40,7 +41,8 @@ const duvriHsePipeline = (() => {
     }
     const packet=coordinator.buildReviewPacket({
       jobId,analysisRevisionId,specialtySignals:s.signals,
-      agentResults,allowedFileIds
+      agentResults,allowedFileIds,
+      allowedHistoricalReferenceIds,allowedInternalRuleIds
     });
     // Each "yes" from an unconfirmed file can summon a specialist, but must
     // NEVER allow the full case to reach document drafting before confirmation.
