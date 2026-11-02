@@ -5,7 +5,8 @@ const {plan,FIELDS,ORDER,VERSION}=require('../js/duvri-revision-invalidation.js'
 const job='FASCICOLO_SYNTH_REV_001';
 const previous=()=>({
  job_id:job,snapshot_revision_id:'SNAPSHOT_SYNTH_001',
- manifest_sha256:'a'.repeat(64),extraction_revision_id:'EXTRACT_SYNTH_001',
+ manifest_sha256:'a'.repeat(64),client_response_revision_id:'CLIENT_REPLY_SYNTH_001',
+ extraction_revision_id:'EXTRACT_SYNTH_001',
  ocr_confirmation_revision_id:'OCR_CONF_SYNTH_001',
  source_scope_revision_id:'SCOPE_SYNTH_001',
  screening_revision_id:'SCREEN_SYNTH_001',
@@ -36,7 +37,7 @@ const denied=(value,code)=>{
 };
 test('public dependency registry fixed, no execution or DUVRI issuance',()=>{
  assert.equal(VERSION,'colligo-duvri-invalidation-plan/1.0');
- assert.equal(FIELDS.length,14);assert.equal(ORDER.length,14);
+ assert.equal(FIELDS.length,15);assert.equal(ORDER.length,14);
  assert.equal(Object.isFrozen(FIELDS),true);assert.equal(Object.isFrozen(ORDER),true);
 });
 test('changed checklist/attachments invalidates every dependent stage',()=>{
@@ -222,4 +223,19 @@ test('integration: changed PDF hash invalidates extraction attestation and all d
  assert.ok(result.invalidate_artifacts.includes('hse_review'));
  assert.ok(result.invalidate_artifacts.includes('word_qa'));
  assert.equal(result.issuance_allowed,false);
+});
+
+test('new client answer or integration cannot reuse HSE analysis or Word',()=>{
+ const r=check({client_response_revision_id:'CLIENT_REPLY_SYNTH_002'});
+ assert.equal(r.state,'invalidation_required');
+ for(const stage of ['source_scope','screening','specialist_analysis',
+  'fact_match','clarification_register','hse_review','word_draft','word_qa'])
+  assert.ok(r.invalidate_artifacts.includes(stage),stage);
+ assert.equal(r.issuance_allowed,false);
+});
+test('client response without new dossier snapshot revision is refused',()=>{
+ const x=update({client_response_revision_id:'CLIENT_REPLY_SYNTH_002'});
+ x.current.snapshot_revision_id=x.previous.snapshot_revision_id;
+ x.trustedContext=context(x.previous,x.current);
+ denied(plan(x),'CHANGES_WITHOUT_NEW_SNAPSHOT_REVISION');
 });
