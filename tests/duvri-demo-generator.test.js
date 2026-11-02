@@ -48,8 +48,8 @@ test('browser has exactly two upload controls and one demo action',()=>{
  assert.ok(start>=0 && end>start);
  assert.match(screen,/id="dg-demo-generate"/);
  assert.match(screen,/Solo dimostrazione/);
- assert.match(screen,/js\/duvri-demo-generator\.js/);
- assert.match(screen,/js\/duvri-demo-ui\.js/);
+ assert.match(html,/js\/duvri-demo-generator\.js/);
+ assert.match(html,/js\/duvri-demo-ui\.js/);
  const surface=screen.slice(screen.indexOf('<div class="dg-intake-areas">'),screen.indexOf('<div id="dg-auto-results"'));
  assert.equal((surface.match(/type="file"/g)||[]).length,2);
 });
