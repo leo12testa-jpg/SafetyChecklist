@@ -12,7 +12,7 @@
   - `packet_revision_id` e SHA-256 del pacchetto di risultati;
   - `document_revision_id` del Word in bozza;
   - `reviewer_id` con permessi verificati lato server.
-- `tests/duvri-hse-review-session.test.js`: 32 casi sintetici su pacchetti cambiati, revisioni obsolete, documenti di altri fascicoli, fonti correnti non confermate, storici, regole, rifiuti, chiarimenti, idempotenza logica, blocchi e riservatezza.
+- `tests/duvri-hse-review-session.test.js`: 35 casi sintetici su pacchetti cambiati, revisioni obsolete, documenti di altri fascicoli, fonti correnti non confermate, storici, regole, rifiuti, chiarimenti, localizzatori e blocchi.
 
 ## Contratto per Codex: origine affidabile dei dati
 
@@ -20,7 +20,7 @@ Il worker Supabase/Postgres deve autenticare l'utente, confermare ruolo tecnico/
 
 Il backend deve caricare `sourceScope` già verificato, con `state === ready_for_hse_screening`. Non devono esistere file in attesa di estrazione o revisione manuale; la lista di file autorizzati non può essere parziale. I precedenti 2026 hanno una allowlist **separata** da quella delle evidenze correnti; le regole interne approvate ne hanno una terza.
 
-Per le decisioni `accept_for_draft` è obbligatoria almeno un'evidenza dell'incarico **corrente e confermata**. Uno storico o una regola interna da soli non dimostrano un'interferenza nel sito. Gli interventi respinti richiedono motivazione; la risoluzione dei finding respinti è valutata separatamente dal gate DUVRI.
+Ogni evidenza deve indicare un `locator` non vuoto e uno stato di verifica riconosciuto, senza ambiguità. Per le decisioni `accept_for_draft` è obbligatoria almeno un'evidenza dell'incarico **corrente e confermata**. Uno storico o una regola interna da soli non dimostrano un'interferenza nel sito. Gli interventi respinti richiedono motivazione; la risoluzione dei finding respinti è valutata separatamente dal gate DUVRI.
 
 Le decisioni devono essere salvate con transazione DB e condizione di concorrenza (CAS/lock) sul packet/document revision. I retry devono essere idempotenti, con `review_request_id` univoco ed eventi di audit e append-only: il solo controllo JS non garantisce persistenza, concorrenza, immutabilità o correttezza tecnica.
 
