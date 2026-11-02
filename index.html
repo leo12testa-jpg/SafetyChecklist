@@ -8,9 +8,9 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/icon-512.png">
-  <link rel="stylesheet" href="css/style.css?v=20261029-173557">
+  <link rel="stylesheet" href="css/style.css?v=20261102-123000">
 </head>
-<body data-auth-ready="false" data-authenticated="false" data-build="20261029-173557">
+<body data-auth-ready="false" data-authenticated="false" data-build="20261102-123000">
   <div id="app">
     <header class="app-header">
       <div class="header-brand">
@@ -456,27 +456,22 @@
         <div class="dg-page-heading">
           <span class="eyebrow">PRODUZIONE DOCUMENTALE</span>
           <h2>Generazione documenti</h2>
-          <p>Carica tutti i file ricevuti dal committente: l’app li classifica, ne estrae i dati con la fonte e segnala soltanto anomalie, conflitti e dati indispensabili mancanti. Il questionario più sotto resta disponibile per integrare ciò che manca.</p>
+          <p>Carica la checklist Word compilata dal cliente e, nella seconda area, tutti i documenti ricevuti per il DUVRI. Nessun questionario aggiuntivo.</p>
         </div>
 
         <section class="dg-panel dg-auto-panel" aria-labelledby="dg-auto-title">
-          <div class="dg-panel-heading"><span class="dg-section-number">↥</span><div><h3 id="dg-auto-title">Caricamento dei file del committente</h3><p>Due sole aree: la checklist ricevuta dal committente e tutta la restante documentazione. L’app riconosce la categoria di ogni documento, ne estrae i dati con file e posizione di origine e segnala anomalie, conflitti e dati mancanti. L’elaborazione avviene solo nel browser: nessun file viene inviato in rete o a servizi AI.</p></div></div>
-          <label class="campo-form">Tipo di documento
-            <select id="dg-auto-type">
-              <option value="duvri" selected>DUVRI</option>
-              <option value="informativa-coin">Informativa COIN — solo raccolta, modello da verificare</option>
-            </select>
-          </label>
+          <div class="dg-panel-heading"><span class="dg-section-number">↥</span><div><h3 id="dg-auto-title">Carica i documenti DUVRI</h3><p>Scegli i file nelle due aree qui sotto. Al momento vengono letti sul dispositivo, senza invio automatico a servizi AI.</p></div></div>
+          <select id="dg-auto-type" aria-label="Tipo di documento: DUVRI" hidden><option value="duvri" selected>DUVRI</option></select>
           <div class="dg-intake-areas">
             <div class="dg-intake-area" role="group" aria-labelledby="dg-area-checklist-title">
-              <h4 id="dg-area-checklist-title">1. Checklist del committente</h4>
-              <label class="dg-upload-zone dg-checklist-upload" for="dg-checklist-file"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Carica la checklist ricevuta</strong><small>Un solo file: PDF, Word, Excel, JSON, CSV o testo. Facoltativa: puoi compilare il questionario da zero.</small><input id="dg-checklist-file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.json,.csv,.txt"></label>
-              <p id="dg-checklist-file-status" class="dg-checklist-file-status" aria-live="polite">Nessuna checklist caricata: puoi compilare tutto da zero.</p>
+              <h4 id="dg-area-checklist-title">1. Checklist Word</h4>
+              <label class="dg-upload-zone dg-checklist-upload" for="dg-checklist-file"><span class="dg-upload-icon" aria-hidden="true">▤</span><strong>Seleziona la checklist compilata</strong><small>Un documento Word (.docx) restituito dal cliente.</small><input id="dg-checklist-file" type="file" accept=".docx"></label>
+              <p id="dg-checklist-file-status" class="dg-checklist-file-status" aria-live="polite">Nessuna checklist Word selezionata.</p>
               <button type="button" class="btn" id="dg-checklist-remove" hidden>Rimuovi la checklist dall’elenco</button>
             </div>
             <div class="dg-intake-area" role="group" aria-labelledby="dg-area-docs-title">
-              <h4 id="dg-area-docs-title">2. Documentazione del cliente</h4>
-              <label class="dg-upload-zone dg-drop-zone" id="dg-auto-drop" for="dg-auto-files"><span class="dg-upload-icon" aria-hidden="true">↥</span><strong>Trascina qui i documenti o selezionali</strong><small>DVR, DUVRI, planimetrie, foto, attestati, autorizzazioni, verbali, Word, PDF, Excel, ZIP e altri allegati. Selezione multipla, anche decine di file insieme: la categoria viene riconosciuta automaticamente e puoi correggerla.</small><input id="dg-auto-files" type="file" multiple></label>
+              <h4 id="dg-area-docs-title">2. Tutti gli allegati ricevuti</h4>
+              <label class="dg-upload-zone dg-drop-zone" id="dg-auto-drop" for="dg-auto-files"><span class="dg-upload-icon" aria-hidden="true">↥</span><strong>Seleziona o trascina i documenti</strong><small>PDF, fotografie, planimetrie, DVR, Word, Excel e altri allegati. Puoi caricare più file insieme o aggiungerne altri dopo.</small><input id="dg-auto-files" type="file" multiple></label>
               <p id="dg-auto-status" class="dg-small-note" aria-live="polite">Nessun file caricato.</p>
               <ul id="dg-auto-files-list" class="dg-auto-list dg-doc-list"></ul>
             </div>
@@ -1276,25 +1271,25 @@
   <script src="js/vendor/firebase-firestore-compat.js"></script>
   <script src="js/vendor/firebase-auth-compat.js"></script>
   <script src="js/firebase-config.js"></script>
-  <script src="js/auth.js?v=20261029-173557"></script>
+  <script src="js/auth.js?v=20261102-123000"></script>
   <script src="js/supabase-config.js"></script>
   <script src="js/vendor/pdf.min.js"></script>
-  <script src="js/db.js?v=20261029-173557"></script>
+  <script src="js/db.js?v=20261102-123000"></script>
   <script src="js/identity.js"></script>
-  <script src="js/checklist.js?v=20261029-173557"></script>
+  <script src="js/checklist.js?v=20261102-123000"></script>
   <script src="js/question-navigator.js"></script>
-  <script src="js/storico-filtri.js?v=20261029-173557"></script>
-  <script src="js/foto-sync.js?v=20261029-173557"></script>
+  <script src="js/storico-filtri.js?v=20261102-123000"></script>
+  <script src="js/foto-sync.js?v=20261102-123000"></script>
   <script src="js/camera.js"></script>
-  <script src="js/pdf.js?v=20261029-173557"></script>
-  <script src="js/pdf-import.js?v=20261029-173557"></script>
-  <script src="js/import-matching.js?v=20261029-173557"></script>
-  <script src="js/sync.js?v=20261029-173557"></script>
-  <script src="js/app.js?v=20261029-173557"></script>
-  <script src="js/account-screens.js?v=20261029-173557"></script>
+  <script src="js/pdf.js?v=20261102-123000"></script>
+  <script src="js/pdf-import.js?v=20261102-123000"></script>
+  <script src="js/import-matching.js?v=20261102-123000"></script>
+  <script src="js/sync.js?v=20261102-123000"></script>
+  <script src="js/app.js?v=20261102-123000"></script>
+  <script src="js/account-screens.js?v=20261102-123000"></script>
   <script src="js/document-generation.js"></script>
   <script src="js/document-intake.js"></script>
   <script src="js/document-intake-ui.js"></script>
-  <script src="js/aggiornamento.js?v=20261029-173557"></script>
+  <script src="js/aggiornamento.js?v=20261102-123000"></script>
 </body>
 </html>

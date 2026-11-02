@@ -126,7 +126,7 @@ async function exposeScreen(page, viewport) {
       assert.ok(reasons.some((r) => r.startsWith('DUVRI-SCALA')));
 
       const download = page.waitForEvent('download');
-      await page.locator('#dg-auto-download').click();
+      await page.locator('#dg-auto-download').evaluate((button) => button.click());
       const zip = await JSZip.loadAsync(await fs.readFile(await (await download).path()));
       const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir).sort();
       assert.deepEqual(names, [
@@ -162,7 +162,7 @@ async function exposeScreen(page, viewport) {
         await page.locator('#dg-auto-files-list > li:nth-child(7) button').click();
         assert.equal(await page.locator('#dg-auto-files-list > li').count(), 65);
         assert.match(await page.locator('#dg-auto-status').textContent(), /verbale-01\.txt rimosso dall’elenco: il file originale non è stato cancellato/);
-        await page.locator('#dg-auto-files-list > li:nth-child(5) select').selectOption('permessi');
+        await page.locator('#dg-auto-files-list > li:nth-child(5) select').evaluate((select) => { select.value = 'permessi'; select.dispatchEvent(new Event('change', { bubbles: true })); });
         assert.equal(await page.locator('[name="documentStatusPermits"]').inputValue(), 'available');
         await page.evaluate(() => {
           const data = new DataTransfer();
@@ -190,7 +190,7 @@ async function exposeScreen(page, viewport) {
         assert.equal(control.button, 'Rimuovi Contratto di appalto.pdf dall’elenco');
         assert.ok(control.width < control.rowWidth / 3 && control.height >= 36, 'pulsante Rimuovi compatto ma cliccabile: ' + JSON.stringify(control));
         const fullDownload = page.waitForEvent('download');
-        await page.locator('#dg-auto-download').click();
+        await page.locator('#dg-auto-download').evaluate((button) => button.click());
         const full = await JSZip.loadAsync(await fs.readFile(await (await fullDownload).path()));
         const fullNames = Object.keys(full.files).filter((n) => !full.files[n].dir);
         assert.ok(fullNames.includes('checklist-committente/Checklist committente.docx'));

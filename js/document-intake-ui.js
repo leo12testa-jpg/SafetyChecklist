@@ -29,7 +29,7 @@
   const READ_STATUS = { letto: 'letto', immagine: 'immagine, contenuto non letto', non_supportato: 'formato non leggibile', non_letto: 'non letto', errore: 'errore di lettura' };
   const CONFIDENCE = { alta: 'classificazione sicura', media: 'classificazione probabile', bassa: 'classificazione incerta', manuale: 'categoria corretta manualmente' };
   const CHECKLIST_CATEGORY = 'checklist-committente';
-  const CHECKLIST_EMPTY = 'Nessuna checklist caricata: puoi compilare tutto da zero.';
+  const CHECKLIST_EMPTY = 'Nessuna checklist Word selezionata.';
   let entries = [];       // documentazione del cliente: { file, result }
   let checklist = null;   // checklist del committente: { file, result }, mai mescolata alla documentazione
   let analysis = null;
