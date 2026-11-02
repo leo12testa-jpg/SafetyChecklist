@@ -15,7 +15,7 @@ const duvriYellowFieldMap = (() => {
     /^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*){0,3}$/.test(x) && x.length<=128;
   const nonempty = (x,max=500) => typeof x === 'string' && x.trim().length>0 && x.length<=max;
 
-  function validateMapping({ templateVersion, segments, expectedSegmentCount=TOTAL_SEGMENTS }={}) {
+  function validateMapping({ templateVersion, mappingRevisionId, segments, expectedSegmentCount=TOTAL_SEGMENTS }={}) {
     const errors=[];
     const blocked = message => ({
       schema_version:'colligo-duvri-yellow-map/1.0',
@@ -24,7 +24,8 @@ const duvriYellowFieldMap = (() => {
       verified:0, unresolved:TOTAL_SEGMENTS, needs_review:[],
       errors:[message]
     });
-    if (!validId(templateVersion) || expectedSegmentCount!==TOTAL_SEGMENTS ||
+    if (!validId(templateVersion) || !validId(mappingRevisionId) ||
+        expectedSegmentCount!==TOTAL_SEGMENTS ||
         !Array.isArray(segments) || segments.length!==TOTAL_SEGMENTS) {
       return blocked('Versione e 22 segmenti del modello Colligo obbligatori');
     }
@@ -73,7 +74,7 @@ const duvriYellowFieldMap = (() => {
     return {
       schema_version:'colligo-duvri-yellow-map/1.0',
       state:unresolved===0 && verified===TOTAL_SEGMENTS ? 'mapping_ready' : 'needs_review',
-      template_version:templateVersion,
+      template_version:templateVersion,mapping_revision_id:mappingRevisionId,
       mapping_approved:unresolved===0 && verified===TOTAL_SEGMENTS,
       mapped,populated_expected:populatedExpected,not_applicable:notApplicable,
       verified,unresolved,needs_review:needsReview,errors:[],
