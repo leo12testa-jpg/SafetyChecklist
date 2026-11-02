@@ -8,7 +8,7 @@ const base = ()=>Array.from({length:22},(_,i)=>({
  reviewed:true
 }));
 const run=(segments=base(),extra={})=>validateMapping({
- templateVersion:'DUVRI_BASE_GENERALE_2026',segments,...extra
+ templateVersion:'DUVRI_BASE_GENERALE_2026',mappingRevisionId:'MAPPING_SYNTH_001',segments,...extra
 });
 const clone=x=>structuredClone(x);
 test('baseline has exactly 22 segments',()=>assert.equal(TOTAL_SEGMENTS,22));
@@ -89,4 +89,9 @@ test('original mapping objects are never mutated',()=>{
  const rows=base(), copy=clone(rows);
  const r=run(rows);r.needs_review.push(12);
  assert.deepEqual(rows,copy);
+});
+
+test('mapping revision ID is mandatory and included when approved',()=>{
+  assert.equal(run().mapping_revision_id,'MAPPING_SYNTH_001');
+  assert.equal(run(base(),{mappingRevisionId:''}).state,'blocked');
 });
