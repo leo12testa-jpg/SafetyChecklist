@@ -27,7 +27,7 @@ const duvriDemoGenerator=(()=>{
       '<w:t xml:space="preserve">'+escapeXml(message)+'</w:t></w:r></w:p>';
   }
   function cell(s,bold){
-    return '<w:tc><w:tcPr><w:tcW w:w="2400" w:type="dxa"/></w:tcPr>'+
+    return '<w:tc><w:tcPr><w:tcW w:w="4750" w:type="dxa"/></w:tcPr>'+
       '<w:p><w:r><w:rPr>'+(bold?'<w:b/>':'')+
       '<w:sz w:val="17"/></w:rPr><w:t xml:space="preserve">'+
       escapeXml(s)+'</w:t></w:r></w:p></w:tc>';
@@ -39,6 +39,7 @@ const duvriDemoGenerator=(()=>{
       '<w:left w:val="single" w:sz="4"/><w:bottom w:val="single" w:sz="4"/>'+
       '<w:right w:val="single" w:sz="4"/><w:insideH w:val="single" w:sz="4"/>'+
       '<w:insideV w:val="single" w:sz="4"/></w:tblBorders></w:tblPr>'+
+      '<w:tblGrid><w:gridCol w:w="4750"/><w:gridCol w:w="4750"/></w:tblGrid>'+
       rowsXml+'</w:tbl>';
   }
   function validate(input) {
