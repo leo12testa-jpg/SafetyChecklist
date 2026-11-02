@@ -948,7 +948,7 @@ test('trascinamento dei file e azzeramento della scheda svuotano entrambe le are
   await env.selectChecklist(textFile('checklist.txt', 'Committente: Alfa'));
   dispatch(env.$('dg-reset'), 'click');
   assert.equal(env.rows().length, 0);
-  assert.equal(env.$('dg-checklist-file-status').textContent, 'Nessuna checklist caricata: puoi compilare tutto da zero.');
+  assert.equal(env.$('dg-checklist-file-status').textContent, 'Nessuna checklist Word selezionata.');
   assert.equal(env.$('dg-auto-results').hidden, true);
 });
 
@@ -992,7 +992,7 @@ test('azzeramento durante la lettura: entrambe le aree restano vuote e la scheda
   doc.release(); list.release();
   await docRead; await listRead; await flush();
   assert.deepEqual(names(env), []);
-  assert.equal(env.$('dg-checklist-file-status').textContent, 'Nessuna checklist caricata: puoi compilare tutto da zero.');
+  assert.equal(env.$('dg-checklist-file-status').textContent, 'Nessuna checklist Word selezionata.');
   assert.equal(env.$('dg-auto-results').hidden, true);
   env.fill({ title: 'Prova' });
   env.submit();
