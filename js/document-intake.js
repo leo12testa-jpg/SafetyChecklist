@@ -64,8 +64,12 @@ const documentIntake = (() => {
       manualOnly: { titolo: 'Titolo del DUVRI: va stabilito da Colligo, non si ricava dai file.' },
       template: {
         name: 'DUVRI_BASE_GENERALE_2026.docx',
-        sha256: '69b2f63c5363ebd1af59a847b9d1ee8a29b04a4d588bd2e49a2b7bd9a3c4386f',
-        baseline: { paragraphs: 809, tables: 13, sections: 19, images: 17 }
+        // Only 69B2F63C… has been confirmed by the Word team's report.
+        // A different uploaded copy starts C6C8AB57…: do not guess the
+        // complete official fingerprint or trust a partially matching model.
+        sha256: null,
+        sha256Prefix: '69b2f63c',
+        baseline: { tables: 13, sections: 19 }
       },
       blocks: [{ id: 'DUVRI-SCALA', message: 'Scala del rischio non decisa: il modello usa una matrice 1-9, le istruzioni citano indici 1-3. Serve una decisione Colligo prima di valutare o generare.' }]
     },
@@ -379,7 +383,12 @@ const documentIntake = (() => {
       report.differences.push('Il file non è un DOCX leggibile.');
       return report;
     }
-    if (digest !== type.template.sha256) report.differences.push('L’impronta SHA-256 non corrisponde alla copia controllata di ' + type.template.name + '.');
+    if (typeof type.template.sha256 !== 'string' ||
+        !/^[0-9a-f]{64}$/i.test(type.template.sha256)) {
+      report.differences.push('SHA-256 completo del modello ufficiale non ancora approvato; verificare la copia originale Colligo prima di generare.');
+    } else if (digest.toLowerCase() !== type.template.sha256.toLowerCase()) {
+      report.differences.push('L’impronta SHA-256 non corrisponde alla copia controllata di ' + type.template.name + '.');
+    }
     for (const [key, expected] of Object.entries(type.template.baseline)) {
       if (report.counts[key] !== expected) report.differences.push(key + ': ' + report.counts[key] + ' invece di ' + expected + '.');
     }
