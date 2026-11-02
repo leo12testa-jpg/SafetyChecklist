@@ -142,7 +142,8 @@ test('modello Word: impronta e struttura verificate, generazione bloccata dalle 
   const fakeTemplate = await docx(p('TITOLO DEL DUVRI'));
   const report = await intake.inspectTemplate(fakeTemplate, 'duvri', deps);
   assert.equal(report.controlled, false);
-  assert.ok(report.differences.some((d) => /SHA-256/.test(d)));
+  assert.ok(report.differences.some((d) => /SHA-256 completo/.test(d)),
+    'Un modello senza checksum aziendale confermato deve restare bloccato');
   assert.equal(report.counts.tables, 0);
   const analysis = intake.consolidate('duvri', [await analyze('a.txt', text('Committente: Alfa'))]);
   const gate = intake.generationGate('duvri', report, analysis);
@@ -163,7 +164,11 @@ test('registro estendibile: ogni tipo dichiara campi, modello e blocchi', () => 
     assert.ok(type.label && Array.isArray(type.required) && Array.isArray(type.blocks), id);
     for (const key of type.required) assert.ok(intake.FIELDS[key] || type.manualOnly[key], id + ': ' + key);
   }
-  assert.equal(intake.DOCUMENT_TYPES.duvri.template.sha256.length, 64);
+  assert.equal(intake.DOCUMENT_TYPES.duvri.template.sha256, null,
+    'Non registrare impronte complete inventate');
+  assert.equal(intake.DOCUMENT_TYPES.duvri.template.sha256Prefix, '69b2f63c');
+  assert.deepEqual(Object.keys(intake.DOCUMENT_TYPES.duvri.template.baseline).sort(),
+    ['sections','tables']);
 });
 
 test('il motore e la sua interfaccia non usano rete, AI o HTML dai contenuti', () => {
@@ -186,4 +191,30 @@ test('la schermata, lo script e la shell offline includono il nuovo modulo', () 
     assert.match(html, new RegExp('id="' + id + '"'), id);
   }
   assert.match(html, /<input id="dg-auto-files" type="file" multiple>/, 'nessuna categoria da scegliere a mano');
+});
+
+test('modello DUVRI con SHA-256 solo parziale non può mai sbloccare la generazione', async () => {
+  const mock = await docx(p('MODELLO FALSO'));
+  const original = intake.DOCUMENT_TYPES.duvri.template.sha256;
+  try {
+    intake.DOCUMENT_TYPES.duvri.template.sha256 = '69b2f63c';
+    const partial = await intake.inspectTemplate(mock, 'duvri', deps);
+    assert.equal(partial.controlled, false);
+    assert.ok(partial.differences.some((x) => /SHA-256 completo/.test(x)));
+  } finally {
+    intake.DOCUMENT_TYPES.duvri.template.sha256 = original;
+  }
+});
+
+test('modello con hash completo non corrispondente rimane bloccato', async () => {
+  const mock = await docx(p('TITOLO'));
+  const original = intake.DOCUMENT_TYPES.duvri.template.sha256;
+  try {
+    intake.DOCUMENT_TYPES.duvri.template.sha256 = 'a'.repeat(64);
+    const bad = await intake.inspectTemplate(mock, 'duvri', deps);
+    assert.equal(bad.controlled, false);
+    assert.ok(bad.differences.some((x) => /non corrisponde/.test(x)));
+  } finally {
+    intake.DOCUMENT_TYPES.duvri.template.sha256 = original;
+  }
 });
