@@ -21,6 +21,8 @@ const APP_SHELL = [
   './js/document-generation.js',
   './js/document-intake.js',
   './js/document-intake-ui.js',
+  './js/duvri-demo-generator.js',
+  './js/duvri-demo-ui.js',
   './js/identity.js',
   './js/account-screens.js?v=20261102-123000',
   './js/db.js?v=20261102-123000',
