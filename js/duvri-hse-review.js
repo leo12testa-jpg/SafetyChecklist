@@ -117,6 +117,7 @@ const duvriHseReview = (() => {
       schema_version: 'colligo-duvri-review-decisions/1.0',
       job_id: jobId,
       document_revision_id: ctx.document_revision_id,
+      analysis_revision_id: ctx.analysis_revision_id,
       reviewer_id: ctx.reviewer_id,
       state: pending.length ? 'awaiting_decisions' :
         requestChanges ? 'changes_requested' : 'draft_findings_reviewed',
