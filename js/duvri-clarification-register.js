@@ -38,7 +38,7 @@ const duvriClarificationRegister = (() => {
       job_id:id(jobId)?jobId:null,
       analysis_revision_id:null,extraction_revision_id:null,
       state:'blocked',items:[],item_count:0,blocking_count:0,
-      human_review_required:true,client_dispatch_allowed:false,
+      blocks_document_draft:true,human_review_required:true,client_dispatch_allowed:false,
       ready_for_technical_preflight:false,issuance_allowed:false,
       blockers:[reason]
     };
@@ -150,12 +150,23 @@ const duvriClarificationRegister = (() => {
       const key=f.agent_id+'\u0000'+f.finding_id;
       if(findingIds.has(key)) return blocked(jobId,'DUPLICATE_FINDING');
       findingIds.add(key);
-      const refs=authorizedEvidence(f.source_evidence,allowed);
-      // A finding may also cite authorised historical/rule sources.
-      // The complete source validation is the coordinator's responsibility.
-      // Never publish those historical/rule sources as current evidence here.
-      const currentRefs=isList(f.source_evidence,50)
-        ? f.source_evidence.filter(e=>object(e)&&sourceTypes.has(e.source_type)) : [];
+      // Specialist findings can also cite previously validated history/rules.
+      // Reject unknown categories or malformed cross-scope references; the
+      // coordinator remains responsible for the separate source allowlists.
+      if(!isList(f.source_evidence,50) || !f.source_evidence.length ||
+         f.source_evidence.some(e=>!object(e) || !id(e.file_id) ||
+           !content(e.locator,1000) ||
+           !(sourceTypes.has(e.source_type) ||
+             e.source_type==='historical_2026_reference' ||
+             e.source_type==='approved_internal_rule') ||
+           (e.source_type==='historical_2026_reference' &&
+             e.verification_status!=='historical_example_only') ||
+           (e.source_type==='approved_internal_rule' &&
+             !allowedStatuses.has(e.verification_status)))) {
+        return blocked(jobId,'INVALID_FINDING_SOURCE_TYPE');
+      }
+      // Never surface historical/rule sources as evidence of current work.
+      const currentRefs=f.source_evidence.filter(e=>sourceTypes.has(e.source_type));
       const localRefs=authorizedEvidence(currentRefs,allowed);
       if(!localRefs) return blocked(jobId,'UNVERIFIED_FINDING_SOURCES');
       if(f.validation_status==='requires_clarification') {
