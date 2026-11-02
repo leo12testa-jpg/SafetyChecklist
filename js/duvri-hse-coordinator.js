@@ -11,7 +11,7 @@ const duvriHseCoordinator = (() => {
     : (typeof duvriAgentContract !== 'undefined' ? duvriAgentContract : null);
 
   const isRecord = x => x !== null && typeof x === 'object' && !Array.isArray(x);
-  const isIdentifier = x => typeof x === 'string' && x.length > 0 && x.length <= 128 && x.trim().length > 0;
+  const isIdentifier = x => typeof x === 'string' && /^[A-Za-z0-9_-]{6,128}$/.test(x);
   const snapshot = x => JSON.parse(JSON.stringify(x));
 
   /**
