@@ -97,3 +97,10 @@ test('input screening records are not modified',()=>{
   const r=run(inp);r.observations[0].routed_answer='yes';
   assert.deepEqual(inp,orig);
 });
+
+test('mixed confirmed and unconfirmed negative evidence cannot exclude specialist',()=>{
+  const r=run([answer('impianti_elettrici','no',[ev('confirmed'),ev('extracted_unconfirmed')])]);
+  assert.equal(r.signals.impianti_elettrici,'unknown');
+  assert.ok(r.needs_confirmation.includes('impianti_elettrici'));
+  assert.equal(r.state,'needs_confirmation');
+});
