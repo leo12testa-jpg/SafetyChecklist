@@ -106,6 +106,7 @@ const duvriHseCoordinator = (() => {
     const state = blockers.length ? 'blocked' : needsInput ? 'awaiting_input' : 'needs_review';
     return {
       schema_version: 'colligo-duvri-review-packet/1.0', job_id: jobId,
+      analysis_revision_id: isIdentifier(analysisRevisionId) ? analysisRevisionId : null,
       state, human_review_required: true, issuance_allowed: false,
       required_agents: [...required], pending_agents: pending,
       screening_required: [...route.needs_screening], findings,
