@@ -19,7 +19,8 @@ const duvriHseCoordinator = (() => {
    * No automatic risk scoring, deduplication or technical approval.
    * On any malformed input, return blocked with no findings.
    */
-  function buildReviewPacket({ jobId, analysisRevisionId, specialtySignals, agentResults, allowedFileIds } = {}) {
+  function buildReviewPacket({ jobId, analysisRevisionId, specialtySignals, agentResults,
+    allowedFileIds, allowedHistoricalReferenceIds=[], allowedInternalRuleIds=[] } = {}) {
     const blocked = message => ({
       schema_version: 'colligo-duvri-review-packet/1.0',
       job_id: isIdentifier(jobId) ? jobId : null,
@@ -31,7 +32,9 @@ const duvriHseCoordinator = (() => {
     });
     if (!contract) return blocked('Contratto agenti non disponibile');
     if (!isIdentifier(jobId) || !Array.isArray(agentResults) ||
-        !(Array.isArray(allowedFileIds) || allowedFileIds instanceof Set)) {
+        !(Array.isArray(allowedFileIds) || allowedFileIds instanceof Set) ||
+        !(Array.isArray(allowedHistoricalReferenceIds) || allowedHistoricalReferenceIds instanceof Set) ||
+        !(Array.isArray(allowedInternalRuleIds) || allowedInternalRuleIds instanceof Set)) {
       return blocked('Configurazione backend incompleta: jobId, risultati e file autorizzati obbligatori');
     }
     let route;
@@ -57,7 +60,8 @@ const duvriHseCoordinator = (() => {
         continue;
       }
       const validation = contract.validateAgentResult(result, {
-        jobId, allowedFileIds: authorizedIds
+        jobId,allowedFileIds:authorizedIds,
+        allowedHistoricalReferenceIds,allowedInternalRuleIds
       });
       if (!validation.valid) {
         errors.push('Risposta non valida di ' + agent + ': ' + validation.errors.join(' | '));
