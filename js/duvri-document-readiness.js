@@ -8,8 +8,10 @@
  */
 const duvriDocumentReadiness = (() => {
   'use strict';
-  const OFFICIAL_SOURCE_SHA256 =
-    '69b2f63c5363ebd1af59a847b9d1ee8a29b04a4d588bd2e49a2b7bd9a3c4386f';
+  // Only the prefix was supplied in the local Claude report. Never fabricate
+  // the complete official checksum: it must come from a reviewed server manifest.
+  const OFFICIAL_SHA256_PREFIX = '69b2f63c';
+  const validSha256 = x => typeof x === 'string' && /^[0-9a-f]{64}$/i.test(x);
   const OFFICIAL_BASELINE = Object.freeze({
     yellow_segments: 22, yellow_runs: 62, editorial_comments: 27,
     sections: 19, tables: 13, text_boxes: 16
@@ -23,18 +25,25 @@ const duvriDocumentReadiness = (() => {
     const add=(code,description)=>reasons.push({code,description});
     if (!validId(jobId)) add('JOB_ID','Identificativo fascicolo server non valido.');
     const approved = record(template) && template.approved === true &&
-      template.source_sha256 === OFFICIAL_SOURCE_SHA256 &&
-      template.expected_sha256 === OFFICIAL_SOURCE_SHA256 &&
-      validId(template.template_version);
+      template.manifest_verified === true &&
+      validId(template.approval_record_id) &&
+      validId(template.template_version) &&
+      validSha256(template.expected_sha256) &&
+      validSha256(template.source_sha256) &&
+      template.source_sha256.toLowerCase() === template.expected_sha256.toLowerCase() &&
+      template.expected_sha256.toLowerCase().startsWith(OFFICIAL_SHA256_PREFIX);
     if (!approved) add('TEMPLATE','Modello aziendale ufficiale non riconosciuto o non approvato.');
     if (!record(fields) ||
         !verifiedInteger(fields.expected) || fields.expected !== OFFICIAL_BASELINE.yellow_segments ||
         !verifiedInteger(fields.mapped) || fields.mapped !== fields.expected ||
-        !verifiedInteger(fields.populated) || fields.populated !== fields.expected ||
+        !verifiedInteger(fields.populated) ||
+        !verifiedInteger(fields.not_applicable) ||
+        fields.populated + fields.not_applicable !== fields.expected ||
+        (fields.not_applicable > 0 && fields.not_applicable_approved !== true) ||
         !verifiedInteger(fields.human_verified) || fields.human_verified !== fields.expected ||
         fields.mapping_approved !== true ||
         fields.unresolved_yellow_segments !== 0) {
-      add('YELLOW_FIELDS','Non tutti i 22 segmenti gialli sono mappati, compilati e verificati.');
+      add('YELLOW_FIELDS','I 22 segmenti gialli devono essere mappati, risolti e verificati; i non applicabili richiedono approvazione.');
     }
     if (!record(editorial) ||
         editorial.expected !== OFFICIAL_BASELINE.editorial_comments ||
@@ -80,6 +89,6 @@ const duvriDocumentReadiness = (() => {
       blockers: reasons
     };
   }
-  return Object.freeze({OFFICIAL_SOURCE_SHA256,OFFICIAL_BASELINE,assess});
+  return Object.freeze({OFFICIAL_SHA256_PREFIX,OFFICIAL_BASELINE,assess});
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = duvriDocumentReadiness;
