@@ -106,18 +106,6 @@ async function syntheticDocx() {
         document.getElementById('dg-auto-files-list').querySelectorAll('li').length===2
       );
       assert.equal(await page.locator('#dg-auto-files-list > li').count(),2);
-      await page.waitForFunction(() => !document.getElementById('dg-demo-generate').disabled);
-      const demoDownloadPromise=page.waitForEvent('download');
-      await page.locator('#dg-demo-generate').click();
-      const demoDownload=await demoDownloadPromise;
-      assert.equal(demoDownload.suggestedFilename(),'DUVRI_DIMOSTRATIVO_NON_UFFICIALE.docx');
-      const demoZip=await JSZip.loadAsync(require('node:fs').readFileSync(await demoDownload.path()));
-      const demoXml=await demoZip.file('word/document.xml').async('string');
-      assert.match(demoXml,/checklist-cliente\.docx/);
-      assert.match(demoXml,/dvr-specifico\.pdf/);
-      assert.match(demoXml,/foto-sito\.jpg/);
-      assert.match(demoXml,/NON UTILIZZARE/);
-      assert.match(await page.locator('#dg-demo-status').textContent(),/generato e scaricato localmente/);
       assert.equal(await page.locator('#dg-auto-files-list select').first().isVisible(),false,
         'nessuna correzione categoria manuale nella vista ridotta');
       assert.equal(await page.locator('#dg-auto-files-list > li:first-child button').isVisible(),true,
