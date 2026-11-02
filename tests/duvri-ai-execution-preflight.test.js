@@ -206,3 +206,51 @@ test('null or malformed roots block safely',()=>{
  fail(run({budget:null}),'AI_BUDGET_NOT_VERIFIED');
  fail(run({runtime:null}),'PRIVATE_GATEWAY_NOT_VERIFIED');
 });
+
+test('integration: server-validated DOCX and PDF extraction scope reaches review only',()=>{
+ const {buildHseEvidenceScope}=require('../js/duvri-hse-evidence-scope.js');
+ const docs=[
+  {file_id:'CHECKLIST_SYNTH_AI_001',job_id:job,role:'client_checklist',
+   mime_type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+   size_bytes:1024,sha256:'a'.repeat(64),parse_status:'parsed'},
+  {file_id:'PDF_SYNTH_AI_001',job_id:job,role:'supporting_document',
+   mime_type:'application/pdf',size_bytes:2048,sha256:'b'.repeat(64),
+   parse_status:'parsed'}
+ ];
+ const attest=docs.map(d=>({
+  schema_version:'colligo-duvri-extraction-attestation/1.0',
+  job_id:job,analysis_revision_id:analysis,extraction_revision_id:extraction,
+  file_id:d.file_id,source_sha256:d.sha256,evidence_kind:'extracted_text',
+  source_locator_verified:true,backend_verified:true
+ }));
+ const params={jobId:job,analysisRevisionId:analysis,
+  extractionRevisionId:extraction,files:docs,extractions:attest};
+ const real=buildHseEvidenceScope(params);
+ assert.equal(real.state,'ready_for_hse_screening');
+ const checked=run({sourceScope:real});
+ assert.equal(checked.state,'preflight_passed_pending_gateway_review');
+ assert.equal(checked.external_data_transfer_allowed,false);
+ assert.equal(checked.provider_dispatch_allowed,false);
+});
+test('integration: changed source digest invalidates AI preflight immediately',()=>{
+ const {buildHseEvidenceScope}=require('../js/duvri-hse-evidence-scope.js');
+ const docs=[
+  {file_id:'CHECKLIST_SYNTH_AI_001',job_id:job,role:'client_checklist',
+   mime_type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+   size_bytes:1024,sha256:'a'.repeat(64),parse_status:'parsed'},
+  {file_id:'PDF_SYNTH_AI_001',job_id:job,role:'supporting_document',
+   mime_type:'application/pdf',size_bytes:2048,sha256:'c'.repeat(64),parse_status:'parsed'}
+ ];
+ const attest=docs.map(d=>({
+  schema_version:'colligo-duvri-extraction-attestation/1.0',
+  job_id:job,analysis_revision_id:analysis,extraction_revision_id:extraction,
+  file_id:d.file_id,source_sha256:d.file_id==='PDF_SYNTH_AI_001'?'b'.repeat(64):d.sha256,
+  evidence_kind:'extracted_text',source_locator_verified:true,backend_verified:true
+ }));
+ const wrong=buildHseEvidenceScope({
+  jobId:job,analysisRevisionId:analysis,extractionRevisionId:extraction,
+  files:docs,extractions:attest
+ });
+ assert.equal(wrong.state,'blocked');
+ fail(run({sourceScope:wrong}),'SOURCES_INCOMPLETE_OR_STALE');
+});
