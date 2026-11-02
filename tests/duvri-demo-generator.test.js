@@ -22,6 +22,7 @@ test('generates a real DOCX ZIP package offline with Word content and two source
  assert.match(xml,/checklist-demo\.docx/);
  assert.match(xml,/cronoprogramma-demo\.pdf/);
  assert.match(xml,/foto-area-demo\.jpg/);
+ assert.match(xml,/<w:tblGrid>/);
  assert.match(xml,/NON UTILIZZARE/);
  assert.match(xml,/NON ha interpretato/);
  assert.match(xml,/non è un DUVRI/i);
