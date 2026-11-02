@@ -41,10 +41,10 @@ function complete(){
     approved:true,manifest_verified:true,approval_record_id:'APPROVAL_SYNTH_001',
     template_version:version,source_sha256:sha,expected_sha256:sha
   },
-  mapping:validateMapping({templateVersion:version,segments:mapRows()}),
+  mapping:validateMapping({templateVersion:version,mappingRevisionId:'MAPPING_SYNTH_001',segments:mapRows()}),
   population:{
     document_revision_id:documentRevisionId,template_version:version,
-    actual_populated:22,actual_not_applicable:0,human_verified:22,
+    mapping_revision_id:'MAPPING_SYNTH_001',actual_populated:22,actual_not_applicable:0,human_verified:22,
     unresolved:0,mapping_approved_by_backend:true
   },
   editorial:{expected:27,reviewed:27,unresolved:0,content_rules_verified:true},
@@ -56,6 +56,7 @@ function complete(){
   docx:{
     document_revision_id:documentRevisionId,
     qa_document_revision_id:documentRevisionId,
+    output_sha256:sha,qa_output_sha256:sha,
     output_sha256_verified:true,source_unchanged:true,
     generated_with_populated_fields:true,structural_qa_passed:true,
     visual_qa_after_population_passed:true,
@@ -92,7 +93,7 @@ test('not-applicable field requires matching real DOCX counts',()=>{
  const rows=mapRows();
  rows[1]={segment_id:2,mode:'not_applicable',reason:'Sede priva del campo (sintetico)',
   reviewer_id:'REVIEWER_SYNTH_001',review_reference:'MAPPING_SYNTH_002',reviewed:true};
- x.mapping=validateMapping({templateVersion:version,segments:rows});
+ x.mapping=validateMapping({templateVersion:version,mappingRevisionId:'MAPPING_SYNTH_001',segments:rows});
  assert.equal(x.mapping.state,'mapping_ready');
  assert.deepEqual(reasons(assessTechnicalPreflight(x)),['POPULATION']);
  x.population.actual_populated=21;
@@ -163,4 +164,31 @@ test('does not mutate any of the trusted input objects',()=>{
  const r=assessTechnicalPreflight(x);
  r.blockers.push({code:'FAKE',description:'No'});
  assert.deepEqual(x,copy);
+});
+
+test('mapping approval from an earlier revision cannot be applied to current Word',()=>{
+ const x=complete();
+ x.population.mapping_revision_id='MAPPING_OLD_REVISION';
+ assert.deepEqual(reasons(assessTechnicalPreflight(x)),['POPULATION']);
+});
+test('QA checksum of different generated DOCX is rejected',()=>{
+ const x=complete();
+ x.docx.qa_output_sha256=OFFICIAL_SHA256_PREFIX+'f'.repeat(56);
+ assert.deepEqual(reasons(assessTechnicalPreflight(x)),['DOCX_REVISION']);
+});
+test('missing or partial output hashes are rejected',()=>{
+ const x=complete();
+ x.docx.output_sha256='abc';
+ assert.deepEqual(reasons(assessTechnicalPreflight(x)),['DOCX_REVISION']);
+});
+test('a contradictory review claim cannot hide a rejected finding',()=>{
+ const x=complete();
+ x.review=decisions('reject');
+ x.review.has_rejected_findings=false;
+ assert.deepEqual(reasons(assessTechnicalPreflight(x)),['REVIEW_REVISION']);
+});
+test('mapping with unresolved decisions fails even if mapping_ready was claimed',()=>{
+ const x=complete();
+ x.mapping.needs_review=[1];
+ assert.deepEqual(reasons(assessTechnicalPreflight(x)),['MAPPING']);
 });
