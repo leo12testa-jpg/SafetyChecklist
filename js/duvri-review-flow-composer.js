@@ -35,7 +35,8 @@ const duvriReviewFlowComposer=(()=>{
     jobId,analysisRevisionId,extractionRevisionId,
     files,extractions,screeningAnswers,agentResults,sourceFacts,
     allowedHistoricalReferenceIds=[],allowedInternalRuleIds=[],
-    routingDecisions,routerContext,reviewDecisions,reviewerContext
+    routingDecisions,routerContext,reviewDecisions,reviewerContext,
+    packetIdentity
   }={}){
     if(!id(jobId)||!id(analysisRevisionId)||!id(extractionRevisionId)||
        !Array.isArray(files)||!Array.isArray(extractions)||
@@ -136,8 +137,27 @@ const duvriReviewFlowComposer=(()=>{
         out.blocker_codes=['TECHNICIAN_REVIEW_REQUIRED'];
         return out;
       }
+      // The coordinator cannot attest its own packet revision/hash. These
+      // metadata must originate from immutable server storage after the
+      // packet has been persisted and hashed, not from an AI or web client.
+      const validPacketIdentity=obj(packetIdentity) &&
+        id(packetIdentity.packet_revision_id) &&
+        typeof packetIdentity.packet_sha256==='string' &&
+        /^[0-9a-f]{64}$/i.test(packetIdentity.packet_sha256) &&
+        packetIdentity.backend_verified===true;
+      if(!validPacketIdentity){
+        out.state='blocked';
+        out.next_action='verify_private_packet_identity';
+        out.blocker_codes=['PACKET_DIGEST_ATTESTATION_REQUIRED'];
+        return out;
+      }
+      const stampedPacket={
+        ...packet,
+        packet_revision_id:packetIdentity.packet_revision_id,
+        packet_sha256:packetIdentity.packet_sha256
+      };
       const review=reviewApi.assessReviewSession({
-        packet,sourceScope:scope,decisions:reviewDecisions,reviewerContext
+        packet:stampedPacket,sourceScope:scope,decisions:reviewDecisions,reviewerContext
       });
       steps.technical_review=review.state;
       if(review.state==='blocked'){
