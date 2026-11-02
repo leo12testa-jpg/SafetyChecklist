@@ -99,3 +99,38 @@ test('missing job ID or malformed root is blocked',()=>{
  assert.equal(run([checklist()],{jobId:''}).state,'blocked');
  assert.equal(run(null).state,'blocked');
 });
+
+test('ZIP attachment is retained but quarantined for manual review',()=>{
+ const zip=doc('ZIP_SYNTH_001','supporting_document','application/zip','d');
+ const r=run([checklist(),zip]);
+ assert.equal(r.state,'needs_attention');
+ assert.equal(r.files_count,2);
+ assert.deepEqual(r.manual_review_file_ids,['ZIP_SYNTH_001']);
+ assert.deepEqual(r.files_for_authorization_review,['CHECKLIST_SYNTH_001']);
+ assert.equal(r.evidence_verified,false);
+});
+test('HEIC photograph is listed for manual review rather than silently discarded',()=>{
+ const heic=doc('HEIC_SYNTH_001','photograph','image/heic','d');
+ const r=run([checklist(),heic]);
+ assert.equal(r.state,'needs_attention');
+ assert.deepEqual(r.manual_review_file_ids,['HEIC_SYNTH_001']);
+ assert.equal(r.issuance_allowed,false);
+});
+test('unreadable PDF never becomes candidate evidence for agents',()=>{
+ const r=run([checklist(),{...pdf(),parse_status:'unreadable'}]);
+ assert.deepEqual(r.manual_review_file_ids,['PDF_SYNTH_001']);
+ assert.deepEqual(r.files_for_authorization_review,['CHECKLIST_SYNTH_001']);
+});
+test('blocked manifest never returns even partial authorized file IDs',()=>{
+ const bad=doc('DUPLICATE_SYNTH_001','supporting_document','application/pdf','a');
+ const r=run([checklist(),bad]);
+ assert.equal(r.state,'blocked');
+ assert.deepEqual(r.manual_review_file_ids,[]);
+ assert.deepEqual(r.files_for_authorization_review,[]);
+});
+test('no uploaded metadata alone can confirm the evidence or authorize issuance',()=>{
+ const r=run([checklist(),pdf()],{});
+ assert.equal(r.requires_extraction,true);
+ assert.equal(r.evidence_verified,false);
+ assert.equal(r.issuance_allowed,false);
+});
