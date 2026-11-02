@@ -7,7 +7,7 @@
 - `duvri-agent-contract.js` definisce 12 ruoli HSE, compresi 3 agenti base, struttura delle valutazioni e tre scope **non sovrapponibili**: `allowedFileIds` (fascicolo attuale), `allowedHistoricalReferenceIds` (precedenti 2026) e `allowedInternalRuleIds` (regole approvate). Ogni finding richiede una fonte corrente: gli esempi storici non possono sostituirla.
 - `duvri-hse-coordinator.js` aggrega gli output dei soli specialisti richiesti, verifica il fascicolo e la revisione di analisi, impedisce output duplicati o sconosciuti, conserva tutte le fonti e segnala interferenze potenzialmente sovrapposte **senza fonderle**.
 - `duvri-hse-pipeline.js` passa il risultato dello screening `yes/no/unknown` al coordinatore. I segnali non confermati mantengono `awaiting_input`, anche quando gli agenti hanno prodotto risposte.
-- Test sintetici: contratti, specialisti mancanti, duplicati, fonti cross-job, precedenti storici, conflitti, revisione mancante, rischi sconosciuti, dati non mutati.
+- **50 test sintetici complessivi** (18 contratto, 17 coordinatore, 10 pipeline, 5 integrazione end-to-end): specialisti mancanti, duplicati, fonti cross-job, precedenti storici, conflitti, revisione mancante, rischi sconosciuti e dati non mutati.
 
 ## Integrazione con Codex
 
@@ -16,7 +16,7 @@
 3. Normalizzare i segnali dello screening e invocare `aggregateEvidenceGated` con ID fascicolo, revisione di analisi corrente, file autorizzati e risposte degli agenti.
 4. Le allowlist storiche e delle regole interne devono essere prodotte indipendentemente dal server. Sono vietate sovrapposizioni con i file dell'incarico.
 5. Rifiutare batch che producono `blocked` oppure `awaiting_input` e portarli nell'elenco di chiarimenti o anomalie da risolvere.
-6. Dopo `needs_review`, il backend potrà aggiungere `packet_revision_id` e SHA-256 **verificati lato server** del pacchetto canonico e sottoporlo al gate della revisione HSE (PR #38). Questa libreria non attesta da sola il digest.
+6. Quando `needs_review`, il backend potrà aggiungere `packet_revision_id` e SHA-256 **verificati lato server** del pacchetto canonico e sottoporlo al gate della revisione HSE (PR #38). Questa libreria non attesta da sola il digest.
 7. Persistenza, autentica, autorizzazioni, audit e controllo concorrenza restano responsabilità del backend Codex.
 
 ## Limiti
