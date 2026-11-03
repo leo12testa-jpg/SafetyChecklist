@@ -38,7 +38,7 @@ class SyntheticCorpusTests(unittest.TestCase):
             self.assertTrue(pdf.read_bytes().startswith(b'%PDF-1.4'))
             with zipfile.ZipFile(doc) as z:
                 root=ET.fromstring(z.read('word/document.xml'))
-                texts=' '.join(t.text or '' for t in root.iter(gen.W+'t'))
+                texts=' '.join(t.text or '' for t in root.iter('{'+gen.W+'}t'))
                 self.assertIn(case['committente'],texts)
                 self.assertIn(case['intervention'],texts)
                 self.assertIn('NON REALE',texts)
