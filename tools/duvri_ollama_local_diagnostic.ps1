@@ -30,6 +30,42 @@ if (Test-Path -LiteralPath $configPath -PathType Leaf) {
         $configReadable = $false
     }
 }
+
+# Inspect active listener addresses, not merely the env configuration.
+# This is read-only; on systems without NetTCPIP cmdlets it stays unverified.
+$actualLoopbackOnly = $false
+$listenerAddresses = @()
+try {
+    $listeners = @(Get-NetTCPConnection -State Listen -LocalPort 11434 -ErrorAction Stop)
+    $listenerAddresses = @($listeners | Select-Object -ExpandProperty LocalAddress -Unique)
+    $actualLoopbackOnly = ($listenerAddresses.Count -gt 0 -and
+        @($listenerAddresses | Where-Object {
+            $_ -ne '127.0.0.1' -and $_ -ne '::1'
+        }).Count -eq 0)
+} catch {
+    $actualLoopbackOnly = $false
+}
+# Ollama's Windows installer logs to %LOCALAPPDATA%\Ollama\server.log.
+# A log line is supporting evidence, not proof it describes today's process.
+$cloudDisabledLastLogValue = 'UNKNOWN'
+try {
+    $logPath = Join-Path $env:LOCALAPPDATA 'Ollama\server.log'
+    if (Test-Path -LiteralPath $logPath -PathType Leaf) {
+        $logLines = @(Get-Content -LiteralPath $logPath -Tail 3000 -ErrorAction Stop |
+            Select-String -Pattern 'Ollama cloud disabled:\s*(true|false)')
+        if ($logLines.Count -gt 0) {
+            $lastLine = [string]$logLines[-1].Line
+            if ($lastLine -match 'Ollama cloud disabled:\s*true') {
+                $cloudDisabledLastLogValue = 'TRUE'
+            } elseif ($lastLine -match 'Ollama cloud disabled:\s*false') {
+                $cloudDisabledLastLogValue = 'FALSE'
+            }
+        }
+    }
+} catch {
+    $cloudDisabledLastLogValue = 'UNKNOWN'
+}
+
 $exePresent = ($null -ne (Get-Command ollama -ErrorAction SilentlyContinue))
 $ollamaRunning = $false
 $models = @()
@@ -57,10 +93,12 @@ try {
 $noCloudConfigured = ($cloudEnvConfigured -or $configDisabled)
 $localAllowed = $exePresent -and $ollamaRunning -and
     $noCloudConfigured -and $configReadable -and (-not $unsafeHost) -and
+    $actualLoopbackOnly -and ($cloudDisabledLastLogValue -eq 'TRUE') -and
     (@($models | Where-Object { $_ -notmatch '(?i)cloud' }).Count -gt 0)
 $state = if (-not $exePresent) { 'OLLAMA_CLI_MISSING' }
     elseif (-not $ollamaRunning) { 'LOCAL_OLLAMA_UNAVAILABLE' }
     elseif ($unsafeHost) { 'OLLAMA_HOST_NOT_LOOPBACK' }
+    elseif (-not $actualLoopbackOnly) { 'LOOPBACK_LISTENER_NOT_VERIFIED' }
     elseif (-not $configReadable) { 'CLOUD_CONFIG_UNREADABLE' }
     elseif (-not $noCloudConfigured) { 'CLOUD_DISABLE_NOT_CONFIGURED' }
     elseif ($models.Count -eq 0) { 'NO_MODELS_INSTALLED' }
@@ -75,6 +113,9 @@ $state = if (-not $exePresent) { 'OLLAMA_CLI_MISSING' }
     # A configuration flag alone does NOT prove the running service has
     # loaded it. Verify the Ollama log reports "Ollama cloud disabled: true".
     cloud_disabled_effectively_verified = $false
+    last_log_cloud_disabled_value = $cloudDisabledLastLogValue
+    listening_loopback_only_verified = $actualLoopbackOnly
+    observed_listening_addresses = @($listenerAddresses)
     server_json_present = $configPresent
     server_json_readable = $configReadable
     loopback_binding_configuration_ok = (-not $unsafeHost)
