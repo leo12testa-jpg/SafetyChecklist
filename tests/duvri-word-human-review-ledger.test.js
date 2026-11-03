@@ -21,7 +21,8 @@ const mk=(context,decision='pass')=>context.pages.map((p,i)=>({
  schema_version:PAGE_VERSION,job_id:job,draft_revision_id:docRev,
  render_run_id:renderRun,review_ledger_revision_id:ledgerRev,
  page_number:i+1,page_sha256:p.sha256,
- reviewer_id:reviewer,reviewer_role:'tecnico',decision,
+ reviewer_id:decision==='pending'?null:reviewer,
+ reviewer_role:decision==='pending'?null:'tecnico',decision,
  checks:Object.fromEntries(CHECKS.map(k=>[k,decision==='pass'?true:decision==='pending'?null:false])),
  issue_codes:decision==='fail'?['OTHER_VISUAL_ISSUE']:[]
 }));
@@ -46,6 +47,68 @@ test('30 pages in pending state are not visually reviewed',()=>{
  const c=ctx(),r=assess({trustedContext:c,pageReviews:mk(c,'pending')});
  assert.equal(r.state,'awaiting_human_page_review');assert.equal(r.pending_pages,30);
  assert.equal(r.passed_pages,0);neverIssues(r);
+});
+test('unassigned pending page has no reviewer in the private backend',()=>{
+ const c=ctx(),entries=mk(c,'pending');
+ for(const e of entries){
+   assert.equal(e.reviewer_id,null);
+   assert.equal(e.reviewer_role,null);
+ }
+ const r=assess({trustedContext:c,pageReviews:entries});
+ assert.equal(r.pending_pages,30);assert.equal(r.state,'awaiting_human_page_review');neverIssues(r);
+});
+test('backend may omit reviewer fields entirely on untouched pending pages',()=>{
+ const c=ctx(),entries=mk(c,'pending');
+ delete entries[5].reviewer_id;delete entries[5].reviewer_role;
+ const r=assess({trustedContext:c,pageReviews:entries});
+ assert.equal(r.pending_pages,30);neverIssues(r);
+});
+test('one reviewed page and 29 unassigned pending pages is a valid incomplete ledger',()=>{
+ const c=ctx(),entries=mk(c,'pending'),passed=mk(c,'pass');
+ entries[0]=passed[0];
+ const r=assess({trustedContext:c,pageReviews:entries});
+ assert.equal(r.passed_pages,1);assert.equal(r.pending_pages,29);
+ assert.equal(r.state,'awaiting_human_page_review');neverIssues(r);
+});
+test('reviewer set on untouched pending page is rejected even if authenticated',()=>{
+ const c=ctx(),entries=mk(c,'pending');
+ entries[1].reviewer_id=reviewer;entries[1].reviewer_role='tecnico';
+ assert.equal(assess({trustedContext:c,pageReviews:entries}).state,'blocked');
+});
+test('completed pages may have different server verified independent reviewers',()=>{
+ const c=ctx(),entries=mk(c);
+ c.verified_page_reviewers=[
+   {reviewer_id:reviewer,reviewer_role:'tecnico'},
+   {reviewer_id:'REVIEWER_SYNTH_003',reviewer_role:'admin'}
+ ];
+ entries[1].reviewer_id='REVIEWER_SYNTH_003';entries[1].reviewer_role='admin';
+ const r=assess({trustedContext:c,pageReviews:entries});
+ assert.equal(r.passed_pages,30);
+ assert.equal(r.state,'all_page_reviews_recorded_for_private_qa');neverIssues(r);
+});
+test('per-page reviewer lacking server role verification must not count',()=>{
+ const c=ctx(),entries=mk(c);
+ c.verified_page_reviewers=[{reviewer_id:reviewer,reviewer_role:'tecnico'}];
+ entries[1].reviewer_id='UNTRUSTED_REVIEWER_004';entries[1].reviewer_role='tecnico';
+ assert.equal(assess({trustedContext:c,pageReviews:entries}).state,'blocked');
+});
+test('wrong role or duplicate identity inside trusted reviewer roster fails closed',()=>{
+ const c=ctx(),entries=mk(c);
+ c.verified_page_reviewers=[{reviewer_id:reviewer,reviewer_role:'admin'}];
+ assert.equal(assess({trustedContext:c,pageReviews:entries}).state,'blocked');
+ c.verified_page_reviewers=[
+   {reviewer_id:reviewer,reviewer_role:'tecnico'},
+   {reviewer_id:reviewer,reviewer_role:'admin'}
+ ];
+ assert.equal(assess({trustedContext:c,pageReviews:entries}).state,'blocked');
+});
+test('generator in trusted reviewer roster is prohibited',()=>{
+ const c=ctx(),entries=mk(c);
+ c.verified_page_reviewers=[
+   {reviewer_id:reviewer,reviewer_role:'tecnico'},
+   {reviewer_id:gen,reviewer_role:'admin'}
+ ];
+ assert.equal(assess({trustedContext:c,pageReviews:entries}).state,'blocked');
 });
 test('one failed page prevents a QA pass even if other 29 pass',()=>{
  const c=ctx(),entries=mk(c);entries[7].decision='fail';
