@@ -91,7 +91,7 @@ class DuvriWordRenderEvidenceTests(unittest.TestCase):
         self.assertEqual(result["state"], "page_render_evidence_ready_for_independent_review")
         self.assertEqual(result["page_images_verified"], 2)
         self.assertTrue(result["first_and_last_page_present"])
-        self.assertTrue(result["all_png_integrity_checks_passed"])
+        self.assertTrue(result["png_chunk_crcs_verified"])
         self.assertFalse(result["rendered_content_visually_reviewed"])
         self.assertFalse(result["render_provenance_independently_attested"])
         self.assertFalse(result["d1_approved"])
