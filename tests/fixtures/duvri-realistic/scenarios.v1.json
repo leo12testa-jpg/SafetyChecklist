@@ -1,0 +1,265 @@
+{
+  "schema_version": "colligo-duvri-realistic-acceptance/1.0",
+  "synthetic_only": true,
+  "purpose": "Caso di collaudo end-to-end SOLO SINTETICO: documento Word/analisi HSE reali nel backend privato; nessuna emissione o approvazione",
+  "module_boundary": {
+    "checklist_app": "audit_dvr_existing_workflow_unmodified",
+    "document_generator": "isolated_private_duvri_case",
+    "transfer": "none_implicit",
+    "allowed_data_input": "DOCX compilato dal cliente e allegati caricati nel fascicolo DUVRI, non record di sopralluogo"
+  },
+  "cases": [
+    {
+      "case_id": "REAL_SYN_01",
+      "title": "Manutenzione copertura e verifica elettrica presso magazzino logistico",
+      "site_type": "magazzino logistico",
+      "client": "Aster Logistica Dimostrativa S.r.l.",
+      "contractors": [
+        "Beta Coperture Dimostrative S.r.l.",
+        "Gamma Impianti Dimostrativi S.r.l."
+      ],
+      "work_window": "2026-11-16/2026-11-18",
+      "documents": [
+        "CHECKLIST_REAL_SYN_01.docx",
+        "CAPITOLATO_REAL_SYN_01.pdf",
+        "CRONOPROGRAMMA_REAL_SYN_01.xlsx"
+      ],
+      "facts": [
+        {
+          "id": "F01",
+          "source": "CHECKLIST_REAL_SYN_01.docx",
+          "text": "Attività di magazzino e carico merci prosegue durante la manutenzione"
+        },
+        {
+          "id": "F02",
+          "source": "CAPITOLATO_REAL_SYN_01.pdf",
+          "text": "Lavorazioni sulla copertura del magazzino, con materiali e attrezzature in quota"
+        },
+        {
+          "id": "F03",
+          "source": "CRONOPROGRAMMA_REAL_SYN_01.xlsx",
+          "text": "Lavoro in quota e transito mezzi si sovrappongono martedì dalle 09:00 alle 11:00"
+        },
+        {
+          "id": "F04",
+          "source": "CAPITOLATO_REAL_SYN_01.pdf",
+          "text": "La verifica elettrica è prevista con una seconda impresa nello stesso periodo"
+        },
+        {
+          "id": "F05",
+          "source": "CHECKLIST_REAL_SYN_01.docx",
+          "text": "La portata della copertura e i sistemi anticaduta non sono ancora attestati"
+        }
+      ],
+      "interferences": [
+        {
+          "id": "INT01",
+          "phase": "lavoro sulla copertura",
+          "evidence_ids": [
+            "F01",
+            "F02",
+            "F03"
+          ],
+          "exposure": "addetti e autisti nell'area di carico",
+          "proposal_to_review": "Delimitare e coordinare area sottostante e transito; verificare esclusione effettiva"
+        },
+        {
+          "id": "INT02",
+          "phase": "verifica elettrica concomitante",
+          "evidence_ids": [
+            "F02",
+            "F04"
+          ],
+          "exposure": "addetti delle due imprese",
+          "proposal_to_review": "Definire sequenza lavori, sezionamenti e responsabilità prima dell'avvio"
+        }
+      ],
+      "expected_agents": [
+        "documentale",
+        "normativa",
+        "lavori_quota",
+        "elettrico",
+        "logistica",
+        "coordinamento"
+      ],
+      "clarifications": [
+        "Portata certificata della copertura e verifica delle protezioni contro le cadute",
+        "Fasce esatte di interdizione del transito",
+        "Responsabile per le procedure di messa in sicurezza elettrica"
+      ],
+      "forbidden_context": [
+        "supermercato",
+        "punto vendita",
+        "casse"
+      ],
+      "missing_information_blocks": "YES",
+      "risk_index_approved": false,
+      "word_visual_review_required": true,
+      "issuance_allowed": false
+    },
+    {
+      "case_id": "REAL_SYN_02",
+      "title": "Manutenzione impianto frigorifero in deposito alimentare",
+      "site_type": "deposito alimentare",
+      "client": "Iride Distribuzione Dimostrativa S.r.l.",
+      "contractors": [
+        "Freddo Tecnico Dimostrativo S.r.l."
+      ],
+      "work_window": "2026-11-19",
+      "documents": [
+        "CHECKLIST_REAL_SYN_02.docx",
+        "CAPITOLATO_REAL_SYN_02.pdf",
+        "CRONOPROGRAMMA_REAL_SYN_02.xlsx"
+      ],
+      "facts": [
+        {
+          "id": "F01",
+          "source": "CHECKLIST_REAL_SYN_02.docx",
+          "text": "Il deposito resta operativo con transito di carrelli elevatori dalle 06:00 alle 11:00"
+        },
+        {
+          "id": "F02",
+          "source": "CAPITOLATO_REAL_SYN_02.pdf",
+          "text": "L'installatore deve intervenire sul gruppo frigorifero in area tecnica dalle 07:30 alle 10:30"
+        },
+        {
+          "id": "F03",
+          "source": "CRONOPROGRAMMA_REAL_SYN_02.xlsx",
+          "text": "Percorso di accesso tecnico e movimentazione merci si intersecano dalle 08:00 alle 09:30"
+        },
+        {
+          "id": "F04",
+          "source": "CAPITOLATO_REAL_SYN_02.pdf",
+          "text": "La scheda del refrigerante e le modalità di isolamento impiantistico non sono state fornite"
+        }
+      ],
+      "interferences": [
+        {
+          "id": "INT01",
+          "phase": "accesso e manutenzione gruppo frigorifero",
+          "evidence_ids": [
+            "F01",
+            "F02",
+            "F03"
+          ],
+          "exposure": "manutentori e carrellisti",
+          "proposal_to_review": "Coordinare il percorso con interdizioni e fasce dedicate, segnalando la presenza di mezzi"
+        },
+        {
+          "id": "INT02",
+          "phase": "isolamento gruppo frigorifero",
+          "evidence_ids": [
+            "F02",
+            "F04"
+          ],
+          "exposure": "manutentori e personale deposito",
+          "proposal_to_review": "Acquisire scheda refrigerante e definire modalità di isolamento prima della lavorazione"
+        }
+      ],
+      "expected_agents": [
+        "documentale",
+        "normativa",
+        "macchine_impianti",
+        "logistica",
+        "chimico_atex",
+        "coordinamento"
+      ],
+      "clarifications": [
+        "Identificazione refrigerante e documentazione tecnica",
+        "Modalità di sezionamento elettrico e blocco delle energie",
+        "Piano di gestione della movimentazione durante l'intervento"
+      ],
+      "forbidden_context": [
+        "casse al pubblico",
+        "area vendita supermarket",
+        "applicazione strass"
+      ],
+      "missing_information_blocks": "YES",
+      "risk_index_approved": false,
+      "word_visual_review_required": true,
+      "issuance_allowed": false
+    },
+    {
+      "case_id": "REAL_SYN_03",
+      "title": "Ispezione e manutenzione vasca tecnica interrata - permessi incompleti",
+      "site_type": "impianto tecnico industriale",
+      "client": "Zeta Acque Dimostrative S.r.l.",
+      "contractors": [
+        "Delta Servizi Industriali Dimostrativi S.r.l."
+      ],
+      "work_window": "2026-11-24",
+      "documents": [
+        "CHECKLIST_REAL_SYN_03.docx",
+        "CAPITOLATO_REAL_SYN_03.pdf",
+        "CRONOPROGRAMMA_REAL_SYN_03.xlsx"
+      ],
+      "facts": [
+        {
+          "id": "F01",
+          "source": "CHECKLIST_REAL_SYN_03.docx",
+          "text": "L'area comprende una vasca interrata con possibile accesso limitato"
+        },
+        {
+          "id": "F02",
+          "source": "CAPITOLATO_REAL_SYN_03.pdf",
+          "text": "È previsto un sopralluogo interno della vasca, ma il permesso di ingresso non è allegato"
+        },
+        {
+          "id": "F03",
+          "source": "CAPITOLATO_REAL_SYN_03.pdf",
+          "text": "Non risultano allegate misurazioni dell'atmosfera, procedura di recupero e piano di emergenza specifico"
+        },
+        {
+          "id": "F04",
+          "source": "CRONOPROGRAMMA_REAL_SYN_03.xlsx",
+          "text": "Attività sulla vasca e manutenzione delle pompe sono previste nella stessa fascia 09:00-11:00"
+        }
+      ],
+      "interferences": [
+        {
+          "id": "INT01",
+          "phase": "accesso potenziale a vasca interrata",
+          "evidence_ids": [
+            "F01",
+            "F02",
+            "F03"
+          ],
+          "exposure": "impresa e personale del sito",
+          "proposal_to_review": "Vietare l'accesso fino alla verifica dei requisiti autorizzativi, della valutazione e del piano di emergenza"
+        },
+        {
+          "id": "INT02",
+          "phase": "manutenzione pompe concomitante",
+          "evidence_ids": [
+            "F03",
+            "F04"
+          ],
+          "exposure": "operatori delle lavorazioni simultanee",
+          "proposal_to_review": "Definire coordinamento e isolamento delle energie prima dell'intervento"
+        }
+      ],
+      "expected_agents": [
+        "documentale",
+        "normativa",
+        "spazi_confinati",
+        "macchine_impianti",
+        "coordinamento"
+      ],
+      "clarifications": [
+        "Accertare classificazione giuridica/tecnica dello spazio e applicabilità delle procedure",
+        "Acquisire permesso di accesso e controllo atmosfera adeguati",
+        "Acquisire piano di emergenza, recupero e misure di isolamento"
+      ],
+      "forbidden_context": [
+        "atmosfera sicura",
+        "accesso autorizzato",
+        "permesso disponibile",
+        "assenza di rischi"
+      ],
+      "missing_information_blocks": "YES",
+      "risk_index_approved": false,
+      "word_visual_review_required": true,
+      "issuance_allowed": false
+    }
+  ]
+}
