@@ -24,6 +24,7 @@ Documentazione API: https://docs.ollama.com/api/chat e https://docs.ollama.com/a
 ## Sicurezza del worker
 
 - Il backend deve costruire `loadSyntheticCase` dopo aver controllato proprietà del fascicolo, permessi, revisioni, soli file sintetici, minimizzazione e fonti ammesse; non leggere il payload direttamente dal browser.
+- L'adapter confronta ogni riferimento esplicito `file_id` / `file_ids` (anche annidato e varianti `sourceFileId`) con l'allowlist del fascicolo, richiedendo almeno una fonte corrente; citazioni arbitrarie o di altri fascicoli vengono bloccate prima di chiamare Ollama. Questo controllo non sostituisce il successivo confronto fattuale dei testi citati.
 - La callback `recordAudit` deve scrivere un evento prima dell'esecuzione locale; se fallisce, non si avvia Ollama. Un errore di audit finale blocca l'output. Eventi senza testo privato.
 - Il processo controlla che il modello sia già installato, limita gli input a 22k caratteri, usa JSON strutturato, timeout 120s e verifica il contratto `duvri-agent-contract.js`.
 - Una risposta sintatticamente valida non è fonte certa: `duvri-hse-fact-match.js`, controllo dei conflitti, giudizio del tecnico e QA Word rimangono obbligatori.
@@ -43,6 +44,10 @@ Documentazione API: https://docs.ollama.com/api/chat e https://docs.ollama.com/a
 
 `node --test tests/duvri-ollama-local-adapter.test.js`
 
-**21 scenari mock**, senza accesso al localhost reale, verificano stato OFF, 2 endpoint letterali, cloud disabilitato e binding locale, modello installato, nessun download, no dati reali, ACL/revisioni, istruzioni dei 12 profili, audit, JSON, risposte illegittime e blocco dell'emissione.
+**25 scenari mock**, senza accesso al localhost reale, verificano stato OFF, 2 endpoint letterali, cloud disabilitato e binding locale, modello installato, nessun download, no dati reali, ACL/revisioni, istruzioni dei 12 profili, audit, JSON, risposte illegittime e blocco dell'emissione.
 
 **Limite esplicito:** un test con provider mock NON dimostra che Ollama sia installato e in esecuzione sul computer Windows dell'utente. La prima esecuzione con modello vero deve essere svolta da Codex **localmente**, in condizioni di costo e rete verificate.
+
+### Diagnostica Windows rafforzata
+
+Lo script `tools/duvri_ollama_local_diagnostic.ps1` consulta in **sola lettura** le porte in ascolto tramite `Get-NetTCPConnection` e verifica se il servizio usa solo `127.0.0.1` o `::1`. Cerca inoltre l'ultima segnalazione `Ollama cloud disabled: true/false` nei log Windows `%LOCALAPPDATA%\Ollama\server.log`. Queste sono **evidenze diagnostiche**, non una prova dell'attestazione runtime: `cloud_disabled_effectively_verified` rimane `false` finché Codex non collega in modo affidabile log e configurazione al processo Ollama attualmente in ascolto. Se il controllo della porta non è disponibile, il risultato resta prudenzialmente non verificato.
