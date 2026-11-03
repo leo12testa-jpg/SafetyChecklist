@@ -16,6 +16,37 @@ const isId=x=>typeof x==='string'&&OPAQUE.test(x);
 const obj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const exact=(x,keys)=>obj(x)&&Object.keys(x).length===keys.length&&
   Object.keys(x).every(k=>keys.includes(k));
+
+/*
+ * Source binding check for the facts staged by the trusted private backend.
+ * Explicitly named file references must be part of this run's allowlist.
+ * Require at least one cited current-job file. This is a provenance safety
+ * guard, NOT proof the prose is actually supported by the cited document.
+ */
+function referencesAllowed(facts,allowedFileIds){
+ const allowed=new Set(allowedFileIds),stack=[facts],seen=new Set();
+ const single=new Set(['file_id','source_file_id','fileId','sourceFileId']);
+ const plural=new Set(['file_ids','source_file_ids','fileIds','sourceFileIds']);
+ let found=0,visited=0;
+ while(stack.length){
+  const node=stack.pop();
+  if(node===null||typeof node!=='object')continue;
+  if(seen.has(node)||++visited>1000)return false;
+  seen.add(node);
+  for(const [key,value] of Object.entries(node)){
+   if(single.has(key)){
+    if(!isId(value)||!allowed.has(value))return false;
+    found++;
+   }else if(plural.has(key)){
+    if(!Array.isArray(value)||!value.length||
+       !value.every(x=>isId(x)&&allowed.has(x)))return false;
+    found+=value.length;
+   }
+   if(value!==null&&typeof value==='object')stack.push(value);
+  }
+ }
+ return found>0;
+}
 function blocked(code,attempted=false){
  return {
   state:'blocked',blocker_code:code,
@@ -102,6 +133,8 @@ function createLocalOllamaAdapter({
   catch(_){return blocked('SYNTHETIC_FACTS_INVALID');}
   if(typeof serialized!=='string'||serialized.length>22000)
     return blocked('SYNTHETIC_FACTS_INVALID');
+  if(!referencesAllowed(facts,policy.allowed_file_ids))
+    return blocked('SOURCE_FACT_REFERENCES_NOT_AUTHORIZED');
   const ctx={...ref,model_id:policy.model_id};
   try{await recordAudit({...ctx,event:'local_run_started'});}
   catch(_){return blocked('LOCAL_AUDIT_NOT_AVAILABLE');}
