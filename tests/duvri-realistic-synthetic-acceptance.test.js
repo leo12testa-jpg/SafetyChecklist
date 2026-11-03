@@ -77,3 +77,40 @@ test('the generator script does not touch existing audit/DVR app or private temp
  assert.doesNotMatch(source,/js\/app\.js|service-worker\.js|src\/checklists/);
  assert.match(source,/issuance_allowed.*False/);
 });
+
+
+test('actual synthetic bytes form four valid private-dossier manifests without PWA state',()=>{
+ const os=require('node:os');
+ const crypto=require('node:crypto');
+ const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'duvri-realistic-synthetic-'));
+ try{
+  const python=process.platform==='win32'?'py':'python3';
+  const args=process.platform==='win32'
+   ?['-3','tools/duvri_realistic_synthetic_bundle.py','--out',tmp]
+   :['tools/duvri_realistic_synthetic_bundle.py','--out',tmp];
+  const result=spawnSync(python,args,{cwd:ROOT,encoding:'utf8',timeout:30000,
+   maxBuffer:2*1024*1024});
+  assert.ifError(result.error);
+  assert.equal(result.status,0,result.stderr.slice(-1000));
+  for(const c of cases.cases){
+   const dir=path.join(tmp,c.id);
+   const payload=JSON.parse(fs.readFileSync(path.join(dir,'00_FASCICOLO_MANIFEST.json'),'utf8'));
+   const docs=payload.files.map(({filename,...f})=>{
+    const bytes=fs.readFileSync(path.join(dir,filename));
+    assert.equal(f.sha256,crypto.createHash('sha256').update(bytes).digest('hex'));
+    return f;
+   });
+   const result=manifest.assessManifest({jobId:c.id.replaceAll('-','_'),documents:docs});
+   assert.equal(result.state,'ready_for_extraction',c.id);
+   assert.equal(result.evidence_verified,false);
+   assert.equal(result.issuance_allowed,false);
+   // Reject introducing any artifact from another dossier.
+   const foreign={...docs[0],job_id:'SIM_99_FOREIGN'};
+   assert.equal(manifest.assessManifest({
+    jobId:c.id.replaceAll('-','_'),documents:[foreign,...docs.slice(1)]
+   }).state,'blocked');
+  }
+ }finally{
+  fs.rmSync(tmp,{recursive:true,force:true});
+ }
+});
