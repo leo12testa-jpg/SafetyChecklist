@@ -12,3 +12,6 @@ __pycache__/
 /reports/final-ui/
 /reports/pdf-verification/
 /reports/qa-v1/
+# Output temporanei di verifica PDF.js e storico, potenzialmente riservati.
+/reports/msedge-pdf/
+/reports/qa-historical/
