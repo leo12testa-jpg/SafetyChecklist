@@ -2,6 +2,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {createLocalOllamaAdapter}=require('../server/duvri-ollama-local-adapter.cjs');
+const {AGENTS}=require('../js/duvri-agent-contract.js');
 
 const JOB='JOB_SYNTH_OLLAMA_001',AN='ANALYSIS_SYNTH_OLLAMA_001';
 const EX='EXTRACTION_SYNTH_OLLAMA_001',RUN='RUN_SYNTH_OLLAMA_001';
@@ -266,4 +267,77 @@ test('no local attempt if runtime verification itself throws',async()=>{
  const x=await adapter.invoke(ref());safe(x);
  assert.equal(x.blocker_code,'LOCAL_ONLY_RUNTIME_NOT_VERIFIED');
  assert.equal(events.fetch.length,0);
+});
+
+
+test('all twelve existing specialist roles use their own instructions on the same LOCAL mock model',async()=>{
+ assert.equal(AGENTS.length,12);
+ const roles=new Set();
+ for(const agentId of AGENTS){
+  const p=policy();
+  p.agent_id=agentId;
+  p.source_facts.agent_id=agentId;
+  const a=answer();
+  a.agent_id=agentId;
+  const events={fetch:[],audit:[]};
+  const {adapter}=harness({
+   loadSyntheticCase:async()=>p,
+   fetchImpl:async(url,opts)=>{
+    events.fetch.push({url,opts});
+    return url.endsWith('/api/tags')?
+     {ok:true,text:async()=>JSON.stringify({models:[{name:MODEL}]})}:
+     modelResponse(a);
+   }
+  });
+  const x=await adapter.invoke({...ref(),agentId});safe(x);
+  assert.equal(x.state,'candidate_for_private_fact_verification',agentId);
+  assert.equal(x.agent_result.agent_id,agentId);
+  assert.deepEqual(events.fetch.map(e=>e.url),[
+   'http://127.0.0.1:11434/api/tags',
+   'http://127.0.0.1:11434/api/chat'
+  ]);
+  const input=JSON.parse(events.fetch[1].opts.body);
+  assert.equal(input.model,MODEL);
+  assert.match(input.messages[0].content,/specialista HSE/);
+  roles.add(input.messages[0].content);
+ }
+ assert.equal(roles.size,12,'Every role must have distinct instructions');
+});
+test('synthetic facts referring to a foreign current-job file are blocked before any Ollama GET',async()=>{
+ for(const foreign of [
+  {file_id:'FOREIGN_FILE_999'},
+  {source_file_id:'FOREIGN_FILE_999'},
+  {fileId:'FOREIGN_FILE_999'},
+  {sourceFileId:'FOREIGN_FILE_999'},
+  {file_ids:['DOCX_SYNTH_001','FOREIGN_FILE_999']},
+  {source_file_ids:['FOREIGN_FILE_999']},
+  {fileIds:['FOREIGN_FILE_999']},
+  {sourceFileIds:['FOREIGN_FILE_999']}
+ ]){
+  const p=policy();
+  p.source_facts.task.references={nested:foreign};
+  const {adapter,events}=harness({loadSyntheticCase:async()=>p});
+  const x=await adapter.invoke(ref());safe(x);
+  assert.equal(x.blocker_code,'SOURCE_FACT_REFERENCES_NOT_AUTHORIZED');
+  assert.equal(events.fetch.length,0);
+  assert.equal(events.audit.length,0);
+ }
+});
+test('synthetic facts with no explicit current-job source ID fail closed',async()=>{
+ const p=policy();
+ delete p.source_facts.task.file_id;
+ const {adapter,events}=harness({loadSyntheticCase:async()=>p});
+ const x=await adapter.invoke(ref());safe(x);
+ assert.equal(x.blocker_code,'SOURCE_FACT_REFERENCES_NOT_AUTHORIZED');
+ assert.equal(events.fetch.length,0);
+});
+test('nested source references from the allowed case pass, without any external request',async()=>{
+ const p=policy();
+ p.source_facts.task.references={
+  file_ids:['DOCX_SYNTH_001'],extra:[{source_file_id:'DOCX_SYNTH_001'}]
+ };
+ const {adapter,events}=harness({loadSyntheticCase:async()=>p});
+ const x=await adapter.invoke(ref());safe(x);
+ assert.equal(x.state,'candidate_for_private_fact_verification');
+ assert.equal(events.fetch.every(x=>x.url.startsWith('http://127.0.0.1:11434/')),true);
 });
