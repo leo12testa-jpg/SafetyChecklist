@@ -73,7 +73,7 @@ test('create real document inputs offline with Python; no network or external AI
 test('the generator script does not touch existing audit/DVR app or private template',()=>{
  const source=fs.readFileSync(path.join(ROOT,'tools',
   'duvri_realistic_synthetic_bundle.py'),'utf8');
- assert.doesNotMatch(source,/https?:\/\/|openai|anthropic|ollama|subprocess/);
+ assert.doesNotMatch(source,/\burllib\b|\brequests\.|http\.client|fetch\(|openai|anthropic|ollama|subprocess/);
  assert.doesNotMatch(source,/js\/app\.js|service-worker\.js|src\/checklists/);
  assert.match(source,/issuance_allowed.*False/);
 });
