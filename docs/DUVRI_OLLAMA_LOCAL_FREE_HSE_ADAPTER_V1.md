@@ -51,3 +51,15 @@ Documentazione API: https://docs.ollama.com/api/chat e https://docs.ollama.com/a
 ### Diagnostica Windows rafforzata
 
 Lo script `tools/duvri_ollama_local_diagnostic.ps1` consulta in **sola lettura** le porte in ascolto tramite `Get-NetTCPConnection` e verifica se il servizio usa solo `127.0.0.1` o `::1`. Cerca inoltre l'ultima segnalazione `Ollama cloud disabled: true/false` nei log Windows `%LOCALAPPDATA%\Ollama\server.log`. Queste sono **evidenze diagnostiche**, non una prova dell'attestazione runtime: `cloud_disabled_effectively_verified` rimane `false` finché Codex non collega in modo affidabile log e configurazione al processo Ollama attualmente in ascolto. Se il controllo della porta non è disponibile, il risultato resta prudenzialmente non verificato.
+
+## Diagnostica Node senza PowerShell
+
+Se la policy di esecuzione PowerShell aziendale impedisce lo script `.ps1`, **non modificarla**. È disponibile un diagnostico read-only alternativo: `node tools/duvri_ollama_local_diagnostic.cjs`. Richiede soltanto Node (già presente nel progetto).
+
+Il diagnostico Node fa una sola richiesta GET a `http://127.0.0.1:11434/api/tags`; il client HTTP nativo non segue redirect. Effettua inventario read-only RAM e, su Windows, cerca la CLI con `where.exe`, osserva le socket con `netstat.exe`, legge soltanto le impostazioni cloud-off nel file `~/.ollama/server.json` e la coda del log locale. Non stampa file personali, credenziali o contenuti dei documenti; non interroga altri indirizzi, non installa e non avvia Ollama, non esegue `pull` e non modifica la policy.
+
+**Il processo cloud-off non è attestato automaticamente.** Anche in presenza di configurazione e log favorevoli il risultato mantiene `effective_ollama_process_cloud_disabled_verified=false`: Codex deve correlare il processo realmente in esecuzione alla configurazione, senza affidarsi a variabili d'ambiente del processo diagnostico. Se il servizio o un modello non esistono, il risultato è un blocco, non un'autorizzazione.
+
+Con circa 15,5 GiB di RAM totale ma soltanto 2,5 GiB disponibili (ultimo controllo Windows riportato da Codex), **non procedere automaticamente con un modello 4B**. Verificare la memoria libera al momento della prova e scegliere eventualmente un modello più piccolo solo dopo approvazione operativa; nessun download automatico.
+
+Test del diagnostico Node: `node --test tests/duvri-ollama-local-diagnostic-node.test.js` (11 casi sintetici, senza chiamata a un servizio Ollama reale).
