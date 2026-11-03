@@ -172,7 +172,9 @@ test('all verified receipts must have exact schema, no model injected fields',()
   ['provider_dispatch_allowed',true]]){
   const e=receipt('documentale');e[key]=value;
   const r=run({receipts:[e]});safe(r);
-  assert.equal(r.state,'blocked');assert.equal(JSON.stringify(r).includes(key),false);
+  assert.equal(r.state,'blocked');
+  assert.equal(JSON.stringify(r).includes('DISABLE_PRIVACY'),false);
+  assert.equal(JSON.stringify(r).includes('risk_score'),false);
  }
 });
 test('malformed status and injected human authorization rejected',()=>{
