@@ -8,7 +8,11 @@ foreach ($level in $envLevels) {
     $cloudEnvs += [Environment]::GetEnvironmentVariable('OLLAMA_NO_CLOUD', $level)
     $hostEnvs += [Environment]::GetEnvironmentVariable('OLLAMA_HOST', $level)
 }
-$cloudEnvConfigured = @($cloudEnvs | Where-Object { $_ -eq '1' }).Count -gt 0
+# Process overrides user, which overrides machine. A lower-priority '1'
+# must NOT mask a higher-priority value of '0'.
+$effectiveCloud = @($cloudEnvs | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+    Select-Object -First 1)
+$cloudEnvConfigured = ($effectiveCloud.Count -gt 0 -and $effectiveCloud[0] -eq '1')
 $customHosts = @($hostEnvs | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
 $unsafeHost = @($customHosts | Where-Object {
     $_ -notmatch '^(?i:(?:https?://)?(?:127\.0\.0\.1|localhost))(?::11434)?$'
@@ -32,7 +36,7 @@ $models = @()
 $apiError = $null
 try {
     # GET local models only. Never POST, pull, install, sign in, create, or chat.
-    $answer = Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:11434/api/tags' -TimeoutSec 5
+    $answer = Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:11434/api/tags' -TimeoutSec 5 -MaximumRedirection 0
     if ($null -ne $answer.models) {
         $models = @($answer.models | ForEach-Object { [string]$_.name } |
             Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
