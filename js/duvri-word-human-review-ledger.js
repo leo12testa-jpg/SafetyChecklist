@@ -42,7 +42,7 @@ const duvriWordHumanReviewLedger=(()=>{
       ready_for_issuance:false,issuance_allowed:false
     };
   }
-  function formatReview(entry,index,context,pages){
+  function formatReview(entry,index,context,pages,verifiedReviewers){
     if(!obj(entry)||Object.keys(entry).some(k=>![
       'schema_version','job_id','draft_revision_id','render_run_id',
       'review_ledger_revision_id','page_number','page_sha256',
@@ -55,8 +55,6 @@ const duvriWordHumanReviewLedger=(()=>{
     entry.review_ledger_revision_id!==context.review_ledger_revision_id||
     entry.page_number!==index+1||
     entry.page_sha256!==pages[index].sha256||
-    entry.reviewer_id!==context.reviewer_id||
-    entry.reviewer_role!==context.reviewer_role||
     !['pass','fail','pending'].includes(entry.decision)||
     !obj(entry.checks)||
     Object.keys(entry.checks).length!==checks.length||
@@ -67,8 +65,20 @@ const duvriWordHumanReviewLedger=(()=>{
        return false;
     const values=checks.map(k=>entry.checks[k]);
     if(values.some(v=>v!==true&&v!==false&&v!==null))return false;
+    if(entry.decision==='pending'){
+      // An unreviewed page has NO reviewer. The backend may serialize
+      // these fields as null or omit them entirely.
+      return (entry.reviewer_id==null && entry.reviewer_role==null) &&
+        values.every(v=>v===null)&&entry.issue_codes.length===0;
+    }
+    // Completed pages may have different independent reviewers. Their
+    // identities and per-role permissions MUST have been verified by the
+    // private backend and supplied only through trustedContext.
+    if(!ids(entry.reviewer_id)||entry.reviewer_id===context.generator_id||
+       !['tecnico','admin'].includes(entry.reviewer_role)||
+       verifiedReviewers.get(entry.reviewer_id)!==entry.reviewer_role)
+       return false;
     if(entry.decision==='pass')return values.every(v=>v===true)&&entry.issue_codes.length===0;
-    if(entry.decision==='pending')return values.every(v=>v===null)&&entry.issue_codes.length===0;
     return values.some(v=>v===false)&&entry.issue_codes.length>0;
   }
   function assess(input){
@@ -99,8 +109,23 @@ const duvriWordHumanReviewLedger=(()=>{
          page.page_number!==i+1||!digest(page.sha256))||
        !Array.isArray(pageReviews)||pageReviews.length!==c.page_count)
        return denied(obj(c)?c.job_id:null,'INVALID_OR_STALE_REVIEW_SNAPSHOT');
+    // The optional roster is an authoritative backend projection of user
+    // role/permissions at the review snapshot, never a browser-supplied ACL.
+    // The legacy case with a single reviewer remains compatible.
+    const roster=owns(c,'verified_page_reviewers')?
+      c.verified_page_reviewers:[{
+        reviewer_id:c.reviewer_id,reviewer_role:c.reviewer_role
+      }];
+    if(!Array.isArray(roster)||roster.length<1||roster.length>150||
+       roster.some(r=>!obj(r)||Object.keys(r).length!==2||
+         !owns(r,'reviewer_id')||!owns(r,'reviewer_role')||
+         !ids(r.reviewer_id)||r.reviewer_id===c.generator_id||
+         !['tecnico','admin'].includes(r.reviewer_role))||
+       new Set(roster.map(r=>r.reviewer_id)).size!==roster.length)
+       return denied(c.job_id,'INVALID_VERIFIED_REVIEWER_ROSTER');
+    const authorized=new Map(roster.map(r=>[r.reviewer_id,r.reviewer_role]));
     for(let i=0;i<pageReviews.length;i++){
-      if(!formatReview(pageReviews[i],i,c,c.pages))
+      if(!formatReview(pageReviews[i],i,c,c.pages,authorized))
         return denied(c.job_id,'INVALID_PAGE_REVIEW_OR_SOURCE');
     }
     const count=x=>pageReviews.filter(r=>r.decision===x).length;
