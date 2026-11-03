@@ -1,0 +1,465 @@
+{
+  "schema_version": "colligo-duvri-realistic-synthetic-cases/1.0",
+  "synthetic_only": true,
+  "approval_status": "NOT_APPROVED",
+  "generator_input_contract": "A private DUVRI dossier accepts an independently supplied DOCX checklist plus optional files. It does NOT import PWA checklist app data, modify audit flows or approve output.",
+  "output_contract": {
+    "format": "DOCX",
+    "master": "COLLIGO_APPROVED_PRIVATE_MASTER_ONLY",
+    "status": "BOZZA SINTETICA NON EMETTIBILE",
+    "must_require": [
+      "SOURCE_INTEGRITY",
+      "FACT_VERIFICATION",
+      "HSE_TECHNICIAN_REVIEW",
+      "D1_APPROVAL",
+      "D2_APPROVAL",
+      "WORD_VISUAL_QA",
+      "INDEPENDENT_REVIEWER"
+    ],
+    "prohibit_auto_issuance": true
+  },
+  "cases": [
+    {
+      "id": "SIM-01-MANUTENZIONE",
+      "title": "Manutenzione climatizzazione con magazzino attivo",
+      "expected_result": "draft_only_pending_human_review",
+      "complexity": "media",
+      "committente": "Centro Logistico Acero Sintetico S.r.l.",
+      "appaltatori": [
+        "Frigo Delta Prove S.r.l."
+      ],
+      "intervention": "Sostituzione di due unità di climatizzazione sul lastrico tecnico",
+      "location": "Magazzino A, copertura impianti e area carico adiacente",
+      "schedule": "Intervento 07:30-16:00; ricevimento merci 08:00-12:00",
+      "checklist": [
+        [
+          "Ragione sociale committente",
+          "Centro Logistico Acero Sintetico S.r.l."
+        ],
+        [
+          "Sede intervento",
+          "Magazzino A, copertura impianti e area carico adiacente"
+        ],
+        [
+          "Descrizione attività",
+          "Sostituzione di due unità HVAC sul lastrico tecnico"
+        ],
+        [
+          "Impresa appaltatrice",
+          "Frigo Delta Prove S.r.l."
+        ],
+        [
+          "Subappaltatori",
+          "Nessun subappaltatore previsto nel caso sintetico"
+        ],
+        [
+          "Compresenze",
+          "Transito di furgoni e addetti magazzino dalle 08:00 alle 12:00"
+        ],
+        [
+          "Mezzi e attrezzature",
+          "Piattaforma elevabile da cortile; utensili manuali; apparecchiature HVAC"
+        ],
+        [
+          "Modalità di accesso",
+          "Cancello 3, accesso concordato con referente sintetico"
+        ],
+        [
+          "Alimentazioni coinvolte",
+          "Quadro di alimentazione HVAC da isolare prima di intervento"
+        ],
+        [
+          "Emergenze",
+          "Piano di emergenza non allegato; confermare percorso di esodo e punto raccolta"
+        ],
+        [
+          "Cronoprogramma",
+          "Lavoro 07:30-16:00, ricevimento merci 08:00-12:00"
+        ],
+        [
+          "Documentazione disponibile",
+          "Capitolato tecnico sintetico; non presente verbale coordinamento"
+        ]
+      ],
+      "pdf_title": "CAPITOLATO_SINTETICO_SIM01",
+      "pdf_lines": [
+        "Oggetto: sostituzione di due gruppi HVAC al piano copertura magazzino A.",
+        "L'accesso con piattaforma elevabile avviene dal cortile del cancello 3.",
+        "Ricevimento merci e pedoni presenti tra le 08:00 e le 12:00.",
+        "Previsti sezionamento elettrico e impedimento riavvio involontario prima di smontaggio.",
+        "Non sono allegati planimetria emergenze, verifica portanza area PLE e verbale di coordinamento."
+      ],
+      "xlsx": null,
+      "image_note": null,
+      "acceptance": {
+        "must_mention": [
+          "copertura",
+          "piattaforma elevabile",
+          "transito merci",
+          "isolamento elettrico"
+        ],
+        "must_consider": [
+          "interferenza sollevamento/carico su zona di passaggio",
+          "separazione temporale e fisica dalle attività logistiche",
+          "isolamento elettrico e rischio riavvio",
+          "emergenze e soccorso in quota"
+        ],
+        "mandatory_questions": [
+          "planimetria e procedure emergenze",
+          "verifica portanza e posizionamento PLE",
+          "modalità effettiva di segregazione area carico"
+        ],
+        "specialists": [
+          "documentale",
+          "normativa",
+          "lavori_quota",
+          "elettrico",
+          "logistica",
+          "coordinamento"
+        ],
+        "unknown_must_not_be_asserted": [
+          "sito privo di interferenze",
+          "piano di emergenza verificato",
+          "portanza accertata"
+        ],
+        "require_technical_review": true
+      }
+    },
+    {
+      "id": "SIM-02-COPERTURA-PV",
+      "title": "Copertura e fotovoltaico con due appaltatori",
+      "expected_result": "draft_with_blocking_clarifications",
+      "complexity": "alta",
+      "committente": "Logistica Quercia Sintetica S.r.l.",
+      "appaltatori": [
+        "Coperture Faro Prove S.r.l.",
+        "ElettroTest Prove S.r.l."
+      ],
+      "intervention": "Sostituzione lucernari e verifica stringhe fotovoltaiche",
+      "location": "Copertura magazzino B, baia carico e viabilità perimetrale",
+      "schedule": "Coperture 08:00-15:00; elettrici 10:00-17:00; muletti 07:00-13:00",
+      "checklist": [
+        [
+          "Committente",
+          "Logistica Quercia Sintetica S.r.l."
+        ],
+        [
+          "Sito",
+          "Magazzino B e viabilità esterna, dati inventati"
+        ],
+        [
+          "Impresa coperture",
+          "Coperture Faro Prove S.r.l."
+        ],
+        [
+          "Impresa elettrica",
+          "ElettroTest Prove S.r.l."
+        ],
+        [
+          "Subappaltatori",
+          "Nessun subappalto dichiarato; conferma documentale mancante"
+        ],
+        [
+          "Lavorazioni",
+          "Sostituzione lucernari e verifica connessioni fotovoltaiche"
+        ],
+        [
+          "Compresenze",
+          "Movimentazione pallet su viabilità perimetrale, ore 07:00-13:00"
+        ],
+        [
+          "Accesso in quota",
+          "PLE da piazzale e scala interna tecnica; modalità da confermare"
+        ],
+        [
+          "Sollevamento",
+          "Piccola autogrù per materiali su copertura, zona delimitazione non documentata"
+        ],
+        [
+          "Impianto elettrico",
+          "Schema unifilare indicativo; messa fuori servizio non attestata"
+        ],
+        [
+          "Cronoprogramma",
+          "Fasi di copertura ed elettriche sovrapposte tra 10:00 e 15:00"
+        ],
+        [
+          "Documenti mancanti",
+          "Piano di sollevamento, verifica portanza, procedura isolamento elettrico firmata"
+        ]
+      ],
+      "pdf_title": "CAPITOLATO_SINTETICO_SIM02",
+      "pdf_lines": [
+        "Copertura: sostituzione di quattro lucernari traslucidi con protezione collettiva da definire.",
+        "Impianti: controllo stringhe fotovoltaiche; collegamenti non dichiarati sezionati.",
+        "Prevista autogrù di piccola taglia senza planimetria del raggio di lavoro.",
+        "La banchina carico rimane in uso durante la fascia 07:00-13:00.",
+        "Non risultano consegnati planimetria definitiva, piano sollevamento e procedure di emergenza."
+      ],
+      "xlsx": {
+        "title": "CRONOPROGRAMMA_SINTETICO_SIM02",
+        "columns": [
+          "Fase",
+          "Impresa",
+          "Orario",
+          "Compresenza"
+        ],
+        "rows": [
+          [
+            "Transito muletti",
+            "Committente",
+            "07:00-13:00",
+            "Viabilità sottostante"
+          ],
+          [
+            "Sostituzione lucernari",
+            "Coperture Faro Prove",
+            "08:00-15:00",
+            "Elettrici dalle 10:00"
+          ],
+          [
+            "Verifica fotovoltaico",
+            "ElettroTest Prove",
+            "10:00-17:00",
+            "Coperture fino alle 15:00"
+          ],
+          [
+            "Sollevamento pannelli",
+            "Coperture Faro Prove",
+            "11:00-12:00",
+            "Transito muletti simultaneo"
+          ]
+        ]
+      },
+      "image_note": "PIANTA_SINTETICA_NON_IN_SCALA: piazzale PLE, baia carico, percorso carrelli, zona autogru indicativa",
+      "acceptance": {
+        "must_mention": [
+          "lucernari",
+          "fotovoltaico",
+          "transito muletti",
+          "autogrù",
+          "due appaltatori"
+        ],
+        "must_consider": [
+          "caduta materiali nelle zone di carico",
+          "lavorazioni in quota con lavorazioni elettriche concomitanti",
+          "transito carrelli nel raggio dei sollevamenti",
+          "mancata attestazione sezionamento/LOTO"
+        ],
+        "mandatory_questions": [
+          "piano di sollevamento e aree interdette",
+          "schema elettrico e procedura sezionamento",
+          "portanza copertura e piazzale",
+          "procedure emergenza e recupero in quota",
+          "gestione simultaneità 10:00-15:00"
+        ],
+        "specialists": [
+          "documentale",
+          "normativa",
+          "lavori_quota",
+          "elettrico",
+          "cantieri",
+          "logistica",
+          "coordinamento"
+        ],
+        "unknown_must_not_be_asserted": [
+          "sezionamento verificato",
+          "portanza idonea",
+          "assenza interferenze tra imprese"
+        ],
+        "require_technical_review": true
+      }
+    },
+    {
+      "id": "SIM-03-POZZETTO",
+      "title": "Pulizia pozzetto tecnico con accesso non autorizzato",
+      "expected_result": "blocked_missing_critical_documents",
+      "complexity": "alta",
+      "committente": "Acquedotti Lario Prove S.r.l.",
+      "appaltatori": [
+        "IdroPulizie Sintetiche S.r.l."
+      ],
+      "intervention": "Pulizia e verifica di un pozzetto tecnico interrato",
+      "location": "Area impianti esterna, vicina a viabilità mezzi di servizio",
+      "schedule": "Intervento previsto 09:00-12:00; transito mezzi di servizio 08:00-18:00",
+      "checklist": [
+        [
+          "Committente",
+          "Acquedotti Lario Prove S.r.l."
+        ],
+        [
+          "Impresa esecutrice",
+          "IdroPulizie Sintetiche S.r.l."
+        ],
+        [
+          "Ambiente",
+          "Pozzetto interrato con accesso da chiusino; classificazione da valutare"
+        ],
+        [
+          "Operazioni previste",
+          "Pulizia meccanica e ispezione pareti interne"
+        ],
+        [
+          "Compresenze",
+          "Transito veicoli nell'area esterna 08:00-18:00"
+        ],
+        [
+          "Sostanze pericolose",
+          "Presenza non determinata: analisi atmosfera non disponibile"
+        ],
+        [
+          "Ventilazione",
+          "Ventilazione e monitoraggio atmosfera non documentati"
+        ],
+        [
+          "Permessi",
+          "Permesso di ingresso non allegato"
+        ],
+        [
+          "Soccorso",
+          "Procedura e dispositivi di recupero da verificare"
+        ],
+        [
+          "Cronoprogramma",
+          "Accesso proposto 09:00-12:00, non autorizzato"
+        ]
+      ],
+      "pdf_title": "ISTRUZIONI_INCOMPLETE_SIM03",
+      "pdf_lines": [
+        "Pozzetto tecnico a profondità non riportata nel fascicolo.",
+        "Ispezione prevista senza allegata valutazione rischi specifica.",
+        "Permesso di lavoro non presente. Rilievi gas/ossigeno non disponibili.",
+        "Non allegato il piano di emergenza e recupero.",
+        "Nessuna valutazione di condizioni sicure può essere dedotta da questo allegato."
+      ],
+      "xlsx": null,
+      "image_note": "FOTO_SINTETICA_POZZETTO: schema astratto chiusino, non fotografia reale",
+      "acceptance": {
+        "must_mention": [
+          "pozzetto",
+          "permesso di ingresso mancante",
+          "atmosfera non verificata"
+        ],
+        "must_consider": [
+          "possibile esposizione ad atmosfera pericolosa da accertare",
+          "interferenza con transito mezzi esterni",
+          "piano di recupero assente"
+        ],
+        "mandatory_questions": [
+          "classificazione ambiente e applicabilità DPR 177/2011",
+          "permesso lavoro e qualificazione impresa",
+          "misure gas/ossigeno e monitoraggio",
+          "procedura emergenza e recupero",
+          "segregazione viabilità"
+        ],
+        "specialists": [
+          "documentale",
+          "normativa",
+          "spazi_confinati",
+          "chimico_atex",
+          "logistica",
+          "coordinamento"
+        ],
+        "unknown_must_not_be_asserted": [
+          "aria respirabile verificata",
+          "assenza rischio atmosfera",
+          "ingresso consentito",
+          "misure di recupero disponibili"
+        ],
+        "require_technical_review": true
+      }
+    },
+    {
+      "id": "SIM-04-ARCHIVIO",
+      "title": "Piccola manutenzione impianto in archivio",
+      "expected_result": "draft_only_pending_human_review",
+      "complexity": "bassa",
+      "committente": "Archivio Iris Sintetico S.r.l.",
+      "appaltatori": [
+        "Elettricità Nove Prove S.r.l."
+      ],
+      "intervention": "Sostituzione di punti luce con reparto temporaneamente non occupato",
+      "location": "Archivio piano terra, corridoio di servizio",
+      "schedule": "Lavori 18:30-20:00; impiegati fino alle 18:00; pulizie 19:00-20:30",
+      "checklist": [
+        [
+          "Committente",
+          "Archivio Iris Sintetico S.r.l."
+        ],
+        [
+          "Impresa appaltatrice",
+          "Elettricità Nove Prove S.r.l."
+        ],
+        [
+          "Attività",
+          "Sostituzione di quattro corpi illuminanti"
+        ],
+        [
+          "Luogo",
+          "Archivio piano terra e corridoio di servizio"
+        ],
+        [
+          "Orario lavori",
+          "18:30-20:00"
+        ],
+        [
+          "Attività committente",
+          "Uffici chiudono alle 18:00"
+        ],
+        [
+          "Altri soggetti",
+          "Impresa pulizie non identificata in fascia 19:00-20:30"
+        ],
+        [
+          "Accesso",
+          "Ingresso servizio con autorizzazione da verificare"
+        ],
+        [
+          "Elettricità",
+          "Alimentazione circuito da sezionare e verificare"
+        ],
+        [
+          "Piano emergenze",
+          "Presente secondo checklist, copia non allegata"
+        ]
+      ],
+      "pdf_title": "ORDINE_LAVORI_SINTETICO_SIM04",
+      "pdf_lines": [
+        "Sostituzione di quattro plafoniere da parte di impresa esterna.",
+        "Programmazione dopo la chiusura uffici ma in parziale coincidenza con pulizie.",
+        "La presenza effettiva dell'impresa pulizie richiede conferma.",
+        "Prima dell'intervento elettrico: isolamento alimentazione e controllo delle procedure."
+      ],
+      "xlsx": null,
+      "image_note": null,
+      "acceptance": {
+        "must_mention": [
+          "illuminazione",
+          "pulizie",
+          "18:30-20:00"
+        ],
+        "must_consider": [
+          "interferenza potenziale con impresa pulizie durante apertura percorso",
+          "messa in sicurezza del circuito",
+          "gestione corridoio condiviso"
+        ],
+        "mandatory_questions": [
+          "identità e calendario impresa pulizie",
+          "autorizzazione accessi fuori orario",
+          "procedure emergenza di zona"
+        ],
+        "specialists": [
+          "documentale",
+          "normativa",
+          "elettrico",
+          "coordinamento"
+        ],
+        "unknown_must_not_be_asserted": [
+          "assenza totale di compresenze",
+          "circuito già sezionato"
+        ],
+        "require_technical_review": true
+      }
+    }
+  ]
+}
