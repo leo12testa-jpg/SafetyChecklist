@@ -187,9 +187,9 @@ def inspect(path: Path) -> dict:
 
     if doc is None:
         raise InvalidTemplate("MISSING_WORD_DOCUMENT_XML")
-    if not doc.tag.startswith(W):
+    if doc.tag != W + "document":
         raise InvalidTemplate("UNSUPPORTED_WORD_XML_NAMESPACE")
-    if comments is not None and not comments.tag.startswith(W):
+    if comments is not None and comments.tag != W + "comments":
         raise InvalidTemplate("UNSUPPORTED_WORD_XML_NAMESPACE")
     metrics = _counts(doc)
     comment_ids = (
@@ -204,8 +204,11 @@ def inspect(path: Path) -> dict:
         "archive_entries": len(entries),
         "comments": len(comment_ids),
         "comment_anchors_consistent": (
-            len(comment_ids) == len(set(comment_ids))
-            and sorted(comment_ids) == sorted(start_ids) == sorted(end_ids)
+            all(v is not None for v in comment_ids + start_ids + end_ids + reference_ids)
+            and len(comment_ids) == len(set(comment_ids))
+            and len(start_ids) == len(set(start_ids))
+            and len(end_ids) == len(set(end_ids))
+            and set(comment_ids) == set(start_ids) == set(end_ids)
             and set(reference_ids).issubset(set(comment_ids))
         ),
     })
