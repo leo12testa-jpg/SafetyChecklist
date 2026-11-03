@@ -187,7 +187,7 @@ def assess(docx: Path, manifest: Path, images_dir: Path) -> dict:
         "page_count_declared": m["page_count"],
         "page_images_verified": len(dimensions),
         "first_and_last_page_present": True,
-        "all_png_integrity_checks_passed": True,
+        "png_chunk_crcs_verified": True,
         "rendered_content_visually_reviewed": False,
         "render_provenance_independently_attested": False,
         "d1_approved": False,
