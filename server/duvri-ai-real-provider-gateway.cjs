@@ -32,7 +32,7 @@ const errors=Object.freeze(new Set([
   'HSE_RESULT_INVALID','BUDGET_SETTLEMENT_FAILED',
   'AUDIT_COMPLETION_FAILED'
 ]));
-function reject(code){return deny(errors.has(code)?code:'PROVIDER_RESPONSE_INVALID');}
+function reject(code,requestAttempted=false){return {...deny(errors.has(code)?code:'PROVIDER_RESPONSE_INVALID'),request_sent:requestAttempted};}
 
 function createPrivateGateway({
   enabled=false,loadAuthorizedRun,reserveBudget,settleBudget,
@@ -177,9 +177,9 @@ function createPrivateGateway({
         response_recorded:response!==null});
       auditOk=true;
     }catch(_){auditOk=false;}
-    if(!moneyOk)return reject('BUDGET_SETTLEMENT_FAILED');
-    if(!auditOk)return reject('AUDIT_COMPLETION_FAILED');
-    if(!valid)return reject(code);
+    if(!moneyOk)return reject('BUDGET_SETTLEMENT_FAILED',requestSent);
+    if(!auditOk)return reject('AUDIT_COMPLETION_FAILED',requestSent);
+    if(!valid)return reject(code,requestSent);
     // Candidate stays IN the private backend. It is not a review decision,
     // verified citation match, D1 risk score or permission to draft Word.
     return {
