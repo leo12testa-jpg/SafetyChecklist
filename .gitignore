@@ -7,3 +7,8 @@
 /reports/qa-v1/**/profile-*/
 __pycache__/
 *.py[cod]
+
+# Outputs locali dei collaudi browser: possono contenere PDF e screenshot aziendali.
+/reports/final-ui/
+/reports/pdf-verification/
+/reports/qa-v1/
