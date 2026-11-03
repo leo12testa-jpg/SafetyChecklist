@@ -120,7 +120,7 @@ class DuvriWordRenderEvidenceTests(unittest.TestCase):
     def test_png_crc_corruption_is_detected_before_hash(self):
         file = self.images / "page-0001.png"
         raw = bytearray(file.read_bytes())
-        raw[35] ^= 1
+        raw[41] ^= 1
         file.write_bytes(raw)
         self.error("PNG_CRC_MISMATCH")
 
