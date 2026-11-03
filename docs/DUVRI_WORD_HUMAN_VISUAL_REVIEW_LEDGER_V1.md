@@ -20,7 +20,15 @@ Il pilota tecnico A locale produce una bozza Word di 30 pagine con dicitura `BOZ
 - `checks`: **sei flag** `page_legible`, `header_footer_correct`, `tables_unclipped`, `no_text_overflow`, `non_emittable_label_visible`, `content_and_order_checked`;
 - `issue_codes`: soltanto codici di problema predefiniti, mai testi o dati cliente.
 
-Per `pass` tutti i flag devono essere `true`, senza problemi; per `pending` tutti devono essere `null`; per `fail` almeno un flag deve essere `false` con uno o più codici di problema. Il modulo rifiuta pagine mancanti, duplicate/scambiate, hash non concordi, revisioni obsolete, ruolo non consentito, revisore coincidente con il generatore, controlli incompleti, campi aggiuntivi in una review.
+Per `pass` tutti i flag devono essere `true`, senza problemi; per `pending` tutti devono essere `null` **e `reviewer_id` / `reviewer_role` devono essere `null` oppure assenti**; per `fail` almeno un flag deve essere `false` con uno o più codici di problema. Il modulo rifiuta pagine mancanti, duplicate/scambiate, hash non concordi, revisioni obsolete, ruolo non consentito, revisore coincidente con il generatore, controlli incompleti, campi aggiuntivi in una review.
+
+### Allineamento al backend privato Codex (3 novembre 2026)
+
+Nel backend locale una bozza appena generata presenta **30 pagine `pending` senza revisore assegnato**. Un amministratore di prova ha verificato una sola pagina e le altre 29 sono rimaste non assegnate. Il validatore supporta ora entrambi i casi, **senza attribuire a un revisore la decisione sulle pagine non ancora esaminate**.
+
+Le pagine già `pass` o `fail` devono invece riportare `reviewer_id` e `reviewer_role` di chi le ha davvero controllate. Per compatibilità iniziale, in assenza di una lista di revisori affidabile accetta soltanto il revisore autenticato `trustedContext.reviewer_id`. Se le pagine sono state controllate da **revisori diversi**, il backend deve costruire `trustedContext.verified_page_reviewers=[{reviewer_id,reviewer_role}, ...]` dopo verifica effettiva di identità, permessi e separazione dal generatore. Non accettare mai questa lista come input del browser o di un agente AI. Il modulo rifiuta un revisore non presente in tale lista, ruoli alterati, duplicati e l'identità del generatore.
+
+La *motivazione obbligatoria* dei `fail`, i timestamp server-side e l'audit append-only **rimangono sotto la responsabilità del backend privato**, perché la libreria pubblica accetta soltanto codici di problema e non trasporta testi o dati clienti. Il backend deve validare e persistere motivazione, timestamp, reviewer e revisioni **prima** di usare il risultato come preflight.
 
 ### Stati restituiti
 
@@ -48,6 +56,6 @@ Per `pass` tutti i flag devono essere `true`, senza problemi; per `pending` tutt
 node --test tests/duvri-word-human-review-ledger.test.js
 ```
 
-**25 scenari sintetici**: 30/30 registrate ma senza emissione, 30 `pending`, singola pagina `fail`, pagine mancanti/duplicate/scambiate, file e revisioni nuove, immagine alterata, revisore non indipendente, permessi mancanti, attestation non verificata, flag non compilati, duplicazione/forgery di issue code, input malformati, privacy del risultato, 1/2/47/150 pagine e immutabilità del payload.
+**33 scenari sintetici**: 30/30 registrate ma senza emissione, 30 `pending` senza revisore, 1 `pass` + 29 `pending`, revisori distinti verificati dal server, singola pagina `fail`, pagine mancanti/duplicate/scambiate, file e revisioni nuove, immagine alterata, revisore non indipendente, permessi mancanti, attestation non verificata, flag non compilati, duplicazione/forgery di issue code, input malformati, privacy del risultato, 1/2/47/150 pagine e immutabilità del payload.
 
 Questi test validano **la logica del contratto**, non la qualità visiva di un DOCX aziendale. L'attestazione professionale deve rimanere in un flusso distinto e verificato dal server.
