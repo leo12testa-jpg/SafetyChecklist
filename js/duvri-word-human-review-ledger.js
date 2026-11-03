@@ -71,7 +71,8 @@ const duvriWordHumanReviewLedger=(()=>{
     if(entry.decision==='pending')return values.every(v=>v===null)&&entry.issue_codes.length===0;
     return values.some(v=>v===false)&&entry.issue_codes.length>0;
   }
-  function assess({trustedContext,pageReviews}={}){
+  function assess(input){
+    const {trustedContext,pageReviews}=obj(input)?input:{};
     const c=trustedContext;
     if(!obj(c)||!ids(c.job_id)||!ids(c.draft_revision_id)||
        !ids(c.current_draft_revision_id)||
