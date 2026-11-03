@@ -85,8 +85,12 @@ function createPrivateGateway({
        policy.source_facts.analysis_revision_id!==ref.analysis_revision_id||
        policy.source_facts.extraction_revision_id!==ref.extraction_revision_id||
        policy.source_facts.agent_id!==ref.agent_id||
-       policy.source_facts.scoped_and_minimized!==true||
-       JSON.stringify(policy.source_facts).length>24000)
+       policy.source_facts.scoped_and_minimized!==true)
+      return reject('PRIVATE_PAYLOAD_NOT_VERIFIED');
+    let serializedFacts;
+    try{serializedFacts=JSON.stringify(policy.source_facts);}
+    catch(_){return reject('PRIVATE_PAYLOAD_NOT_VERIFIED');}
+    if(typeof serializedFacts!=='string'||serializedFacts.length>24000)
       return reject('PRIVATE_PAYLOAD_NOT_VERIFIED');
     // Never accept model IDs, provider URLs, prompts, approvals or document
     // contents from the invoke() arguments. All come from the backend.
@@ -138,7 +142,7 @@ function createPrivateGateway({
           model:policy.model_id,
           messages:[
             {role:'system',content:role.instructions.join('\n')},
-            {role:'user',content:JSON.stringify(policy.source_facts)}
+            {role:'user',content:serializedFacts}
           ],
           max_tokens:policy.max_output_tokens,
           stream:false
