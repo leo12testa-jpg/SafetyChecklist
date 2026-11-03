@@ -99,6 +99,13 @@ class DuvriWordTemplateAuditTests(unittest.TestCase):
         self.assertFalse(result["metrics"]["comment_anchors_consistent"])
         self.assertFalse(result["issuance_allowed"])
 
+    def test_comment_without_id_cannot_crash_or_pass_consistency(self):
+        bad = comment_xml().replace(b'w:id="7"', b'', 1)
+        make_docx(self.path, comments=bad)
+        result = audit.inspect(self.path)
+        self.assertFalse(result["metrics"]["comment_anchors_consistent"])
+        self.assertFalse(result["issuance_allowed"])
+
     def test_shading_is_not_counted_as_highlight(self):
         make_docx(self.path, doc=document(changed=True))
         result = audit.inspect(self.path)
