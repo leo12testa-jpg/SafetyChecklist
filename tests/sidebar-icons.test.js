@@ -36,3 +36,27 @@ test('sidebar: focus e icone mobile accessibili', () => {
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /\.nav-icon svg \{ width:19px; height:19px; \}/);
 });
+
+
+test('dashboard: tre moduli separati senza cambiare le funzioni', () => {
+  const screen = html.match(/<section id="screen-home"[\s\S]*?(?=<section id="screen-new-inspection")/)?.[0];
+  assert.ok(screen, 'dashboard presente');
+  const names = ['01 · SOPRALLUOGHI E CHECKLIST', '02 · RACCOLTA DATI DVR', '03 · GENERAZIONE DOCUMENTI'];
+  for (const label of names) assert.ok(screen.includes('class="module-card-overline">' + label + '</span>'));
+  assert.equal((screen.match(/class="module-card-overline"/g) || []).length, 3);
+  const navLinks = [...screen.matchAll(/class="dashboard-action-card primary-action(?: dvr-action| document-generation-action)?"[^>]*data-nav="([^"]+)"/g)].map(m => m[1]);
+  assert.deepEqual(navLinks, ['new-inspection','new-inspection','document-generation']);
+  assert.ok(screen.indexOf('class="home-actions dashboard-action-grid"') < screen.indexOf('dashboard-kpi-grid'));
+  assert.match(screen, /class="dashboard-module-section-break"/);
+  assert.match(screen, /data-nav="history"/);
+  assert.match(css, /#screen-home \.dashboard-action-grid/);
+  assert.match(css, /@media \(min-width:1250px\)/);
+});
+
+test('sidebar: raggruppamenti visivi conservano otto voci', () => {
+  assert.equal((nav.match(/class="side-nav-module-label"/g) || []).length, 4);
+  assert.ok(nav.indexOf('01 · SOPRALLUOGHI') < nav.indexOf('02 · RACCOLTA DATI DVR'));
+  assert.ok(nav.indexOf('02 · RACCOLTA DATI DVR') < nav.indexOf('03 · GENERAZIONE DOCUMENTI'));
+  assert.match(css, /\.side-nav-module-label/);
+  assert.match(css, /max-width:900px[\s\S]*?\.side-nav-module-divider, \.side-nav-module-label/);
+});
