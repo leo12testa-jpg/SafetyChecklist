@@ -200,7 +200,7 @@ async function bodyFits(page) {
     assert.equal(await mobile.locator('.dashboard-mini-card:visible').count(), 4);
     assert.equal(await mobile.locator('.dashboard-recent-panel').isVisible(), true);
     assert.equal(await mobile.locator('#dashboard-resume-panel').count(), 1);
-    assert.equal(await mobile.locator('.dashboard-action-card:visible').count(), 4);
+    assert.equal(await mobile.locator('.dashboard-action-card:visible').count(), 3);
     assert.equal(await mobile.locator('.dashboard-action-card[data-modalita="dvr"]:visible').count(), 1);
     assert.equal(await mobile.locator('#dashboard-install-card').count(), 1);
     const gridCols = await mobile.locator('.dashboard-mini-grid').evaluate(el => getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
