@@ -23,7 +23,7 @@ test('sidebar: otto icone SVG uniformi e decorative', () => {
 
 test('sidebar: etichette e collegamenti invariati', () => {
   const labels = [...nav.matchAll(/<\/svg><\/span><span>([^<]+)<\/span>/g)].map(m => m[1]);
-  assert.deepEqual(labels, ['Dashboard', 'Nuovo sopralluogo', 'Raccolta dati DVR', 'Generazione documenti', 'Storico', 'Il mio lavoro', 'Utenti', 'Impostazioni']);
+  assert.deepEqual(labels, ['Dashboard', 'Sopralluoghi', 'Raccolta dati', 'Generatore documenti', 'Storico', 'Il mio lavoro', 'Utenti', 'Impostazioni']);
   const targets = [...nav.matchAll(/<button\b[^>]*class="side-nav-item"[^>]*data-nav="([^"]+)"/g)].map(m => m[1]);
   assert.deepEqual(targets, ['home', 'new-inspection', 'new-inspection', 'document-generation', 'history', 'my-work', 'admin-users', 'settings']);
   assert.match(nav, /data-nav="new-inspection" data-modalita="audit"/);
@@ -41,7 +41,7 @@ test('sidebar: focus e icone mobile accessibili', () => {
 test('dashboard: tre moduli separati senza cambiare le funzioni', () => {
   const screen = html.match(/<section id="screen-home"[\s\S]*?(?=<section id="screen-new-inspection")/)?.[0];
   assert.ok(screen, 'dashboard presente');
-  const names = ['01 · SOPRALLUOGHI E CHECKLIST', '02 · RACCOLTA DATI DVR', '03 · GENERAZIONE DOCUMENTI'];
+  const names = ['MODULO 01', 'MODULO 02', 'MODULO 03'];
   for (const label of names) assert.ok(screen.includes('class="module-card-overline">' + label + '</span>'));
   assert.equal((screen.match(/class="module-card-overline"/g) || []).length, 3);
   const navLinks = [...screen.matchAll(/class="dashboard-action-card primary-action(?: dvr-action| document-generation-action)?"[^>]*data-nav="([^"]+)"/g)].map(m => m[1]);
@@ -55,8 +55,14 @@ test('dashboard: tre moduli separati senza cambiare le funzioni', () => {
 
 test('sidebar: raggruppamenti visivi conservano otto voci', () => {
   assert.equal((nav.match(/class="side-nav-module-label"/g) || []).length, 4);
-  assert.ok(nav.indexOf('01 · SOPRALLUOGHI') < nav.indexOf('02 · RACCOLTA DATI DVR'));
-  assert.ok(nav.indexOf('02 · RACCOLTA DATI DVR') < nav.indexOf('03 · GENERAZIONE DOCUMENTI'));
+  assert.ok(nav.indexOf('01 · SOPRALLUOGHI') < nav.indexOf('02 · RACCOLTA DATI'));
+  assert.ok(nav.indexOf('02 · RACCOLTA DATI') < nav.indexOf('03 · GENERATORE DOCUMENTI'));
   assert.match(css, /\.side-nav-module-label/);
   assert.match(css, /max-width:900px[\s\S]*?\.side-nav-module-divider, \.side-nav-module-label/);
+});
+
+test('dashboard: titoli esatti dei tre moduli', () => {
+  const screen = html.slice(html.indexOf('<section id="screen-home"'), html.indexOf('<section id="screen-new-inspection"'));
+  const titles = [...screen.matchAll(/class="module-card-overline">MODULO \d\d<\/span><strong>([^<]+)<\/strong>/g)].map(m => m[1]);
+  assert.deepEqual(titles, ['Sopralluoghi', 'Raccolta dati', 'Generatore documenti']);
 });
