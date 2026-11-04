@@ -1199,8 +1199,8 @@ test('la dashboard espone una scorciatoia diretta a Generazione documenti', () =
   const end = html.indexOf('<section id="screen-new-inspection"', start);
   assert.ok(start >= 0 && end > start, 'sezione dashboard presente');
   const dashboard = html.slice(start, end);
-  assert.match(dashboard, /class="dashboard-action-card primary-action document-generation-action" data-nav="document-generation" aria-label="Apri Generazione documenti"/);
-  assert.match(dashboard, /<strong>Generazione documenti<\/strong>/);
+  assert.match(dashboard, /class="dashboard-action-card primary-action document-generation-action" data-nav="document-generation" aria-label="Apri Generatore documenti"/);
+  assert.match(dashboard, /<strong>Generatore documenti<\/strong>/);
   assert.match(dashboard, /Avvia il modulo DUVRI e raccogli checklist, documenti e dati dell'incarico/);
 });
 
