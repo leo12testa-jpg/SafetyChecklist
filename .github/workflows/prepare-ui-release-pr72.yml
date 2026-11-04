@@ -1,20 +1,20 @@
 name: Prepare PR72 offline release (temporary)
 on:
-  push:
-    branches:
-      - ui/sidebar-accessibility-polish-20261104
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
 
 jobs:
   prepare:
-    if: contains(github.event.head_commit.message, '[prepare-ui-release]')
+    if: github.event.pull_request.number == 72 && github.head_ref == 'ui/sidebar-accessibility-polish-20261104'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: true
       - uses: actions/setup-node@v4
