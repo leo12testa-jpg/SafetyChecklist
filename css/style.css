@@ -2929,3 +2929,69 @@ details.dg-auto-template > summary { cursor: pointer; font-weight: 700; color: v
   .side-nav-item, .dashboard-action-card { transition:none; }
   .dashboard-action-card:hover { transform:none; }
 }
+
+/* Tre moduli operativi, un'unica app: la divisione e' solo visiva. */
+.side-nav-module-divider { height:1px; margin:8px 9px 5px; background:var(--ui-border); }
+.side-nav-module-label {
+  display:block; padding:7px 12px 2px; color:#7b8799;
+  font-size:.59rem; font-weight:800; letter-spacing:.075em;
+  line-height:1.35;
+}
+#screen-home .dashboard-action-card[data-modalita="audit"],
+#screen-home .dashboard-action-card.dvr-action,
+#screen-home .dashboard-action-card.document-generation-action {
+  --module-accent:#176cc2;
+  position:relative; overflow:hidden; align-items:flex-start;
+  min-height:158px; padding:20px 18px;
+  border-color:#cedff0; background:linear-gradient(135deg,#fff 30%,#f1f7ff);
+}
+#screen-home .dashboard-action-card.dvr-action {
+  --module-accent:#087b73;
+  border-color:#c6e5dd; background:linear-gradient(135deg,#fff 30%,#effaf6);
+}
+#screen-home .dashboard-action-card.document-generation-action {
+  --module-accent:#7044ad;
+  border-color:#e0d2ef; background:linear-gradient(135deg,#fff 30%,#f8f4ff);
+}
+#screen-home .dashboard-action-card[data-modalita="audit"]::before,
+#screen-home .dashboard-action-card.dvr-action::before,
+#screen-home .dashboard-action-card.document-generation-action::before {
+  content:""; position:absolute; inset:0 auto 0 0; width:4px;
+  background:var(--module-accent); border-radius:16px 0 0 16px;
+}
+#screen-home .dashboard-action-card[data-modalita="audit"] .action-card-icon,
+#screen-home .dashboard-action-card.dvr-action .action-card-icon,
+#screen-home .dashboard-action-card.document-generation-action .action-card-icon {
+  flex:0 0 42px; width:42px; height:42px; font-size:1.35rem;
+  color:var(--module-accent); background:rgba(255,255,255,.86);
+  box-shadow:inset 0 0 0 1px rgba(68,89,118,.09);
+}
+#screen-home .dashboard-action-card .action-card-copy { min-width:0; }
+#screen-home .dashboard-action-card .module-card-overline {
+  display:block; margin:0 0 9px; font-size:.59rem; font-weight:850;
+  letter-spacing:.065em; color:var(--module-accent); line-height:1.3;
+}
+#screen-home .dashboard-action-card[data-modalita="audit"] .action-card-copy strong,
+#screen-home .dashboard-action-card.dvr-action .action-card-copy strong,
+#screen-home .dashboard-action-card.document-generation-action .action-card-copy strong {
+  font-size:.96rem; line-height:1.3;
+}
+.dashboard-module-section-break {
+  grid-column:1/-1; padding-top:16px;
+  border-top:1px solid var(--ui-border);
+}
+.dashboard-module-section-break h4 { margin:0; font-size:1rem; letter-spacing:-.02em; }
+#screen-home .dashboard-action-grid { align-items:stretch; }
+@media (min-width:1250px) {
+  #screen-home .dashboard-action-grid {
+    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  }
+}
+@media (max-width:900px) {
+  .side-nav-module-divider, .side-nav-module-label { display:none !important; }
+  #screen-home .dashboard-action-card[data-modalita="audit"],
+  #screen-home .dashboard-action-card.dvr-action,
+  #screen-home .dashboard-action-card.document-generation-action {
+    min-height:112px; padding:15px;
+  }
+}
