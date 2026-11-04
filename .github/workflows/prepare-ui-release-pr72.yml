@@ -21,7 +21,7 @@ jobs:
         with:
           node-version: '22'
       - name: Prepare using the project's official release script
-        run: ./pubblica.sh --prepare 1.0.0
+        run: bash ./pubblica.sh --prepare 1.0.0
       - name: Commit prepared cache and version files back to the PR branch
         run: |
           git config user.name "github-actions[bot]"
