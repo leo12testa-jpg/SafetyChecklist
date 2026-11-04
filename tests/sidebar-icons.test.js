@@ -47,8 +47,11 @@ test('dashboard: tre moduli separati senza cambiare le funzioni', () => {
   const navLinks = [...screen.matchAll(/class="dashboard-action-card primary-action(?: dvr-action| document-generation-action)?"[^>]*data-nav="([^"]+)"/g)].map(m => m[1]);
   assert.deepEqual(navLinks, ['new-inspection','new-inspection','document-generation']);
   assert.ok(screen.indexOf('class="home-actions dashboard-action-grid"') < screen.indexOf('dashboard-kpi-grid'));
-  assert.match(screen, /class="dashboard-module-section-break"/);
-  assert.match(screen, /data-nav="history"/);
+  assert.doesNotMatch(screen, /dashboard-module-section-break|STRUMENTI CONDIVISI|Archivio e gestione/);
+  assert.equal((screen.match(/class="dashboard-action-card/g) || []).length, 3);
+  assert.match(screen, /class="dashboard-install-link" id="dashboard-install-card" hidden/);
+  assert.match(nav, /data-nav="history"/);
+  assert.match(nav, /id="btn-area-utenti" data-admin-only hidden/);
   assert.match(css, /#screen-home \.dashboard-action-grid/);
   assert.match(css, /@media \(min-width:1250px\)/);
 });
@@ -65,4 +68,16 @@ test('dashboard: titoli esatti dei tre moduli', () => {
   const screen = html.slice(html.indexOf('<section id="screen-home"'), html.indexOf('<section id="screen-new-inspection"'));
   const titles = [...screen.matchAll(/class="module-card-overline">MODULO \d\d<\/span><strong>([^<]+)<\/strong>/g)].map(m => m[1]);
   assert.deepEqual(titles, ['Sopralluoghi', 'Raccolta dati', 'Generatore documenti']);
+});
+
+
+test('dashboard: nessuna duplicazione di Archivio e Amministrazione', () => {
+  const screen = html.slice(html.indexOf('<section id="screen-home"'), html.indexOf('<section id="screen-new-inspection"'));
+  for (const item of ['data-nav="my-work"', 'data-nav="admin-users"', 'data-nav="settings"']) {
+    assert.ok(!screen.includes(item), 'azione duplicata nella dashboard: ' + item);
+  }
+  assert.match(nav, /data-nav="history"/);
+  assert.match(nav, /data-nav="my-work"/);
+  assert.match(nav, /data-nav="admin-users"/);
+  assert.match(nav, /data-nav="settings"/);
 });
