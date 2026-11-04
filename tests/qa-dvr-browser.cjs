@@ -11,7 +11,7 @@ async function check(name,fn){try{const details=await fn();report.tests.push({na
   const models=JSON.parse(fs.readFileSync(path.join(root,'checklists/index.json'))).checklists.filter(c=>c.id.startsWith('dvr_'));
   for(const viewport of [{width:1440,height:1000},{width:768,height:1024},{width:390,height:844}])await check('DVR menu e layout '+viewport.width,async()=>{
     await page.setViewportSize(viewport);await page.evaluate(()=>router.navigate('home'));
-    await page.locator('.dashboard-new[data-modalita="dvr"]').click();
+    await page.locator('.dashboard-action-card[data-modalita="dvr"]').click();
     await page.waitForFunction(()=>document.querySelector('#select-checklist').options.length===6);
     const ids=await page.locator('#select-checklist option').evaluateAll(els=>els.map(e=>e.value).filter(Boolean));
     assert.deepEqual(ids,models.filter(c=>!['dvr_chimico','dvr_mmc'].includes(c.id)).map(c=>c.id));

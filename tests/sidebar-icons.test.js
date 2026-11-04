@@ -81,3 +81,15 @@ test('dashboard: nessuna duplicazione di Archivio e Amministrazione', () => {
   assert.match(nav, /data-nav="admin-users"/);
   assert.match(nav, /data-nav="settings"/);
 });
+
+
+test('dashboard: i due pulsanti rapidi in alto sono rimossi, senza perdere i moduli', () => {
+  const screen = html.slice(html.indexOf('<section id="screen-home"'), html.indexOf('<section id="screen-new-inspection"'));
+  assert.doesNotMatch(screen, /dashboard-new-group|dashboard-new-dvr|class="btn btn-primary dashboard-new"/);
+  assert.equal((screen.match(/class="dashboard-action-card primary-action/g) || []).length, 3);
+  assert.match(screen, /data-nav="new-inspection" data-modalita="audit"/);
+  assert.match(screen, /data-nav="new-inspection" data-modalita="dvr"/);
+  assert.match(screen, /data-nav="document-generation"/);
+  assert.match(nav, /data-nav="new-inspection" data-modalita="audit"/);
+  assert.match(nav, /data-nav="new-inspection" data-modalita="dvr"/);
+});

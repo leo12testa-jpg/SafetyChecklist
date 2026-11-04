@@ -1323,7 +1323,6 @@ body[data-authenticated="false"] { background: #edf3fa; }
   color:var(--ui-text);
 }
 .dashboard-heading p { margin:9px 0 0; color:var(--ui-muted); font-size:.94rem; }
-.dashboard-new { flex:0 0 auto; min-height:46px; padding-inline:18px !important; }
 
 .dashboard-mini-grid {
   display:grid;
@@ -1588,7 +1587,6 @@ body[data-authenticated="false"] { background: #edf3fa; }
   .app-content { padding:20px 13px 24px; }
   .app-content .screen:not(.dashboard-screen) { padding:18px !important; border-radius:15px; }
   .dashboard-heading { align-items:stretch; flex-direction:column; gap:16px; }
-  .dashboard-new { width:100%; }
   .dashboard-mini-grid { grid-template-columns:1fr; gap:9px; }
   .dashboard-mini-card { min-height:88px; padding:14px; }
   .dashboard-action-grid { grid-template-columns:1fr !important; }
@@ -1672,12 +1670,10 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
   min-width: 0 !important;
   overflow-wrap: anywhere;
 }
-.dashboard-new { width: auto !important; max-width: 280px; }
 @media (max-width: 900px) {
   #screens.app-shell { display: block !important; }
   .dashboard-mini-grid,
   .dashboard-action-grid { grid-template-columns: 1fr !important; }
-  .dashboard-new { width: 100% !important; max-width: none; }
 }
 
 
@@ -2673,8 +2669,6 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
 }
 
 /* ===== Raccolta dati DVR ===== */
-.dashboard-new-group { display:flex; flex-wrap:wrap; gap:10px; justify-content:flex-end; }
-.dashboard-new-dvr { background:#fff !important; color:var(--color-primary) !important; border:1px solid #c9dcfb !important; }
 .dashboard-action-card.dvr-action .action-card-icon { background:#eef6ee; }
 .etichetta-dvr {
   display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px;
@@ -2697,10 +2691,6 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
 }
 .riepilogo-dvr-vai small { color:var(--color-text-muted); font-size:12px; }
 textarea.input-sotto-campo { width:100%; min-height:72px; resize:vertical; font:inherit; }
-@media (max-width: 640px) {
-  .dashboard-new-group { width:100%; }
-  .dashboard-new-group .dashboard-new { flex:1 1 100%; }
-}
 /* Il sotto-campo appare solo quando la voce è spuntata (lo stile .input-sotto-campo imposta display:block). */
 .input-sotto-campo[hidden] { display:none !important; }
 /* Compilazione raccolta-dati: i pulsanti C/PC/NC/NA e le schede dei gruppi audit restano nascosti. */
