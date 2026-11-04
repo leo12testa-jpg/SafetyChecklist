@@ -93,7 +93,7 @@
           <div class="side-nav-separator" data-admin-only hidden></div>
           <span class="side-nav-label" data-admin-only hidden>AMMINISTRAZIONE</span>
           <button type="button" class="side-nav-item" data-nav="my-work" data-admin-only hidden><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg></span><span>Il mio lavoro</span></button>
-          <button type="button" class="side-nav-item" data-nav="admin-users" data-admin-only hidden><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1"/><path d="M16 5a3 3 0 0 1 0 6"/><path d="M17 15a5 5 0 0 1 4 5"/></svg></span><span>Utenti</span></button>
+          <button type="button" class="side-nav-item" data-nav="admin-users" id="btn-area-utenti" data-admin-only hidden><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1"/><path d="M16 5a3 3 0 0 1 0 6"/><path d="M17 15a5 5 0 0 1 4 5"/></svg></span><span>Utenti</span></button>
           <button type="button" class="side-nav-item" data-nav="settings" data-admin-only hidden><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .7 1.2-1.7 2.9-1.4-.1a7 7 0 0 1-2.2 1.3l-.6 1.2h-3.4l-.6-1.2A7 7 0 0 1 8 19l-1.4.1-1.7-2.9.7-1.2a7 7 0 0 1 0-2.6l-.7-1.2 1.7-2.9L8 8.4a7 7 0 0 1 2.2-1.3l.6-1.2h3.4l.6 1.2A7 7 0 0 1 17 8.4l1.4-.1 1.7 2.9-.7 1.2a7 7 0 0 1 0 2.6z"/></svg></span><span>Impostazioni</span></button>
         </nav>
         <div class="sidebar-foot">
@@ -137,22 +137,14 @@
           </button>
           <button type="button" class="dashboard-action-card primary-action document-generation-action" data-nav="document-generation" aria-label="Apri Generatore documenti">
             <span class="action-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m11.5 12 .5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5z"/></svg></span><span class="action-card-copy"><span class="module-card-overline">MODULO 03</span><strong>Generatore documenti</strong><small>Avvia il modulo DUVRI e raccogli checklist, documenti e dati dell'incarico</small></span><span class="action-arrow">→</span>
+         
           </button>
-          <div class="dashboard-module-section-break"><span class="eyebrow">STRUMENTI CONDIVISI</span><h4>Archivio e gestione</h4></div>
-          <button type="button" class="dashboard-action-card" data-nav="history">
-            <span class="action-card-icon">▤</span><span class="action-card-copy"><strong>Storico</strong><small>Apri, modifica e scarica i sopralluoghi</small></span><span class="action-arrow">→</span>
-          </button>
-          <button type="button" class="dashboard-action-card dashboard-install-card" id="dashboard-install-card" hidden>
-            <span class="action-card-icon">↓</span><span class="action-card-copy"><strong id="dashboard-install-title">Installa l'app</strong><small id="dashboard-install-copy">Aggiungila al dispositivo per aprirla come un'app.</small></span><span class="action-arrow">→</span>
-          </button>
-          <button type="button" class="dashboard-action-card" data-nav="my-work" data-admin-only hidden>
-            <span class="action-card-icon">✓</span><span class="action-card-copy"><strong>Il mio lavoro</strong><small>Attività create e modificate dal tuo account</small></span><span class="action-arrow">→</span>
-          </button>
-          <button type="button" class="dashboard-action-card" data-nav="admin-users" id="btn-area-utenti" data-admin-only hidden>
-            <span class="action-card-icon">◎</span><span class="action-card-copy"><strong>Utenti</strong><small>Crea, disattiva e gestisci gli account</small></span><span class="action-arrow">→</span>
-          </button>
-          <button type="button" class="dashboard-action-card" data-nav="settings" data-admin-only hidden>
-            <span class="action-card-icon">⚙</span><span class="action-card-copy"><strong>Impostazioni</strong><small>Checklist disponibili e versione applicazione</small></span><span class="action-arrow">→</span>
+        </div>
+        <div class="dashboard-install-utility">
+          <button type="button" class="dashboard-install-link" id="dashboard-install-card" hidden>
+            <span aria-hidden="true">↓</span>
+            <span id="dashboard-install-title">Installa l'app</span>
+            <span id="dashboard-install-copy">Aggiungila al dispositivo</span>
           </button>
         </div>
 
