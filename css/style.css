@@ -2014,11 +2014,19 @@ body[data-authenticated="true"] #app { margin: 0 !important; }
 
 
 /* Installazione PWA */
-.dashboard-install-card[hidden] { display: none !important; }
-.dashboard-install-card .action-card-icon {
-  background: #eaf8f1;
-  color: #148556;
+.dashboard-install-utility { display:flex; justify-content:flex-end; }
+.dashboard-install-link {
+  border:0; background:transparent; padding:10px 2px;
+  display:inline-flex; align-items:center; gap:7px;
+  color:var(--ui-blue); font-size:.75rem; font-weight:750;
+  cursor:pointer; text-align:left;
 }
+.dashboard-install-link:hover { text-decoration:underline; }
+.dashboard-install-link:focus-visible { outline:2px solid var(--ui-blue); outline-offset:2px; border-radius:4px; }
+.dashboard-install-link[hidden] { display:none !important; }
+.dashboard-install-link #dashboard-install-copy { color:var(--ui-muted); font-size:.70rem; font-weight:500; }
+@media (max-width:640px) { .dashboard-install-utility { justify-content:flex-start; } }
+
 
 
 /* Compilazione V1.1 — layout operativo più leggibile e collaborativo */
@@ -2980,11 +2988,6 @@ details.dg-auto-template > summary { cursor: pointer; font-weight: 700; color: v
 #screen-home .dashboard-action-card.document-generation-action .action-card-copy strong {
   font-size:.96rem; line-height:1.3;
 }
-.dashboard-module-section-break {
-  grid-column:1/-1; padding-top:16px;
-  border-top:1px solid var(--ui-border);
-}
-.dashboard-module-section-break h4 { margin:0; font-size:1rem; letter-spacing:-.02em; }
 #screen-home .dashboard-action-grid { align-items:stretch; }
 @media (min-width:1250px) {
   #screen-home .dashboard-action-grid {
