@@ -1,0 +1,33 @@
+name: Prepare PR74 offline release (temporary)
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  prepare:
+    if: github.event.pull_request.number == 74 && github.head_ref == 'ui/remove-duplicate-dashboard-shortcuts-20261104'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare release via official script
+        run: bash ./pubblica.sh --prepare 1.0.0
+      - name: Commit updated PWA cache and version to PR branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html service-worker.js js/aggiornamento.js version.json
+          if git diff --cached --quiet; then
+            echo "No release files updated" >&2
+            exit 1
+          fi
+          git commit -m "chore(release): prepare minimal header PWA build"
+          git push origin HEAD:refs/heads/ui/remove-duplicate-dashboard-shortcuts-20261104
