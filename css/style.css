@@ -1244,9 +1244,13 @@ body[data-authenticated="false"] { background: #edf3fa; }
 .side-nav-item:hover { color:var(--ui-blue); background:#f2f7ff; }
 .side-nav-item.is-active { color:var(--ui-blue); background:var(--ui-blue-soft); box-shadow:inset 3px 0 0 var(--ui-blue); }
 .nav-icon {
-  width:23px; height:23px; display:grid; place-items:center;
-  border-radius:7px; font-size:1rem; font-weight:800;
+  width:23px; height:23px; flex:0 0 23px; display:grid; place-items:center;
+  border-radius:7px;
   background:#f2f5f9; color:#607089;
+}
+.nav-icon svg {
+  display:block; width:17px; height:17px; fill:none; stroke:currentColor;
+  stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;
 }
 .side-nav-item.is-active .nav-icon { background:#fff; color:var(--ui-blue); }
 .side-nav-separator { height:1px; margin:14px 9px 9px; background:var(--ui-border); }
