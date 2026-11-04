@@ -2992,3 +2992,23 @@ details.dg-auto-template > summary { cursor: pointer; font-weight: 700; color: v
     min-height:112px; padding:15px;
   }
 }
+
+
+/* Dashboard responsive PC / iPad / smartphone — adattamento della griglia senza modificare le funzioni. */
+/* iPad in verticale: due colonne anziché una lunga lista. Gli smartphone restano su una colonna. */
+@media (min-width: 701px) and (max-width: 900px) {
+  #screen-home .dashboard-mini-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  #screen-home .dashboard-action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* iPad verticale/orizzontale e desktop compatto: il terzo modulo occupa l'intera riga.
+   Sopra 1250px il layout esistente mantiene tre moduli affiancati. */
+@media (min-width: 701px) and (max-width: 1249px) {
+  #screen-home .dashboard-action-card.document-generation-action {
+    grid-column: 1 / -1;
+  }
+}

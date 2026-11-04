@@ -9,8 +9,14 @@ async function check(name,fn){try{const details=await fn();report.tests.push({na
   report.blocked=await guard(context,server.origin);page=await context.newPage();page.on('pageerror',e=>report.errors.push(e.message));page.on('dialog',d=>d.accept());page.setDefaultTimeout(20000);
   await page.goto(url);await page.waitForFunction(()=>appAutenticataAvviata);
   const models=JSON.parse(fs.readFileSync(path.join(root,'checklists/index.json'))).checklists.filter(c=>c.id.startsWith('dvr_'));
-  for(const viewport of [{width:1440,height:1000},{width:768,height:1024},{width:390,height:844}])await check('DVR menu e layout '+viewport.width,async()=>{
+  for(const viewport of [{width:1440,height:1000},{width:1024,height:768},{width:820,height:1180},{width:768,height:1024},{width:390,height:844}])await check('DVR menu e layout '+viewport.width,async()=>{
     await page.setViewportSize(viewport);await page.evaluate(()=>router.navigate('home'));
+    const dashboard=await page.evaluate(()=>{const count=s=>getComputedStyle(document.querySelector(s)).gridTemplateColumns.split(' ').filter(Boolean).length;return{width:innerWidth,scroll:document.documentElement.scrollWidth,modules:count('#screen-home .dashboard-action-grid'),kpis:count('#screen-home .dashboard-mini-grid'),lastModuleColumn:getComputedStyle(document.querySelector('#screen-home .document-generation-action')).gridColumn};});
+    assert.ok(dashboard.scroll<=dashboard.width+2,JSON.stringify(dashboard));
+    assert.equal(dashboard.modules,viewport.width>=1250?3:viewport.width>=701?2:1,JSON.stringify(dashboard));
+    assert.equal(dashboard.kpis,viewport.width>=1181?4:viewport.width>=701?2:1,JSON.stringify(dashboard));
+    if(viewport.width>=701&&viewport.width<=1249)assert.equal(dashboard.lastModuleColumn,'1 / -1',JSON.stringify(dashboard));
+    await page.screenshot({path:path.join(out,viewport.width+'-dashboard.png'),fullPage:true});
     await page.locator('.dashboard-action-card[data-modalita="dvr"]').click();
     await page.waitForFunction(()=>document.querySelector('#select-checklist').options.length===6);
     const ids=await page.locator('#select-checklist option').evaluateAll(els=>els.map(e=>e.value).filter(Boolean));
