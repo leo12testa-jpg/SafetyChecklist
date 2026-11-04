@@ -23,7 +23,7 @@ test('sidebar: otto icone SVG uniformi e decorative', () => {
 
 test('sidebar: etichette e collegamenti invariati', () => {
   const labels = [...nav.matchAll(/<\/svg><\/span><span>([^<]+)<\/span>/g)].map(m => m[1]);
-  assert.deepEqual(labels, ['Dashboard', 'Sopralluoghi', 'Raccolta dati', 'Generatore documenti', 'Storico', 'Il mio lavoro', 'Utenti', 'Impostazioni']);
+  assert.deepEqual(labels, ['Dashboard', 'Nuovo sopralluogo', 'Raccolta dati', 'Generatore documenti', 'Storico', 'Il mio lavoro', 'Utenti', 'Impostazioni']);
   const targets = [...nav.matchAll(/<button\b[^>]*class="side-nav-item"[^>]*data-nav="([^"]+)"/g)].map(m => m[1]);
   assert.deepEqual(targets, ['home', 'new-inspection', 'new-inspection', 'document-generation', 'history', 'my-work', 'admin-users', 'settings']);
   assert.match(nav, /data-nav="new-inspection" data-modalita="audit"/);
