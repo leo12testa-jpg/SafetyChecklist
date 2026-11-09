@@ -24,6 +24,7 @@
   connect.type='button';
   // Pairing is an internal step of the one visible action, not a second button.
   connect.hidden = true;
+  connect.style.display = 'none';
   const action = element('button','dg-analyze-sources','btn btn-primary','Prepara fascicolo DUVRI');
   action.type='button';
   action.disabled = true;
@@ -40,11 +41,15 @@
   // The inactive cloud-only draft button must not duplicate the local action.
   if (typeof DOCUMENT_GENERATION_CLOUD_ENABLED === 'undefined' || DOCUMENT_GENERATION_CLOUD_ENABLED !== true) {
     const legacy=document.getElementById('dg-generate-duvri');
-    if (legacy) legacy.hidden=true;
+    if (legacy) { legacy.hidden=true; legacy.style.display='none'; }
     const legacyConsent=document.getElementById('dg-generation-consent');
-    if (legacyConsent?.parentElement) legacyConsent.parentElement.hidden=true;
+    if (legacyConsent?.parentElement) { legacyConsent.parentElement.hidden=true; legacyConsent.parentElement.style.display='none'; }
     const legacyState=document.getElementById('dg-generate-action-state');
-    if (legacyState) legacyState.hidden=true;
+    if (legacyState) {
+      legacyState.hidden=true; legacyState.style.display='none';
+      const oldWarning=legacyState.nextElementSibling;
+      if (oldWarning?.tagName==='P') { oldWarning.hidden=true; oldWarning.style.display='none'; }
+    }
   }
 
   function snapshot() {
@@ -69,11 +74,12 @@
   function update() {
     action.disabled = uploading || Boolean(validate(snapshot()));
   }
-  connect.addEventListener('click',()=>{
+  function openPair() {
     localStatus.textContent='Apri la finestra locale e premi “Autorizza SafetyChecklist”.';
     popup = window.open(ORIGIN+'/pair','colligo-pair','popup,width=600,height=530');
     if (!popup) localStatus.textContent='Il browser ha bloccato la finestra. Consenti i popup per SafetyChecklist.';
-  });
+  }
+  connect.addEventListener('click',openPair);
   window.addEventListener('message',async (event)=>{
     if (event.origin!==ORIGIN || event.source!==popup || event.data?.type!==PAIR_TYPE ||
         typeof event.data.token!=='string' || event.data.token.length<40) return;
@@ -97,7 +103,7 @@
   action.addEventListener('click',async()=>{
     if (uploading) return;
     // First use pairs the browser with the already running Windows gateway.
-    if (!ready) { connect.click(); return; }
+    if (!ready) { openPair(); return; }
     const snap=snapshot();
     const issue=validate(snap);
     if (issue) { localStatus.textContent=issue;update();return; }
