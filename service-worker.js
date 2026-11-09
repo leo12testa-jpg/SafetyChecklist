@@ -22,6 +22,7 @@ const APP_SHELL = [
   './js/document-intake.js',
   './js/document-intake-ui.js',
   './js/document-generation-action.js',
+  './js/document-local-intake.js',
   './js/identity.js',
   './js/account-screens.js?v=20261104-170313',
   './js/db.js?v=20261104-170313',
