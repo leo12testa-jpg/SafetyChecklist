@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const action = require('../js/duvri-generate-action.js');
+const action = require('../js/document-generation-action.js');
 
 const checklist = {name:'checklist_compilata.docx',size:3600};
 const docs = [{file:{name:'planimetria.pdf',size:5000},category:'planimetrie-layout'}];
@@ -46,7 +46,7 @@ test('native action targets actual CSS gate present in the current app, not a mi
   const fs=require('node:fs');
   const path=require('node:path');
   const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
-  const script=fs.readFileSync(path.join(__dirname,'../js/duvri-generate-action.js'),'utf8');
+  const script=fs.readFileSync(path.join(__dirname,'../js/document-generation-action.js'),'utf8');
   assert.match(html,/class="dg-auto-gate"/);
   assert.match(script,/screen\.querySelector\('\.dg-auto-gate'\)/);
   assert.doesNotMatch(script,/getElementById\('dg-auto-gate'\)/);
