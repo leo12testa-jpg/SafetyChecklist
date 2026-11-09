@@ -24,7 +24,7 @@
   connect.type='button';
   // Pairing is an internal step of the one visible action, not a second button.
   connect.hidden = true;
-  connect.style.display = 'none';
+  if (connect.style) connect.style.display = 'none';
   const action = element('button','dg-analyze-sources','btn btn-primary','Prepara fascicolo DUVRI');
   action.type='button';
   action.disabled = true;
@@ -41,14 +41,14 @@
   // The inactive cloud-only draft button must not duplicate the local action.
   if (typeof DOCUMENT_GENERATION_CLOUD_ENABLED === 'undefined' || DOCUMENT_GENERATION_CLOUD_ENABLED !== true) {
     const legacy=document.getElementById('dg-generate-duvri');
-    if (legacy) { legacy.hidden=true; legacy.style.display='none'; }
+    if (legacy) { legacy.hidden=true; if (legacy.style) legacy.style.display='none'; }
     const legacyConsent=document.getElementById('dg-generation-consent');
-    if (legacyConsent?.parentElement) { legacyConsent.parentElement.hidden=true; legacyConsent.parentElement.style.display='none'; }
+    if (legacyConsent?.parentElement) { legacyConsent.parentElement.hidden=true; if (legacyConsent.parentElement.style) legacyConsent.parentElement.style.display='none'; }
     const legacyState=document.getElementById('dg-generate-action-state');
     if (legacyState) {
-      legacyState.hidden=true; legacyState.style.display='none';
+      legacyState.hidden=true; if (legacyState.style) legacyState.style.display='none';
       const oldWarning=legacyState.nextElementSibling;
-      if (oldWarning?.tagName==='P') { oldWarning.hidden=true; oldWarning.style.display='none'; }
+      if (oldWarning?.tagName==='P') { oldWarning.hidden=true; if (oldWarning.style) oldWarning.style.display='none'; }
     }
   }
 
