@@ -12,6 +12,7 @@
   let popup = null;
   let uploading = false;
   let ready = false;
+  let startAfterPair = false;
 
   function element(tag, id, css, label) {
     const node = document.createElement(tag);
@@ -22,7 +23,10 @@
   }
   const connect = element('button','dg-connect-local','btn','Collega il generatore sul PC');
   connect.type='button';
-  const action = element('button','dg-analyze-sources','btn btn-primary','Analizza le fonti (sul PC)');
+  // Pairing is an internal step of the one visible action, not a second button.
+  connect.hidden = true;
+  if (connect.style) connect.style.display = 'none';
+  const action = element('button','dg-analyze-sources','btn btn-primary','Prepara fascicolo DUVRI');
   action.type='button';
   action.disabled = true;
   const localStatus=element('p','dg-local-status','dg-small-note','Servizio locale non collegato.');
@@ -35,6 +39,34 @@
   const note=element('p',null,'dg-small-note',
     'Fase 1: lettura e tracciamento delle fonti. Non è ancora una generazione DUVRI: dati da verificare, nessun invio AI, nessuna emissione.');
   area.append(connect,consentLabel,action,localStatus,note);
+  // Keep the historic questionnaire in the DOM for legacy handlers, but show
+  // only the two document uploads and this local action in DUVRI mode.
+  // Hidden elements do not grant authorization or bypass any existing gate.
+  function hideLegacySection(node) {
+    if (!node) return;
+    node.hidden = true;
+    if (node.style) node.style.display = 'none';
+  }
+  if (typeof DOCUMENT_GENERATION_CLOUD_ENABLED === 'undefined' || DOCUMENT_GENERATION_CLOUD_ENABLED !== true) {
+    for (const selector of [
+      '.dg-prototype-alert', '.dg-workflow-strip', '.dg-customer-instructions',
+      '#dg-form', '.dg-result-panel', '.dg-queue-panel', '.dg-auto-gate',
+      '#dg-generate-reasons', '#dg-template-details', '#dg-auto-results'
+    ]) hideLegacySection(screen.querySelector?.(selector));
+  }
+  // The inactive cloud-only draft button must not duplicate the local action.
+  if (typeof DOCUMENT_GENERATION_CLOUD_ENABLED === 'undefined' || DOCUMENT_GENERATION_CLOUD_ENABLED !== true) {
+    const legacy=document.getElementById('dg-generate-duvri');
+    if (legacy) { legacy.hidden=true; if (legacy.style) legacy.style.display='none'; }
+    const legacyConsent=document.getElementById('dg-generation-consent');
+    if (legacyConsent?.parentElement) { legacyConsent.parentElement.hidden=true; if (legacyConsent.parentElement.style) legacyConsent.parentElement.style.display='none'; }
+    const legacyState=document.getElementById('dg-generate-action-state');
+    if (legacyState) {
+      legacyState.hidden=true; if (legacyState.style) legacyState.style.display='none';
+      const oldWarning=legacyState.nextElementSibling;
+      if (oldWarning?.tagName==='P') { oldWarning.hidden=true; if (oldWarning.style) oldWarning.style.display='none'; }
+    }
+  }
 
   function snapshot() {
     const selection = globalThis.documentIntakeSelection;
@@ -46,7 +78,6 @@
   }
   function validate(snap) {
     const files=[snap.checklist,...snap.attachments.map(e=>e.file)].filter(Boolean);
-    if (!ready) return 'Collega prima il generatore locale sul PC.';
     if (!syntheticConsent.checked) return 'Conferma la prova con soli dati inventati.';
     if (snap.busy) return 'Lettura dei file in corso: riprova quando termina.';
     if (!snap.checklist || !/\.docx$/i.test(snap.checklist.name) || !snap.checklist.size)
@@ -59,11 +90,12 @@
   function update() {
     action.disabled = uploading || Boolean(validate(snapshot()));
   }
-  connect.addEventListener('click',()=>{
+  function openPair() {
     localStatus.textContent='Apri la finestra locale e premi “Autorizza SafetyChecklist”.';
     popup = window.open(ORIGIN+'/pair','colligo-pair','popup,width=600,height=530');
-    if (!popup) localStatus.textContent='Il browser ha bloccato la finestra. Consenti i popup per SafetyChecklist.';
-  });
+    if (!popup) { startAfterPair=false; localStatus.textContent='Il browser ha bloccato la finestra. Consenti i popup per SafetyChecklist.'; }
+  }
+  connect.addEventListener('click',openPair);
   window.addEventListener('message',async (event)=>{
     if (event.origin!==ORIGIN || event.source!==popup || event.data?.type!==PAIR_TYPE ||
         typeof event.data.token!=='string' || event.data.token.length<40) return;
@@ -76,16 +108,23 @@
       if (!response.ok || health.state!=='ready_for_local_intake' || health.issuance_allowed!==false)
         throw new Error('Servizio locale non valido.');
       ready=true;
-      localStatus.textContent='PC collegato. Carica un fascicolo sintetico e premi “Analizza le fonti”.';
+      localStatus.textContent='PC collegato. Premi “Prepara fascicolo DUVRI” per avviare la lettura locale.';
       try{popup?.close();}catch(_){}
     } catch(_) {
-      ready=false;token=null;
+      ready=false;token=null;startAfterPair=false;
       localStatus.textContent='Collegamento non riuscito. Controlla il servizio Windows e i permessi di rete locale del browser.';
     }
     update();
+    if (ready && startAfterPair && !action.disabled) {
+      startAfterPair=false;
+      // Continuation of the explicitly requested action after manual pairing.
+      action.click();
+    }
   });
   action.addEventListener('click',async()=>{
     if (uploading) return;
+    // First use pairs the browser with the already running Windows gateway.
+    if (!ready) { startAfterPair=true; openPair(); return; }
     const snap=snapshot();
     const issue=validate(snap);
     if (issue) { localStatus.textContent=issue;update();return; }
