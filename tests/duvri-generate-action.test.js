@@ -50,7 +50,7 @@ test('native action targets actual CSS gate present in the current app, not a mi
   assert.match(html,/class="dg-auto-gate"/);
   assert.match(script,/screen\.querySelector\('\.dg-auto-gate'\)/);
   assert.doesNotMatch(script,/getElementById\('dg-auto-gate'\)/);
-  assert.match(html,/<script src="js\/duvri-generate-action\.js"><\/script>/);
+  assert.match(html,/<script src="js\/document-generation-action\.js"><\/script>/);
   assert.doesNotMatch(html,/id="dg-open-synthetic-demo"/);
   assert.match(script,/issuanceAllowed: false/);
 });
