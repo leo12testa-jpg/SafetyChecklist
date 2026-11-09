@@ -90,7 +90,7 @@ class WordLayoutProfileTests(unittest.TestCase):
         self.reject()
     def test_frontmatter_compaction_blocked(self):
         self.profile["compact_section_breaks"]=[1]
-        self.rejected()
+        self.reject()
 
     def test_unapproved_profile_is_blocked(self):
         self.profile["synthetic_only"]=False
