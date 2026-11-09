@@ -21,6 +21,7 @@ function cors(req){
   return {'access-control-allow-origin':origin&&cfg.origins.has(origin)?origin:'',
     'access-control-allow-methods':'GET,POST,OPTIONS',
     'access-control-allow-headers':'authorization,content-type',
+    'access-control-expose-headers':'x-duvri-sha256,content-disposition',
     'cache-control':'private,no-store','x-content-type-options':'nosniff',vary:'Origin'};
 }
 function reply(req,body,status=200){
@@ -205,6 +206,26 @@ async function handle(req){
         word_generated:job.state==='needs_review'&&!!job.result_path,
         download_ready:job.state==='needs_review'&&!!job.result_sha256,
         issuance_allowed:false});
+    }
+    if(req.method==='GET'&&action==='download'){
+      // No signed/public URL, no cross-user access, no provisional file.
+      const path=uid+'/'+id+'/draft.docx';
+      if(job.state!=='needs_review'||job.result_path!==path||
+         typeof job.result_sha256!=='string'||!/^[a-f0-9]{64}$/.test(job.result_sha256))
+        fail(409,'Word non ancora disponibile per revisione');
+      const url=cfg.url+'/storage/v1/object/authenticated/'+BUCKET+'/'+path;
+      const blob=await network(url,{headers:keyHeaders()});
+      if(!blob.ok)fail(503,'Word non accessibile');
+      const bytes=new Uint8Array(await blob.arrayBuffer());
+      if(bytes.length<100||bytes.length>MAX_FILE||bytes[0]!==80||bytes[1]!==75)
+        fail(422,'Formato Word non valido');
+      const digest=await crypto.subtle.digest('SHA-256',bytes);
+      const sha=Array.from(new Uint8Array(digest),n=>n.toString(16).padStart(2,'0')).join('');
+      if(sha!==job.result_sha256)fail(422,'Impronta Word non valida');
+      return new Response(bytes,{status:200,headers:{...cors(req),
+        'content-type':'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'content-disposition':'attachment; filename="DUVRI_BOZZA_NON_EMETTIBILE.docx"',
+        'x-duvri-sha256':sha}});
     }
     fail(404,'Funzione non disponibile');
   }catch(error){

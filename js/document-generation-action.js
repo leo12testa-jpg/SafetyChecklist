@@ -6,6 +6,7 @@
 const duvriGenerateAction = (() => {
   const MAX_FILES = 12;
   const MAX_TOTAL_BYTES = 45 * 1024 * 1024;
+  const MAX_FILE_BYTES = 15 * 1024 * 1024;
   const LAYOUT_ID = 'COLLIGO-DUVRI-CORPORATE-2026-V1';
 
   function validate(checklist, attachments, enabled, consent) {
@@ -18,10 +19,11 @@ const duvriGenerateAction = (() => {
     const files = [checklist, ...(Array.isArray(attachments) ? attachments.map((x) => x.file) : [])].filter(Boolean);
     if (files.length > MAX_FILES) reasons.push('Massimo 12 file complessivi (1 checklist e 11 allegati).');
     if (files.some((f) => !Number.isFinite(f.size) || f.size <= 0)) reasons.push('Sono presenti file vuoti o non validi.');
+    if (files.some((f) => Number(f.size) > MAX_FILE_BYTES)) reasons.push('Massimo 15 MB per singolo file.');
     if (files.reduce((n, f) => n + (Number(f.size) || 0), 0) > MAX_TOTAL_BYTES) {
       reasons.push('Dimensione massima complessiva: 45 MB.');
     }
-    if (!consent) reasons.push('Devi autorizzare espressamente l’invio al backend e al provider AI configurato.');
+    if (!consent) reasons.push('Devi autorizzare espressamente l’invio dei documenti al backend privato.');
     return reasons;
   }
 
@@ -43,7 +45,7 @@ const duvriGenerateAction = (() => {
       draftOnly: true,
       humanReviewRequired: true,
       issuanceAllowed: false,
-      aiDataProcessingConsent: true,
+      aiDataProcessingConsent: false,
       decisionGates: ['TITOLO_IV_ART26', 'HSE_REVIEW', 'D1', 'D2']
     };
   }
@@ -66,14 +68,14 @@ const duvriGenerateAction = (() => {
     btn.id = 'dg-generate-duvri';
     btn.type = 'button';
     btn.className = 'btn btn-primary';
-    btn.textContent = 'Genera DUVRI (bozza Word)';
+    btn.textContent = 'Genera DUVRI';
     btn.disabled = true;
     const consentLabel = document.createElement('label');
     consentLabel.className = 'dg-small-note';
     const consent = document.createElement('input');
     consent.type = 'checkbox';
     consent.id = 'dg-generation-consent';
-    consentLabel.append(consent, document.createTextNode(' Autorizzo l’invio della checklist e degli allegati al backend privato e al provider AI configurato per preparare una bozza.'));
+    consentLabel.append(consent, document.createTextNode(' Autorizzo il caricamento della checklist e degli allegati nell’archivio privato Colligo per la preparazione della bozza DUVRI.'));
     const state = document.createElement('p');
     state.id = 'dg-generate-action-state';
     state.className = 'dg-small-note';
@@ -84,6 +86,19 @@ const duvriGenerateAction = (() => {
     warning.textContent = 'Solo BOZZA NON EMETTIBILE. Restano obbligatorie le verifiche tecniche, la decisione Titolo IV/art. 26 e le approvazioni HSE/D1/D2. Il modello Colligo deve essere configurato sul server.';
     area.append(consentLabel, btn, state, warning);
     gate.insertAdjacentElement('afterend', area);
+    // Exactly two document uploads and one action in cloud mode; legacy
+    // questionnaire/queue widgets remain in the DOM for backwards compatibility.
+    if (typeof DOCUMENT_GENERATION_CLOUD_ENABLED !== 'undefined' &&
+        DOCUMENT_GENERATION_CLOUD_ENABLED===true) {
+      for (const selector of [
+        '.dg-prototype-alert','.dg-workflow-strip','.dg-customer-instructions',
+        '#dg-form','.dg-result-panel','.dg-queue-panel','.dg-auto-gate',
+        '#dg-generate-reasons','#dg-template-details','#dg-auto-results'
+      ]) {
+        const node=screen.querySelector(selector);
+        if(node){node.hidden=true;if(node.style)node.style.display='none';}
+      }
+    }
     let running = false;
 
     function snapshot() {
@@ -122,24 +137,83 @@ const duvriGenerateAction = (() => {
         await appIdentity.ready();
         const token = await appIdentity.token();
         if (!token) throw new Error('Accesso scaduto: effettua nuovamente il login.');
+        const files = [snap.checklist, ...snap.attachments.map(entry => entry.file)];
+        const requestId = crypto.randomUUID();
         endpoint.searchParams.set('action', 'create');
-        const title = screen.querySelector('#dg-form [name="title"]')?.value || '';
-        const form = new FormData();
-        form.append('metadata', JSON.stringify(metadata(snap.checklist, snap.attachments, title)));
-        form.append('checklist', snap.checklist, snap.checklist.name);
-        for (const entry of snap.attachments) form.append('files', entry.file, entry.file.name);
         const response = await fetch(endpoint.toString(), {
           method: 'POST',
-          headers: { authorization: 'Bearer ' + token },
-          body: form
+          headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' },
+          body: JSON.stringify({request_id:requestId,files:files.map(file=>({
+            name:file.name,size:file.size
+          }))})
         });
         const data = await response.json().catch(() => ({}));
-        if (!response.ok || !data.job?.id) {
-          throw new Error(typeof data.error === 'string' ? data.error : 'Il backend non ha confermato la creazione della bozza.');
+        if (!response.ok || !/^[0-9a-f-]{36}$/i.test(data.job?.id||'') ||
+            data.job.state!=='collecting' || data.issuance_allowed!==false)
+          throw new Error(data.error || 'Backend documentale non pronto.');
+        const jobId=data.job.id;
+        for (let i=0;i<files.length;i++) {
+          state.textContent='Invio documenti '+(i+1)+' di '+files.length+'…';
+          endpoint.searchParams.set('action','upload');
+          endpoint.searchParams.set('job',jobId);
+          endpoint.searchParams.set('slot',String(i));
+          const uploaded=await fetch(endpoint.toString(),{
+            method:'POST',headers:{authorization:'Bearer '+token,'content-type':'application/octet-stream'},
+            body:files[i]
+          });
+          const receipt=await uploaded.json().catch(()=>({}));
+          if(!uploaded.ok || receipt.received!==true || receipt.slot!==i ||
+             typeof receipt.sha256!=='string' || !/^[a-f0-9]{64}$/.test(receipt.sha256))
+            throw new Error(receipt.error || 'Invio file non completato: '+files[i].name);
         }
-        // QUEUED non significa generazione completata né approvazione.
-        state.textContent = 'Lavoro accodato (ID ' + data.job.id +
-          '). Consulta “Elaborazioni documentali” per stato, revisione e download della bozza Word.';
+        endpoint.searchParams.set('action','finalize');
+        endpoint.searchParams.delete('slot');
+        const closed=await fetch(endpoint.toString(),{
+          method:'POST',headers:{authorization:'Bearer '+token}
+        });
+        const completed=await closed.json().catch(()=>({}));
+        if(!closed.ok || completed.job?.id!==jobId ||
+           completed.job?.state!=='awaiting_worker' || completed.issuance_allowed!==false)
+          throw new Error(completed.error || 'Fascicolo non completato');
+        state.textContent='Fascicolo acquisito in modo privato. Elaborazione Word in corso: nessun DUVRI è ancora stato emesso.';
+        // The backend must attest needs_review and SHA before downloading.
+        for(let attempt=0;attempt<90;attempt++){
+          await new Promise(resolve=>setTimeout(resolve,4000));
+          endpoint.searchParams.set('action','status');
+          const check=await fetch(endpoint.toString(),{
+            method:'GET',headers:{authorization:'Bearer '+token},cache:'no-store'
+          });
+          const report=await check.json().catch(()=>({}));
+          if(!check.ok || report.job?.id!==jobId || report.issuance_allowed!==false)
+            throw new Error(report.error || 'Impossibile verificare lo stato del lavoro');
+          if(report.job.state==='failed' || report.job.state==='cancelled')
+            throw new Error('La generazione è stata bloccata: verifica il fascicolo.');
+          if(report.job.state==='needs_review' && report.download_ready===true){
+            endpoint.searchParams.set('action','download');
+            const downloaded=await fetch(endpoint.toString(),{
+              method:'GET',headers:{authorization:'Bearer '+token},cache:'no-store'
+            });
+            const sha=downloaded.headers.get('x-duvri-sha256')||'';
+            const mime=downloaded.headers.get('content-type')||'';
+            if(!downloaded.ok || !/^[a-f0-9]{64}$/.test(sha) ||
+               !mime.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document'))
+              throw new Error('Word non disponibile o senza verifica di integrità');
+            const blob=await downloaded.blob();
+            const digest=await crypto.subtle.digest('SHA-256',await blob.arrayBuffer());
+            const hex=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+            if(hex!==sha)throw new Error('Verifica SHA-256 del Word fallita');
+            const url=URL.createObjectURL(blob);
+            try{
+              const a=document.createElement('a');
+              a.href=url;a.download='DUVRI_BOZZA_NON_EMETTIBILE.docx';
+              document.body.appendChild(a);a.click();a.remove();
+            }finally{setTimeout(()=>URL.revokeObjectURL(url),3000);}
+            state.textContent='DUVRI Word scaricato: BOZZA NON EMETTIBILE. Verifica HSE, interferenze, D1/D2 e firme.';
+            break;
+          }
+          if(attempt===89)
+            state.textContent='Fascicolo salvato e in attesa del worker. Nessun DUVRI generato; verifica lo stato quando sarà disponibile.';
+        }
         consent.checked = false;
         document.getElementById('dg-refresh-jobs')?.click();
       } catch (error) {

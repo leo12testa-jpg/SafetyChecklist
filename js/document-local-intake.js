@@ -5,6 +5,8 @@
   'use strict';
   const ORIGIN = 'http://127.0.0.1:4198';
   const PAIR_TYPE = 'COLLIGO_LOCAL_PAIR_V1';
+  // Never show a localhost button when the private cloud worker is enabled.
+  if (typeof DOCUMENT_GENERATION_CLOUD_ENABLED !== 'undefined' && DOCUMENT_GENERATION_CLOUD_ENABLED===true) return;
   const screen = document.querySelector('[data-screen="document-generation"]');
   const area = document.getElementById('dg-generate-action');
   if (!screen || !area || document.getElementById('dg-connect-local')) return;
