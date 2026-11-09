@@ -86,6 +86,19 @@ const duvriGenerateAction = (() => {
     warning.textContent = 'Solo BOZZA NON EMETTIBILE. Restano obbligatorie le verifiche tecniche, la decisione Titolo IV/art. 26 e le approvazioni HSE/D1/D2. Il modello Colligo deve essere configurato sul server.';
     area.append(consentLabel, btn, state, warning);
     gate.insertAdjacentElement('afterend', area);
+    // Exactly two document uploads and one action in cloud mode; legacy
+    // questionnaire/queue widgets remain in the DOM for backwards compatibility.
+    if (typeof DOCUMENT_GENERATION_CLOUD_ENABLED !== 'undefined' &&
+        DOCUMENT_GENERATION_CLOUD_ENABLED===true) {
+      for (const selector of [
+        '.dg-prototype-alert','.dg-workflow-strip','.dg-customer-instructions',
+        '#dg-form','.dg-result-panel','.dg-queue-panel','.dg-auto-gate',
+        '#dg-generate-reasons','#dg-template-details','#dg-auto-results'
+      ]) {
+        const node=screen.querySelector(selector);
+        if(node){node.hidden=true;if(node.style)node.style.display='none';}
+      }
+    }
     let running = false;
 
     function snapshot() {
