@@ -31,3 +31,5 @@ Il Word V5 REAL_SYN_01 riferito da Codex **non è stato esaminato** da questa PR
 Questa PR serve solo a rendere rigoroso il **primo passaggio del flusso** (DOCX Word cliente + allegati), senza sostenere che il generatore sia concluso.
 
 Il controllo accetta esclusivamente gli ID completi `SIM-01-MANUTENZIONE`, `SIM-02-COPERTURA-PV`, `SIM-03-POZZETTO` e `SIM-04-ARCHIVIO`, il riepilogo `RIEPILOGO_SICUREZZA.json` e l'archivio generato dal builder; è un criterio specifico dei dati fittizi, non una regola per i clienti reali.
+
+Nota di collaudo: l'esito positivo deve essere riferito allo SHA esatto della PR; un workflow verde su un commit precedente non basta a verificare l'ultima modifica alla ricostruzione delle fixture.
