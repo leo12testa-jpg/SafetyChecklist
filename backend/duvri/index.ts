@@ -11,6 +11,8 @@ const cfg = {
   origins: new Set((Deno.env.get('DUVRI_ALLOWED_ORIGINS') || 'https://leo12testa-jpg.github.io').split(','))
 };
 const BUCKET='colligo-duvri-private';
+const MASTER_STORAGE_PATH='system/DUVRI_BASE_GENERALE_2026.docx';
+const MASTER_SHA256='c6c8ab57ec94381c7d416b672c8929c0c4f18ed529e9550c9050b26e0b868b959';
 const fileTypes={docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   pdf:'application/pdf',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   zip:'application/zip',png:'image/png',
@@ -151,6 +153,18 @@ async function notifyWorker(id){
   return true;
 }
 
+async function verifyPrivateMaster(){
+  const url=cfg.url+'/storage/v1/object/authenticated/'+BUCKET+'/'+MASTER_STORAGE_PATH;
+  const response=await network(url,{headers:keyHeaders()});
+  if(!response.ok)fail(503,'Modello Word privato non ancora configurato');
+  const bytes=new Uint8Array(await response.arrayBuffer());
+  if(bytes.length<100||bytes.length>2*1024*1024||bytes[0]!==80||bytes[1]!==75)
+    fail(503,'Modello Word privato non valido');
+  const digest=await crypto.subtle.digest('SHA-256',bytes);
+  const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  if(hash!==MASTER_SHA256)fail(503,'Modello Word non corrisponde al master approvato');
+  return true;
+}
 async function ensureBucket(){
   const url=cfg.url+'/storage/v1/bucket/'+BUCKET;
   const check=await network(url,{headers:keyHeaders()});
@@ -210,6 +224,7 @@ async function handle(req){
       if(!workerReady())fail(503,'Compilatore Word online non ancora configurato');
       const manifest=validateManifest(data?.files),reqId=uuid(data?.request_id);
       await ensureBucket();
+      await verifyPrivateMaster();
       const previous=await sql('GET','duvri_jobs','?owner_uid=eq.'+encodeURIComponent(uid)+
         '&request_id=eq.'+reqId+'&select=id,state,manifest');
       if(previous.length){
