@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Colligo • Generatore DUVRI — ambiente sintetico</title>
+  <style>
+    :root{--ink:#223044;--muted:#667489;--line:#dce2e9;--blue:#a9c5e3;--pale:#edf3f9;--bg:#f6f8fa;--accent:#395c83;--warn:#a04440}
+    *{box-sizing:border-box}
+    html{font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:var(--bg)}
+    body{margin:0}
+    button,input{font:inherit}
+    a{color:inherit}
+    button{cursor:pointer}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:16px;background:#fff;border-bottom:1px solid var(--line);padding:20px clamp(20px,4vw,56px)}
+    .brand{display:flex;align-items:center;gap:14px;font-weight:700;letter-spacing:.14em;font-size:21px}
+    .mark{width:34px;height:34px;border-radius:50%;border:7px solid #c4d4e6;box-shadow:4px 3px 0 #c18fb2 inset;display:inline-block}
+    .brand small{display:block;font-size:8px;letter-spacing:.45em;color:#7c8592;margin-top:3px}
+    .meta{font-size:12px;text-transform:uppercase;letter-spacing:.13em;color:var(--muted)}
+    .shell{max-width:1240px;margin:0 auto;padding:38px clamp(16px,4vw,50px) 80px}
+    .crumb{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:700}
+    h1{font-size:clamp(31px,4vw,48px);letter-spacing:-.045em;margin:15px 0 12px;line-height:1.1}
+    .intro{color:var(--muted);font-size:17px;line-height:1.5;max-width:740px;margin:0 0 32px}
+    .layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;align-items:start;gap:25px}
+    .panel,.aside{background:white;border:1px solid var(--line);border-radius:5px;box-shadow:0 5px 25px rgba(21,36,58,.035)}
+    .panel{padding:32px}
+    .aside{padding:25px;position:sticky;top:18px}
+    .eyebrow{color:var(--accent);font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700}
+    h2{font-size:21px;letter-spacing:-.025em;margin:9px 0 8px}
+    .panel-p{color:var(--muted);font-size:14px;margin:0 0 24px;line-height:1.5}
+    .upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .zone{display:flex;flex-direction:column;gap:9px;min-height:196px;padding:23px;border:1.5px dashed #9fb5ca;background:#f9fbfd;border-radius:3px}
+    .zone b{font-size:16px}
+    .zone .num{font-size:11px;letter-spacing:.12em;color:var(--accent);font-weight:700}
+    .zone p{color:var(--muted);font-size:13px;line-height:1.45;margin:0}
+    .zone input{width:100%;font-size:12px;min-height:35px}
+    .summary{margin:20px 0;padding:14px 16px;border-left:3px solid #a8c0d8;background:var(--pale);font-size:13px;color:#435a73;line-height:1.6}
+    .inputs{margin-top:22px}
+    .inputs label{font-weight:700;font-size:13px;display:block;margin-bottom:8px}
+    .inputs input[type=text]{border:1px solid #ccd7e2;min-height:42px;padding:10px 12px;border-radius:3px;width:100%;max-width:630px}
+    .consent{display:flex;align-items:flex-start;gap:10px;margin:20px 0;line-height:1.4;font-size:13px;color:#5a6778}
+    .consent input{margin-top:2px;accent-color:#395c83}
+    .actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:22px}
+    .btn{border:1px solid #a8b9ca;background:white;color:#29496b;padding:12px 17px;border-radius:3px;font-weight:700;font-size:13px;min-height:43px}
+    .btn.primary{background:#32577e;color:white;border-color:#32577e}
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
+    .btn:hover:not([disabled]){filter:brightness(.96)}
+    .result{border:1px solid #bfd5e9;background:#f5f9fd;margin-top:22px;padding:17px 18px;border-radius:3px;min-height:60px;font-size:14px;line-height:1.5}
+    .result.error{border-color:#ebc1bb;background:#fcf5f3;color:#8c3830}
+    .steps{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:0}
+    .steps li{border-left:2px solid #c8d4e3;margin-left:7px;padding:0 0 23px 19px;position:relative;line-height:1.35;font-size:14px}
+    .steps li:before{content:'';position:absolute;left:-6px;top:2px;width:10px;height:10px;border-radius:50%;background:#fff;border:2px solid #9db3c8}
+    .steps li.done:before{background:#567ba0;border-color:#567ba0}
+    .steps span{display:block;color:var(--muted);font-size:12px;margin-top:4px}
+    .notice{border-top:1px solid var(--line);padding-top:20px;margin-top:9px;font-size:12px;line-height:1.6;color:var(--muted)}
+    .notice b{color:var(--warn)}
+    .foot{display:flex;justify-content:space-between;gap:15px;border-top:1px solid var(--line);margin-top:44px;padding-top:19px;color:var(--muted);font-size:12px}
+    .pill{display:inline-block;color:#8d423d;border:1px solid #efd6d3;background:#fff8f6;padding:6px 9px;border-radius:3px;font-size:11px;font-weight:bold;letter-spacing:.03em}
+    @media(max-width:840px){.layout{grid-template-columns:1fr}.aside{position:static}.upload-grid{grid-template-columns:1fr}.panel{padding:22px}.top{padding:16px}.meta{display:none}}
+  </style>
+</head>
+<body>
+<header class="top"><div class="brand"><span class="mark" aria-hidden="true"></span><div>COLLIGO<small>INGEGNERIA</small></div></div><div class="meta">Area tecnica · Generazione documentale</div></header>
+<main class="shell">
+  <div class="crumb">SafetyChecklist / DUVRI / Test</div>
+  <span class="pill">AMBIENTE DIMOSTRATIVO — NON EMETTIBILE</span>
+  <h1>Generatore DUVRI</h1>
+  <p class="intro">Prova il flusso con due caricamenti e scarica un vero file Word sintetico. È una demo locale nel browser: non usa AI, non legge il contenuto dei tuoi file e non invia dati a server.</p>
+  <div class="layout">
+    <section class="panel" aria-label="Fascicolo DUVRI">
+      <div class="eyebrow">01 / Fascicolo</div>
+      <h2>Documenti di ingresso</h2>
+      <p class="panel-p">Il percorso definitivo conserverà queste due sole aree. Per questa prova utilizza esclusivamente documenti sintetici oppure il fascicolo di esempio integrato.</p>
+      <div class="upload-grid">
+        <label class="zone" for="checklist"><span class="num">AREA 01</span><b>Checklist Word</b><p>Un documento .docx compilato dal committente (per la demo basta un file di test).</p><input id="checklist" type="file" accept=".docx"></label>
+        <label class="zone" for="attachments"><span class="num">AREA 02</span><b>Allegati tecnici</b><p>PDF, foto, planimetrie, cronoprogrammi e altri file. Selezione multipla.</p><input id="attachments" type="file" accept=".pdf,.docx,.png,.jpg,.jpeg,.xlsx,.zip" multiple></label>
+      </div>
+      <div class="summary" id="selection" role="status">Nessun fascicolo selezionato. Puoi usare il fascicolo sintetico già predisposto.</div>
+      <div class="inputs"><label for="title">Titolo dimostrativo</label><input type="text" id="title" maxlength="95" value="Manutenzione tecnica — simulazione" autocomplete="off"></div>
+      <label class="consent"><input id="testOnly" type="checkbox" checked><span>Confermo che userò solo dati inventati. Comprendo che il Word prodotto è una <b>bozza sintetica senza analisi AI né validazione HSE</b>.</span></label>
+      <div class="actions"><button type="button" class="btn" id="demo">Usa fascicolo sintetico</button><button type="button" class="btn primary" id="generate">Genera bozza DUVRI (Word)</button></div>
+      <div class="result" id="result" role="status" aria-live="polite">Premi <b>Usa fascicolo sintetico</b>, poi <b>Genera bozza DUVRI (Word)</b> per scaricare il DOCX.</div>
+    </section>
+    <aside class="aside"><div class="eyebrow">02 / Processo</div><h2>Controlli della bozza</h2><ol class="steps" id="steps"><li id="st-file">Fascicolo di prova<span>Checklist e allegati</span></li><li id="st-generate">Generazione Word<span>Layout sintetico e pagina iniziale</span></li><li id="st-download">Download bozza<span>Documento .docx NON EMETTIBILE</span></li><li>Revisione tecnica<span>Bloccata: Titolo IV, HSE, D1/D2</span></li></ol><div class="notice"><b>IMPORTANTE</b> — La versione pubblicata non elabora documenti aziendali reali e non deve essere usata per emettere un DUVRI. Il master Colligo ufficiale resta privato. Questo test verifica esclusivamente l'interfaccia e la generazione di un DOCX dimostrativo.</div></aside>
+  </div>
+  <footer class="foot"><span>Colligo DUVRI · Anteprima sintetica 2026</span><span>Documento generato localmente — nessun upload</span></footer>
+</main>
+<script src="../js/vendor/jszip.min.js"></script>
+<script src="generator.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
