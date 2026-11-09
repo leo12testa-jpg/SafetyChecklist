@@ -72,7 +72,7 @@ test('future cloud button follows multi-file private intake and verified Word do
   assert.match(cloud,/action','upload'/);
   assert.match(cloud,/action','finalize'/);
   assert.match(cloud,/action','status'/);
-  assert.match(cloud,/action','download'/);
+  assert.match(cloud,/action',\s*'download'/);
   assert.match(cloud,/action', 'list'/);
   assert.match(cloud,/dg-recent-dossiers/);
   assert.match(cloud,/await downloadVerified\(job.id, latestToken\)/);
