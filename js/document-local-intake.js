@@ -173,8 +173,14 @@
         document.body.appendChild(a);
         a.click();a.remove();
       } finally {setTimeout(()=>URL.revokeObjectURL(url),3000);}
+      const hseCount=(Number.isInteger(report.hse_review_topics) && report.hse_review_topics>=0) ?
+        ' Segnali HSE candidati da verificare: '+report.hse_review_topics+'.' : '';
+      const overlapsCount=(Number.isInteger(report.unverified_temporal_overlaps) &&
+        report.unverified_temporal_overlaps>=0) ?
+        ' Sovrapposizioni SOLO temporali da chiarire: '+report.unverified_temporal_overlaps+'.' : '';
       localStatus.textContent='Bozza Word scaricata: '+report.source_count+' fonti, '+
-        report.source_candidates_rendered+' dati inseriti. DA REVISIONARE: interferenze, HSE, D1/D2, fonti e firme. NON EMETTIBILE.';
+        report.source_candidates_rendered+' dati inseriti.'+hseCount+overlapsCount+
+        ' DA REVISIONARE: interferenze, HSE, D1/D2, fonti e firme. NON EMETTIBILE.';
     } catch(error) {
       localStatus.textContent='Generazione o download non completato: '+(error?.message||'errore locale')+'. Nessun DUVRI è stato emesso.';
     } finally {uploading=false;update();}
