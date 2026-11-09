@@ -36,6 +36,12 @@ test('no generation or issuance is claimed when only the local source-ingestion 
   assert.match(ui, /'#dg-form'/);
   assert.match(ui, /action.click\(\)/);
   assert.match(ui, /result\.word_generated!==false/);
+  assert.match(ui, /\/compiler-preflight/);
+  assert.match(ui, /report\.compiler_connected===true/);
+  assert.match(ui, /report\.issuance_allowed===false/);
+  assert.match(ui, /report\.word_generated===false/);
+  assert.match(ui, /Compilatore Word collegato e verificato/);
+  assert.doesNotMatch(ui, /\/api\/generate|\/api\/issue|--mode preview/);
   assert.match(ui, /result\.issuance_allowed!==false/);
   assert.match(ui, /NON è stato generato un DUVRI/);
   assert.match(ui, /documenti sintetici o inventati/);
