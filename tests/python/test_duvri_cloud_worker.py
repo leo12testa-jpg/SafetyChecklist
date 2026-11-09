@@ -88,7 +88,7 @@ class TestCloudWorker(unittest.TestCase):
         class WrongMaster:
             def request(self,path):
                 assert 'authenticated/colligo-duvri-private/system/' in path
-                return b'PK\\x03\\x04'+b'wrong-master'*20
+                return b'PK\x03\x04'+b'wrong-master'*20
         with TemporaryDirectory() as d:
             with self.assertRaisesRegex(worker.WorkflowBlocked,'PRIVATE_MASTER_HASH_MISMATCH'):
                 worker.resolve_master(WrongMaster(),Path(d),None)
