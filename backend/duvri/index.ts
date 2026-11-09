@@ -11,7 +11,7 @@ const cfg = {
 const BUCKET='colligo-duvri-private';
 const fileTypes={docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   pdf:'application/pdf',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  xls:'application/vnd.ms-excel',doc:'application/msword',png:'image/png',
+  zip:'application/zip',png:'image/png',
   jpg:'image/jpeg',jpeg:'image/jpeg',txt:'text/plain',csv:'text/csv'};
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const MAX_FILE=15*1024*1024, MAX_TOTAL=45*1024*1024;
@@ -113,7 +113,7 @@ async function bounded(req,limit){
 }
 function magic(ext,b){
   if(b.length<4)return false;
-  if(ext==='docx'||ext==='xlsx')return b[0]===80&&b[1]===75&&[3,5,7].includes(b[2]);
+  if(ext==='docx'||ext==='xlsx'||ext==='zip')return b[0]===80&&b[1]===75&&[3,5,7].includes(b[2]);
   if(ext==='pdf')return new TextDecoder().decode(b.slice(0,5))==='%PDF-';
   if(ext==='png')return [137,80,78,71,13,10,26,10].every((n,i)=>b[i]===n);
   if(ext==='jpg'||ext==='jpeg')return b[0]===255&&b[1]===216&&b[2]===255;
@@ -186,6 +186,18 @@ async function handle(req){
       const created=await sql('POST','duvri_jobs','?select=id,state',{
         owner_uid:uid,request_id:reqId,manifest,state:'collecting'});
       return reply(req,{job:{id:created[0].id,state:'collecting'},word_generated:false,issuance_allowed:false},201);
+    }
+    if(req.method==='GET'&&action==='list') {
+      // Caller identity is server-verified; never enumerate other technicians' work.
+      const recent=await sql('GET','duvri_jobs','?owner_uid=eq.'+
+        encodeURIComponent(uid)+'&order=created_at.desc&limit=20&select=id,state,created_at,result_sha256');
+      if(!Array.isArray(recent)||recent.length>20)fail(503,'Elenco fascicoli non valido');
+      const jobs=recent.map(j=>({
+        id:j.id,state:j.state,created_at:j.created_at,
+        download_ready:j.state==='needs_review'&&typeof j.result_sha256==='string'&&
+          /^[a-f0-9]{64}$/.test(j.result_sha256)
+      }));
+      return reply(req,{jobs,issuance_allowed:false});
     }
     const id=uuid(route.searchParams.get('job'));
     if(req.method==='POST'&&action==='upload')return reply(req,await upload(req,uid,id,route.searchParams.get('slot')),201);
