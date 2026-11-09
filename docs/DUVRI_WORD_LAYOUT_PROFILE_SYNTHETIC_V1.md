@@ -40,3 +40,5 @@ python3 -m unittest discover -s tests/python -p 'test_duvri_word_layout_profile.
 Test negativi: documenti non sintetici, fonte assente, struttura master diversa, salto con cambio orientamento, mappatura non approvata, macro, percorso sorgente insicuro, duplicazione ID, ZIP malformato e output già esistente.
 
 **Integrazione richiesta:** la procedura di generazione locale deve produrre un profilo riferito esclusivamente alla revisione DOCX attuale e al registro delle fonti già verificato, eseguire il tool una sola volta, conservare vecchio/nuovo SHA, quindi Word QA indipendente. Nessun merge/deploy/uso cliente senza ulteriori approvazioni.
+
+Il collaudo CI deve riferirsi allo SHA corrente della PR. Non attribuire a questo profilo un’approvazione delle decisioni tecniche HSE o un test Microsoft Word Desktop che non è stato eseguito.
