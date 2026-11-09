@@ -73,9 +73,12 @@ test('future cloud button follows multi-file private intake and verified Word do
   assert.match(cloud,/action','finalize'/);
   assert.match(cloud,/action','status'/);
   assert.match(cloud,/action','download'/);
+  assert.match(cloud,/action', 'list'/);
+  assert.match(cloud,/dg-recent-dossiers/);
+  assert.match(cloud,/await downloadVerified\(job.id, latestToken\)/);
   assert.match(cloud,/report.download_ready===true/);
   assert.match(cloud,/crypto.subtle.digest\('SHA-256'/);
-  assert.match(cloud,/hex!==sha/);
+  assert.match(cloud,/hex\s*!==\s*sha/);
   assert.match(local,/DOCUMENT_GENERATION_CLOUD_ENABLED===true\) return/);
   assert.match(conf,/DOCUMENT_GENERATION_CLOUD_ENABLED = false/);
   assert.doesNotMatch(cloud,/api.anthropic.com|api.openai.com/);
