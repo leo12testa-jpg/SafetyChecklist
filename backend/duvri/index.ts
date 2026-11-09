@@ -6,6 +6,8 @@ const cfg = {
   url: Deno.env.get('SUPABASE_URL') || '',
   serviceKey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
   enabled: Deno.env.get('DUVRI_INTAKE_ENABLED') === 'true',
+  workerEndpoint: Deno.env.get('DUVRI_WORKER_ENDPOINT') || '',
+  workerSigningKey: Deno.env.get('DUVRI_WORKER_HMAC_KEY') || '',
   origins: new Set((Deno.env.get('DUVRI_ALLOWED_ORIGINS') || 'https://leo12testa-jpg.github.io').split(','))
 };
 const BUCKET='colligo-duvri-private';
@@ -119,6 +121,36 @@ function magic(ext,b){
   if(ext==='jpg'||ext==='jpeg')return b[0]===255&&b[1]===216&&b[2]===255;
   return true;
 }
+function workerReady(){
+  if(cfg.workerSigningKey.length<32) return false;
+  try {
+    const target=new URL(cfg.workerEndpoint);
+    return target.protocol==='https:' && target.username==='' && target.password==='' &&
+      target.pathname.endsWith('/api/process') && !target.hash && !target.search;
+  } catch(_) { return false; }
+}
+async function notifyWorker(id){
+  if(!workerReady())return false;
+  const stamp=String(Math.floor(Date.now()/1000));
+  const secret=await crypto.subtle.importKey('raw',
+    new TextEncoder().encode(cfg.workerSigningKey),
+    {name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const mac=await crypto.subtle.sign('HMAC',secret,
+    new TextEncoder().encode(stamp+'.'+id));
+  const signature=Array.from(new Uint8Array(mac),b=>b.toString(16).padStart(2,'0')).join('');
+  const request=fetch(cfg.workerEndpoint,{
+    method:'POST',redirect:'error',
+    headers:{'content-type':'application/json','x-colligo-worker-timestamp':stamp,
+      'x-colligo-worker-signature':signature},
+    body:JSON.stringify({job_id:id}),signal:AbortSignal.timeout(140000)
+  }).catch(()=>null);
+  // Finish network work outside the short Firebase-authorized upload response.
+  if(typeof EdgeRuntime!=='undefined' && typeof EdgeRuntime.waitUntil==='function'){
+    EdgeRuntime.waitUntil(request);
+  }else{ await request; }
+  return true;
+}
+
 async function ensureBucket(){
   const url=cfg.url+'/storage/v1/bucket/'+BUCKET;
   const check=await network(url,{headers:keyHeaders()});
@@ -175,6 +207,7 @@ async function handle(req){
     if(req.method==='POST'&&action==='create'){
       const bytes=await bounded(req,8192);
       let data;try{data=JSON.parse(new TextDecoder().decode(bytes));}catch{fail(400,'Manifest non valido');}
+      if(!workerReady())fail(503,'Compilatore Word online non ancora configurato');
       const manifest=validateManifest(data?.files),reqId=uuid(data?.request_id);
       await ensureBucket();
       const previous=await sql('GET','duvri_jobs','?owner_uid=eq.'+encodeURIComponent(uid)+
@@ -211,6 +244,9 @@ async function handle(req){
         encodeURIComponent(uid)+'&state=eq.collecting&select=id,state',
         {state:'awaiting_worker',updated_at:new Date().toISOString()});
       if(changed.length!==1)fail(409,'Fascicolo aggiornato da altro processo');
+      // A signed, single-job trigger; the worker must atomically claim its job.
+      // No corporate bytes or Firebase credentials are sent in this request.
+      await notifyWorker(id);
       return reply(req,{job:{id,state:'awaiting_worker'},word_generated:false,issuance_allowed:false});
     }
     if(req.method==='GET'&&action==='status'){
