@@ -44,7 +44,7 @@ class WordLayoutProfileTests(unittest.TestCase):
         self.profile={
             "schema_version":SCHEMA,"synthetic_only":True,"section_count":19,
             "sources":[{"id":"S1","filename":"checklist_test.docx"}],
-            "compact_section_breaks":[1,10,11],
+            "compact_section_breaks":[],
             "verification_table_widths_twips":[2608,4649,3306]}
         self.write()
     def write(self,body=None,*,macro=False):
@@ -60,7 +60,7 @@ class WordLayoutProfileTests(unittest.TestCase):
         r=transform(self.src,self.out,self.profile)
         self.assertEqual(r["replacement_count"],1)
         self.assertEqual(r["table_profiles_applied"],1)
-        self.assertEqual(r["compact_section_breaks_applied"],3)
+        self.assertEqual(r["compact_section_breaks_applied"],0)
         self.assertEqual(r["comments_removed"],0)
         self.assertFalse(r["issuance_allowed"])
         with zipfile.ZipFile(self.out) as z:
@@ -85,8 +85,13 @@ class WordLayoutProfileTests(unittest.TestCase):
         self.write(doc(nsec=18))
         self.reject()
     def test_cross_orientation_compaction_is_blocked(self):
+        self.profile["compact_section_breaks"]=[10]
         self.write(doc(landscape=True))
         self.reject()
+    def test_frontmatter_compaction_blocked(self):
+        self.profile["compact_section_breaks"]=[1]
+        self.rejected()
+
     def test_unapproved_profile_is_blocked(self):
         self.profile["synthetic_only"]=False
         self.reject()
