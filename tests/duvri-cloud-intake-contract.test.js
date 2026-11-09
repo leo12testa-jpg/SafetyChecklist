@@ -50,6 +50,10 @@ test('strictly private and non-issuing server contract',()=>{
   assert.match(source,/x-upsert':'false/);
   assert.match(source,/crypto\.subtle\.digest\('SHA-256'/);
   assert.match(source,/word_generated:false/);
+  assert.match(source,/action==='download'/);
+  assert.match(source,/job.result_path!==path/);
+  assert.match(source,/sha!==job.result_sha256/);
+  assert.match(source,/x-duvri-sha256/);
   assert.match(source,/issuance_allowed:false/);
   assert.doesNotMatch(source,/api\.openai\.com|api\.anthropic\.com|-----BEGIN PRIVATE KEY-----/);
   assert.doesNotMatch(source,/DUVRI_BASE_GENERALE_2026\.docx|MODELLO_DUVRI_segnaposto\.docx/);
