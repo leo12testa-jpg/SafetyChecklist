@@ -27,8 +27,8 @@ test('browser pairs explicitly to loopback, never remote customer data processin
   assert.doesNotMatch(ui, /api\.anthropic\.com|api\.openai\.com|supabase\.co/);
 });
 
-test('no generation or issuance is claimed when only the local source-ingestion step runs', () => {
-  assert.match(ui, /Prepara fascicolo DUVRI/);
+test('single action creates a source-grounded local Word REVIEW DRAFT without issuance', () => {
+  assert.match(ui, /Genera DUVRI/);
   assert.match(ui, /connect.hidden = true/);
   assert.match(ui, /legacy.hidden=true/);
   assert.match(ui, /if \(!ready\) \{ startAfterPair=true; openPair\(\); return; \}/);
@@ -36,14 +36,16 @@ test('no generation or issuance is claimed when only the local source-ingestion 
   assert.match(ui, /'#dg-form'/);
   assert.match(ui, /action.click\(\)/);
   assert.match(ui, /result\.word_generated!==false/);
-  assert.match(ui, /\/compiler-preflight/);
-  assert.match(ui, /report\.compiler_connected===true/);
-  assert.match(ui, /report\.issuance_allowed===false/);
-  assert.match(ui, /report\.word_generated===false/);
-  assert.match(ui, /Compilatore Word collegato e verificato/);
-  assert.doesNotMatch(ui, /\/api\/generate|\/api\/issue|--mode preview/);
-  assert.match(ui, /result\.issuance_allowed!==false/);
-  assert.match(ui, /NON è stato generato un DUVRI/);
-  assert.match(ui, /documenti sintetici o inventati/);
+  assert.match(ui, /\/api\/jobs\//);
+  assert.match(ui, /\/draft\/download/);
+  assert.match(ui, /report\.word_generated!==true/);
+  assert.match(ui, /report\.issuance_allowed!==false/);
+  assert.match(ui, /report\.document_status!=='NON_EMETTIBILE'/);
+  assert.match(ui, /crypto\.subtle\.digest\('SHA-256',bytes\)/);
+  assert.match(ui, /if \(hex!==report\.sha256\)/);
+  assert.match(ui, /Bozza Word scaricata/);
+  assert.match(ui, /NON EMETTIBILE/);
+  assert.match(ui, /senza invio a servizi AI esterni/);
+  assert.doesNotMatch(ui, /api\.anthropic\.com|api\.openai\.com|supabase\.co/);
   assert.match(read('js/supabase-config.js'), /DOCUMENT_GENERATION_CLOUD_ENABLED = false/);
 });
