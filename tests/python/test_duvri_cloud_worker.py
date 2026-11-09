@@ -31,7 +31,7 @@ class FakeAPI:
                 'length_bytes':len(SOURCE),'sha256':hashlib.sha256(SOURCE).hexdigest()}]
         raise AssertionError(table)
     def source(self,path,sha,size):
-        return b'tampered' if self.tamper else SOURCE
+        return SOURCE[:-1]+b'X' if self.tamper else SOURCE
     def draft(self,path,bytes_):
         self.saved.append((path,bytes_))
 
@@ -74,6 +74,7 @@ class TestCloudWorker(unittest.TestCase):
         self.assertEqual(result['state'],'failed')
         self.assertFalse(api.saved)
         self.assertEqual(api.updated[-1]['state'],'failed')
+        self.assertEqual(api.updated[-1]['failure_code'],'SOURCE_HASH_MISMATCH')
     def test_invalid_private_service_config_is_blocked(self):
         with self.assertRaises(worker.WorkflowBlocked):
             worker.PrivateAPI('https://example.com','short')
