@@ -1,5 +1,5 @@
-/* Colligo DUVRI: source-grounded intake to a user-approved localhost service.
- * Prepares private source evidence; does not call AI or generate a Word document.
+/* Colligo DUVRI: two-upload, one-action, source-bound Word review draft.
+ * Local-only processing; no remote AI, risk approval, signatures or issuance.
  */
 (() => {
   'use strict';
@@ -26,19 +26,15 @@
   // Pairing is an internal step of the one visible action, not a second button.
   connect.hidden = true;
   if (connect.style) connect.style.display = 'none';
-  const action = element('button','dg-analyze-sources','btn btn-primary','Prepara fascicolo DUVRI');
+  const action = element('button','dg-analyze-sources','btn btn-primary','Genera DUVRI');
   action.type='button';
   action.disabled = true;
   const localStatus=element('p','dg-local-status','dg-small-note','Servizio locale non collegato.');
   localStatus.setAttribute('role','status');
   localStatus.setAttribute('aria-live','polite');
-  const consentLabel=element('label',null,'dg-small-note');
-  const syntheticConsent=element('input','dg-local-consent');
-  syntheticConsent.type='checkbox';
-  consentLabel.append(syntheticConsent,document.createTextNode(' Confermo che per questa prova userò soltanto documenti sintetici o inventati, senza dati cliente.'));
   const note=element('p',null,'dg-small-note',
-    'Fase 1: lettura e tracciamento delle fonti. Non è ancora una generazione DUVRI: dati da verificare, nessun invio AI, nessuna emissione.');
-  area.append(connect,consentLabel,action,localStatus,note);
+    'I documenti sono elaborati sul tuo PC, senza invio a servizi AI esterni. Il file Word è una bozza non emettibile: il tecnico deve verificare fonti, interferenze, misure e firme prima dell’uso ufficiale.');
+  area.append(connect,action,localStatus,note);
   // Keep the historic questionnaire in the DOM for legacy handlers, but show
   // only the two document uploads and this local action in DUVRI mode.
   // Hidden elements do not grant authorization or bypass any existing gate.
@@ -78,7 +74,6 @@
   }
   function validate(snap) {
     const files=[snap.checklist,...snap.attachments.map(e=>e.file)].filter(Boolean);
-    if (!syntheticConsent.checked) return 'Conferma la prova con soli dati inventati.';
     if (snap.busy) return 'Lettura dei file in corso: riprova quando termina.';
     if (!snap.checklist || !/\.docx$/i.test(snap.checklist.name) || !snap.checklist.size)
       return 'Carica una checklist Word DOCX.';
@@ -108,7 +103,7 @@
       if (!response.ok || health.state!=='ready_for_local_intake' || health.issuance_allowed!==false)
         throw new Error('Servizio locale non valido.');
       ready=true;
-      localStatus.textContent='PC collegato. Premi “Prepara fascicolo DUVRI” per avviare la lettura locale.';
+      localStatus.textContent='PC collegato. Premi “Genera DUVRI” per creare la bozza Word locale.';
       try{popup?.close();}catch(_){}
     } catch(_) {
       ready=false;token=null;startAfterPair=false;
@@ -141,35 +136,49 @@
       const result=await response.json();
       if (!response.ok || result.state!=='needs_human_review' || result.issuance_allowed!==false ||
           result.word_generated!==false) throw new Error(result.error||'Risposta locale non valida');
-      const summary='Fascicolo privato creato sul PC: '+result.source_count+' fonti, '+
-        result.candidate_count+' campi possibili, '+result.unreadable_count+
-        ' allegati da leggere o verificare manualmente. NON è stato generato un DUVRI.';
-      localStatus.textContent=summary;
-      // Same user action: read-only compiler describe/validate after private intake.
-      // It never invokes AI, Word preview/export, or a technical approval.
-      if (typeof result.job_id==='string' && /^[A-Za-z0-9_-]{6,128}$/.test(result.job_id)) {
-        try {
-          const check=await fetch(ORIGIN+'/api/jobs/'+result.job_id+'/compiler-preflight',{
-            method:'GET',mode:'cors',cache:'no-store',targetAddressSpace:'loopback',
-            headers:{'X-Colligo-Local-Token':token}
-          });
-          const report=await check.json();
-          if (check.ok && report.issuance_allowed===false && report.word_generated===false &&
-              report.compiler_connected===true && report.state==='blocked_pending_technical_review') {
-            localStatus.textContent=summary+' Compilatore Word collegato e verificato; la bozza rimane bloccata per conferma delle fonti e decisioni HSE/D1/D2.';
-          } else {
-            localStatus.textContent=summary+' Compilatore Word non ancora pronto alla generazione: verificare il collegamento Windows.';
-          }
-        } catch(_) {
-          localStatus.textContent=summary+' Acquisizione salvata; verifica del compilatore non disponibile con questo servizio Windows.';
-        }
-      }
-      syntheticConsent.checked=false;
+      if (typeof result.job_id!=='string' || !/^FASCICOLO_[0-9]{8}_[0-9]{6}_[a-f0-9]{12}$/.test(result.job_id))
+        throw new Error('Identificativo del fascicolo non valido');
+      const endpoint=ORIGIN+'/api/jobs/'+result.job_id+'/draft';
+      localStatus.textContent='Fascicolo letto. Compilazione Word locale in corso…';
+      const generated=await fetch(endpoint,{
+        method:'POST',mode:'cors',cache:'no-store',targetAddressSpace:'loopback',
+        headers:{'X-Colligo-Local-Token':token}
+      });
+      const report=await generated.json();
+      if (!generated.ok || report.state!=='draft_needs_human_review' ||
+          report.word_generated!==true || report.issuance_allowed!==false ||
+          report.document_status!=='NON_EMETTIBILE' ||
+          report.download_path!=='/api/jobs/'+result.job_id+'/draft/download' ||
+          typeof report.sha256!=='string' || !/^[a-f0-9]{64}$/.test(report.sha256))
+        throw new Error('Compilazione Word non disponibile: servizio Windows da aggiornare o modello non valido');
+      localStatus.textContent='Word creato sul PC. Verifica integrità e download…';
+      const download=await fetch(ORIGIN+report.download_path,{
+        method:'GET',mode:'cors',cache:'no-store',targetAddressSpace:'loopback',
+        headers:{'X-Colligo-Local-Token':token}
+      });
+      const mime=download.headers?.get?.('Content-Type')||'';
+      if (!download.ok || !mime.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document'))
+        throw new Error('Download Word non riuscito');
+      const blob=await download.blob();
+      const bytes=await blob.arrayBuffer();
+      if (!globalThis.crypto?.subtle) throw new Error('Verifica crittografica del Word non disponibile');
+      const digest=await globalThis.crypto.subtle.digest('SHA-256',bytes);
+      const hex=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+      if (hex!==report.sha256) throw new Error('Impronta del Word non corrispondente; download bloccato');
+      const url=URL.createObjectURL(blob);
+      try {
+        const a=document.createElement('a');
+        a.href=url;
+        a.download='DUVRI_BOZZA_NON_EMETTIBILE.docx';
+        document.body.appendChild(a);
+        a.click();a.remove();
+      } finally {setTimeout(()=>URL.revokeObjectURL(url),3000);}
+      localStatus.textContent='Bozza Word scaricata: '+report.source_count+' fonti, '+
+        report.source_candidates_rendered+' dati inseriti. DA REVISIONARE: interferenze, HSE, D1/D2, fonti e firme. NON EMETTIBILE.';
     } catch(error) {
-      localStatus.textContent='Acquisizione non completata: '+(error?.message||'errore locale')+ '. Nessun documento è stato emesso.';
+      localStatus.textContent='Generazione o download non completato: '+(error?.message||'errore locale')+'. Nessun DUVRI è stato emesso.';
     } finally {uploading=false;update();}
   });
-  syntheticConsent.addEventListener('change',update);
   screen.addEventListener('dg-intake-change',update);
   update();
 })();
