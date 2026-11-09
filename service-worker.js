@@ -1,5 +1,5 @@
 // Service worker per il funzionamento offline della checklist.
-const CACHE_NAME = 'safety-checklist-shell-20261109-native-duvri-01';
+const CACHE_NAME = 'safety-checklist-shell-20261104-170313';
 
 const APP_SHELL = [
   './',
