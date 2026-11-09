@@ -103,6 +103,61 @@ def _kind_ok(filename: str, data: bytes) -> None:
         raise BlockedInput("UNEXPECTED_EXTENSION")
 
 
+
+def _office_parts(data: bytes) -> dict[str, bytes]:
+    from io import BytesIO
+    try:
+        with zipfile.ZipFile(BytesIO(data)) as archive:
+            names = archive.namelist()
+            if len(names) != len(set(names)) or len(names) > 256:
+                raise BlockedInput("INVALID_OFFICE_PART_SET")
+            return {n: archive.read(n) for n in names}
+    except (zipfile.BadZipFile, OSError, RuntimeError) as exc:
+        raise BlockedInput("INVALID_OFFICE_CONTENT") from exc
+
+
+def _validate_against_versioned_fixture(root: Path) -> None:
+    """Pin the synthetic inputs to the repository's reviewed fixture recipe.
+
+    Container metadata/timestamps may differ, hence DOCX/XLSX content is
+    compared part-by-part rather than byte-for-byte. Only synthetic inputs.
+    """
+    import duvri_realistic_synthetic_bundle as recipe
+    try:
+        raw = recipe.SPEC.read_bytes()
+        if len(raw) > 500_000:
+            raise BlockedInput("FIXTURE_SPEC_TOO_LARGE")
+        spec = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_pairs)
+    except (OSError, UnicodeError, json.JSONDecodeError, TypeError) as exc:
+        raise BlockedInput("FIXTURE_SPEC_UNAVAILABLE") from exc
+    if (not isinstance(spec, dict) or spec.get("synthetic_only") is not True
+            or not isinstance(spec.get("cases"), list)
+            or tuple(x.get("id") for x in spec["cases"] if isinstance(x, dict)) != CASES):
+        raise BlockedInput("FIXTURE_SPEC_ID_MISMATCH")
+    for case in spec["cases"]:
+        expected = {
+            "01_CHECKLIST_CLIENTE_COMPILATA.docx": recipe.make_docx(case),
+            "02_CAPITOLATO.pdf": recipe.make_pdf(case),
+        }
+        if case.get("xlsx"):
+            expected["03_CRONOPROGRAMMA.xlsx"] = recipe.make_xlsx(case)
+        if case.get("image_note"):
+            expected["04_PIANTA_FITTIZIA.png"] = recipe.make_png(case)
+        manifest = json.loads(
+            _safe_regular(root / case["id"] / MANIFEST, MAX_MANIFEST).decode("utf-8"),
+            object_pairs_hook=_unique_pairs,
+        )
+        if {d.get("filename") for d in manifest["files"]} != set(expected):
+            raise BlockedInput("FIXTURE_DOCUMENT_SET_MISMATCH")
+        for name, good in expected.items():
+            actual = _safe_regular(root / case["id"] / name, MAX_INPUT)
+            if name.endswith((".docx", ".xlsx")):
+                if _office_parts(actual) != _office_parts(good):
+                    raise BlockedInput("FIXTURE_CONTENT_NOT_PINNED")
+            elif actual != good:
+                raise BlockedInput("FIXTURE_CONTENT_NOT_PINNED")
+
+
 def _directory(path: Path) -> None:
     try:
         st = path.lstat()
@@ -180,6 +235,7 @@ def verify_corpus(root: Path) -> dict:
     if actual != expected:
         raise BlockedInput("EXTRA_OR_MISSING_CASE_DIRECTORY")
     count = sum(verify_case(root / case, case) for case in CASES)
+    _validate_against_versioned_fixture(root)
     archive_bytes = _safe_regular(root / ARCHIVE, 30_000_000)
     summary_bytes = _safe_regular(root / SUMMARY, MAX_MANIFEST)
     try:
