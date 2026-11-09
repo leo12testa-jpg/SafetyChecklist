@@ -42,3 +42,11 @@ Test negativi: documenti non sintetici, fonte assente, struttura master diversa,
 **Integrazione richiesta:** la procedura di generazione locale deve produrre un profilo riferito esclusivamente alla revisione DOCX attuale e al registro delle fonti già verificato, eseguire il tool una sola volta, conservare vecchio/nuovo SHA, quindi Word QA indipendente. Nessun merge/deploy/uso cliente senza ulteriori approvazioni.
 
 Il collaudo CI deve riferirsi allo SHA corrente della PR. Non attribuire a questo profilo un’approvazione delle decisioni tecniche HSE o un test Microsoft Word Desktop che non è stato eseguito.
+
+## Correzione dopo il collaudo Microsoft Word del 9 novembre 2026
+
+**Regressione reale riscontrata:** la compattazione della sezione 1, pur mantenendo pgSz/pgMar e superando il rendering LibreOffice, ha prodotto in Word Desktop la sovrapposizione dell'indice sul disegno e sul piè di pagina della copertina. Il risultato precedente da 51 pagine **non è un collaudo Word valido**.
+
+**Politica corretta:** `compact_section_breaks=[]` e il modulo rifiuta qualsiasi tentativo di convertire sezioni in `continuous` finché una prova indipendente Word Desktop non autorizzi una soluzione sicura. Restano le abbreviazioni S1/S2/S3, la tabella adattata e la correzione editoriale separata. La nuova bozza sintetica così ottenuta ha **55 pagine nel rendering LibreOffice**, con copertina, data e indice su pagine distinte. La pagina della data resta poco piena per rispetto del modello e non deve essere riempita con testo inventato.
+
+L'evidenza a 55 pagine dimostra soltanto il rendering LibreOffice. La revisione finale visiva in Microsoft Word è ancora obbligatoria. Non fare deploy né affermare che il compilatore privato Windows sia già aggiornato.
