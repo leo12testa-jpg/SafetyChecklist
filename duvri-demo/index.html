@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; connect-src 'none'">
+<title>Colligo · Generatore DUVRI — demo sintetica</title>
+<style>
+:root{font-family:Arial,Helvetica,sans-serif;color:#24374b;background:#f4f7fa}
+*{box-sizing:border-box}body{margin:0}button,input{font:inherit}button{cursor:pointer}
+header{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:22px clamp(20px,5vw,70px);background:white;border-bottom:1px solid #dfe7ee}
+.brand{font-size:20px;letter-spacing:.19em;font-weight:bold}.brand small{display:block;font-size:8px;letter-spacing:.35em;color:#6c849a;margin-top:5px}
+header .meta{font-size:12px;letter-spacing:.12em;color:#6c849a}
+main{max-width:1200px;margin:auto;padding:48px clamp(16px,4vw,55px)}
+.kicker{color:#5d7997;text-transform:uppercase;letter-spacing:.12em;font-size:12px;font-weight:bold}
+h1{font-size:clamp(28px,4vw,45px);letter-spacing:-.04em;margin:13px 0}
+.intro{max-width:760px;color:#647184;line-height:1.5;margin-bottom:30px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px}
+.panel,.side{padding:28px;background:white;border:1px solid #dbe4ec;border-radius:5px;box-shadow:0 6px 19px #182d4308}
+h2{font-size:20px;margin:2px 0 18px}.label{font-weight:bold;font-size:13px;margin-bottom:9px;display:block}
+.uploads{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.zone{border:1.5px dashed #a3b8cc;background:#f8fafc;padding:18px;min-height:175px;border-radius:4px}
+.zone strong{display:block;font-size:16px;margin:9px 0}.zone small{display:block;color:#728194;line-height:1.5;margin-bottom:12px}
+.zone input{max-width:100%;font-size:12px}
+.number{font-weight:bold;font-size:11px;letter-spacing:.12em;color:#567b9d}
+.summary{margin:18px 0 25px;padding:14px 18px;background:#eef4fa;border-left:3px solid #a3bcd4;color:#405772;font-size:14px}
+input[type=text]{width:100%;padding:11px;border:1px solid #b9cbd9;border-radius:3px;max-width:650px}
+.confirm{display:flex;align-items:flex-start;gap:10px;margin:20px 0;color:#53687a;font-size:13px;line-height:1.5}
+.buttons{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+button{border:1px solid #a9bccb;padding:12px 18px;background:white;color:#315475;border-radius:3px;font-weight:bold}
+button.primary{background:#335b84;color:#fff;border-color:#335b84}
+button:disabled{opacity:.55;cursor:not-allowed}
+.note{font-size:13px;line-height:1.6;color:#677b8e;margin-top:17px}
+.result{padding:15px 17px;margin-top:22px;border:1px solid #b7d1e5;background:#f3f8fc;font-size:14px;line-height:1.5;min-height:55px}
+.result.error{background:#fff5f3;border-color:#e9c2bc;color:#883a31}
+.badge{display:inline-block;padding:7px 10px;border:1px solid #edc8c4;background:#fff8f7;color:#98403e;font-size:11px;letter-spacing:.06em;font-weight:bold}
+.side{align-self:start}.side p{line-height:1.55;color:#6a7b8e;font-size:13px}
+ol{padding-left:21px;line-height:2;color:#425d7b;font-size:14px}
+footer{display:flex;justify-content:space-between;gap:15px;border-top:1px solid #dae3eb;margin-top:40px;padding-top:19px;color:#7d8c9c;font-size:12px}
+@media(max-width:800px){.layout{grid-template-columns:1fr}.uploads{grid-template-columns:1fr}.panel,.side{padding:20px}header .meta{display:none}}
+</style>
+</head>
+<body>
+<header><div class="brand">COLLIGO<small>INGEGNERIA</small></div><div class="meta">SAFETYCHECKLIST · ANTEPRIMA SEPARATA</div></header>
+<main>
+<div class="kicker">Generazione documentale / Anteprima</div>
+<h1>Generatore DUVRI</h1>
+<p class="intro"><span class="badge">SOLO DATI SINTETICI — NON EMETTIBILE</span></p>
+<p class="intro">Verifica il pulsante e scarica una vera bozza Word creata nel browser. Questa demo non analizza il contenuto dei file, non avvia agenti AI e non invia documenti a server.</p>
+<div class="layout">
+<section class="panel">
+<h2>Carica il fascicolo</h2>
+<div class="uploads">
+<label class="zone"><span class="number">AREA 01</span><strong>Checklist Word</strong><small>Un file DOCX di prova, compilato con dati inventati.</small><input id="checklist" type="file" accept=".docx"></label>
+<label class="zone"><span class="number">AREA 02</span><strong>Allegati</strong><small>PDF, immagini, planimetrie, cronoprogrammi. Solo nomi dei file.</small><input id="docs" type="file" accept=".pdf,.docx,.png,.jpg,.jpeg,.xlsx,.zip" multiple></label>
+</div>
+<div id="summary" class="summary" role="status">Nessun fascicolo di test selezionato. Puoi utilizzare il caso sintetico già preparato.</div>
+<label class="label" for="title">Titolo dell'intervento dimostrativo</label>
+<input id="title" type="text" maxlength="95" value="Manutenzione tecnica — simulazione">
+<label class="confirm"><input id="consent" type="checkbox" checked><span>Confermo che userò esclusivamente nomi e dati inventati. Comprendo che il documento prodotto non costituisce un DUVRI reale.</span></label>
+<div class="buttons"><button type="button" id="sample">Usa fascicolo sintetico</button><button type="button" class="primary" id="generate">Genera bozza DUVRI (Word)</button></div>
+<div class="result" id="result" role="status" aria-live="polite">Seleziona il fascicolo sintetico e premi il pulsante di generazione.</div>
+<div class="note">Nessun file viene caricato online. La bozza contiene esclusivamente un esempio di layout, l'elenco dei nomi selezionati e verifiche HSE non concluse. Il master ufficiale Colligo resta privato.</div>
+</section>
+<aside class="side"><h2>Come funziona la prova</h2><ol><li>Selezione della checklist</li><li>Selezione degli allegati</li><li>Creazione di un file DOCX locale</li><li>Download della bozza Word</li></ol>
+<p><strong>Non esegue:</strong> valutazione interferenze, scelta Titolo IV/art. 26, approvazioni D1/D2, firme, emissione.</p>
+<p>Questa pagina è separata dalla SafetyChecklist utilizzata nei sopralluoghi e non ne modifica i dati.</p></aside>
+</div>
+<footer><span>COLLIGO — anteprima sintetica 2026</span><span>Zero upload · Zero AI · Bozza non emettibile</span></footer>
+</main>
+<script src="../js/vendor/jszip.min.js"></script>
+<script src="./generator.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>
