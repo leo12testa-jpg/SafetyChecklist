@@ -28,6 +28,7 @@ SCHEMA = "colligo-duvri-synthetic-input-integrity/1.0"
 MANIFEST = "00_FASCICOLO_MANIFEST.json"
 EXTRAS = {"LEGGIMI.txt"}
 ARCHIVE = "FASCICOLI_DUVRI_REALISTICI_SINTETICI_V1.zip"
+SUMMARY = "RIEPILOGO_SICUREZZA.json"
 MAX_INPUT = 12_000_000
 MAX_MANIFEST = 80_000
 SHA = re.compile(r"[a-f0-9]{64}\Z")
@@ -174,13 +175,40 @@ def verify_case(case_dir: Path, expected_id: str) -> int:
 def verify_corpus(root: Path) -> dict:
     _directory(root)
     actual = {p.name for p in root.iterdir()}
-    expected = set(CASES)
-    if actual not in (expected, expected | {ARCHIVE}):
+    expected = set(CASES) | {ARCHIVE, SUMMARY}
+    if actual != expected:
         raise BlockedInput("EXTRA_OR_MISSING_CASE_DIRECTORY")
-    if ARCHIVE in actual:
-        # Presence alone is allowed. The ZIP itself is not trusted as a manifest.
-        _safe_regular(root / ARCHIVE, 30_000_000)
     count = sum(verify_case(root / case, case) for case in CASES)
+    archive_bytes = _safe_regular(root / ARCHIVE, 30_000_000)
+    summary_bytes = _safe_regular(root / SUMMARY, MAX_MANIFEST)
+    try:
+        summary = json.loads(summary_bytes.decode("utf-8"), object_pairs_hook=_unique_pairs)
+    except (UnicodeError, json.JSONDecodeError, TypeError) as exc:
+        raise BlockedInput("INVALID_SUMMARY") from exc
+    if (not isinstance(summary, dict)
+            or summary.get("synthetic_only") is not True
+            or summary.get("issuance_allowed") is not False
+            or summary.get("archive_name") != ARCHIVE
+            or summary.get("archive_sha256") != hashlib.sha256(archive_bytes).hexdigest()):
+        raise BlockedInput("ARCHIVE_SUMMARY_MISMATCH")
+    from io import BytesIO
+    try:
+        with zipfile.ZipFile(BytesIO(archive_bytes)) as z:
+            actual_members = z.infolist()
+            expected_members = {f"{case}/{p.name}" for case in CASES
+                                for p in (root / case).iterdir()}
+            if (len(actual_members) != len(expected_members)
+                    or {p.filename for p in actual_members} != expected_members):
+                raise BlockedInput("ARCHIVE_MEMBERS_MISMATCH")
+            for entry in actual_members:
+                if (entry.flag_bits & 0x1 or entry.file_size > MAX_INPUT
+                        or entry.filename.startswith("/")
+                        or ".." in PurePosixPath(entry.filename).parts):
+                    raise BlockedInput("ARCHIVE_MEMBER_UNSAFE")
+                if z.read(entry) != _safe_regular(root / entry.filename, MAX_INPUT):
+                    raise BlockedInput("ARCHIVE_FILE_DIFFERS")
+    except (zipfile.BadZipFile, OSError, RuntimeError) as exc:
+        raise BlockedInput("ARCHIVE_UNREADABLE") from exc
     return {
         "schema_version": SCHEMA, "synthetic_only": True,
         "state": "input_integrity_passed_not_issuable",
