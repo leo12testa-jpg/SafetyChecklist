@@ -12,16 +12,18 @@ const jwt=['a',b64({aud:'safety-checklist-colligo',
   sub:'uid-a',iat:Math.floor(Date.now()/1000)-60,exp:Math.floor(Date.now()/1000)+600}),'b'].join('.');
 const UUID='12345678-1234-4123-8123-123456789012';
 
-function init(){
+function init(options={}){
   let handler;
   const seen=[];
-  const env={DUVRI_INTAKE_ENABLED:'true',SUPABASE_URL:'https://example.supabase.co',
+  const env={DUVRI_INTAKE_ENABLED:options.enabled===false?'false':'true',
+    DUVRI_MASTER_INSTALL_ALLOWED:options.bootstrap?'true':'false',
+    SUPABASE_URL:'https://example.supabase.co',
     SUPABASE_SERVICE_ROLE_KEY:'server-only-test-key',DUVRI_ALLOWED_ORIGINS:'https://leo12testa-jpg.github.io'};
   const fakeFetch=async (input,options={})=>{
     const url=String(input);seen.push({url,headers:options.headers});
     if(url.includes('/accounts:lookup?'))return Response.json({users:[{localId:'uid-a',disabled:false}]});
     if(url.includes('/documents/utenti/uid-a'))return Response.json({fields:{
-      uid:{stringValue:'uid-a'},attivo:{booleanValue:true},ruolo:{stringValue:'tecnico'}}});
+      uid:{stringValue:'uid-a'},attivo:{booleanValue:true},ruolo:{stringValue:options.admin?'admin':'tecnico'}}});
     if(url.includes('/rest/v1/duvri_jobs?')){
       assert.ok(url.includes('owner_uid=eq.uid-a'),'other users cannot be enumerated');
       assert.ok(url.includes('limit=20'));
@@ -60,4 +62,27 @@ test('cloud supported file formats agree with source intake V5',()=>{
   assert.ok(!source.includes("doc:'application/msword'"));
   assert.ok(source.includes("pdf:'application/pdf'"));
   assert.match(source,/duvri_jobs/);
+});
+
+test('only verified administrators can install the exact private master',async()=>{
+  const {handler,seen}=init({bootstrap:true,admin:false});
+  const url='https://example.supabase.co/functions/v1/document-jobs?action=install-master';
+  const body=new Uint8Array([80,75,3,4,...Array(120).fill(88)]);
+  const req=new Request(url,{method:'POST',headers:{
+    origin:'https://leo12testa-jpg.github.io',authorization:'Bearer '+jwt
+  },body});
+  const result=await handler(req);
+  assert.equal(result.status,403);
+  assert.ok(!seen.some(x=>x.url.includes('/storage/v1/object/')));
+});
+test('admin bootstrap refuses any master with a different SHA-256',async()=>{
+  const {handler,seen}=init({bootstrap:true,enabled:false,admin:true});
+  const url='https://example.supabase.co/functions/v1/document-jobs?action=install-master';
+  const body=new Uint8Array([80,75,3,4,...Array(120).fill(88)]);
+  const req=new Request(url,{method:'POST',headers:{
+    origin:'https://leo12testa-jpg.github.io',authorization:'Bearer '+jwt
+  },body});
+  const result=await handler(req);
+  assert.equal(result.status,422);
+  assert.ok(!seen.some(x=>x.url.includes('/storage/v1/object/')));
 });
