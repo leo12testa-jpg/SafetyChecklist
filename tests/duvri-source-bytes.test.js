@@ -135,3 +135,30 @@ test('format with no reliable magic remains outside full verification',()=>{
   assert.equal(source.signatureMatches('text/plain',Uint8Array.from([65])),null);
   assert.equal(source.signatureMatches('image/heic',Uint8Array.from([0])),null);
 });
+
+test('fake validator with unsupported status cannot authorize a byte check',async()=>{
+  const f=files();
+  const o=await assess(f,()=>({state:'approved', files_count:2}));
+  assert.deepEqual(o.blocker_codes,['MISSING_OR_INVALID_INPUT_SET']);
+});
+test('unexpected files_count from validator is blocked',async()=>{
+  const f=files();
+  const o=await assess(f,()=>({state:'ready_for_extraction', files_count:3}));
+  assert.deepEqual(o.blocker_codes,['MISSING_OR_INVALID_INPUT_SET']);
+});
+test('manifest mutation while crypto is asynchronous does not change expected hash',async()=>{
+  const f=files();
+  const originalSha=f.documents[1].sha256;
+  f.documents[1].sha256='1'.repeat(64);
+  let called=0;
+  const cp={subtle:{digest:async(alg,input)=>{
+    called++;
+    if(called===2)f.documents[1].sha256=originalSha;
+    return webcrypto.subtle.digest(alg,input);
+  }}};
+  const o=await source.assessBytes({jobId,...f},{
+    manifestValidator:()=>({state:'ready_for_extraction',files_count:2}),
+    cryptoProvider:cp,
+  });
+  assert.deepEqual(o.blocker_codes,['SOURCE_SHA256_MISMATCH']);
+});
