@@ -94,7 +94,7 @@ def resolve_master(api: PrivateAPI, root: Path, installed: Path | None) -> Path:
         if installed.is_symlink() or not installed.is_file():
             raise WorkflowBlocked('PRIVATE_MASTER_INVALID')
         data=installed.read_bytes()
-    if len(data)<100 or len(data)>MAX_FILE or not data.startswith(b'PK\\x03\\x04'):
+    if len(data)<100 or len(data)>MAX_FILE or not data.startswith(b'PK\x03\x04'):
         raise WorkflowBlocked('PRIVATE_MASTER_INVALID')
     if hashlib.sha256(data).hexdigest()!=REFERENCE_MASTER_SHA256:
         raise WorkflowBlocked('PRIVATE_MASTER_HASH_MISMATCH')
