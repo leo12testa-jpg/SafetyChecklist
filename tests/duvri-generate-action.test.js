@@ -35,7 +35,7 @@ test('metadata does not approve HSE decisions or issue a DUVRI', () => {
   assert.equal(data.issuanceAllowed,false);
   assert.deepEqual(data.decisionGates,['TITOLO_IV_ART26','HSE_REVIEW','D1','D2']);
   assert.equal(data.documents[0].category,'planimetrie-layout');
-  assert.equal(data.aiDataProcessingConsent,true);
+  assert.equal(data.aiDataProcessingConsent,false);
 });
 
 test('missing title remains a conspicuous unresolved draft field', () => {
@@ -53,4 +53,23 @@ test('native action targets actual CSS gate present in the current app, not a mi
   assert.match(html,/<script src="js\/document-generation-action\.js"><\/script>/);
   assert.doesNotMatch(html,/id="dg-open-synthetic-demo"/);
   assert.match(script,/issuanceAllowed: false/);
+});
+
+test('future cloud button follows multi-file private intake and verified Word download contract',()=>{
+  const fs=require('node:fs');const path=require('node:path');
+  const root=path.join(__dirname,'..');
+  const cloud=fs.readFileSync(path.join(root,'js/document-generation-action.js'),'utf8');
+  const local=fs.readFileSync(path.join(root,'js/document-local-intake.js'),'utf8');
+  const conf=fs.readFileSync(path.join(root,'js/supabase-config.js'),'utf8');
+  assert.match(cloud,/crypto.randomUUID\(\)/);
+  assert.match(cloud,/action','upload'/);
+  assert.match(cloud,/action','finalize'/);
+  assert.match(cloud,/action','status'/);
+  assert.match(cloud,/action','download'/);
+  assert.match(cloud,/report.download_ready===true/);
+  assert.match(cloud,/crypto.subtle.digest\('SHA-256'/);
+  assert.match(cloud,/hex!==sha/);
+  assert.match(local,/DOCUMENT_GENERATION_CLOUD_ENABLED===true\) return/);
+  assert.match(conf,/DOCUMENT_GENERATION_CLOUD_ENABLED = false/);
+  assert.doesNotMatch(cloud,/api.anthropic.com|api.openai.com/);
 });
