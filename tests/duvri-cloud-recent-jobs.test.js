@@ -58,6 +58,6 @@ test('cloud supported file formats agree with source intake V5',()=>{
   assert.ok(source.includes("zip:'application/zip'"));
   assert.ok(!source.includes("xls:'application/vnd.ms-excel'"));
   assert.ok(!source.includes("doc:'application/msword'"));
-  assert.match(source,/\.pdf/);
+  assert.ok(source.includes("pdf:'application/pdf'"));
   assert.match(source,/duvri_jobs/);
 });
