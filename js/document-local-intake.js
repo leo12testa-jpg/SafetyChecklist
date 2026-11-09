@@ -141,9 +141,29 @@
       const result=await response.json();
       if (!response.ok || result.state!=='needs_human_review' || result.issuance_allowed!==false ||
           result.word_generated!==false) throw new Error(result.error||'Risposta locale non valida');
-      localStatus.textContent='Fascicolo privato creato sul PC: '+result.source_count+' fonti, '+
+      const summary='Fascicolo privato creato sul PC: '+result.source_count+' fonti, '+
         result.candidate_count+' campi possibili, '+result.unreadable_count+
-        ' allegati da leggere o verificare manualmente. NON è stato generato un DUVRI. Resta da collegare revisione tecnica e compilatore Word.';
+        ' allegati da leggere o verificare manualmente. NON è stato generato un DUVRI.';
+      localStatus.textContent=summary;
+      // Same user action: read-only compiler describe/validate after private intake.
+      // It never invokes AI, Word preview/export, or a technical approval.
+      if (typeof result.job_id==='string' && /^[A-Za-z0-9_-]{6,128}$/.test(result.job_id)) {
+        try {
+          const check=await fetch(ORIGIN+'/api/jobs/'+result.job_id+'/compiler-preflight',{
+            method:'GET',mode:'cors',cache:'no-store',targetAddressSpace:'loopback',
+            headers:{'X-Colligo-Local-Token':token}
+          });
+          const report=await check.json();
+          if (check.ok && report.issuance_allowed===false && report.word_generated===false &&
+              report.compiler_connected===true && report.state==='blocked_pending_technical_review') {
+            localStatus.textContent=summary+' Compilatore Word collegato e verificato; la bozza rimane bloccata per conferma delle fonti e decisioni HSE/D1/D2.';
+          } else {
+            localStatus.textContent=summary+' Compilatore Word non ancora pronto alla generazione: verificare il collegamento Windows.';
+          }
+        } catch(_) {
+          localStatus.textContent=summary+' Acquisizione salvata; verifica del compilatore non disponibile con questo servizio Windows.';
+        }
+      }
       syntheticConsent.checked=false;
     } catch(error) {
       localStatus.textContent='Acquisizione non completata: '+(error?.message||'errore locale')+ '. Nessun documento è stato emesso.';
