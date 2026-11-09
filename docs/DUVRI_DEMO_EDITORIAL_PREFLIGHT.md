@@ -31,3 +31,5 @@ node --test tests/duvri-demo-editorial-gate.test.js
 ```
 
 **Priorità**: usare il gate sulla nuova V5 e non su una versione precedente, poi eseguire controllo visivo Word Desktop e una prova completa checklist DOCX + PDF/XLSX → download Word.
+
+La PR pubblica contiene solo il controllo e **fixture inventate**: nessun DOCX, screenshot, percorso o documento cliente e nessun estratto del master aziendale deve essere incluso nella CI. Per provare la vera V5 serve la copia locale autorizzata, e il suo SHA deve coincidere con quello del documento sottoposto a QA visivo Word.
