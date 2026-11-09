@@ -22,7 +22,9 @@
   }
   const connect = element('button','dg-connect-local','btn','Collega il generatore sul PC');
   connect.type='button';
-  const action = element('button','dg-analyze-sources','btn btn-primary','Analizza le fonti (sul PC)');
+  // Pairing is an internal step of the one visible action, not a second button.
+  connect.hidden = true;
+  const action = element('button','dg-analyze-sources','btn btn-primary','Prepara fascicolo DUVRI');
   action.type='button';
   action.disabled = true;
   const localStatus=element('p','dg-local-status','dg-small-note','Servizio locale non collegato.');
@@ -35,6 +37,15 @@
   const note=element('p',null,'dg-small-note',
     'Fase 1: lettura e tracciamento delle fonti. Non è ancora una generazione DUVRI: dati da verificare, nessun invio AI, nessuna emissione.');
   area.append(connect,consentLabel,action,localStatus,note);
+  // The inactive cloud-only draft button must not duplicate the local action.
+  if (typeof DOCUMENT_GENERATION_CLOUD_ENABLED === 'undefined' || DOCUMENT_GENERATION_CLOUD_ENABLED !== true) {
+    const legacy=document.getElementById('dg-generate-duvri');
+    if (legacy) legacy.hidden=true;
+    const legacyConsent=document.getElementById('dg-generation-consent');
+    if (legacyConsent?.parentElement) legacyConsent.parentElement.hidden=true;
+    const legacyState=document.getElementById('dg-generate-action-state');
+    if (legacyState) legacyState.hidden=true;
+  }
 
   function snapshot() {
     const selection = globalThis.documentIntakeSelection;
@@ -46,7 +57,6 @@
   }
   function validate(snap) {
     const files=[snap.checklist,...snap.attachments.map(e=>e.file)].filter(Boolean);
-    if (!ready) return 'Collega prima il generatore locale sul PC.';
     if (!syntheticConsent.checked) return 'Conferma la prova con soli dati inventati.';
     if (snap.busy) return 'Lettura dei file in corso: riprova quando termina.';
     if (!snap.checklist || !/\.docx$/i.test(snap.checklist.name) || !snap.checklist.size)
@@ -76,7 +86,7 @@
       if (!response.ok || health.state!=='ready_for_local_intake' || health.issuance_allowed!==false)
         throw new Error('Servizio locale non valido.');
       ready=true;
-      localStatus.textContent='PC collegato. Carica un fascicolo sintetico e premi “Analizza le fonti”.';
+      localStatus.textContent='PC collegato. Premi “Prepara fascicolo DUVRI” per avviare la lettura locale.';
       try{popup?.close();}catch(_){}
     } catch(_) {
       ready=false;token=null;
@@ -86,6 +96,8 @@
   });
   action.addEventListener('click',async()=>{
     if (uploading) return;
+    // First use pairs the browser with the already running Windows gateway.
+    if (!ready) { connect.click(); return; }
     const snap=snapshot();
     const issue=validate(snap);
     if (issue) { localStatus.textContent=issue;update();return; }
