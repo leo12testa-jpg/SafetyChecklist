@@ -3012,3 +3012,35 @@ details.dg-auto-template > summary { cursor: pointer; font-weight: 700; color: v
     grid-column: 1 / -1;
   }
 }
+
+
+/* DUVRI: il flusso operativo usa esclusivamente due aree di caricamento.
+   Manteniamo il questionario storico nel DOM per compatibilità con i test,
+   senza richiederne la compilazione al tecnico. */
+#screen-document-generation .dg-prototype-alert,
+#screen-document-generation .dg-workflow-strip,
+#screen-document-generation #dg-form,
+#screen-document-generation #dg-result,
+#screen-document-generation .dg-auto-gate,
+#screen-document-generation #dg-generate-reasons,
+#screen-document-generation #dg-template-details {
+  display: none !important;
+}
+#screen-document-generation #dg-generate-action {
+  margin: 20px 0 12px;
+  justify-content: flex-start;
+  align-items: start;
+  flex-direction: column;
+}
+#screen-document-generation #dg-generate-duvri {
+  font-size: 1rem;
+  min-width: 220px;
+}
+#screen-document-generation #dg-generate-duvri:disabled {
+  cursor: not-allowed;
+  opacity: .58;
+}
+#screen-document-generation #dg-generate-action-state {
+  margin: 4px 0 8px;
+  max-width: 800px;
+}
