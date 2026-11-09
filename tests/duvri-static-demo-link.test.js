@@ -11,7 +11,7 @@ test('native DUVRI generation replaces demo link while cloud remains disabled', 
   assert.equal(html.includes('id="dg-open-synthetic-demo"'), false);
   assert.equal(html.includes('href="duvri-demo/"'), false);
   assert.ok(html.includes('src="js/document-generation-action.js"'));
-  assert.ok(action.includes('Genera DUVRI (bozza Word)'));
+  assert.ok(action.includes("btn.textContent = 'Genera DUVRI'"));
   assert.ok(action.includes('NON EMETTIBILE'));
   assert.ok(config.includes('DOCUMENT_GENERATION_CLOUD_ENABLED = false'));
 });
