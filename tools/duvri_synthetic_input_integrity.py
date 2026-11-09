@@ -15,7 +15,8 @@ import stat
 import zipfile
 from pathlib import Path, PurePosixPath
 
-CASES = ("SIM-01", "SIM-02", "SIM-03", "SIM-04")
+CASES = ("SIM-01-MANUTENZIONE", "SIM-02-COPERTURA-PV",
+         "SIM-03-POZZETTO", "SIM-04-ARCHIVIO")
 MIME = {
     "01_CHECKLIST_CLIENTE_COMPILATA.docx":
         ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "client_checklist"),
