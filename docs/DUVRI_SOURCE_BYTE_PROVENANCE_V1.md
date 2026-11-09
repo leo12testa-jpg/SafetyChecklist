@@ -42,3 +42,11 @@ node --test tests/duvri-source-bytes.test.js
 ```
 
 La suite completa `tests/*.test.js` è eseguita in CI nelle PR confrontate con `main`; la PR resta in bozza, con base di sviluppo sulla PR sintetica #69.
+
+## Flusso applicativo previsto per Colligo
+
+Il Generatore DUVRI deve mantenere **due caricamenti distinti**: il primo riceve una sola checklist cliente compilata in Word DOCX; il secondo riceve tutti gli allegati dello stesso fascicolo (PDF, fotografie, planimetrie, XLSX e documenti di supporto). Nessuno dei due ingressi deve leggere implicitamente il database della PWA Checklist/Sopralluoghi.
+
+Il backend privato deve ricalcolare il digest dei byte realmente conservati, salvarlo con revisione del fascicolo e locator di provenienza, quindi rifiutare allegati di altre commesse prima dell'estrazione e dell'analisi AI. Le lacune e contraddizioni devono rimanere aperte per il tecnico; il Word usa il master approvato e resta NON EMETTIBILE fino ai gate umani.
+
+Lo stato di questa PR è soltanto **componente verificatore pronto da integrare**, non flusso applicativo già funzionante nel backend privato.
