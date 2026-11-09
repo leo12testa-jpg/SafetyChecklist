@@ -19,8 +19,8 @@ function init(options={}){
     DUVRI_MASTER_INSTALL_ALLOWED:options.bootstrap?'true':'false',
     SUPABASE_URL:'https://example.supabase.co',
     SUPABASE_SERVICE_ROLE_KEY:'server-only-test-key',DUVRI_ALLOWED_ORIGINS:'https://leo12testa-jpg.github.io'};
-  const fakeFetch=async (input,options={})=>{
-    const url=String(input);seen.push({url,headers:options.headers});
+  const fakeFetch=async (input,fetchOptions={})=>{
+    const url=String(input);seen.push({url,headers:fetchOptions.headers});
     if(url.includes('/accounts:lookup?'))return Response.json({users:[{localId:'uid-a',disabled:false}]});
     if(url.includes('/documents/utenti/uid-a'))return Response.json({fields:{
       uid:{stringValue:'uid-a'},attivo:{booleanValue:true},ruolo:{stringValue:options.admin?'admin':'tecnico'}}});
