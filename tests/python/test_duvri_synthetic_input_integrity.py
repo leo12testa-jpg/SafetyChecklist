@@ -32,7 +32,7 @@ class InputIntegrityTests(unittest.TestCase):
         self.root = Path(self.tmp.name) / "cases"
         shutil.copytree(self.original, self.root)
 
-    def manifest(self, case="SIM-01"):
+    def manifest(self, case="SIM-01-MANUTENZIONE"):
         path = self.root / case / guard.MANIFEST
         return path, json.loads(path.read_text("utf-8"))
 
@@ -52,25 +52,25 @@ class InputIntegrityTests(unittest.TestCase):
         self.assertFalse(r["issuance_allowed"])
 
     def test_checklist_byte_tampering(self):
-        p = self.root / "SIM-01" / "01_CHECKLIST_CLIENTE_COMPILATA.docx"
+        p = self.root / "SIM-01-MANUTENZIONE" / "01_CHECKLIST_CLIENTE_COMPILATA.docx"
         p.write_bytes(p.read_bytes() + b"!tampered")
         self.blocked()
 
     def test_cross_case_pdf_swap(self):
-        foreign = self.root / "SIM-02" / "02_CAPITOLATO.pdf"
-        target = self.root / "SIM-01" / "02_CAPITOLATO.pdf"
+        foreign = self.root / "SIM-02-COPERTURA-PV" / "02_CAPITOLATO.pdf"
+        target = self.root / "SIM-01-MANUTENZIONE" / "02_CAPITOLATO.pdf"
         target.write_bytes(foreign.read_bytes())
         self.blocked()
 
     def test_wrong_case_id(self):
         path, payload = self.manifest()
-        payload["case_id"] = "SIM-02"
+        payload["case_id"] = "SIM-02-COPERTURA-PV"
         self.write_manifest(path, payload)
         self.blocked()
 
     def test_foreign_job_id(self):
         path, payload = self.manifest()
-        payload["files"][0]["job_id"] = "SIM_03"
+        payload["files"][0]["job_id"] = "SIM_03_POZZETTO"
         self.write_manifest(path, payload)
         self.blocked()
 
@@ -105,17 +105,17 @@ class InputIntegrityTests(unittest.TestCase):
         self.blocked()
 
     def test_extra_file_is_blocked(self):
-        (self.root / "SIM-01" / "unreviewed.txt").write_text("synthetic", "utf-8")
+        (self.root / "SIM-01-MANUTENZIONE" / "unreviewed.txt").write_text("synthetic", "utf-8")
         self.blocked()
 
     def test_missing_attached_pdf_is_blocked(self):
-        (self.root / "SIM-02" / "02_CAPITOLATO.pdf").unlink()
+        (self.root / "SIM-02-COPERTURA-PV" / "02_CAPITOLATO.pdf").unlink()
         self.blocked()
 
     def test_symlink_to_other_case_is_blocked(self):
-        path = self.root / "SIM-01" / "02_CAPITOLATO.pdf"
+        path = self.root / "SIM-01-MANUTENZIONE" / "02_CAPITOLATO.pdf"
         path.unlink()
-        path.symlink_to(self.root / "SIM-02" / "02_CAPITOLATO.pdf")
+        path.symlink_to(self.root / "SIM-02-COPERTURA-PV" / "02_CAPITOLATO.pdf")
         self.blocked()
 
     def test_summary_hash_mismatch_is_blocked(self):
@@ -136,7 +136,7 @@ class InputIntegrityTests(unittest.TestCase):
         with zipfile.ZipFile(BytesIO(src)) as original, zipfile.ZipFile(output, "w") as dst:
             for name in original.namelist():
                 content = original.read(name)
-                if name == "SIM-01/02_CAPITOLATO.pdf":
+                if name == "SIM-01-MANUTENZIONE/02_CAPITOLATO.pdf":
                     content += b"\n%synthetic tampering"
                 dst.writestr(name, content, compress_type=zipfile.ZIP_DEFLATED)
         archive.write_bytes(output.getvalue())
@@ -149,11 +149,11 @@ class InputIntegrityTests(unittest.TestCase):
     def test_duplicate_manifest_json_key_rejected(self):
         path, payload = self.manifest()
         text = json.dumps(payload)
-        path.write_text(text[:-1] + ', "case_id":"SIM-01"}', "utf-8")
+        path.write_text(text[:-1] + ', "case_id":"SIM-01-MANUTENZIONE"}', "utf-8")
         self.blocked()
 
     def test_extra_root_case_rejected(self):
-        (self.root / "SIM-05").mkdir()
+        (self.root / "SIM-05-UNKNOWN").mkdir()
         self.blocked()
 
     def test_cli_reports_only_codes_and_counts(self):
