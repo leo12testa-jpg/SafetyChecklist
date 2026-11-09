@@ -106,6 +106,11 @@ def _set_section_breaks(doc,indices,count):
     sections=_tags(doc,"sectPr")
     if len(sections)!=count:
         raise LayoutBlocked("MASTER_SECTION_COUNT_MISMATCH")
+    # Microsoft Word regression: a continuous section made the TOC flow
+    # into the cover artwork/footer. Do not compact ANY section until an
+    # independent Word Desktop regression explicitly validates that change.
+    if indices:
+        raise LayoutBlocked("SECTION_BREAK_COMPACTION_NOT_WORD_VERIFIED")
     for i in indices:
         if type(i) is not int or i<1 or i>=len(sections)-1:
             raise LayoutBlocked("UNSAFE_BREAK_INDEX")
