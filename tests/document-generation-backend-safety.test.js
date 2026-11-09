@@ -20,7 +20,7 @@ test('DUVRI drafting is blocked until the approved method and controlled templat
   assert.match(worker, /DUVRI_TEMPLATE_OBJECT_PATH/);
   assert.match(worker, /DUVRI_TEMPLATE_VERSION/);
   assert.match(worker, /DUVRI_DOCX_ENGINE_ENABLED/);
-  assert.match(worker, /Nessun punteggio è stato calcolato/);
+  assert.ok(worker.includes('if (!riskRuleApproved || !approvedRiskRule || !riskRuleApprovalId || !riskRuleVersion)'));
 });
 
 test('draft schema is marked draft-only and client roles cannot directly access job tables', () => {
@@ -42,13 +42,22 @@ test('controlled rollout checklist documents the unresolved approvals and safe d
 test('draft and QA checkpoints are invalidated when the server-approved template or risk rule changes', () => {
   assert.match(worker, /const templatePath = configuredTemplatePath;/);
   assert.match(worker, /const templateVersion = configuredTemplateVersion;/);
-  assert.match(worker, /savedMeta\\.templatePath !== templatePath/);
-  assert.match(worker, /savedMeta\\.templateVersion !== templateVersion/);
-  assert.match(worker, /savedMeta\\.riskRuleApprovalId !== configuredRiskRuleApprovalId/);
-  assert.match(worker, /savedMeta\\.riskRuleVersion !== configuredRiskRuleVersion/);
-  assert.match(worker, /delete resumableOutputs\\.draft;/);
-  assert.match(worker, /delete resumableOutputs\\.draft_metadata;/);
-  assert.match(worker, /delete resumableOutputs\\.qaReport;/);
-  assert.match(worker, /delete resumableOutputs\\.draftSummary;/);
+  assert.ok(worker.includes("savedMeta.templatePath !== templatePath"));
+  assert.ok(worker.includes("savedMeta.templateVersion !== templateVersion"));
+  assert.ok(worker.includes("savedMeta.riskRuleApprovalId !== configuredRiskRuleApprovalId"));
+  assert.ok(worker.includes("savedMeta.riskRuleVersion !== configuredRiskRuleVersion"));
+  assert.ok(worker.includes("delete resumableOutputs.draft;"));
+  assert.ok(worker.includes("delete resumableOutputs.draft_metadata;"));
+  assert.ok(worker.includes("delete resumableOutputs.qaReport;"));
+  assert.ok(worker.includes("delete resumableOutputs.draftSummary;"));
   assert.match(worker, /phase: 'draft', agentOutputs: resumableOutputs/);
+});
+
+test('fresh isolated staging schema is fail-closed before explicit DUVRI activation', () => {
+  assert.match(schema, /\('duvri', 'DUVRI', 'Documento di valutazione dei rischi derivanti da interferenze\.', false,/);
+  assert.match(schema, /alter table public\.document_jobs enable row level security;/);
+  assert.match(schema, /revoke all on public\.document_jobs from anon, authenticated;/);
+  assert.match(schema, /public boolean|public, file_size_limit/i);
+  assert.match(schema, /values \('documenti-generati', 'documenti-generati', false,/);
+  assert.match(worker, /DOCUMENT_PIPELINE_ENABLED/);
 });

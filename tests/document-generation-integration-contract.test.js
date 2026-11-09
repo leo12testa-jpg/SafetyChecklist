@@ -48,7 +48,7 @@ test('DUVRI generation stays fail-closed until the risk method and controlled te
   assert.match(worker, /DUVRI_TEMPLATE_OBJECT_PATH/);
   assert.match(worker, /DUVRI_TEMPLATE_VERSION/);
   assert.match(worker, /DUVRI_DOCX_ENGINE_ENABLED/);
-  assert.match(worker, /Nessun punteggio è stato calcolato/);
+  assert.ok(worker.includes('if (!riskRuleApproved || !approvedRiskRule || !riskRuleApprovalId || !riskRuleVersion)'));
   assert.match(schema, /DRAFT ONLY/);
 });
 

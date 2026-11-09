@@ -2,7 +2,7 @@ name: Isolated document backend QA
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/duvri-backend-isolated]
     paths:
       - 'supabase/functions/document-jobs/**'
       - 'supabase/functions/document-worker/**'
@@ -12,7 +12,7 @@ on:
       - 'tests/document-generation-integration-contract.test.js'
       - '.github/workflows/document-backend-isolated.yml'
   push:
-    branches: [feat/duvri-backend-isolated]
+    branches: [feat/duvri-backend-isolated, feat/duvri-backend-staging-safe-default-v1]
     paths:
       - 'supabase/functions/document-jobs/**'
       - 'supabase/functions/document-worker/**'
