@@ -55,12 +55,14 @@ class TestCloudWorker(unittest.TestCase):
                 worker.run_once(FakeAPI())
     def test_no_job_is_idle(self):
         with patch.dict('os.environ',{'DUVRI_WORKER_ENABLED':'true'}),\
-             patch.object(worker,'private_generator',fake_engine):
+             patch.object(worker,'private_generator',fake_engine),\
+             patch.object(worker,'resolve_master',return_value=Path('/synthetic-master')):
             self.assertEqual(worker.run_once(FakeAPI(empty=True)),{'state':'idle'})
     def test_only_non_issuing_draft_can_be_uploaded(self):
         api=FakeAPI()
         with patch.dict('os.environ',{'DUVRI_WORKER_ENABLED':'true'}),\
-             patch.object(worker,'private_generator',fake_engine):
+             patch.object(worker,'private_generator',fake_engine),\
+             patch.object(worker,'resolve_master',return_value=Path('/synthetic-master')):
             result=worker.run_once(api)
         self.assertEqual(result,{'state':'needs_review','word_generated':True,'issuance_allowed':False})
         self.assertEqual(api.saved[0],('user42/'+JOB+'/draft.docx',DOCX))
@@ -69,12 +71,28 @@ class TestCloudWorker(unittest.TestCase):
     def test_tampered_source_cannot_produce_word(self):
         api=FakeAPI(tamper=True)
         with patch.dict('os.environ',{'DUVRI_WORKER_ENABLED':'true'}),\
-             patch.object(worker,'private_generator',fake_engine):
+             patch.object(worker,'private_generator',fake_engine),\
+             patch.object(worker,'resolve_master',return_value=Path('/synthetic-master')):
             result=worker.run_once(api)
         self.assertEqual(result['state'],'failed')
         self.assertFalse(api.saved)
         self.assertEqual(api.updated[-1]['state'],'failed')
         self.assertEqual(api.updated[-1]['failure_code'],'SOURCE_HASH_MISMATCH')
+    def test_selected_job_id_rejects_untrusted_selector(self):
+        with patch.dict('os.environ',{'DUVRI_WORKER_ENABLED':'true'}):
+            with self.assertRaisesRegex(worker.WorkflowBlocked,'JOB_IDENTIFIER_INVALID'):
+                worker.run_once(FakeAPI(),job_id='../other')
+
+    def test_remote_master_with_incorrect_hash_is_blocked(self):
+        from tempfile import TemporaryDirectory
+        class WrongMaster:
+            def request(self,path):
+                assert 'authenticated/colligo-duvri-private/system/' in path
+                return b'PK\\x03\\x04'+b'wrong-master'*20
+        with TemporaryDirectory() as d:
+            with self.assertRaisesRegex(worker.WorkflowBlocked,'PRIVATE_MASTER_HASH_MISMATCH'):
+                worker.resolve_master(WrongMaster(),Path(d),None)
+
     def test_invalid_private_service_config_is_blocked(self):
         with self.assertRaises(worker.WorkflowBlocked):
             worker.PrivateAPI('https://example.com','short')
