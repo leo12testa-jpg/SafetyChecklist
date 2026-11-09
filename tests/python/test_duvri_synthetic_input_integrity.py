@@ -156,6 +156,33 @@ class InputIntegrityTests(unittest.TestCase):
         (self.root / "SIM-05-UNKNOWN").mkdir()
         self.blocked()
 
+    def test_forged_consistent_manifest_and_zip_still_blocked(self):
+        """An attacker cannot simply rehash changed fictional facts."""
+        import zipfile
+        case = "SIM-01-MANUTENZIONE"
+        pdf = self.root / case / "02_CAPITOLATO.pdf"
+        original = pdf.read_bytes()
+        self.assertIn(b"FASCICOLO", original)
+        changed = original.replace(b"FASCICOLO", b"FASSICOLO", 1)
+        self.assertEqual(len(changed), len(original))
+        pdf.write_bytes(changed)
+        manifest_path, manifest = self.manifest(case)
+        for record in manifest["files"]:
+            if record["filename"] == "02_CAPITOLATO.pdf":
+                record["sha256"] = hashlib.sha256(changed).hexdigest()
+                record["size_bytes"] = len(changed)
+        self.write_manifest(manifest_path, manifest)
+        archive = self.root / guard.ARCHIVE
+        with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as z:
+            for item in sorted(self.root.rglob("*")):
+                if item.is_file() and item != archive and item.name != guard.SUMMARY:
+                    z.write(item, item.relative_to(self.root))
+        summary = self.root / guard.SUMMARY
+        data = json.loads(summary.read_text("utf-8"))
+        data["archive_sha256"] = hashlib.sha256(archive.read_bytes()).hexdigest()
+        summary.write_text(json.dumps(data), "utf-8")
+        self.blocked()
+
     def test_cli_reports_only_codes_and_counts(self):
         proc = subprocess.run([sys.executable,
             str(ROOT / "tools" / "duvri_synthetic_input_integrity.py"),
