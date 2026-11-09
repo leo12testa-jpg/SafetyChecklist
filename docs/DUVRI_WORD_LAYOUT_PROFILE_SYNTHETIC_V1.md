@@ -50,3 +50,5 @@ Il collaudo CI deve riferirsi allo SHA corrente della PR. Non attribuire a quest
 **Politica corretta:** `compact_section_breaks=[]` e il modulo rifiuta qualsiasi tentativo di convertire sezioni in `continuous` finché una prova indipendente Word Desktop non autorizzi una soluzione sicura. Restano le abbreviazioni S1/S2/S3, la tabella adattata e la correzione editoriale separata. La nuova bozza sintetica così ottenuta ha **55 pagine nel rendering LibreOffice**, con copertina, data e indice su pagine distinte. La pagina della data resta poco piena per rispetto del modello e non deve essere riempita con testo inventato.
 
 L'evidenza a 55 pagine dimostra soltanto il rendering LibreOffice. La revisione finale visiva in Microsoft Word è ancora obbligatoria. Non fare deploy né affermare che il compilatore privato Windows sia già aggiornato.
+
+Nota di collaudo: sul PC dell'utente il primo profilo di compattazione ha causato sovrapposizione visibile nella pagina di copertina. Questa versione impone conservazione totale delle interruzioni Word: niente scorciatoie basate soltanto sul numero di pagine di LibreOffice.
