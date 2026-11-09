@@ -55,9 +55,9 @@ test('invalid origin prevents all remote work',async()=>{
   assert.equal(r.status,403);assert.equal(seen.length,0);
 });
 test('cloud supported file formats agree with source intake V5',()=>{
-  assert.match(source,/zip:'application\\/zip'/);
-  assert.doesNotMatch(source,/xls:'application\\/vnd\\.ms-excel'/);
-  assert.doesNotMatch(source,/doc:'application\\/msword'/);
+  assert.ok(source.includes("zip:'application/zip'"));
+  assert.ok(!source.includes("xls:'application/vnd.ms-excel'"));
+  assert.ok(!source.includes("doc:'application/msword'"));
   assert.match(source,/\.pdf/);
   assert.match(source,/duvri_jobs/);
 });
