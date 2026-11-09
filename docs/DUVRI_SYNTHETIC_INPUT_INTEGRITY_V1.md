@@ -20,11 +20,11 @@ python3 tools/duvri_synthetic_input_integrity.py --corpus /tmp/duvri_corpus_fitt
 node --test tests/duvri-synthetic-input-integrity.test.js
 ```
 
-La suite include 18 test negativi e positivi. La nuova QA viene eseguita nella CI Node, ma la **prova end-to-end del generatore privato** richiede comunque caricare ciascun DOCX e tutti i relativi allegati nella UI del generatore.
+La suite include 19 test negativi e positivi. La nuova QA viene eseguita nella CI Node, ma la **prova end-to-end del generatore privato** richiede comunque caricare ciascun DOCX e tutti i relativi allegati nella UI del generatore.
 
 ## Limiti e decisioni residue
 
-Il checksum confrontato con un manifest nella stessa cartella garantisce la **coerenza interna**, non certifica da solo l'identità di un mittente ostile: per un fascicolo reale servono hash memorizzati dal backend privato, versione, provenienza, ACL e attestazioni affidabili. Il test qui non analizza il significato dei rischi, non prova le interferenze fra imprese, non esegue modelli AI, non emette Word e non valuta la visibilità della marcatura su tutte le pagine Microsoft Word.
+Per il corpus fittizio il controllo ricostruisce anche gli **input attesi dalla ricetta versionata**: il solo manifest e lo ZIP ri-hashati non bastano a superare il gate. Questa verifica non certifica l'identità di un mittente ostile o un file cliente: per un fascicolo reale servono hash memorizzati dal backend privato, versione, provenienza, ACL e attestazioni affidabili. Il test qui non analizza il significato dei rischi, non prova le interferenze fra imprese, non esegue modelli AI, non emette Word e non valuta la visibilità della marcatura su tutte le pagine Microsoft Word.
 
 Il Word V5 REAL_SYN_01 riferito da Codex **non è stato esaminato** da questa PR, perché si trova sul PC locale. Rimane NON EMETTIBILE; sono ancora indispensabili HSE, D1/D2, Word visivo, Titolo IV/art. 26 e chiarimenti specifici.
 
