@@ -6,12 +6,17 @@ const cfg = {
   url: Deno.env.get('SUPABASE_URL') || '',
   serviceKey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
   enabled: Deno.env.get('DUVRI_INTAKE_ENABLED') === 'true',
+  workerEndpoint: Deno.env.get('DUVRI_WORKER_ENDPOINT') || '',
+  workerSigningKey: Deno.env.get('DUVRI_WORKER_HMAC_KEY') || '',
+  masterInstallEnabled: Deno.env.get('DUVRI_MASTER_INSTALL_ALLOWED') === 'true',
   origins: new Set((Deno.env.get('DUVRI_ALLOWED_ORIGINS') || 'https://leo12testa-jpg.github.io').split(','))
 };
 const BUCKET='colligo-duvri-private';
+const MASTER_STORAGE_PATH='system/DUVRI_BASE_GENERALE_2026.docx';
+const MASTER_SHA256='c6c8ab57ec94381c7d416b672c8929c0c4f18ed529e9550c9050b26e0b868b959';
 const fileTypes={docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   pdf:'application/pdf',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  xls:'application/vnd.ms-excel',doc:'application/msword',png:'image/png',
+  zip:'application/zip',png:'image/png',
   jpg:'image/jpeg',jpeg:'image/jpeg',txt:'text/plain',csv:'text/csv'};
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const MAX_FILE=15*1024*1024, MAX_TOTAL=45*1024*1024;
@@ -66,7 +71,7 @@ async function actor(req){
   const profile=decode({mapValue:{fields:(await resp.json()).fields}});
   if(profile?.uid!==user.localId||profile?.attivo!==true||
      !['admin','tecnico'].includes(profile?.ruolo))fail(403,'Utente non autorizzato');
-  return user.localId;
+  return {uid:user.localId,admin:profile.ruolo==='admin'};
 }
 async function sql(method,table,qs,body){
   const resp=await network(cfg.url+'/rest/v1/'+table+qs,{
@@ -113,10 +118,52 @@ async function bounded(req,limit){
 }
 function magic(ext,b){
   if(b.length<4)return false;
-  if(ext==='docx'||ext==='xlsx')return b[0]===80&&b[1]===75&&[3,5,7].includes(b[2]);
+  if(ext==='docx'||ext==='xlsx'||ext==='zip')return b[0]===80&&b[1]===75&&[3,5,7].includes(b[2]);
   if(ext==='pdf')return new TextDecoder().decode(b.slice(0,5))==='%PDF-';
   if(ext==='png')return [137,80,78,71,13,10,26,10].every((n,i)=>b[i]===n);
   if(ext==='jpg'||ext==='jpeg')return b[0]===255&&b[1]===216&&b[2]===255;
+  return true;
+}
+function workerReady(){
+  if(cfg.workerSigningKey.length<32) return false;
+  try {
+    const target=new URL(cfg.workerEndpoint);
+    return target.protocol==='https:' && target.username==='' && target.password==='' &&
+      target.pathname.endsWith('/api/process') && !target.hash && !target.search;
+  } catch(_) { return false; }
+}
+async function notifyWorker(id){
+  if(!workerReady())return false;
+  const stamp=String(Math.floor(Date.now()/1000));
+  const secret=await crypto.subtle.importKey('raw',
+    new TextEncoder().encode(cfg.workerSigningKey),
+    {name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const mac=await crypto.subtle.sign('HMAC',secret,
+    new TextEncoder().encode(stamp+'.'+id));
+  const signature=Array.from(new Uint8Array(mac),b=>b.toString(16).padStart(2,'0')).join('');
+  const request=fetch(cfg.workerEndpoint,{
+    method:'POST',redirect:'error',
+    headers:{'content-type':'application/json','x-colligo-worker-timestamp':stamp,
+      'x-colligo-worker-signature':signature},
+    body:JSON.stringify({job_id:id}),signal:AbortSignal.timeout(140000)
+  }).catch(()=>null);
+  // Finish network work outside the short Firebase-authorized upload response.
+  if(typeof EdgeRuntime!=='undefined' && typeof EdgeRuntime.waitUntil==='function'){
+    EdgeRuntime.waitUntil(request);
+  }else{ await request; }
+  return true;
+}
+
+async function verifyPrivateMaster(){
+  const url=cfg.url+'/storage/v1/object/authenticated/'+BUCKET+'/'+MASTER_STORAGE_PATH;
+  const response=await network(url,{headers:keyHeaders()});
+  if(!response.ok)fail(503,'Modello Word privato non ancora configurato');
+  const bytes=new Uint8Array(await response.arrayBuffer());
+  if(bytes.length<100||bytes.length>2*1024*1024||bytes[0]!==80||bytes[1]!==75)
+    fail(503,'Modello Word privato non valido');
+  const digest=await crypto.subtle.digest('SHA-256',bytes);
+  const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  if(hash!==MASTER_SHA256)fail(503,'Modello Word non corrisponde al master approvato');
   return true;
 }
 async function ensureBucket(){
@@ -169,14 +216,35 @@ async function handle(req){
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers:cors(req)});
   try{
     if(!['POST','GET'].includes(req.method))fail(405,'Metodo non consentito');
-    if(!cfg.url||!cfg.serviceKey||!cfg.enabled)fail(503,'Generatore cloud non ancora disponibile');
-    const uid=await actor(req);
     const route=new URL(req.url),action=route.searchParams.get('action');
+    const bootstrap=action==='install-master' && cfg.masterInstallEnabled;
+    if(!cfg.url||!cfg.serviceKey||(!cfg.enabled && !bootstrap))
+      fail(503,'Generatore cloud non ancora disponibile');
+    const identity=await actor(req),uid=identity.uid;
+    if(req.method==='POST' && action==='install-master') {
+      if(!cfg.masterInstallEnabled || !identity.admin)fail(403,'Operazione riservata');
+      const master=await bounded(req,2*1024*1024);
+      if(master.length<100||master[0]!==80||master[1]!==75)
+        fail(422,'Documento Word non valido');
+      const hashed=await crypto.subtle.digest('SHA-256',master);
+      const hash=Array.from(new Uint8Array(hashed),b=>b.toString(16).padStart(2,'0')).join('');
+      if(hash!==MASTER_SHA256)fail(422,'Modello Word diverso dal master autorizzato');
+      await ensureBucket();
+      const stored=await network(cfg.url+'/storage/v1/object/'+BUCKET+'/'+MASTER_STORAGE_PATH,{
+        method:'POST',headers:keyHeaders({'content-type':fileTypes.docx,'x-upsert':'false'}),
+        body:master
+      });
+      if(!stored.ok&&stored.status!==409)fail(503,'Archiviazione del master fallita');
+      await verifyPrivateMaster();
+      return reply(req,{master_ready:true,already_present:stored.status===409,issuance_allowed:false});
+    }
     if(req.method==='POST'&&action==='create'){
       const bytes=await bounded(req,8192);
       let data;try{data=JSON.parse(new TextDecoder().decode(bytes));}catch{fail(400,'Manifest non valido');}
+      if(!workerReady())fail(503,'Compilatore Word online non ancora configurato');
       const manifest=validateManifest(data?.files),reqId=uuid(data?.request_id);
       await ensureBucket();
+      await verifyPrivateMaster();
       const previous=await sql('GET','duvri_jobs','?owner_uid=eq.'+encodeURIComponent(uid)+
         '&request_id=eq.'+reqId+'&select=id,state,manifest');
       if(previous.length){
@@ -186,6 +254,18 @@ async function handle(req){
       const created=await sql('POST','duvri_jobs','?select=id,state',{
         owner_uid:uid,request_id:reqId,manifest,state:'collecting'});
       return reply(req,{job:{id:created[0].id,state:'collecting'},word_generated:false,issuance_allowed:false},201);
+    }
+    if(req.method==='GET'&&action==='list') {
+      // Caller identity is server-verified; never enumerate other technicians' work.
+      const recent=await sql('GET','duvri_jobs','?owner_uid=eq.'+
+        encodeURIComponent(uid)+'&order=created_at.desc&limit=20&select=id,state,created_at,result_sha256');
+      if(!Array.isArray(recent)||recent.length>20)fail(503,'Elenco fascicoli non valido');
+      const jobs=recent.map(j=>({
+        id:j.id,state:j.state,created_at:j.created_at,
+        download_ready:j.state==='needs_review'&&typeof j.result_sha256==='string'&&
+          /^[a-f0-9]{64}$/.test(j.result_sha256)
+      }));
+      return reply(req,{jobs,issuance_allowed:false});
     }
     const id=uuid(route.searchParams.get('job'));
     if(req.method==='POST'&&action==='upload')return reply(req,await upload(req,uid,id,route.searchParams.get('slot')),201);
@@ -199,6 +279,9 @@ async function handle(req){
         encodeURIComponent(uid)+'&state=eq.collecting&select=id,state',
         {state:'awaiting_worker',updated_at:new Date().toISOString()});
       if(changed.length!==1)fail(409,'Fascicolo aggiornato da altro processo');
+      // A signed, single-job trigger; the worker must atomically claim its job.
+      // No corporate bytes or Firebase credentials are sent in this request.
+      await notifyWorker(id);
       return reply(req,{job:{id,state:'awaiting_worker'},word_generated:false,issuance_allowed:false});
     }
     if(req.method==='GET'&&action==='status'){

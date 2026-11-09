@@ -22,6 +22,8 @@ UUID = re.compile(r'^[a-f0-9-]{36}$', re.I)
 OWNER = re.compile(r'^[a-zA-Z0-9_-]{1,128}$')
 SHA = re.compile(r'^[a-f0-9]{64}$')
 MAX_FILE = 15 * 1024 * 1024
+REFERENCE_MASTER_SHA256 = 'c6c8ab57ec94381c7d416b672c8929c0c4f18ed529e9550c9050b26e0b868b959'
+MASTER_STORAGE_PATH = 'system/DUVRI_BASE_GENERALE_2026.docx'
 
 class WorkflowBlocked(RuntimeError):
     pass
@@ -74,22 +76,51 @@ class PrivateAPI:
 def private_generator():
     folder = os.environ.get('DUVRI_PRIVATE_ENGINE_DIR', '')
     master = os.environ.get('DUVRI_MASTER_PATH', '')
-    if not folder or not Path(folder).is_dir() or not master or not Path(master).is_file():
-        raise WorkflowBlocked('PRIVATE_ENGINE_OR_MASTER_MISSING')
+    if not folder or not Path(folder).is_dir():
+        raise WorkflowBlocked('PRIVATE_ENGINE_MISSING')
+    if master and not Path(master).is_file():
+        raise WorkflowBlocked('PRIVATE_MASTER_MISSING')
     sys.path.insert(0, folder)
     return (importlib.import_module('source_intake').write_private_job,
-            importlib.import_module('duvri_draft').build_draft, Path(master))
+            importlib.import_module('duvri_draft').build_draft,
+            Path(master) if master else None)
 
-def run_once(api: PrivateAPI) -> dict:
+
+def resolve_master(api: PrivateAPI, root: Path, installed: Path | None) -> Path:
+    """Use exact pinned corporate master from private Storage or private local mount."""
+    if installed is None:
+        data=api.request('/storage/v1/object/authenticated/' + BUCKET + '/' + MASTER_STORAGE_PATH)
+    else:
+        if installed.is_symlink() or not installed.is_file():
+            raise WorkflowBlocked('PRIVATE_MASTER_INVALID')
+        data=installed.read_bytes()
+    if len(data)<100 or len(data)>MAX_FILE or not data.startswith(b'PK\x03\x04'):
+        raise WorkflowBlocked('PRIVATE_MASTER_INVALID')
+    if hashlib.sha256(data).hexdigest()!=REFERENCE_MASTER_SHA256:
+        raise WorkflowBlocked('PRIVATE_MASTER_HASH_MISMATCH')
+    if installed is not None:
+        return installed
+    target=root/'DUVRI_MASTER_VALIDATO.docx'
+    with target.open('xb') as stream:
+        stream.write(data)
+    target.chmod(0o600)
+    return target
+
+def run_once(api: PrivateAPI, job_id: str | None = None) -> dict:
     if os.environ.get('DUVRI_WORKER_ENABLED') != 'true':
         raise WorkflowBlocked('WORKER_DISABLED')
-    make_dossier, make_word, master = private_generator()
-    found = api.rows('duvri_jobs',
-        '?state=eq.awaiting_worker&order=created_at.asc&limit=1&select=id,owner_uid,manifest')
+    if job_id is not None and not UUID.fullmatch(job_id):
+        raise WorkflowBlocked('JOB_IDENTIFIER_INVALID')
+    make_dossier, make_word, private_master = private_generator()
+    query = '?state=eq.awaiting_worker'
+    query += '&id=eq.' + job_id if job_id else '&order=created_at.asc&limit=1'
+    found = api.rows('duvri_jobs', query + '&select=id,owner_uid,manifest')
     if not found:
         return {'state': 'idle'}
     j = found[0]
     job, uid = j['id'], j['owner_uid']
+    if job_id is not None and job != job_id:
+        raise WorkflowBlocked('JOB_SELECTOR_MISMATCH')
     if not UUID.fullmatch(job) or not OWNER.fullmatch(uid):
         raise WorkflowBlocked('JOB_IDENTIFIER_INVALID')
     claimed = api.rows('duvri_jobs',
@@ -114,11 +145,19 @@ def run_once(api: PrivateAPI) -> dict:
             expected = uid + '/' + job + '/' + str(i) + '.' + str(info['extension'])
             if evidence['object_path'] != expected or not info.get('name'):
                 raise WorkflowBlocked('UNEXPECTED_SOURCE_LOCATION')
+            if i == 0 and info.get('extension') != 'docx':
+                raise WorkflowBlocked('CHECKLIST_NOT_WORD')
+            if info.get('extension') not in {'docx','pdf','xlsx','png','jpg','jpeg','csv','txt','zip'}:
+                raise WorkflowBlocked('SOURCE_EXTENSION_NOT_SUPPORTED')
             data = api.source(expected, evidence['sha256'], evidence['length_bytes'])
+            # Re-check independently even if an API adapter returns corrupted bytes.
+            if hashlib.sha256(data).hexdigest() != evidence['sha256']:
+                raise WorkflowBlocked('SOURCE_HASH_MISMATCH')
             if len(data) != info['size']:
                 raise WorkflowBlocked('MANIFEST_SIZE_MISMATCH')
             sources.append((info['name'], data))
         with tempfile.TemporaryDirectory(prefix='duvri_private_') as root:
+            master=resolve_master(api,Path(root),private_master)
             folder, _ = make_dossier(Path(root), sources[0], sources[1:])
             output = Path(root) / 'DUVRI_BOZZA_NON_EMETTIBILE.docx'
             result = make_word(folder, master, output)

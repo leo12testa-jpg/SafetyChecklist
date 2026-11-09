@@ -19,6 +19,13 @@ test('DOCX checklist is mandatory, and invalid or empty files are rejected', () 
   assert.match(action.validate(checklist,[{file:{name:'b.pdf',size:0}}],true,true).join(' '),/vuoti/);
 });
 
+test('Excel .xlsx e allegati supportati, ma niente DOC/XLS legacy o HEIC silenziosi', () => {
+  assert.deepEqual(action.validate(checklist,[{file:{name:'programma.xlsx',size:1200}}],true,true),[]);
+  assert.match(action.validate(checklist,[{file:{name:'programma.xls',size:1200}}],true,true).join(' '),/Formato non supportato/);
+  assert.match(action.validate(checklist,[{file:{name:'foto.heic',size:1200}}],true,true).join(' '),/Formato non supportato/);
+  assert.match(action.validate(checklist,[{file:{name:'vecchio.doc',size:1200}}],true,true).join(' '),/Formato non supportato/);
+});
+
 test('batch maximum is 12 and total maximum is 45 MiB', () => {
   const many = Array.from({length:12},(_,i)=>({file:{name:'a'+i+'.pdf',size:100}}));
   assert.match(action.validate(checklist,many,true,true).join(' '),/Massimo 12/);
@@ -65,10 +72,13 @@ test('future cloud button follows multi-file private intake and verified Word do
   assert.match(cloud,/action','upload'/);
   assert.match(cloud,/action','finalize'/);
   assert.match(cloud,/action','status'/);
-  assert.match(cloud,/action','download'/);
+  assert.match(cloud,/action',\s*'download'/);
+  assert.match(cloud,/action', 'list'/);
+  assert.match(cloud,/dg-recent-dossiers/);
+  assert.match(cloud,/await downloadVerified\(job.id, latestToken\)/);
   assert.match(cloud,/report.download_ready===true/);
   assert.match(cloud,/crypto.subtle.digest\('SHA-256'/);
-  assert.match(cloud,/hex!==sha/);
+  assert.match(cloud,/hex\s*!==\s*sha/);
   assert.match(local,/DOCUMENT_GENERATION_CLOUD_ENABLED===true\) return/);
   assert.match(conf,/DOCUMENT_GENERATION_CLOUD_ENABLED = false/);
   assert.doesNotMatch(cloud,/api.anthropic.com|api.openai.com/);

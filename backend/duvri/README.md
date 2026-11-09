@@ -13,3 +13,18 @@ Questa componente è **soltanto l'acquisizione cloud**; NON è il compilatore Wo
 **Uso finale previsto:** SafetyChecklist → checklist + allegati → Genera DUVRI → fascicolo privato → worker Word → download BOZZA da revisionare HSE. Mai firmare o emettere automaticamente.
 
 Non pubblicare il codice proprietario del compilatore nel repository pubblico. Va trasferito in un repository dedicato privato quando disponibile.
+
+## Trigger online del worker (codice predisposto, NON attivo)
+
+1. L'API privata Supabase `document-jobs` riceve il fascicolo e, soltanto con tutti i gate configurati, esegue il trigger HMAC di `backend/duvri/api/process.py` usando `job_id`, timestamp e firma SHA-256.
+2. Il worker Python verifica HMAC e finestra anti-replay (120 secondi), preleva SOLO il fascicolo con l'ID richiesto, ricontrolla SHA-256 dei file originali, usa il motore privato V5 e il master Colligo verificato, quindi deposita `owner_uid/job_id/draft.docx`. L'esito è sempre una bozza **NON EMETTIBILE**.
+3. `document-jobs?action=status` e `?action=list` consentono al tecnico autenticato di seguire e recuperare i fascicoli. `?action=download` restituisce il DOCX solo in stato `needs_review`, con digest corrispondente.
+4. La UI mostra solo 2 caricamenti e il pulsante **Genera DUVRI**. Per le bozze precedenti è previsto un accesso al download autenticato, senza ricreare il lavoro.
+
+**Gate da impostare soltanto dopo il collaudo completo**: `DUVRI_WORKER_ENDPOINT` (HTTPS /api/process), `DUVRI_WORKER_HMAC_KEY` (stessa chiave casuale privata da almeno 32 caratteri su worker e gateway), `DUVRI_WORKER_ENABLED=true` sul runtime Python, `DUVRI_PRIVATE_ENGINE_DIR` (codice V5 privato), `DUVRI_MASTER_PATH` (master ufficiale privato e con hash esatto), credenziali Supabase server ONLY nel worker, `DUVRI_INTAKE_ENABLED=true` sul gateway e infine `DOCUMENT_GENERATION_CLOUD_ENABLED=true` sul frontend.
+
+Il modello Word e i documenti dei clienti non devono mai essere committati qui. Il repository `Colligo-DUVRI-Control` non è un repository del motore; mantenere invariato il suo perimetro. Non distribuire un endpoint Python senza isolamento e protezione delle credenziali.
+
+**Limiti dell'attuale motore V5**: testo PDF selezionabile, DOCX, XLSX; foto e PDF scannerizzati restano da interpretare, le valutazioni interferenziali e le misure devono essere validate da HSE. DOC/XLS legacy e HEIC non sono ancora supportati nella pipeline online. Il solo fatto di avere un Word generato non implica che sia emettibile.
+
+**Prove obbligatorie prima dell'uso reale**: E2E con checklist e allegati sintetici, firma valida/alterata/scaduta, due tecnici differenti, modifica byte del file a dimensione costante, master hash non corrispondente, interruzione del worker, download solo dell'owner, Word Desktop QA, revisione HSE e blocco emissione.

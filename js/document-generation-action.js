@@ -7,6 +7,7 @@ const duvriGenerateAction = (() => {
   const MAX_FILES = 12;
   const MAX_TOTAL_BYTES = 45 * 1024 * 1024;
   const MAX_FILE_BYTES = 15 * 1024 * 1024;
+  const SUPPORTED_EXTENSIONS = new Set(['docx','pdf','xlsx','zip','png','jpg','jpeg','txt','csv']);
   const LAYOUT_ID = 'COLLIGO-DUVRI-CORPORATE-2026-V1';
 
   function validate(checklist, attachments, enabled, consent) {
@@ -19,6 +20,9 @@ const duvriGenerateAction = (() => {
     const files = [checklist, ...(Array.isArray(attachments) ? attachments.map((x) => x.file) : [])].filter(Boolean);
     if (files.length > MAX_FILES) reasons.push('Massimo 12 file complessivi (1 checklist e 11 allegati).');
     if (files.some((f) => !Number.isFinite(f.size) || f.size <= 0)) reasons.push('Sono presenti file vuoti o non validi.');
+    if (files.some((f) => !SUPPORTED_EXTENSIONS.has(String(f.name || '').toLowerCase().split('.').pop()))) {
+      reasons.push('Formato non supportato. Usa Word .docx, Excel .xlsx, PDF, immagini JPG/PNG o gli altri allegati previsti.');
+    }
     if (files.some((f) => Number(f.size) > MAX_FILE_BYTES)) reasons.push('Massimo 15 MB per singolo file.');
     if (files.reduce((n, f) => n + (Number(f.size) || 0), 0) > MAX_TOTAL_BYTES) {
       reasons.push('Dimensione massima complessiva: 45 MB.');
@@ -57,6 +61,44 @@ const duvriGenerateAction = (() => {
       typeof appIdentity !== 'undefined';
   }
 
+  async function downloadVerified(jobId, token) {
+    if (!/^[0-9a-f-]{36}$/i.test(jobId || '') || !token)
+      throw new Error('Fascicolo o sessione non valida');
+    const endpoint = new URL(DOCUMENT_JOBS_ENDPOINT);
+    endpoint.searchParams.set('job', jobId);
+    endpoint.searchParams.set('action', 'status');
+    const status = await fetch(endpoint.toString(), {
+      method: 'GET', headers: { authorization: 'Bearer ' + token }, cache: 'no-store'
+    });
+    const report = await status.json().catch(() => ({}));
+    if (!status.ok || report.job?.id !== jobId || report.issuance_allowed !== false ||
+        report.job.state !== 'needs_review' || report.download_ready !== true)
+      throw new Error('Bozza Word non ancora disponibile per revisione');
+    endpoint.searchParams.set('action', 'download');
+    const downloaded = await fetch(endpoint.toString(), {
+      method: 'GET', headers: { authorization: 'Bearer ' + token }, cache: 'no-store'
+    });
+    const sha = downloaded.headers.get('x-duvri-sha256') || '';
+    const mime = downloaded.headers.get('content-type') || '';
+    if (!downloaded.ok || !/^[a-f0-9]{64}$/.test(sha) ||
+        !mime.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document'))
+      throw new Error('Word non disponibile o senza verifica di integrità');
+    const blob = await downloaded.blob();
+    if (blob.size > MAX_FILE_BYTES) throw new Error('Word oltre la dimensione consentita');
+    const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+    const hex = Array.from(new Uint8Array(digest), b=>b.toString(16).padStart(2,'0')).join('');
+    if (hex !== sha) throw new Error('Verifica SHA-256 del Word fallita');
+    const url = URL.createObjectURL(blob);
+    try {
+      const a = document.createElement('a');
+      a.href = url; a.download = 'DUVRI_BOZZA_NON_EMETTIBILE.docx';
+      document.body.appendChild(a); a.click(); a.remove();
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+    }
+    return true;
+  }
+
   function init() {
     const screen = document.querySelector('[data-screen="document-generation"]');
     const gate = screen.querySelector('.dg-auto-gate');
@@ -84,7 +126,11 @@ const duvriGenerateAction = (() => {
     const warning = document.createElement('p');
     warning.className = 'dg-small-note';
     warning.textContent = 'Solo BOZZA NON EMETTIBILE. Restano obbligatorie le verifiche tecniche, la decisione Titolo IV/art. 26 e le approvazioni HSE/D1/D2. Il modello Colligo deve essere configurato sul server.';
-    area.append(consentLabel, btn, state, warning);
+    const recent = document.createElement('div');
+    recent.id = 'dg-recent-dossiers';
+    recent.className = 'dg-small-note';
+    recent.hidden = true;
+    area.append(consentLabel, btn, state, warning, recent);
     gate.insertAdjacentElement('afterend', area);
     // Exactly two document uploads and one action in cloud mode; legacy
     // questionnaire/queue widgets remain in the DOM for backwards compatibility.
@@ -116,6 +162,63 @@ const duvriGenerateAction = (() => {
       if (snap.busy) issues.unshift('Attendi il completamento della lettura dei file.');
       btn.disabled = running || issues.length > 0;
       if (!running) state.textContent = issues[0] || 'Pronto: la bozza sarà accodata sul backend privato.';
+    }
+
+    async function loadRecent() {
+      if (!cloudAvailable()) return;
+      try {
+        await appIdentity.ready();
+        const token = await appIdentity.token();
+        if (!token) return;
+        const endpoint = new URL(DOCUMENT_JOBS_ENDPOINT);
+        endpoint.searchParams.set('action', 'list');
+        const response = await fetch(endpoint.toString(), {
+          method: 'GET', headers: { authorization: 'Bearer ' + token }, cache: 'no-store'
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !Array.isArray(data.jobs) || data.issuance_allowed !== false)
+          return;
+        recent.replaceChildren();
+        const jobs = data.jobs.slice(0, 8);
+        recent.hidden = jobs.length === 0;
+        if (jobs.length) {
+          const title = document.createElement('p');
+          title.textContent = 'Fascicoli DUVRI recenti (solo tuo account)';
+          recent.appendChild(title);
+        }
+        for (const job of jobs) {
+          if (!/^[0-9a-f-]{36}$/i.test(job.id || '')) continue;
+          const row = document.createElement('p');
+          const states = {
+            collecting:'Caricamento interrotto', awaiting_worker:'In attesa elaborazione',
+            processing:'In elaborazione', needs_review:'Bozza da revisionare',
+            failed:'Elaborazione bloccata', cancelled:'Annullato'
+          };
+          row.appendChild(document.createTextNode(
+            'Fascicolo '+job.id.slice(0,8)+' — '+(states[job.state] || 'Da verificare')+' '
+          ));
+          if (job.state === 'needs_review' && job.download_ready === true) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'btn';
+            button.textContent = 'Scarica Word';
+            button.addEventListener('click', async () => {
+              button.disabled = true;
+              try {
+                const latestToken = await appIdentity.token();
+                await downloadVerified(job.id, latestToken);
+                state.textContent = 'Bozza DUVRI Word scaricata. NON EMETTIBILE: revisione HSE obbligatoria.';
+              } catch (error) {
+                state.textContent = 'Download non riuscito: '+(error?.message || 'errore locale');
+              } finally { button.disabled = false; }
+            });
+            row.appendChild(button);
+          }
+          recent.appendChild(row);
+        }
+      } catch (_) {
+        // The prior job list is informative. A failed refresh never discards a dossier.
+      }
     }
 
     consent.addEventListener('change', refresh);
@@ -189,26 +292,9 @@ const duvriGenerateAction = (() => {
           if(report.job.state==='failed' || report.job.state==='cancelled')
             throw new Error('La generazione è stata bloccata: verifica il fascicolo.');
           if(report.job.state==='needs_review' && report.download_ready===true){
-            endpoint.searchParams.set('action','download');
-            const downloaded=await fetch(endpoint.toString(),{
-              method:'GET',headers:{authorization:'Bearer '+token},cache:'no-store'
-            });
-            const sha=downloaded.headers.get('x-duvri-sha256')||'';
-            const mime=downloaded.headers.get('content-type')||'';
-            if(!downloaded.ok || !/^[a-f0-9]{64}$/.test(sha) ||
-               !mime.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document'))
-              throw new Error('Word non disponibile o senza verifica di integrità');
-            const blob=await downloaded.blob();
-            const digest=await crypto.subtle.digest('SHA-256',await blob.arrayBuffer());
-            const hex=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
-            if(hex!==sha)throw new Error('Verifica SHA-256 del Word fallita');
-            const url=URL.createObjectURL(blob);
-            try{
-              const a=document.createElement('a');
-              a.href=url;a.download='DUVRI_BOZZA_NON_EMETTIBILE.docx';
-              document.body.appendChild(a);a.click();a.remove();
-            }finally{setTimeout(()=>URL.revokeObjectURL(url),3000);}
+            await downloadVerified(jobId, token);
             state.textContent='DUVRI Word scaricato: BOZZA NON EMETTIBILE. Verifica HSE, interferenze, D1/D2 e firme.';
+            await loadRecent();
             break;
           }
           if(attempt===89)
@@ -225,6 +311,7 @@ const duvriGenerateAction = (() => {
       }
     });
     refresh();
+    if (cloudAvailable()) void loadRecent();
   }
 
   return { validate, metadata, init, LAYOUT_ID };
