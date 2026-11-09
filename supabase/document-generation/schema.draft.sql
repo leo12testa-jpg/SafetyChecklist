@@ -1,5 +1,7 @@
 -- DRAFT ONLY — do not apply to the live Supabase project.
 -- Review with Supabase CLI and run only against an isolated test project first.
+-- The duvri type stays disabled even in a fresh staging database: enable it
+-- only after isolated auth/storage/AI/Word tests and explicit rollout sign-off.
 
 create table if not exists public.document_type_configs (
   slug text primary key check (length(slug) between 2 and 63 and substring(slug from 1 for 1) ~ '[a-z]' and slug !~ '[^a-z0-9_-]'),
@@ -20,7 +22,7 @@ create table if not exists public.document_type_configs (
 insert into public.document_type_configs
   (slug, display_name, description, enabled, skill_path, skill_version, template_version, output_format, intake_schema, pipeline_config)
 values
-  ('duvri', 'DUVRI', 'Documento di valutazione dei rischi derivanti da interferenze.', true, 'skills/duvri-colligo/SKILL.md', 'duvri-colligo/0.1.0', 'DUVRI_BASE_GENERALE_2026', 'docx',
+  ('duvri', 'DUVRI', 'Documento di valutazione dei rischi derivanti da interferenze.', false, 'skills/duvri-colligo/SKILL.md', 'duvri-colligo/0.1.0', 'DUVRI_BASE_GENERALE_2026', 'docx',
    '{"sourceChecklistRequired":true,"supportingFilesAllowed":true}'::jsonb,
    '{"extractAgent":"document-reader","analysisAgent":"duvri-analyst","writerAgent":"docx-writer","validatorAgent":"quality-check","enabledPhases":["extract","analyze","draft","validate","review"]}'::jsonb)
 on conflict (slug) do nothing;
