@@ -80,16 +80,21 @@ def private_generator():
     return (importlib.import_module('source_intake').write_private_job,
             importlib.import_module('duvri_draft').build_draft, Path(master))
 
-def run_once(api: PrivateAPI) -> dict:
+def run_once(api: PrivateAPI, job_id: str | None = None) -> dict:
     if os.environ.get('DUVRI_WORKER_ENABLED') != 'true':
         raise WorkflowBlocked('WORKER_DISABLED')
+    if job_id is not None and not UUID.fullmatch(job_id):
+        raise WorkflowBlocked('JOB_IDENTIFIER_INVALID')
     make_dossier, make_word, master = private_generator()
-    found = api.rows('duvri_jobs',
-        '?state=eq.awaiting_worker&order=created_at.asc&limit=1&select=id,owner_uid,manifest')
+    query = '?state=eq.awaiting_worker'
+    query += '&id=eq.' + job_id if job_id else '&order=created_at.asc&limit=1'
+    found = api.rows('duvri_jobs', query + '&select=id,owner_uid,manifest')
     if not found:
         return {'state': 'idle'}
     j = found[0]
     job, uid = j['id'], j['owner_uid']
+    if job_id is not None and job != job_id:
+        raise WorkflowBlocked('JOB_SELECTOR_MISMATCH')
     if not UUID.fullmatch(job) or not OWNER.fullmatch(uid):
         raise WorkflowBlocked('JOB_IDENTIFIER_INVALID')
     claimed = api.rows('duvri_jobs',
