@@ -175,8 +175,20 @@
         document.body.appendChild(a);
         a.click();a.remove();
       } finally {setTimeout(()=>URL.revokeObjectURL(url),3000);}
+      const temporal=Number.isSafeInteger(report.scheduled_overlap_questions)
+        ?report.scheduled_overlap_questions:0;
+      const scheduleQuality=report.schedule_quality||{};
+      const scheduleWarnings=(Number(scheduleQuality.rows_without_verified_time_or_date)||0)+
+        (Number(scheduleQuality.firm_names_not_in_checklist)||0)+
+        (Number(scheduleQuality.schedule_rows_not_examined)||0);
+      const coordination=temporal>0
+        ?' '+temporal+' sovrapposizioni orarie da verificare; NON sono rischi accertati.'
+        :' Nessuna sovrapposizione oraria dimostrata automaticamente.';
+      const incomplete=scheduleWarnings>0||scheduleQuality.pair_limit_reached===true
+        ?' ATTENZIONE: cronoprogramma incompleto o dati da riconciliare.':'';
       localStatus.textContent='Bozza Word scaricata: '+report.source_count+' fonti, '+
-        report.source_candidates_rendered+' dati inseriti. DA REVISIONARE: interferenze, HSE, D1/D2, fonti e firme. NON EMETTIBILE.';
+        report.source_candidates_rendered+' dati estratti.'+coordination+incomplete+
+        ' DA REVISIONARE: interferenze, HSE, D1/D2, fonti e firme. NON EMETTIBILE.';
     } catch(error) {
       localStatus.textContent='Generazione o download non completato: '+(error?.message||'errore locale')+'. Nessun DUVRI è stato emesso.';
     } finally {uploading=false;update();}
