@@ -8,6 +8,7 @@ const cfg = {
   enabled: Deno.env.get('DUVRI_INTAKE_ENABLED') === 'true',
   workerEndpoint: Deno.env.get('DUVRI_WORKER_ENDPOINT') || '',
   workerSigningKey: Deno.env.get('DUVRI_WORKER_HMAC_KEY') || '',
+  masterInstallEnabled: Deno.env.get('DUVRI_MASTER_INSTALL_ALLOWED') === 'true',
   origins: new Set((Deno.env.get('DUVRI_ALLOWED_ORIGINS') || 'https://leo12testa-jpg.github.io').split(','))
 };
 const BUCKET='colligo-duvri-private';
@@ -70,7 +71,7 @@ async function actor(req){
   const profile=decode({mapValue:{fields:(await resp.json()).fields}});
   if(profile?.uid!==user.localId||profile?.attivo!==true||
      !['admin','tecnico'].includes(profile?.ruolo))fail(403,'Utente non autorizzato');
-  return user.localId;
+  return {uid:user.localId,admin:profile.ruolo==='admin'};
 }
 async function sql(method,table,qs,body){
   const resp=await network(cfg.url+'/rest/v1/'+table+qs,{
@@ -215,9 +216,28 @@ async function handle(req){
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers:cors(req)});
   try{
     if(!['POST','GET'].includes(req.method))fail(405,'Metodo non consentito');
-    if(!cfg.url||!cfg.serviceKey||!cfg.enabled)fail(503,'Generatore cloud non ancora disponibile');
-    const uid=await actor(req);
     const route=new URL(req.url),action=route.searchParams.get('action');
+    const bootstrap=action==='install-master' && cfg.masterInstallEnabled;
+    if(!cfg.url||!cfg.serviceKey||(!cfg.enabled && !bootstrap))
+      fail(503,'Generatore cloud non ancora disponibile');
+    const identity=await actor(req),uid=identity.uid;
+    if(req.method==='POST' && action==='install-master') {
+      if(!cfg.masterInstallEnabled || !identity.admin)fail(403,'Operazione riservata');
+      const master=await bounded(req,2*1024*1024);
+      if(master.length<100||master[0]!==80||master[1]!==75)
+        fail(422,'Documento Word non valido');
+      const hashed=await crypto.subtle.digest('SHA-256',master);
+      const hash=Array.from(new Uint8Array(hashed),b=>b.toString(16).padStart(2,'0')).join('');
+      if(hash!==MASTER_SHA256)fail(422,'Modello Word diverso dal master autorizzato');
+      await ensureBucket();
+      const stored=await network(cfg.url+'/storage/v1/object/'+BUCKET+'/'+MASTER_STORAGE_PATH,{
+        method:'POST',headers:keyHeaders({'content-type':fileTypes.docx,'x-upsert':'false'}),
+        body:master
+      });
+      if(!stored.ok&&stored.status!==409)fail(503,'Archiviazione del master fallita');
+      await verifyPrivateMaster();
+      return reply(req,{master_ready:true,already_present:stored.status===409,issuance_allowed:false});
+    }
     if(req.method==='POST'&&action==='create'){
       const bytes=await bounded(req,8192);
       let data;try{data=JSON.parse(new TextDecoder().decode(bytes));}catch{fail(400,'Manifest non valido');}
