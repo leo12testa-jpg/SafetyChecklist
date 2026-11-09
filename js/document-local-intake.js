@@ -12,6 +12,7 @@
   let popup = null;
   let uploading = false;
   let ready = false;
+  let startAfterPair = false;
 
   function element(tag, id, css, label) {
     const node = document.createElement(tag);
@@ -38,6 +39,21 @@
   const note=element('p',null,'dg-small-note',
     'Fase 1: lettura e tracciamento delle fonti. Non è ancora una generazione DUVRI: dati da verificare, nessun invio AI, nessuna emissione.');
   area.append(connect,consentLabel,action,localStatus,note);
+  // Keep the historic questionnaire in the DOM for legacy handlers, but show
+  // only the two document uploads and this local action in DUVRI mode.
+  // Hidden elements do not grant authorization or bypass any existing gate.
+  function hideLegacySection(node) {
+    if (!node) return;
+    node.hidden = true;
+    if (node.style) node.style.display = 'none';
+  }
+  if (typeof DOCUMENT_GENERATION_CLOUD_ENABLED === 'undefined' || DOCUMENT_GENERATION_CLOUD_ENABLED !== true) {
+    for (const selector of [
+      '.dg-prototype-alert', '.dg-workflow-strip', '.dg-customer-instructions',
+      '#dg-form', '.dg-result-panel', '.dg-queue-panel', '.dg-auto-gate',
+      '#dg-generate-reasons', '#dg-template-details', '#dg-auto-results'
+    ]) hideLegacySection(screen.querySelector?.(selector));
+  }
   // The inactive cloud-only draft button must not duplicate the local action.
   if (typeof DOCUMENT_GENERATION_CLOUD_ENABLED === 'undefined' || DOCUMENT_GENERATION_CLOUD_ENABLED !== true) {
     const legacy=document.getElementById('dg-generate-duvri');
@@ -77,7 +93,7 @@
   function openPair() {
     localStatus.textContent='Apri la finestra locale e premi “Autorizza SafetyChecklist”.';
     popup = window.open(ORIGIN+'/pair','colligo-pair','popup,width=600,height=530');
-    if (!popup) localStatus.textContent='Il browser ha bloccato la finestra. Consenti i popup per SafetyChecklist.';
+    if (!popup) { startAfterPair=false; localStatus.textContent='Il browser ha bloccato la finestra. Consenti i popup per SafetyChecklist.'; }
   }
   connect.addEventListener('click',openPair);
   window.addEventListener('message',async (event)=>{
@@ -95,15 +111,20 @@
       localStatus.textContent='PC collegato. Premi “Prepara fascicolo DUVRI” per avviare la lettura locale.';
       try{popup?.close();}catch(_){}
     } catch(_) {
-      ready=false;token=null;
+      ready=false;token=null;startAfterPair=false;
       localStatus.textContent='Collegamento non riuscito. Controlla il servizio Windows e i permessi di rete locale del browser.';
     }
     update();
+    if (ready && startAfterPair && !action.disabled) {
+      startAfterPair=false;
+      // Continuation of the explicitly requested action after manual pairing.
+      action.click();
+    }
   });
   action.addEventListener('click',async()=>{
     if (uploading) return;
     // First use pairs the browser with the already running Windows gateway.
-    if (!ready) { openPair(); return; }
+    if (!ready) { startAfterPair=true; openPair(); return; }
     const snap=snapshot();
     const issue=validate(snap);
     if (issue) { localStatus.textContent=issue;update();return; }
