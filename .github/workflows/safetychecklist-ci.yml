@@ -56,4 +56,4 @@ jobs:
       - name: Run core application regression tests
         run: node --test tests/*.test.js
       - name: Python DUVRI cloud worker fail-closed regression
-        run: python3 -m unittest discover -s tests/python -p 'test_duvri_cloud_worker.py' -v
+        run: python3 -m unittest discover -s tests/python -p 'test_duvri_cloud_*.py' -v
