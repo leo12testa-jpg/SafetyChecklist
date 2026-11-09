@@ -44,6 +44,12 @@ test('single action creates a source-grounded local Word REVIEW DRAFT without is
   assert.match(ui, /crypto\.subtle\.digest\('SHA-256',bytes\)/);
   assert.match(ui, /if \(hex!==report\.sha256\)/);
   assert.match(ui, /Bozza Word scaricata/);
+  assert.match(ui, /report\.ai_agents_executed/);
+  assert.match(ui, /report\.ai_hypotheses_to_review/);
+  assert.match(ui, /report\.ai_exhaustive_analysis===false/);
+  assert.match(ui, /AI locale eseguita/);
+  assert.match(ui, /AI non eseguita/);
+  assert.match(ui, /Lettura AI non esaustiva/);
   assert.match(ui, /report\.scheduled_overlap_questions/);
   assert.match(ui, /report\.schedule_quality/);
   assert.match(ui, /cronoprogramma incompleto o dati da riconciliare/);
