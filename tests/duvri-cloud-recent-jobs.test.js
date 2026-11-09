@@ -35,7 +35,8 @@ function init(options={}){
   vm.runInNewContext(source,{
     Deno:{env:{get:k=>env[k]},serve:fn=>{handler=fn;}},
     Request,Response,URL,Set,Date,JSON,Number,Object,Uint8Array,TextDecoder,
-    AbortSignal,atob,encodeURIComponent,fetch:fakeFetch
+    AbortSignal,atob,encodeURIComponent,TextEncoder,
+    crypto:require('node:crypto').webcrypto,fetch:fakeFetch
   },{timeout:2000});
   return {handler,seen};
 }
