@@ -52,3 +52,12 @@ test('draft and QA checkpoints are invalidated when the server-approved template
   assert.match(worker, /delete resumableOutputs\\.draftSummary;/);
   assert.match(worker, /phase: 'draft', agentOutputs: resumableOutputs/);
 });
+
+test('fresh isolated staging schema is fail-closed before explicit DUVRI activation', () => {
+  assert.match(schema, /\('duvri', 'DUVRI', 'Documento di valutazione dei rischi derivanti da interferenze\.', false,/);
+  assert.match(schema, /alter table public\.document_jobs enable row level security;/);
+  assert.match(schema, /revoke all on public\.document_jobs from anon, authenticated;/);
+  assert.match(schema, /public boolean|public, file_size_limit/i);
+  assert.match(schema, /values \('documenti-generati', 'documenti-generati', false,/);
+  assert.match(worker, /DOCUMENT_PIPELINE_ENABLED/);
+});
