@@ -50,6 +50,13 @@ test('single action creates a source-grounded local Word REVIEW DRAFT without is
   assert.match(ui, /AI locale eseguita/);
   assert.match(ui, /AI non eseguita/);
   assert.match(ui, /Lettura AI non esaustiva/);
+  assert.match(ui, /report\.sources_without_selectable_text/);
+  assert.match(ui, /report\.sources_with_reading_limits/);
+  assert.match(ui, /report\.ai_batches_planned/);
+  assert.match(ui, /report\.ai_batches_completed/);
+  assert.match(ui, /fonti senza testo selezionabile/);
+  assert.match(ui, /file presentano limiti di lettura/);
+  assert.match(ui, /lotti completati/);
   assert.match(ui, /report\.scheduled_overlap_questions/);
   assert.match(ui, /report\.schedule_quality/);
   assert.match(ui, /cronoprogramma incompleto o dati da riconciliare/);
