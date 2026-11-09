@@ -114,7 +114,14 @@ def run_once(api: PrivateAPI) -> dict:
             expected = uid + '/' + job + '/' + str(i) + '.' + str(info['extension'])
             if evidence['object_path'] != expected or not info.get('name'):
                 raise WorkflowBlocked('UNEXPECTED_SOURCE_LOCATION')
+            if i == 0 and info.get('extension') != 'docx':
+                raise WorkflowBlocked('CHECKLIST_NOT_WORD')
+            if info.get('extension') not in {'docx','pdf','xlsx','png','jpg','jpeg','csv','txt','zip'}:
+                raise WorkflowBlocked('SOURCE_EXTENSION_NOT_SUPPORTED')
             data = api.source(expected, evidence['sha256'], evidence['length_bytes'])
+            # Re-check independently even if an API adapter returns corrupted bytes.
+            if hashlib.sha256(data).hexdigest() != evidence['sha256']:
+                raise WorkflowBlocked('SOURCE_HASH_MISMATCH')
             if len(data) != info['size']:
                 raise WorkflowBlocked('MANIFEST_SIZE_MISMATCH')
             sources.append((info['name'], data))
