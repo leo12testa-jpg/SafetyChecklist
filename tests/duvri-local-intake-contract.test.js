@@ -31,7 +31,10 @@ test('no generation or issuance is claimed when only the local source-ingestion 
   assert.match(ui, /Prepara fascicolo DUVRI/);
   assert.match(ui, /connect.hidden = true/);
   assert.match(ui, /legacy.hidden=true/);
-  assert.match(ui, /if \(!ready\) \{ openPair\(\); return; \}/);
+  assert.match(ui, /if \(!ready\) \{ startAfterPair=true; openPair\(\); return; \}/);
+  assert.match(ui, /hideLegacySection\(screen.querySelector\?\.\(selector\)\)/);
+  assert.match(ui, /'#dg-form'/);
+  assert.match(ui, /action.click\(\)/);
   assert.match(ui, /result\.word_generated!==false/);
   assert.match(ui, /result\.issuance_allowed!==false/);
   assert.match(ui, /NON è stato generato un DUVRI/);
