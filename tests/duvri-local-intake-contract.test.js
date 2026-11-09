@@ -44,6 +44,9 @@ test('single action creates a source-grounded local Word REVIEW DRAFT without is
   assert.match(ui, /crypto\.subtle\.digest\('SHA-256',bytes\)/);
   assert.match(ui, /if \(hex!==report\.sha256\)/);
   assert.match(ui, /Bozza Word scaricata/);
+  assert.match(ui, /report\.hse_review_topics/);
+  assert.match(ui, /report\.unverified_temporal_overlaps/);
+  assert.match(ui, /Sovrapposizioni SOLO temporali da chiarire/);
   assert.match(ui, /NON EMETTIBILE/);
   assert.match(ui, /senza invio a servizi AI esterni/);
   assert.doesNotMatch(ui, /api\.anthropic\.com|api\.openai\.com|supabase\.co/);
