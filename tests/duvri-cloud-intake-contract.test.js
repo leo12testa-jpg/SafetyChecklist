@@ -56,5 +56,7 @@ test('strictly private and non-issuing server contract',()=>{
   assert.match(source,/x-duvri-sha256/);
   assert.match(source,/issuance_allowed:false/);
   assert.doesNotMatch(source,/api\.openai\.com|api\.anthropic\.com|-----BEGIN PRIVATE KEY-----/);
-  assert.doesNotMatch(source,/DUVRI_BASE_GENERALE_2026\.docx|MODELLO_DUVRI_segnaposto\.docx/);
+  // The private object key is allowed; the corporate Word bytes are not.
+  assert.ok(source.includes("MASTER_STORAGE_PATH='system/DUVRI_BASE_GENERALE_2026.docx'"));
+  assert.doesNotMatch(source,/MODELLO_DUVRI_segnaposto\.docx/);
 });
