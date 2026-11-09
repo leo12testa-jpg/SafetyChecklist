@@ -7,6 +7,7 @@ const duvriGenerateAction = (() => {
   const MAX_FILES = 12;
   const MAX_TOTAL_BYTES = 45 * 1024 * 1024;
   const MAX_FILE_BYTES = 15 * 1024 * 1024;
+  const SUPPORTED_EXTENSIONS = new Set(['docx','pdf','xlsx','zip','png','jpg','jpeg','txt','csv']);
   const LAYOUT_ID = 'COLLIGO-DUVRI-CORPORATE-2026-V1';
 
   function validate(checklist, attachments, enabled, consent) {
@@ -19,6 +20,9 @@ const duvriGenerateAction = (() => {
     const files = [checklist, ...(Array.isArray(attachments) ? attachments.map((x) => x.file) : [])].filter(Boolean);
     if (files.length > MAX_FILES) reasons.push('Massimo 12 file complessivi (1 checklist e 11 allegati).');
     if (files.some((f) => !Number.isFinite(f.size) || f.size <= 0)) reasons.push('Sono presenti file vuoti o non validi.');
+    if (files.some((f) => !SUPPORTED_EXTENSIONS.has(String(f.name || '').toLowerCase().split('.').pop()))) {
+      reasons.push('Formato non supportato. Usa Word .docx, Excel .xlsx, PDF, immagini JPG/PNG o gli altri allegati previsti.');
+    }
     if (files.some((f) => Number(f.size) > MAX_FILE_BYTES)) reasons.push('Massimo 15 MB per singolo file.');
     if (files.reduce((n, f) => n + (Number(f.size) || 0), 0) > MAX_TOTAL_BYTES) {
       reasons.push('Dimensione massima complessiva: 45 MB.');
