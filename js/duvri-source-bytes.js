@@ -83,7 +83,8 @@ const duvriSourceBytes = (() => {
     } catch (_) {
       return deny('MANIFEST_VALIDATION_FAILED');
     }
-    if (!manifest || manifest.state === 'blocked' ||
+    if (!manifest || !['ready_for_extraction', 'needs_attention'].includes(manifest.state) ||
+        manifest.files_count !== documents.length ||
         !Array.isArray(documents) || !Array.isArray(inputs) ||
         documents.length < 1 || documents.length > MAX_FILES ||
         inputs.length !== documents.length)
@@ -113,8 +114,14 @@ const duvriSourceBytes = (() => {
       if (!doc || typeof doc !== 'object' || !byId.has(doc.file_id))
         return deny('SOURCE_BYTES_MISSING');
       const original = byId.get(doc.file_id);
-      if (original.byteLength !== doc.size_bytes)
+      // Take a stable copy of all metadata before the digest yields.
+      const expectedSize = doc.size_bytes;
+      const expectedSha = doc.sha256;
+      const expectedMime = doc.mime_type;
+      if (original.byteLength !== expectedSize)
         return deny('SOURCE_SIZE_MISMATCH');
+      if (typeof expectedSha !== 'string')
+        return deny('SOURCE_SHA256_MISMATCH');
       // Snapshot before yielding to the asynchronous digest. Do not hash a
       // concurrently mutated caller-owned ArrayBuffer.
       const snapshot = Uint8Array.from(original);
@@ -124,17 +131,16 @@ const duvriSourceBytes = (() => {
       } catch (_) {
         return deny('SHA256_COMPUTATION_FAILED');
       }
-      if (typeof doc.sha256 !== 'string' ||
-          digest !== doc.sha256.toLowerCase())
+      if (digest !== expectedSha.toLowerCase())
         return deny('SOURCE_SHA256_MISMATCH');
-      const magic = signatureMatches(doc.mime_type, snapshot);
+      const magic = signatureMatches(expectedMime, snapshot);
       if (magic === false)
         return deny('SOURCE_SIGNATURE_MISMATCH');
       if (magic === null ||
-          doc.mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-          doc.mime_type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-          doc.mime_type === 'application/zip' ||
-          doc.mime_type === 'application/x-zip-compressed')
+          expectedMime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+          expectedMime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+          expectedMime === 'application/zip' ||
+          expectedMime === 'application/x-zip-compressed')
         formatsNotVerified++;
       count++;
     }
