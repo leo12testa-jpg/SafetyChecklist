@@ -186,8 +186,18 @@
         :' Nessuna sovrapposizione oraria dimostrata automaticamente.';
       const incomplete=scheduleWarnings>0||scheduleQuality.pair_limit_reached===true
         ?' ATTENZIONE: cronoprogramma incompleto o dati da riconciliare.':'';
+      const aiAgents=Array.isArray(report.ai_agents_executed)
+        ?report.ai_agents_executed.filter(x=>typeof x==='string'): [];
+      const aiCount=Number.isSafeInteger(report.ai_hypotheses_to_review)
+        ?report.ai_hypotheses_to_review:0;
+      const aiNote=aiAgents.length
+        ?' AI locale eseguita: '+aiAgents.length+' analizzatori, '+aiCount+' ipotesi da verificare.'
+        :' AI non eseguita: verifica modello locale e completezza delle fonti.';
+      const aiLimits=report.ai_exhaustive_analysis===false
+        ?' Lettura AI non esaustiva; verificare tutti gli allegati.':'';
       localStatus.textContent='Bozza Word scaricata: '+report.source_count+' fonti, '+
         report.source_candidates_rendered+' dati estratti.'+coordination+incomplete+
+        aiNote+aiLimits+
         ' DA REVISIONARE: interferenze, HSE, D1/D2, fonti e firme. NON EMETTIBILE.';
     } catch(error) {
       localStatus.textContent='Generazione o download non completato: '+(error?.message||'errore locale')+'. Nessun DUVRI è stato emesso.';
