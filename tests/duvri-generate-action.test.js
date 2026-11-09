@@ -19,6 +19,13 @@ test('DOCX checklist is mandatory, and invalid or empty files are rejected', () 
   assert.match(action.validate(checklist,[{file:{name:'b.pdf',size:0}}],true,true).join(' '),/vuoti/);
 });
 
+test('Excel .xlsx e allegati supportati, ma niente DOC/XLS legacy o HEIC silenziosi', () => {
+  assert.deepEqual(action.validate(checklist,[{file:{name:'programma.xlsx',size:1200}}],true,true),[]);
+  assert.match(action.validate(checklist,[{file:{name:'programma.xls',size:1200}}],true,true).join(' '),/Formato non supportato/);
+  assert.match(action.validate(checklist,[{file:{name:'foto.heic',size:1200}}],true,true).join(' '),/Formato non supportato/);
+  assert.match(action.validate(checklist,[{file:{name:'vecchio.doc',size:1200}}],true,true).join(' '),/Formato non supportato/);
+});
+
 test('batch maximum is 12 and total maximum is 45 MiB', () => {
   const many = Array.from({length:12},(_,i)=>({file:{name:'a'+i+'.pdf',size:100}}));
   assert.match(action.validate(checklist,many,true,true).join(' '),/Massimo 12/);
