@@ -153,6 +153,9 @@
           report.download_path!=='/api/jobs/'+result.job_id+'/draft/download' ||
           typeof report.sha256!=='string' || !/^[a-f0-9]{64}$/.test(report.sha256))
         throw new Error('Compilazione Word non disponibile: servizio Windows da aggiornare o modello non valido');
+      if (!Number.isSafeInteger(report.source_count) || report.source_count<1 ||
+          !Number.isSafeInteger(report.source_candidates_rendered) || report.source_candidates_rendered<0)
+        throw new Error('Rapporto Word privo di conteggi delle fonti verificabili');
       localStatus.textContent='Word creato sul PC. Verifica integrità e download…';
       const download=await fetch(ORIGIN+report.download_path,{
         method:'GET',mode:'cors',cache:'no-store',targetAddressSpace:'loopback',
@@ -167,6 +170,11 @@
       const digest=await globalThis.crypto.subtle.digest('SHA-256',bytes);
       const hex=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
       if (hex!==report.sha256) throw new Error('Impronta del Word non corrispondente; download bloccato');
+      // An intact hash must still refer to a DOCX (ZIP) rather than arbitrary bytes.
+      const signature=new Uint8Array(bytes,0,Math.min(4,bytes.byteLength));
+      if (signature.length<4 || signature[0]!==0x50 || signature[1]!==0x4b ||
+          signature[2]!==0x03 || signature[3]!==0x04)
+        throw new Error('Il file scaricato non presenta la firma DOCX richiesta');
       const url=URL.createObjectURL(blob);
       try {
         const a=document.createElement('a');
@@ -175,6 +183,13 @@
         document.body.appendChild(a);
         a.click();a.remove();
       } finally {setTimeout(()=>URL.revokeObjectURL(url),3000);}
+      const selectedSources=1+snap.attachments.length;
+      const sourceCoverageNote=report.source_count===selectedSources
+        ?' Conteggio fonti coerente con i caricamenti (non prova la lettura completa).'
+        :' ATTENZIONE: '+selectedSources+' file caricati, '+report.source_count+
+          ' fonti dichiarate dal motore; verificare eventuali file mancanti o fonti aggiuntive.';
+      const extractedNote=report.source_candidates_rendered===0
+        ?' ATTENZIONE: nessun dato estratto riportato nella bozza.':'';
       const temporal=Number.isSafeInteger(report.scheduled_overlap_questions)
         ?report.scheduled_overlap_questions:0;
       const scheduleQuality=report.schedule_quality||{};
@@ -191,8 +206,9 @@
       const aiCount=Number.isSafeInteger(report.ai_hypotheses_to_review)
         ?report.ai_hypotheses_to_review:0;
       const aiNote=aiAgents.length
-        ?' AI locale eseguita: '+aiAgents.length+' analizzatori, '+aiCount+' ipotesi da verificare.'
-        :' AI non eseguita: verifica modello locale e completezza delle fonti.';
+        ?' Analizzatori AI dichiarati dal motore: '+aiAgents.length+
+          ', '+aiCount+' ipotesi da verificare (nessuna validazione HSE automatica).'
+        :' Nessun analizzatore AI dichiarato: verificare modello locale e fonti.';
       const aiLimits=report.ai_exhaustive_analysis===false
         ?' Lettura AI non esaustiva; verificare tutti gli allegati.':'';
       const agentDivergences=Number.isSafeInteger(report.ai_cross_agent_divergences_to_resolve)&&
@@ -221,6 +237,11 @@
       const reviewNote=withLimit>0
         ?' '+withLimit+' file presentano limiti di lettura o richiedono verifica visiva.'
         :'';
+      const batchesIncomplete=Number.isSafeInteger(report.ai_batches_planned)&&
+        Number.isSafeInteger(report.ai_batches_completed)&&
+        report.ai_batches_completed<report.ai_batches_planned;
+      const batchesNote=batchesIncomplete
+        ?' ATTENZIONE: elaborazione AI parziale; i lotti non completati richiedono controllo manuale.':'';
       const visualEligible=Number.isSafeInteger(report.visual_sources_eligible)
         ?report.visual_sources_eligible:0;
       const visualSampled=Number.isSafeInteger(report.visual_sources_sampled)
@@ -232,13 +253,14 @@
       const visualNote=visualEligible>0
         ?(report.visual_review_status==='VISION_MODEL_UNAVAILABLE'
            ?' ATTENZIONE: foto e pagine PDF NON esaminate visivamente da un modello AI.'
-           :' AI visiva locale: '+visualSampled+'/'+visualEligible+
+           :' Copertura visiva dichiarata dal motore: '+visualSampled+'/'+visualEligible+
              ' fonti campionate, '+visualNotes+' osservazioni NON verificate.'+
              (visualDeferred>0?' '+visualDeferred+' pagine non esaminate.':''))
         :'';
-      localStatus.textContent='Bozza Word scaricata: '+report.source_count+' fonti, '+
-        report.source_candidates_rendered+' dati estratti.'+coordination+incomplete+
-        aiNote+aiPasses+coverageNote+reviewNote+visualNote+deferredNote+agentDivergenceNote+aiTruncatedNote+aiLimits+
+      localStatus.textContent='Download bozza Word avviato: '+report.source_count+' fonti, '+
+        report.source_candidates_rendered+' dati estratti.'+sourceCoverageNote+extractedNote+
+        coordination+incomplete+aiNote+aiPasses+batchesNote+coverageNote+reviewNote+
+        visualNote+deferredNote+agentDivergenceNote+aiTruncatedNote+aiLimits+
         ' DA REVISIONARE: interferenze, HSE, D1/D2, fonti e firme. NON EMETTIBILE.';
     } catch(error) {
       localStatus.textContent='Generazione o download non completato: '+(error?.message||'errore locale')+'. Nessun DUVRI è stato emesso.';

@@ -43,7 +43,7 @@ test('single action creates a source-grounded local Word REVIEW DRAFT without is
   assert.match(ui, /report\.document_status!=='NON_EMETTIBILE'/);
   assert.match(ui, /crypto\.subtle\.digest\('SHA-256',bytes\)/);
   assert.match(ui, /if \(hex!==report\.sha256\)/);
-  assert.match(ui, /Bozza Word scaricata/);
+  assert.match(ui, /Download bozza Word avviato/);
   assert.match(ui, /report\.ai_agents_executed/);
   assert.match(ui, /report\.ai_hypotheses_to_review/);
   assert.match(ui, /report\.ai_exhaustive_analysis===false/);
@@ -60,8 +60,8 @@ test('single action creates a source-grounded local Word REVIEW DRAFT without is
   assert.match(ui, /divergenze tra proposte AI nel Word/);
   assert.match(ui, /proposte AI fuori dal limite di elaborazione/);
   assert.match(ui, /analisi specialistiche AI non eseguite per limite elaborazione/);
-  assert.match(ui, /AI locale eseguita/);
-  assert.match(ui, /AI non eseguita/);
+  assert.match(ui, /Analizzatori AI dichiarati dal motore/);
+  assert.match(ui, /Nessun analizzatore AI dichiarato/);
   assert.match(ui, /Lettura AI non esaustiva/);
   assert.match(ui, /report\.sources_without_selectable_text/);
   assert.match(ui, /report\.sources_with_reading_limits/);
@@ -79,4 +79,28 @@ test('single action creates a source-grounded local Word REVIEW DRAFT without is
   assert.match(ui, /senza invio a servizi AI esterni/);
   assert.doesNotMatch(ui, /api\.anthropic\.com|api\.openai\.com|supabase\.co/);
   assert.match(read('js/supabase-config.js'), /DOCUMENT_GENERATION_CLOUD_ENABLED = false/);
+});
+
+test('V15 blocks malformed draft metadata and non-DOCX downloads', () => {
+  assert.match(ui, /Number\.isSafeInteger\(report\.source_count\)/);
+  assert.match(ui, /Number\.isSafeInteger\(report\.source_candidates_rendered\)/);
+  assert.match(ui, /Rapporto Word privo di conteggi delle fonti verificabili/);
+  assert.match(ui, /const signature=new Uint8Array\(bytes,0,Math\.min\(4,bytes\.byteLength\)\)/);
+  assert.match(ui, /signature\[0\]!==0x50/);
+  assert.match(ui, /signature\[1\]!==0x4b/);
+  assert.match(ui, /Il file scaricato non presenta la firma DOCX richiesta/);
+});
+
+test('V15 compares reported source coverage, incomplete AI lots and never implies HSE validation', () => {
+  assert.match(ui, /const selectedSources=1\+snap\.attachments\.length/);
+  assert.match(ui, /report\.source_count===selectedSources/);
+  assert.match(ui, /verificare eventuali file mancanti o fonti aggiuntive/);
+  assert.match(ui, /non prova la lettura completa/);
+  assert.match(ui, /report\.source_candidates_rendered===0/);
+  assert.match(ui, /report\.ai_batches_completed<report\.ai_batches_planned/);
+  assert.match(ui, /elaborazione AI parziale/);
+  assert.match(ui, /nessuna validazione HSE automatica/);
+  assert.match(ui, /Copertura visiva dichiarata dal motore/);
+  assert.match(ui, /Download bozza Word avviato/);
+  assert.doesNotMatch(ui, /Bozza Word scaricata/);
 });
