@@ -7,6 +7,7 @@ const STORAGE="patrick_workspace_auth_v1";
 const titles={home:"Panoramica",agenda:"Agenda",notes:"Note",tasks:"Attività",contacts:"Contatti"};
 const categories={note:"Nota",event:"Appuntamento",task:"Attività",contact:"Contatto"};
 let session=null,user=null,records=[],activeView="home",selectedDate=dayKey(new Date()),month=new Date(),query="",saving=false;
+let lastSync=0;
 const $=id=>document.getElementById(id);
 const safe=x=>String(x==null?"":x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function dayKey(d){return [d.getFullYear(),pad(d.getMonth()+1),pad(d.getDate())].join("-")}
@@ -67,7 +68,7 @@ async function signup(){if(saving)return;const email=clean($("authEmail").value)
 async function logout(){const token=session?.access_token;setSession(null);user=null;records=[];showAuth();if(token){try{await fetch(PROJECT+"/auth/v1/logout",{method:"POST",headers:{"apikey":KEY,"Authorization":"Bearer "+token}})}catch(e){}}}
 async function loadAll(){clearError();$("syncLabel").textContent="Sincronizzazione in corso…";
  try{const data=await request("/rest/v1/"+TABLE+"?select=*&order=created_at.desc","GET",undefined,true,true);if(!Array.isArray(data))throw Error("Risposta dati inattesa");records=data;
- $("syncLabel").textContent="Dati sincronizzati · "+new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"});render();}
+ lastSync=Date.now();$("syncLabel").textContent="Dati sincronizzati · "+new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"});render();}
  catch(e){showError("Impossibile caricare i dati: "+e.message);$("syncLabel").textContent="Sincronizzazione non riuscita";render()}
 }
 function nav(view){if(!titles[view])return;activeView=view;query="";$("searchInput").value="";render()}
@@ -190,5 +191,8 @@ document.head.insertAdjacentHTML("beforeend",'<style>@media(max-width:900px){.to
 async function start(){try{session=JSON.parse(localStorage.getItem(STORAGE)||"null")}catch(e){session=null}
  if(session){if(await identify()){showApp();await loadAll();return}}
  showAuth();}
+function refreshOnReturn(){if(!$("appShell").hidden&&!saving&&!$("recordDialog").open&&Date.now()-lastSync>15000){loadAll()}}
+window.addEventListener("focus",refreshOnReturn);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshOnReturn()});
 start();
 })();
