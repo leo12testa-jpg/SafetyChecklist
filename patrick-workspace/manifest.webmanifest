@@ -1,0 +1,19 @@
+{
+  "name": "Patrick Workspace",
+  "short_name": "Patrick",
+  "description": "Agenda, note, clienti e attività in un unico spazio privato",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f7fa",
+  "theme_color": "#12243a",
+  "lang": "it",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
