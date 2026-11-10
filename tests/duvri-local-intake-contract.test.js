@@ -47,6 +47,13 @@ test('single action creates a source-grounded local Word REVIEW DRAFT without is
   assert.match(ui, /report\.ai_agents_executed/);
   assert.match(ui, /report\.ai_hypotheses_to_review/);
   assert.match(ui, /report\.ai_exhaustive_analysis===false/);
+  assert.match(ui, /report\.visual_sources_eligible/);
+  assert.match(ui, /report\.visual_sources_sampled/);
+  assert.match(ui, /report\.visual_review_status==='VISION_MODEL_UNAVAILABLE'/);
+  assert.match(ui, /report\.visual_observations_to_confirm/);
+  assert.match(ui, /report\.visual_pages_deferred/);
+  assert.match(ui, /foto e pagine PDF NON esaminate visivamente/);
+  assert.match(ui, /osservazioni NON verificate/);
   assert.match(ui, /report\.ai_specialist_tasks_deferred/);
   assert.match(ui, /report\.ai_cross_agent_divergences_to_resolve/);
   assert.match(ui, /report\.ai_hypotheses_truncated/);
