@@ -221,9 +221,24 @@
       const reviewNote=withLimit>0
         ?' '+withLimit+' file presentano limiti di lettura o richiedono verifica visiva.'
         :'';
+      const visualEligible=Number.isSafeInteger(report.visual_sources_eligible)
+        ?report.visual_sources_eligible:0;
+      const visualSampled=Number.isSafeInteger(report.visual_sources_sampled)
+        ?report.visual_sources_sampled:0;
+      const visualNotes=Number.isSafeInteger(report.visual_observations_to_confirm)
+        ?report.visual_observations_to_confirm:0;
+      const visualDeferred=Number.isSafeInteger(report.visual_pages_deferred)
+        ?report.visual_pages_deferred:0;
+      const visualNote=visualEligible>0
+        ?(report.visual_review_status==='VISION_MODEL_UNAVAILABLE'
+           ?' ATTENZIONE: foto e pagine PDF NON esaminate visivamente da un modello AI.'
+           :' AI visiva locale: '+visualSampled+'/'+visualEligible+
+             ' fonti campionate, '+visualNotes+' osservazioni NON verificate.'+
+             (visualDeferred>0?' '+visualDeferred+' pagine non esaminate.':''))
+        :'';
       localStatus.textContent='Bozza Word scaricata: '+report.source_count+' fonti, '+
         report.source_candidates_rendered+' dati estratti.'+coordination+incomplete+
-        aiNote+aiPasses+coverageNote+reviewNote+deferredNote+agentDivergenceNote+aiTruncatedNote+aiLimits+
+        aiNote+aiPasses+coverageNote+reviewNote+visualNote+deferredNote+agentDivergenceNote+aiTruncatedNote+aiLimits+
         ' DA REVISIONARE: interferenze, HSE, D1/D2, fonti e firme. NON EMETTIBILE.';
     } catch(error) {
       localStatus.textContent='Generazione o download non completato: '+(error?.message||'errore locale')+'. Nessun DUVRI è stato emesso.';
