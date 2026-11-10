@@ -9,7 +9,7 @@ const categories={note:"Nota",event:"Appuntamento",task:"Attività",contact:"Con
 let session=null,user=null,records=[],activeView="home",selectedDate=dayKey(new Date()),month=new Date(),query="",saving=false;
 const $=id=>document.getElementById(id);
 const safe=x=>String(x==null?"":x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const dayKey=d=>[d.getFullYear(),pad(d.getMonth()+1),pad(d.getDate())].join("-");
+function dayKey(d){return [d.getFullYear(),pad(d.getMonth()+1),pad(d.getDate())].join("-")}
 function pad(n){return String(n).padStart(2,"0")}
 function localValue(iso){if(!iso)return "";let d=new Date(iso);return dayKey(d)+"T"+pad(d.getHours())+":"+pad(d.getMinutes())}
 function dateTime(iso){return iso?new Date(iso).toLocaleString("it-IT",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}):"Senza data"}
