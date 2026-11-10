@@ -57,3 +57,5 @@ jobs:
         run: node --test tests/*.test.js
       - name: Python DUVRI cloud worker fail-closed regression
         run: python3 -m unittest discover -s tests/python -p 'test_duvri_cloud_*.py' -v
+      - name: DUVRI Word source-to-DOCX coverage (synthetic only)
+        run: python3 -m unittest discover -s tests/python -p 'test_duvri_word_source_coverage.py' -v
