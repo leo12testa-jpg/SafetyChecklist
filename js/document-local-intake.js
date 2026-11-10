@@ -86,7 +86,8 @@
         entries.some(name=>name.startsWith('/') || name.includes('\\') ||
           name.split('/').includes('..')))
       throw new Error('Archivio Word con struttura non consentita');
-    if (entries.some(name=>/(^|\\/)vbaProject(?:Signature)?\\.bin$/i.test(name)))
+    if (entries.some(name=>['vbaproject.bin','vbaprojectsignature.bin'].includes(
+      name.toLowerCase().split('/').pop())))
       throw new Error('Bozza Word con macro non consentite');
     const contentTypes=packageZip.file('[Content_Types].xml');
     if (!contentTypes || !packageZip.file('_rels/.rels') ||
