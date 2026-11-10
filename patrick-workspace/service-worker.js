@@ -1,6 +1,6 @@
 "use strict";
-const CACHE_NAME="patrick-workspace-static-v3";
-const STATIC=["./","./index.html","./style.css?v=3","./app.js?v=3","./manifest.webmanifest","./icon.svg"];
+const CACHE_NAME="patrick-workspace-static-v4";
+const STATIC=["./","./index.html","./style.css?v=4","./app.js?v=4","./manifest.webmanifest","./icon.svg"];
 self.addEventListener("install",event=>{event.waitUntil((async()=>{
   const cache=await caches.open(CACHE_NAME);
   for(const file of STATIC){try{await cache.add(new Request(file,{cache:"reload"}))}catch(e){}}
