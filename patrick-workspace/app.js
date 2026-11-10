@@ -122,7 +122,7 @@ function renderSearch(){const words=query.toLocaleLowerCase("it");const found=re
 }
 function openDialog(kind,id,contact){
  const r=id?records.find(x=>x.id===id):null,cat=r?.category||kind||"note";
- if(id&&!r)return;const form=$("recordForm");form.reset();form.dataset.editId=id||"";form.dataset.kind=cat;$("formMessage").textContent="";$("formTitle").textContent=(id?"Modifica ":"Nuova ")+categories[cat].toLocaleLowerCase("it");const sel=$("fieldContact");
+ if(id&&!r)return;const form=$("recordForm");form.reset();form.dataset.editId=id||"";form.dataset.kind=cat;$("deleteRecordButton").hidden=!id;$("formMessage").textContent="";$("formTitle").textContent=(id?"Modifica ":"Nuova ")+categories[cat].toLocaleLowerCase("it");const sel=$("fieldContact");
  sel.innerHTML='<option value="">Nessuno</option>'+contacts().map(c=>'<option value="'+safe(c.id)+'">'+safe(c.title)+(c.company?" · "+safe(c.company):"")+'</option>').join("");
  for(const name of ["category","title","details","priority","status","contact_id","company","phone","email","tags"]){const node=form.elements.namedItem(name);if(node&&r&&r[name]!=null)node.value=r[name]}
  form.elements.namedItem("category").value=cat;form.elements.namedItem("starts_at").value=localValue(r?.starts_at);form.elements.namedItem("due_at").value=localValue(r?.due_at);
@@ -180,6 +180,7 @@ $("exportButton").addEventListener("click",exportBackup);
 $("addButton").addEventListener("click",()=>openDialog(activeView==="agenda"?"event":activeView==="tasks"?"task":activeView==="contacts"?"contact":"note"));
 $("closeDialog").addEventListener("click",()=>$("recordDialog").close());
 $("cancelForm").addEventListener("click",()=>$("recordDialog").close());
+$("deleteRecordButton").addEventListener("click",async()=>{const id=$("recordForm").dataset.editId;if(id)await deleteRecord(id)});
 $("fieldCategory").addEventListener("change",configureFields);
 $("recordForm").addEventListener("submit",saveRecord);
 $("searchInput").addEventListener("input",e=>{query=clean(e.target.value);render()});
