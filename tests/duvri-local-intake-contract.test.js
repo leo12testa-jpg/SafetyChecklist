@@ -48,6 +48,10 @@ test('single action creates a source-grounded local Word REVIEW DRAFT without is
   assert.match(ui, /report\.ai_hypotheses_to_review/);
   assert.match(ui, /report\.ai_exhaustive_analysis===false/);
   assert.match(ui, /report\.ai_specialist_tasks_deferred/);
+  assert.match(ui, /report\.ai_cross_agent_divergences_to_resolve/);
+  assert.match(ui, /report\.ai_hypotheses_truncated/);
+  assert.match(ui, /divergenze tra proposte AI nel Word/);
+  assert.match(ui, /proposte AI fuori dal limite di elaborazione/);
   assert.match(ui, /analisi specialistiche AI non eseguite per limite elaborazione/);
   assert.match(ui, /AI locale eseguita/);
   assert.match(ui, /AI non eseguita/);
