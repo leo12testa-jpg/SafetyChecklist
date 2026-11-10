@@ -195,6 +195,10 @@
         :' AI non eseguita: verifica modello locale e completezza delle fonti.';
       const aiLimits=report.ai_exhaustive_analysis===false
         ?' Lettura AI non esaustiva; verificare tutti gli allegati.':'';
+      const deferred=Number.isSafeInteger(report.ai_specialist_tasks_deferred)&&
+        report.ai_specialist_tasks_deferred>0?report.ai_specialist_tasks_deferred:0;
+      const deferredNote=deferred>0
+        ?' '+deferred+' analisi specialistiche AI non eseguite per limite elaborazione; necessaria revisione HSE.':'';
       const noSelectable=Number.isSafeInteger(report.sources_without_selectable_text)
         ?report.sources_without_selectable_text:0;
       const withLimit=Number.isSafeInteger(report.sources_with_reading_limits)
@@ -211,7 +215,7 @@
         :'';
       localStatus.textContent='Bozza Word scaricata: '+report.source_count+' fonti, '+
         report.source_candidates_rendered+' dati estratti.'+coordination+incomplete+
-        aiNote+aiPasses+coverageNote+reviewNote+aiLimits+
+        aiNote+aiPasses+coverageNote+reviewNote+deferredNote+aiLimits+
         ' DA REVISIONARE: interferenze, HSE, D1/D2, fonti e firme. NON EMETTIBILE.';
     } catch(error) {
       localStatus.textContent='Generazione o download non completato: '+(error?.message||'errore locale')+'. Nessun DUVRI è stato emesso.';
