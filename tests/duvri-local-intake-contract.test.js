@@ -104,3 +104,17 @@ test('V15 compares reported source coverage, incomplete AI lots and never implie
   assert.match(ui, /Download bozza Word avviato/);
   assert.doesNotMatch(ui, /Bozza Word scaricata/);
 });
+
+test('V16 validates actual Word OOXML package rather than only ZIP magic', () => {
+  assert.match(ui, /async function validateDocxPackage\(bytes\)/);
+  assert.match(ui, /globalThis\.JSZip/);
+  assert.match(ui, /engine\.loadAsync\(bytes\)/);
+  assert.match(ui, /packageZip\.file\('\[Content_Types\]\.xml'\)/);
+  assert.match(ui, /packageZip\.file\('_rels\/\.rels'\)/);
+  assert.match(ui, /packageZip\.file\('word\/document\.xml'\)/);
+  assert.match(ui, /macro non consentite/);
+  assert.match(ui, /Tipo di documento Word DOCX non confermato/);
+  assert.match(ui, /await validateDocxPackage\(bytes\)/);
+  assert.match(main, /<script src="js\/vendor\/jszip\.min\.js"><\/script>/);
+  assert.doesNotMatch(ui, /api\.anthropic\.com|api\.openai\.com|supabase\.co/);
+});

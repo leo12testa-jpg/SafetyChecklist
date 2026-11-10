@@ -66,6 +66,48 @@
     }
   }
 
+  // Validate that the authenticated, SHA-256-matching payload is really a Word OOXML
+  // document, not merely an arbitrary ZIP renamed .docx. JSZip is already bundled
+  // in the existing application. No network requests or uploads are involved.
+  async function validateDocxPackage(bytes) {
+    const engine=globalThis.JSZip;
+    if (!engine || typeof engine.loadAsync!=='function')
+      throw new Error('Verifica strutturale Word non disponibile sul browser');
+    if (bytes.byteLength>70*1024*1024)
+      throw new Error('Bozza Word troppo grande per una verifica sicura');
+    let packageZip;
+    try {
+      packageZip=await engine.loadAsync(bytes);
+    } catch(_) {
+      throw new Error('Archivio Word non leggibile o danneggiato');
+    }
+    const entries=Object.keys(packageZip.files||{});
+    if (entries.length>4000 ||
+        entries.some(name=>name.startsWith('/') || name.includes('\\') ||
+          name.split('/').includes('..')))
+      throw new Error('Archivio Word con struttura non consentita');
+    if (entries.some(name=>['vbaproject.bin','vbaprojectsignature.bin'].includes(
+      name.toLowerCase().split('/').pop())))
+      throw new Error('Bozza Word con macro non consentite');
+    const contentTypes=packageZip.file('[Content_Types].xml');
+    if (!contentTypes || !packageZip.file('_rels/.rels') ||
+        !packageZip.file('word/document.xml'))
+      throw new Error('Archivio ZIP privo delle parti Word DOCX obbligatorie');
+    // Avoid inflating unexpectedly huge [Content_Types].xml entries.
+    if (contentTypes._data?.uncompressedSize>256*1024)
+      throw new Error('Metadati Word eccessivamente grandi');
+    let manifest;
+    try {
+      manifest=await contentTypes.async('string');
+    } catch(_) {
+      throw new Error('Metadati Word non leggibili');
+    }
+    if (manifest.length>256*1024 ||
+        !manifest.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml') ||
+        !manifest.includes('/word/document.xml'))
+      throw new Error('Tipo di documento Word DOCX non confermato');
+  }
+
   function snapshot() {
     const selection = globalThis.documentIntakeSelection;
     return {
@@ -175,6 +217,7 @@
       if (signature.length<4 || signature[0]!==0x50 || signature[1]!==0x4b ||
           signature[2]!==0x03 || signature[3]!==0x04)
         throw new Error('Il file scaricato non presenta la firma DOCX richiesta');
+      await validateDocxPackage(bytes);
       const url=URL.createObjectURL(blob);
       try {
         const a=document.createElement('a');
