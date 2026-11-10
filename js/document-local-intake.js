@@ -195,6 +195,14 @@
         :' AI non eseguita: verifica modello locale e completezza delle fonti.';
       const aiLimits=report.ai_exhaustive_analysis===false
         ?' Lettura AI non esaustiva; verificare tutti gli allegati.':'';
+      const agentDivergences=Number.isSafeInteger(report.ai_cross_agent_divergences_to_resolve)&&
+        report.ai_cross_agent_divergences_to_resolve>0?report.ai_cross_agent_divergences_to_resolve:0;
+      const agentDivergenceNote=agentDivergences
+        ?' ATTENZIONE: '+agentDivergences+' divergenze tra proposte AI nel Word. Non selezionare misure senza revisione HSE.':'';
+      const aiTruncated=Number.isSafeInteger(report.ai_hypotheses_truncated)&&
+        report.ai_hypotheses_truncated>0?report.ai_hypotheses_truncated:0;
+      const aiTruncatedNote=aiTruncated
+        ?' ATTENZIONE: '+aiTruncated+' proposte AI fuori dal limite di elaborazione.':'';
       const deferred=Number.isSafeInteger(report.ai_specialist_tasks_deferred)&&
         report.ai_specialist_tasks_deferred>0?report.ai_specialist_tasks_deferred:0;
       const deferredNote=deferred>0
@@ -215,7 +223,7 @@
         :'';
       localStatus.textContent='Bozza Word scaricata: '+report.source_count+' fonti, '+
         report.source_candidates_rendered+' dati estratti.'+coordination+incomplete+
-        aiNote+aiPasses+coverageNote+reviewNote+deferredNote+aiLimits+
+        aiNote+aiPasses+coverageNote+reviewNote+deferredNote+agentDivergenceNote+aiTruncatedNote+aiLimits+
         ' DA REVISIONARE: interferenze, HSE, D1/D2, fonti e firme. NON EMETTIBILE.';
     } catch(error) {
       localStatus.textContent='Generazione o download non completato: '+(error?.message||'errore locale')+'. Nessun DUVRI è stato emesso.';
