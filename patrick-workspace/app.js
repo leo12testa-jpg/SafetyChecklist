@@ -144,7 +144,7 @@ async function saveRecord(e){e.preventDefault();if(saving)return;const f=$("reco
  }catch(e){$("formMessage").textContent="Errore: "+e.message}
  finally{saving=false;$("saveRecord").disabled=false}
 }
-async function saveQuick(e){e.preventDefault();if(saving)return;const form=e.currentTarget,title=clean(form.elements.namedItem("title").value)||"Nota telefonica",details=clean(form.elements.namedItem("details").value);if(!details)return;saving=true;
+async function saveQuick(e){e.preventDefault();if(saving)return;const form=e.target,title=clean(form.elements.namedItem("title").value)||"Nota telefonica",details=clean(form.elements.namedItem("details").value);if(!details)return;saving=true;
  const btn=form.querySelector('[type="submit"]');btn.disabled=true;btn.textContent="Salvataggio…";
  try{await request("/rest/v1/"+TABLE,"POST",{category:"note",title,details,tags:"telefonata"},true,true);await loadAll()}
  catch(err){showError("Impossibile salvare la nota: "+err.message)}
