@@ -59,7 +59,7 @@ async function login(e){e.preventDefault();if(saving)return;const email=clean($(
 async function signup(){if(saving)return;const email=clean($("authEmail").value),password=$("authPassword").value;if(!email||password.length<8){authFeedback("Inserisci email e una password di almeno 8 caratteri.",true);return}
  if(!confirm("Creare un account personale con questa email? Potrebbe essere richiesta una conferma via email."))return;
  saving=true;$("signupButton").disabled=true;authFeedback("Creazione account…");
- try{const data=await request("/auth/v1/signup","POST",{email,password,options:{email_redirect_to:location.origin+location.pathname}},false,false);
+ try{const data=await request("/auth/v1/signup?redirect_to="+encodeURIComponent(location.origin+location.pathname),"POST",{email,password},false,false);
  if(data.access_token){setSession(data);user=data.user;showApp();await loadAll()}else{authFeedback("Controlla la tua casella email e conferma l'iscrizione, poi effettua l'accesso.")}
  }catch(e){authFeedback("Registrazione non riuscita: "+e.message,true)}
  finally{saving=false;$("signupButton").disabled=false}
