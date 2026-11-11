@@ -1,7 +1,7 @@
 {
   "name": "Patrick Workspace",
   "short_name": "Patrick",
-  "description": "Agenda, note, clienti e attività in un unico spazio privato",
+  "description": "Agenda, note, clienti e attività salvati localmente sul dispositivo",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
