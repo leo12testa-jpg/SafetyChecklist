@@ -1,13 +1,11 @@
 "use strict";
 (function(){
-const PROJECT="https://twznfiygzzbqdgudpwav.supabase.co";
-const KEY="sb_publishable_Ljz9zk26Q6_se1Zh28lENw_gOPQ14QW";
 const TABLE="patrick_workspace_records";
-const STORAGE="patrick_workspace_auth_v1";
+const STORAGE="patrick_workspace_local_records_v1";
+const OLD_AUTH_STORAGE="patrick_workspace_auth_v1";
 const titles={home:"Panoramica",agenda:"Agenda",notes:"Note",tasks:"Attività",contacts:"Contatti"};
 const categories={note:"Nota",event:"Appuntamento",task:"Attività",contact:"Contatto"};
-let session=null,user=null,records=[],activeView="home",selectedDate=dayKey(new Date()),month=new Date(),query="",saving=false;
-let lastSync=0;
+let records=[],activeView="home",selectedDate=dayKey(new Date()),month=new Date(),query="",saving=false;
 const $=id=>document.getElementById(id);
 const safe=x=>String(x==null?"":x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function dayKey(d){return [d.getFullYear(),pad(d.getMonth()+1),pad(d.getDate())].join("-")}
@@ -21,55 +19,61 @@ function button(label,action,id,cls){return '<button class="'+(cls||"mini")+'" d
 function empty(title,body){return '<div class="empty"><span class="empty-icon">◌</span><strong>'+safe(title)+'</strong><p>'+safe(body)+'</p></div>'}
 function showError(message){$("errorBanner").hidden=false;$("errorBanner").textContent=message}
 function clearError(){$("errorBanner").hidden=true;$("errorBanner").textContent=""}
-function authFeedback(message,error){$("authMessage").textContent=message;$("authMessage").className="feedback"+(error?" error":"")}
 function clean(s){return String(s||"").trim()}
-function parseResponse(text){try{return JSON.parse(text)}catch(e){return{text:text}}}
-function setSession(s){session=s; if(s){localStorage.setItem(STORAGE,JSON.stringify(s))}else{localStorage.removeItem(STORAGE)}}
-async function request(path,method,body,auth,retry){
- if(auth&&session&&session.expires_at&&Date.now()/1000>=session.expires_at-65){await refresh()}
- const h={"apikey":KEY,"Content-Type":"application/json","Accept":"application/json"};
- if(auth&&session?.access_token)h.Authorization="Bearer "+session.access_token;
- if(path.includes("/rest/v1/"))h.Prefer="return=representation";
- let response;
- try{response=await fetch(PROJECT+path,{method:method||"GET",headers:h,body:body===undefined?undefined:JSON.stringify(body)})}
- catch(e){throw new Error("Connessione non disponibile. Controlla la rete e riprova.")}
- if(response.status===401&&auth&&retry!==false&&session?.refresh_token){await refresh();return request(path,method,body,auth,false)}
- const text=await response.text(),value=text?parseResponse(text):{};
- if(!response.ok)throw new Error(value.msg||value.error_description||value.message||value.error||("Errore di rete "+response.status));
- return value;
+function readRecords(){
+ const value=localStorage.getItem(STORAGE);
+ if(!value)return [];
+ let parsed;
+ try{parsed=JSON.parse(value)}catch(e){throw new Error("L'archivio locale non è leggibile. Se hai un backup, puoi importarlo.")}
+ if(!Array.isArray(parsed))throw new Error("Archivio locale non valido.");
+ return parsed;
 }
-async function refresh(){if(!session?.refresh_token)throw new Error("Sessione scaduta: accedi di nuovo.");
- const data=await request("/auth/v1/token?grant_type=refresh_token","POST",{refresh_token:session.refresh_token},false,false);
- if(!data.access_token)throw new Error("Sessione scaduta: accedi di nuovo.");
- setSession(data);user=data.user||user;return data;
+function writeRecords(updated){
+ localStorage.setItem(STORAGE,JSON.stringify(updated));
+ records=updated;
 }
-async function identify(){if(!session?.access_token)return false;
- try{const profile=await request("/auth/v1/user","GET",undefined,true,true);if(!profile.id)throw Error("Account non disponibile");user=profile;return true}
- catch(e){setSession(null);user=null;return false}
+function newId(){
+ return typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():"pw-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2);
 }
-function showAuth(){ $("authScreen").hidden=false;$("appShell").hidden=true; $("authPassword").value=""; }
-function showApp(){ $("authScreen").hidden=true;$("appShell").hidden=false;$("accountEmail").textContent=user?.email||"Account personale";$("todayLine").textContent=new Date().toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long",year:"numeric"});}
-async function login(e){e.preventDefault();if(saving)return;const email=clean($("authEmail").value),password=$("authPassword").value;if(!email||!password)return;
- saving=true;$("loginButton").disabled=true;authFeedback("Verifica credenziali in corso…");
- try{const data=await request("/auth/v1/token?grant_type=password","POST",{email,password},false,false);
- if(!data.access_token)throw Error("Accesso non completato.");
- setSession(data);user=data.user;showApp();await loadAll();
- }catch(e){authFeedback("Impossibile accedere: "+e.message,true)}
- finally{saving=false;$("loginButton").disabled=false}
+async function request(path,method,body){
+ const action=method||"GET";
+ const match=path.match(/(?:\?|&)id=eq\.([^&]+)/);
+ const id=match?decodeURIComponent(match[1]):null;
+ const current=readRecords();
+ if(action==="GET")return current;
+ if(action==="POST"){
+  const now=new Date().toISOString();
+  const obj={...body,id:newId(),created_at:now,updated_at:now};
+  writeRecords([obj,...current]);return [obj];
+ }
+ if(action==="PATCH"){
+  let edited=null;
+  const updated=current.map(row=>{
+   if(row.id!==id)return row;
+   edited={...row,...body,id:row.id,created_at:row.created_at,updated_at:new Date().toISOString()};
+   return edited;
+  });
+  if(edited)writeRecords(updated);
+  return edited?[edited]:[];
+ }
+ if(action==="DELETE"){
+  const removed=current.filter(row=>row.id===id);
+  if(removed.length)writeRecords(current.filter(row=>row.id!==id));
+  return removed;
+ }
+ throw new Error("Operazione non supportata.");
 }
-async function signup(){if(saving)return;const email=clean($("authEmail").value),password=$("authPassword").value;if(!email||password.length<8){authFeedback("Inserisci email e una password di almeno 8 caratteri.",true);return}
- if(!confirm("Creare un account personale con questa email? Potrebbe essere richiesta una conferma via email."))return;
- saving=true;$("signupButton").disabled=true;authFeedback("Creazione account…");
- try{const data=await request("/auth/v1/signup?redirect_to="+encodeURIComponent(location.origin+location.pathname),"POST",{email,password},false,false);
- if(data.access_token){setSession(data);user=data.user;showApp();await loadAll()}else{authFeedback("Controlla la tua casella email e conferma l'iscrizione, poi effettua l'accesso.")}
- }catch(e){authFeedback("Registrazione non riuscita: "+e.message,true)}
- finally{saving=false;$("signupButton").disabled=false}
-}
-async function logout(){const token=session?.access_token;setSession(null);user=null;records=[];showAuth();if(token){try{await fetch(PROJECT+"/auth/v1/logout",{method:"POST",headers:{"apikey":KEY,"Authorization":"Bearer "+token}})}catch(e){}}}
-async function loadAll(){clearError();$("syncLabel").textContent="Sincronizzazione in corso…";
- try{const data=await request("/rest/v1/"+TABLE+"?select=*&order=created_at.desc","GET",undefined,true,true);if(!Array.isArray(data))throw Error("Risposta dati inattesa");records=data;
- lastSync=Date.now();$("syncLabel").textContent="Dati sincronizzati · "+new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"});render();}
- catch(e){showError("Impossibile caricare i dati: "+e.message);$("syncLabel").textContent="Sincronizzazione non riuscita";render()}
+async function loadAll(){
+ clearError();
+ try{
+  records=readRecords();
+  $("syncLabel").textContent="Salvataggio locale · "+records.length+" elementi";
+  render();
+ }catch(e){
+  showError("Impossibile caricare i dati: "+e.message);
+  $("syncLabel").textContent="Archivio locale non disponibile";
+  render();
+ }
 }
 function nav(view){if(!titles[view])return;activeView=view;query="";$("searchInput").value="";render()}
 function setHeader(){document.querySelectorAll("[data-view]").forEach(b=>b.classList.toggle("selected",b.dataset.view===activeView));$("pageTitle").textContent=query?"Risultati ricerca":titles[activeView];}
@@ -93,7 +97,7 @@ function renderHome(){
  '<div class="stats"><div class="stat"><small>Appuntamenti oggi</small><strong>'+todayEvents.length+'</strong><em>in agenda</em></div><div class="stat"><small>Attività aperte</small><strong>'+due.length+'</strong><em>da completare</em></div><div class="stat"><small>Note salvate</small><strong>'+notes.length+'</strong><em>nel tuo archivio</em></div><div class="stat"><small>Contatti</small><strong>'+contacts().length+'</strong><em>clienti e collaboratori</em></div></div>'+
  '<div class="home-grid"><div class="stack"><section class="panel"><div class="panel-head"><div><h3>Appuntamenti di oggi</h3><div class="panel-sub">Non perdere nulla di importante</div></div>'+button("Agenda →","go","agenda","panel-action")+'</div><div class="stack">'+(todayEvents.length?todayEvents.map(itemMarkup).join(""):empty("Giornata libera","Nessun appuntamento previsto per oggi."))+'</div></section>'+
  '<section class="panel"><div class="panel-head"><div><h3>Prossimi appuntamenti</h3><div class="panel-sub">Quello che arriva dopo</div></div></div><div class="stack">'+(later.length?later.slice(0,4).map(itemMarkup).join(""):empty("Niente in programma","Aggiungi un appuntamento quando serve."))+'</div></section></div>'+
- '<div class="stack"><section class="panel"><div class="panel-head"><div><h3>Appunto rapido</h3><div class="panel-sub">Ideale durante una telefonata</div></div><span class="pill">SALVA ONLINE</span></div><form id="quickForm" class="quick-form"><input name="title" maxlength="240" placeholder="Es. Telefonata con cliente" aria-label="Titolo nota"><textarea name="details" required maxlength="20000" placeholder="Scrivi subito quello che ti stanno dicendo…"></textarea><div class="quick-foot"><small>Puoi modificarla e collegarla a un contatto dopo.</small><button class="btn primary" type="submit">Salva nota</button></div></form></section>'+
+ '<div class="stack"><section class="panel"><div class="panel-head"><div><h3>Appunto rapido</h3><div class="panel-sub">Ideale durante una telefonata</div></div><span class="pill">SALVA SUL PC</span></div><form id="quickForm" class="quick-form"><input name="title" maxlength="240" placeholder="Es. Telefonata con cliente" aria-label="Titolo nota"><textarea name="details" required maxlength="20000" placeholder="Scrivi subito quello che ti stanno dicendo…"></textarea><div class="quick-foot"><small>Puoi modificarla e collegarla a un contatto dopo.</small><button class="btn primary" type="submit">Salva nota</button></div></form></section>'+
  '<section class="panel"><div class="panel-head"><div><h3>Da fare</h3><div class="panel-sub">Le priorità aperte</div></div>'+button("Vedi tutte →","go","tasks","panel-action")+'</div><div class="stack">'+(todo.length?todo.slice(0,4).map(itemMarkup).join(""):empty("Tutto in ordine","Nessuna attività aperta."))+'</div></section></div></div>';
 }
 function itemMarkup(r){const date=r.category==="event"?r.starts_at:r.category==="task"?r.due_at:null;const desc=r.category==="contact"?(r.company||r.phone||r.email):r.details||displayContact(r);
@@ -138,7 +142,7 @@ async function saveRecord(e){e.preventDefault();if(saving)return;const f=$("reco
  const id=f.dataset.editId,contactId=category==="contact"?"":value("contact_id");
  const contact=contacts().find(c=>c.id===contactId);
  const data={category,title,details:value("details"),starts_at:category==="event"&&value("starts_at")?new Date(value("starts_at")).toISOString():null,due_at:category==="task"&&value("due_at")?new Date(value("due_at")).toISOString():null,contact_id:contactId||null,contact_name:contact?.title||"",company:category==="contact"?value("company"):"",phone:category==="contact"?value("phone"):"",email:category==="contact"?value("email"):"",priority:value("priority")||"media",status:value("status")||"aperta",tags:category==="contact"?"":value("tags"),updated_at:new Date().toISOString()};
- saving=true;$("saveRecord").disabled=true;$("formMessage").textContent="Salvataggio online…";
+ saving=true;$("saveRecord").disabled=true;$("formMessage").textContent="Salvataggio sul PC…";
  try{if(id){await request("/rest/v1/"+TABLE+"?id=eq."+encodeURIComponent(id),"PATCH",data,true,true)}
  else{await request("/rest/v1/"+TABLE,"POST",data,true,true)}
  $("recordDialog").close();await loadAll();
@@ -159,6 +163,47 @@ async function deleteRecord(id){const r=records.find(x=>x.id===id);if(!r||!confi
  try{await request("/rest/v1/"+TABLE+"?id=eq."+encodeURIComponent(id),"DELETE",undefined,true,true);$("recordDialog").close();await loadAll()}
  catch(e){showError("Eliminazione non riuscita: "+e.message)}
 }
+async function importBackup(event){
+ const input=event.target,file=input.files?.[0];
+ if(!file)return;
+ try{
+  if(file.size>6*1024*1024)throw new Error("Il file supera 6 MB.");
+  let json;
+  try{json=JSON.parse(await file.text())}catch(e){throw new Error("Il file non è un JSON valido.")}
+  const raw=Array.isArray(json)?json:json?.records;
+  if(!Array.isArray(raw)||raw.length>10000)throw new Error("Backup non valido o troppo grande.");
+  const allowed=["note","event","task","contact"];
+  if(raw.some(row=>!row||typeof row!=="object"||!allowed.includes(row.category)||typeof row.title!=="string"||!row.title.trim()))throw new Error("Il backup contiene elementi non validi.");
+  const cleanStr=(v,max)=>String(v??"").slice(0,max);
+  const validDate=x=>typeof x==="string"&&x&&Number.isFinite(new Date(x).getTime())?new Date(x).toISOString():null;
+  const imported=raw.map(row=>({
+   id:cleanStr(row.id||newId(),128),
+   category:row.category,
+   title:cleanStr(row.title,240),
+   details:cleanStr(row.details,20000),
+   starts_at:validDate(row.starts_at),
+   due_at:validDate(row.due_at),
+   contact_id:row.contact_id?cleanStr(row.contact_id,128):null,
+   contact_name:cleanStr(row.contact_name,240),
+   company:cleanStr(row.company,160),
+   phone:cleanStr(row.phone,64),
+   email:cleanStr(row.email,255),
+   priority:["bassa","media","alta"].includes(row.priority)?row.priority:"media",
+   status:["aperta","completata"].includes(row.status)?row.status:"aperta",
+   tags:cleanStr(row.tags,180),
+   created_at:validDate(row.created_at)||new Date().toISOString(),
+   updated_at:validDate(row.updated_at)||new Date().toISOString()
+  }));
+  const current=readRecords(), merged=new Map(current.map(row=>[row.id,row]));
+  const added=imported.filter(row=>!merged.has(row.id)).length;
+  if(!confirm("Importare "+imported.length+" elementi? I nuovi record saranno aggiunti e quelli con lo stesso ID aggiornati. L'archivio esistente non verrà cancellato."))return;
+  for(const row of imported)merged.set(row.id,row);
+  writeRecords([...merged.values()]);
+  await loadAll();
+  alert("Backup importato. Nuovi elementi: "+added+". Totale: "+merged.size+".");
+ }catch(e){showError("Importazione non riuscita: "+e.message)}
+ finally{input.value=""}
+}
 function exportBackup(){const blob=new Blob([JSON.stringify({exportedAt:new Date().toISOString(),records},null,2)],{type:"application/json;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="patrick-workspace-backup-"+dayKey(new Date())+".json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 document.addEventListener("click",async e=>{
  const b=e.target.closest("button");if(!b)return;
@@ -174,10 +219,9 @@ document.addEventListener("click",async e=>{
  if(b.dataset.month){month=new Date(month.getFullYear(),month.getMonth()+Number(b.dataset.month),1);selectedDate=dayKey(month);render();return}
  if(b.dataset.today){month=new Date();selectedDate=dayKey(month);render();return}
 });
-$("authForm").addEventListener("submit",login);
-$("signupButton").addEventListener("click",signup);
-$("logoutButton").addEventListener("click",()=>logout());
 $("exportButton").addEventListener("click",exportBackup);
+$("importButton").addEventListener("click",()=>$("importFile").click());
+$("importFile").addEventListener("change",importBackup);
 $("addButton").addEventListener("click",()=>openDialog(activeView==="agenda"?"event":activeView==="tasks"?"task":activeView==="contacts"?"contact":"note"));
 $("closeDialog").addEventListener("click",()=>$("recordDialog").close());
 $("cancelForm").addEventListener("click",()=>$("recordDialog").close());
@@ -188,11 +232,11 @@ $("searchInput").addEventListener("input",e=>{query=clean(e.target.value);render
 $("view").addEventListener("submit",e=>{if(e.target.id==="quickForm")saveQuick(e)});
 $("recordDialog").addEventListener("click",e=>{if(e.target===$("recordDialog"))$("recordDialog").close()});
 document.head.insertAdjacentHTML("beforeend",'<style>@media(max-width:900px){.topbar{flex-wrap:wrap}.searchbox{display:flex;order:3;flex:1 0 100%}.searchbox input{width:100%}}</style>');
-async function start(){try{session=JSON.parse(localStorage.getItem(STORAGE)||"null")}catch(e){session=null}
- if(session){if(await identify()){showApp();await loadAll();return}}
- showAuth();}
-function refreshOnReturn(){if(!$("appShell").hidden&&!saving&&!$("recordDialog").open&&Date.now()-lastSync>15000){loadAll()}}
-window.addEventListener("focus",refreshOnReturn);
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshOnReturn()});
+function start(){
+ try{localStorage.removeItem(OLD_AUTH_STORAGE)}catch(e){}
+ loadAll();
+}
+window.addEventListener("focus",()=>{if(!saving&&!$("recordDialog").open)loadAll()});
+window.addEventListener("storage",e=>{if(e.key===STORAGE&&!saving)loadAll()});
 start();
 })();
